@@ -1,0 +1,490 @@
+package com.cooper.wheellog.core.protocol
+
+import com.cooper.wheellog.core.domain.SmartBms
+import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.domain.WheelType
+import com.cooper.wheellog.core.util.ByteUtils
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+/**
+ * Gotway/Begode protocol decoder.
+ *
+ * Supports multiple firmware variants:
+ * - Begode (standard GW firmware)
+ * - ExtremeBull
+ * - Freestyl3r (custom firmware with hardware PWM)
+ * - SmirnoV/SV (Alexovik custom firmware)
+ */
+class GotwayDecoder : WheelDecoder {
+
+    override val wheelType: WheelType = WheelType.GOTWAY
+
+    private val unpacker = GotwayUnpacker()
+    private var model = ""
+    private var imu = ""
+    private var fw = ""
+    private var fwProt = ""
+    private var smartBmsCells = 0
+    private var trueVoltage = false
+    private var trueCurrent = false
+    private var bmsCurrent = false
+    private var truePWM = false
+    private var isReady = false
+
+    // BMS state (mutable during decode)
+    private var bms1 = SmartBms()
+    private var bms2 = SmartBms()
+
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+        var newState = currentState
+        var hasNewData = false
+        val commands = mutableListOf<WheelCommand>()
+        var news: String? = null
+
+        // Try to parse firmware/model info from string data
+        if (model.isEmpty() || fw.isEmpty()) {
+            val dataStr = data.decodeToString().trim()
+            when {
+                dataStr.startsWith("NAME") -> {
+                    model = dataStr.substring(5).trim()
+                    newState = newState.copy(model = model)
+                }
+                dataStr.startsWith("GW") -> {
+                    fw = dataStr.substring(2).trim()
+                    fwProt = "Begode"
+                    isReady = true
+                    newState = newState.copy(version = fw)
+                }
+                dataStr.startsWith("JN") -> {
+                    fw = dataStr.substring(2).trim()
+                    fwProt = "ExtremeBull"
+                    isReady = true
+                    newState = newState.copy(version = fw)
+                }
+                dataStr.startsWith("CF") -> {
+                    fw = dataStr.substring(2).trim()
+                    fwProt = "Freestyl3r"
+                    isReady = true
+                    newState = newState.copy(version = fw)
+                }
+                dataStr.startsWith("BF") -> {
+                    fw = dataStr.substring(2).trim()
+                    fwProt = "SV"
+                    isReady = true
+                    newState = newState.copy(version = fw)
+                }
+                dataStr.startsWith("MPU") -> {
+                    imu = dataStr.substring(1, minOf(7, dataStr.length)).trim()
+                }
+            }
+        }
+
+        // Process each byte through the unpacker
+        for (byte in data) {
+            if (unpacker.addChar(byte.toInt() and 0xFF)) {
+                val buff = unpacker.getBuffer()
+                val result = processFrame(buff, newState, config)
+                if (result != null) {
+                    newState = result.state
+                    hasNewData = hasNewData || result.hasNewData
+                    result.news?.let { news = it }
+                    commands.addAll(result.commands)
+                }
+            }
+        }
+
+        return if (hasNewData || newState != currentState) {
+            DecodedData(
+                newState = newState.copy(
+                    bms1 = bms1,
+                    bms2 = bms2
+                ),
+                commands = commands,
+                hasNewData = hasNewData,
+                news = news
+            )
+        } else null
+    }
+
+    private data class FrameResult(
+        val state: WheelState,
+        val hasNewData: Boolean,
+        val news: String? = null,
+        val commands: List<WheelCommand> = emptyList()
+    )
+
+    private fun processFrame(
+        buff: ByteArray,
+        currentState: WheelState,
+        config: DecoderConfig
+    ): FrameResult? {
+        if (buff.size < 20) return null
+
+        val frameType = buff[18].toInt() and 0xFF
+        val isAlexovikFW = fwProt == "SV"
+        val gotwayNegative = 1 // config could provide this
+
+        return when (frameType) {
+            0x00 -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative)
+            0x01 -> processExtendedFrame(buff, currentState, isAlexovikFW)
+            0x02, 0x03 -> processBmsCellsFrame(buff, frameType)
+            0x04 -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW)
+            0x07 -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)
+            0xFF -> processSettingsFrame(buff, isAlexovikFW)
+            else -> null
+        }
+    }
+
+    /**
+     * Frame type 0x00: Live telemetry data
+     */
+    private fun processLiveDataFrame(
+        buff: ByteArray,
+        currentState: WheelState,
+        config: DecoderConfig,
+        isAlexovikFW: Boolean,
+        gotwayNegative: Int
+    ): FrameResult {
+        var voltage = ByteUtils.shortFromBytesBE(buff, 2)
+        var speed = (ByteUtils.signedShortFromBytesBE(buff, 4) * 3.6).roundToInt()
+        var distance = 0L
+
+        if (!isAlexovikFW) {
+            distance = ByteUtils.shortFromBytesBE(buff, 8).toLong()
+        } else {
+            // SmirnoV protocol: battery current in different location
+            if ((buff[7].toInt() and 0x01) == 1) {
+                val batteryCurrent = ByteUtils.signedShortFromBytesBE(buff, 8)
+                trueCurrent = true
+                // Would set current here
+            }
+        }
+
+        var phaseCurrent = ByteUtils.signedShortFromBytesBE(buff, 10)
+
+        val temperature = if (!isAlexovikFW) {
+            // MPU6050 temperature formula
+            ((ByteUtils.signedShortFromBytesBE(buff, 12).toFloat() / 340.0f) + 36.53f) * 100
+        } else {
+            // MPU6500 temperature formula
+            ((ByteUtils.signedShortFromBytesBE(buff, 12).toFloat() / 333.87f) + 21.0f) * 100
+        }.roundToInt()
+
+        var hwPwm = ByteUtils.signedShortFromBytesBE(buff, 14) * 10
+
+        // Apply direction/polarity settings
+        if (gotwayNegative == 0) {
+            speed = abs(speed)
+            phaseCurrent = abs(phaseCurrent)
+            hwPwm = abs(hwPwm)
+        } else {
+            phaseCurrent *= gotwayNegative
+            if (!isAlexovikFW) {
+                speed *= gotwayNegative
+                hwPwm *= gotwayNegative
+            }
+        }
+
+        // Calculate battery percentage
+        val battery = if (config.useCustomPercents) {
+            calculateBetterPercent(voltage)
+        } else {
+            calculateStandardPercent(voltage)
+        }
+
+        // Apply ratio if configured
+        val ratio = RATIO_GW
+        // Note: ratio application would be controlled by config
+
+        // Scale voltage based on wheel configuration
+        voltage = scaleVoltage(voltage, config).roundToInt()
+
+        // Calculate current and power
+        val calculatedPwm = hwPwm / 10000.0
+        val current = if (!trueCurrent || !bmsCurrent) {
+            (calculatedPwm * phaseCurrent).roundToInt()
+        } else {
+            currentState.current
+        }
+        val power = ((current / 100.0) * voltage).roundToInt()
+
+        val newState = currentState.copy(
+            speed = speed,
+            voltage = voltage,
+            phaseCurrent = phaseCurrent,
+            current = current,
+            power = power,
+            temperature = temperature,
+            wheelDistance = distance,
+            batteryLevel = battery,
+            output = if (!truePWM) hwPwm else currentState.output,
+            calculatedPwm = if (!truePWM) calculatedPwm else currentState.calculatedPwm,
+            wheelType = WheelType.GOTWAY,
+            model = model.ifEmpty { fwProt.ifEmpty { "Begode" } }
+        )
+
+        val hasNewData = !((trueVoltage) || trueCurrent || bmsCurrent) || isAlexovikFW
+
+        return FrameResult(newState, hasNewData)
+    }
+
+    /**
+     * Frame type 0x01: Extended data (voltage, BMS temps)
+     */
+    private fun processExtendedFrame(
+        buff: ByteArray,
+        currentState: WheelState,
+        isAlexovikFW: Boolean
+    ): FrameResult? {
+        if (isAlexovikFW) return null
+
+        trueVoltage = true
+        val batVoltage = ByteUtils.shortFromBytesBE(buff, 6)
+        val bmsNum = buff[19].toInt() and 0xFF
+        val bms = if (bmsNum < 2) bms1 else bms2
+
+        val bmsCurrentVal = ByteUtils.signedShortFromBytesBE(buff, 8)
+        bms.current = bmsCurrentVal / 10.0
+
+        if (bmsCurrentVal > 0) bmsCurrent = false
+
+        if (bmsNum % 2 == 0) {
+            bms.temp1 = ByteUtils.signedShortFromBytesBE(buff, 10).toDouble()
+            bms.temp2 = ByteUtils.signedShortFromBytesBE(buff, 12).toDouble()
+            bms.semiVoltage1 = ByteUtils.signedShortFromBytesBE(buff, 14) / 10.0
+        } else {
+            bms.temp3 = ByteUtils.signedShortFromBytesBE(buff, 10).toDouble()
+            bms.temp4 = ByteUtils.signedShortFromBytesBE(buff, 12).toDouble()
+            bms.semiVoltage2 = ByteUtils.signedShortFromBytesBE(buff, 14) / 10.0
+        }
+
+        val newState = currentState.copy(
+            voltage = batVoltage * 10
+        )
+
+        return FrameResult(newState, bmsCurrent || (!trueCurrent && trueVoltage))
+    }
+
+    /**
+     * Frame type 0x02/0x03: BMS cell voltages
+     */
+    private fun processBmsCellsFrame(buff: ByteArray, frameType: Int): FrameResult? {
+        val bmsNum = (frameType and 0xFF) - 0x01
+        val bms = if (bmsNum == 1) bms1 else bms2
+        val pNum = buff[19].toInt() and 0xFF
+
+        for (i in 0 until 8) {
+            val cellNum = i + pNum * 8
+            val cellVal = ByteUtils.shortFromBytesBE(buff, (i + 1) * 2) / 1000.0
+            if (cellNum < bms.cells.size) {
+                bms.cells[cellNum] = cellVal
+            }
+            if (smartBmsCells <= cellNum && cellVal != 0.0) {
+                smartBmsCells = cellNum + 1
+            } else if (smartBmsCells == cellNum + 1 && bms.cellNum != smartBmsCells) {
+                bms.cellNum = smartBmsCells
+            }
+        }
+
+        // Recalculate cell stats
+        updateBmsCellStats(bms)
+
+        return null // BMS data doesn't trigger new data event
+    }
+
+    /**
+     * Frame type 0x04: Total distance and settings
+     */
+    private fun processTotalDistanceFrame(
+        buff: ByteArray,
+        currentState: WheelState,
+        config: DecoderConfig,
+        isAlexovikFW: Boolean
+    ): FrameResult {
+        var totalDistance = ByteUtils.getInt4(buff, 2)
+
+        var news: String? = null
+
+        if (!isAlexovikFW) {
+            val settings = ByteUtils.shortFromBytesBE(buff, 6)
+            val pedalsMode = (settings shr 13) and 0x03
+            val speedAlarms = (settings shr 10) and 0x03
+            val rollAngle = (settings shr 7) and 0x03
+            val inMiles = settings and 0x01
+            val powerOffTime = ByteUtils.shortFromBytesBE(buff, 8)
+            var tiltBackSpeed = ByteUtils.shortFromBytesBE(buff, 10)
+            if (tiltBackSpeed >= 100) tiltBackSpeed = 0
+            val alert = buff[14].toInt() and 0xFF
+            val ledMode = buff[13].toInt() and 0xFF
+            val lightMode = buff[15].toInt() and 0x03
+
+            // Build alert string
+            val alertBuilder = StringBuilder()
+            val wheelAlarm = (alert and 0x01) == 1
+            if ((alert shr 1) and 0x01 == 1) alertBuilder.append("Speed2 ")
+            if ((alert shr 2) and 0x01 == 1) alertBuilder.append("Speed1 ")
+            if ((alert shr 3) and 0x01 == 1) alertBuilder.append("LowVoltage ")
+            if ((alert shr 4) and 0x01 == 1) alertBuilder.append("OverVoltage ")
+            if ((alert shr 5) and 0x01 == 1) alertBuilder.append("OverTemperature ")
+            if ((alert shr 6) and 0x01 == 1) alertBuilder.append("errHallSensors ")
+            if ((alert shr 7) and 0x01 == 1) alertBuilder.append("TransportMode")
+
+            val alertLine = alertBuilder.toString().trim()
+            if (alertLine.isNotEmpty()) {
+                news = alertLine
+            }
+
+            return FrameResult(
+                state = currentState.copy(
+                    totalDistance = totalDistance,
+                    wheelAlarm = wheelAlarm,
+                    alert = alertLine
+                ),
+                hasNewData = false,
+                news = news
+            )
+        }
+
+        return FrameResult(
+            state = currentState.copy(totalDistance = totalDistance),
+            hasNewData = false
+        )
+    }
+
+    /**
+     * Frame type 0x07: Current and motor temperature
+     */
+    private fun processCurrentTempFrame(
+        buff: ByteArray,
+        currentState: WheelState,
+        isAlexovikFW: Boolean,
+        gotwayNegative: Int
+    ): FrameResult? {
+        if (isAlexovikFW) return null
+
+        trueCurrent = true
+        val batteryCurrent = ByteUtils.signedShortFromBytesBE(buff, 2)
+        val motorTemp = ByteUtils.signedShortFromBytesBE(buff, 6)
+        var hwPWMb = ByteUtils.signedShortFromBytesBE(buff, 8)
+
+        if (hwPWMb > 0) {
+            truePWM = true
+        }
+
+        if (truePWM) {
+            hwPWMb = if (gotwayNegative == 0) {
+                abs(hwPWMb)
+            } else {
+                hwPWMb * gotwayNegative * (-1)
+            }
+        }
+
+        val current = if (!bmsCurrent) (-1) * batteryCurrent else currentState.current
+        val output = if (truePWM) hwPWMb * 100 else currentState.output
+        val calculatedPwm = if (truePWM) output / 10000.0 else currentState.calculatedPwm
+
+        return FrameResult(
+            state = currentState.copy(
+                current = current,
+                temperature2 = motorTemp * 100,
+                output = output,
+                calculatedPwm = calculatedPwm
+            ),
+            hasNewData = trueCurrent && !bmsCurrent
+        )
+    }
+
+    /**
+     * Frame type 0xFF: Firmware settings (custom firmware)
+     */
+    private fun processSettingsFrame(buff: ByteArray, isAlexovikFW: Boolean): FrameResult? {
+        // This frame contains advanced settings for custom firmware
+        // Not processing for now as it's mostly for configuration UI
+        return null
+    }
+
+    private fun updateBmsCellStats(bms: SmartBms) {
+        if (smartBmsCells == 0) return
+
+        bms.minCell = bms.cells[0]
+        bms.maxCell = bms.cells[0]
+        bms.maxCellNum = 1
+        bms.minCellNum = 1
+        var totalVolt = 0.0
+
+        for (i in 0 until smartBmsCells) {
+            val cell = bms.cells[i]
+            if (cell > 0.0) {
+                totalVolt += cell
+                if (bms.maxCell < cell) {
+                    bms.maxCell = cell
+                    bms.maxCellNum = i + 1
+                }
+                if (bms.minCell > cell) {
+                    bms.minCell = cell
+                    bms.minCellNum = i + 1
+                }
+            }
+        }
+        bms.cellDiff = bms.maxCell - bms.minCell
+        bms.avgCell = totalVolt / smartBmsCells
+        bms.voltage = totalVolt
+    }
+
+    private fun calculateBetterPercent(voltage: Int): Int {
+        return when {
+            voltage > 6680 -> 100
+            voltage > 5440 -> ((voltage - 5320) / 13.6).roundToInt()
+            voltage > 5120 -> (voltage - 5120) / 36
+            else -> 0
+        }
+    }
+
+    private fun calculateStandardPercent(voltage: Int): Int {
+        return when {
+            voltage <= 5290 -> 0
+            voltage >= 6580 -> 100
+            else -> (voltage - 5290) / 13
+        }
+    }
+
+    private fun scaleVoltage(voltage: Int, config: DecoderConfig): Double {
+        // Scale based on battery configuration
+        // Default assumes 67.2V (16S) battery
+        // This could be extended to handle different voltage configs
+        return voltage.toDouble()
+    }
+
+    override fun isReady(): Boolean = isReady && bms1.voltage > 0 || bms2.voltage > 0
+
+    override fun reset() {
+        unpacker.reset()
+        model = ""
+        imu = ""
+        fw = ""
+        fwProt = ""
+        smartBmsCells = 0
+        trueVoltage = false
+        trueCurrent = false
+        bmsCurrent = false
+        truePWM = false
+        isReady = false
+        bms1 = SmartBms()
+        bms2 = SmartBms()
+    }
+
+    override fun getInitCommands(): List<WheelCommand> {
+        // Request firmware version and name
+        return listOf(
+            WheelCommand.SendBytes("V".encodeToByteArray()),
+            WheelCommand.SendDelayed("b".encodeToByteArray(), 100),
+            WheelCommand.SendDelayed("N".encodeToByteArray(), 200),
+            WheelCommand.SendDelayed("b".encodeToByteArray(), 300)
+        )
+    }
+
+    companion object {
+        private const val RATIO_GW = 0.875
+    }
+}

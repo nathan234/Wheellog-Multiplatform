@@ -110,6 +110,7 @@ android {
 
 dependencies {
     implementation project(path: ':shared')
+    implementation project(path: ':core')
     // compose
     implementation "androidx.compose.foundation:foundation:$compose_version"
     implementation "androidx.compose.runtime:runtime:$compose_version"

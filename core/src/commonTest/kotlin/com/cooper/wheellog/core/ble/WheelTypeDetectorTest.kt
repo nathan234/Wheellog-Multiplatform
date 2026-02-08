@@ -1,0 +1,423 @@
+package com.cooper.wheellog.core.ble
+
+import com.cooper.wheellog.core.domain.WheelType
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+
+/**
+ * Tests for WheelTypeDetector.
+ *
+ * These tests verify that wheel type detection matches the behavior
+ * of the original Android bluetooth_services.json matching logic.
+ */
+class WheelTypeDetectorTest {
+
+    private val detector = WheelTypeDetector()
+
+    // ==================== Inmotion V1 Detection ====================
+
+    @Test
+    fun `detect Inmotion V1 from unique service combination`() {
+        // Inmotion V1 has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe4-0000-1000-8000-00805f9b34fb")
+                ),
+                DiscoveredService(
+                    uuid = "0000ffe5-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe9-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.INMOTION, detected.wheelType)
+        assertEquals(BleUuids.Inmotion.READ_SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.Inmotion.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+        assertEquals(BleUuids.Inmotion.WRITE_SERVICE, detected.writeServiceUuid)
+        assertEquals(BleUuids.Inmotion.WRITE_CHARACTERISTIC, detected.writeCharacteristicUuid)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
+    }
+
+    // ==================== Inmotion V2 Detection ====================
+
+    @Test
+    fun `detect Inmotion V2 with Nordic UART and ffe4 characteristic`() {
+        // Inmotion V2 has Nordic UART AND the ffe0/ffe4 combination
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+                    characteristics = listOf(
+                        "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+                        "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+                    )
+                ),
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe4-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.INMOTION_V2, detected.wheelType)
+        assertEquals(BleUuids.InmotionV2.SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.InmotionV2.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
+    }
+
+    // ==================== Ninebot Z Detection ====================
+
+    @Test
+    fun `detect Ninebot Z with Nordic UART only`() {
+        // Ninebot Z has Nordic UART but NOT the ffe4 characteristic
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+                    characteristics = listOf(
+                        "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+                        "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+                    )
+                ),
+                DiscoveredService(
+                    uuid = "00001800-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("00002a00-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.NINEBOT_Z, detected.wheelType)
+        assertEquals(BleUuids.NinebotZ.SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.NinebotZ.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
+    }
+
+    // ==================== KingSong Detection ====================
+
+    @Test
+    fun `detect KingSong from fff0 service`() {
+        // KingSong has the fff0 service
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000fff0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf(
+                        "0000fff1-0000-1000-8000-00805f9b34fb",
+                        "0000fff2-0000-1000-8000-00805f9b34fb"
+                    )
+                ),
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
+    }
+
+    @Test
+    fun `detect KingSong from device name`() {
+        // Standard services but KingSong name pattern
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "KS-S18")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+        assertEquals(WheelTypeDetector.Confidence.MEDIUM, detected.confidence)
+    }
+
+    // ==================== Gotway Detection ====================
+
+    @Test
+    fun `detect Gotway from device name`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "GW-Monster")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.GOTWAY, detected.wheelType)
+        assertEquals(WheelTypeDetector.Confidence.MEDIUM, detected.confidence)
+    }
+
+    @Test
+    fun `detect Begode from device name`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "BEGODE-HERO")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.GOTWAY, detected.wheelType)
+    }
+
+    // ==================== Veteran Detection ====================
+
+    @Test
+    fun `detect Veteran from device name Sherman`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "SHERMAN-MAX")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.VETERAN, detected.wheelType)
+        assertEquals(WheelTypeDetector.Confidence.MEDIUM, detected.confidence)
+    }
+
+    @Test
+    fun `detect Veteran from device name Lynx`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "Lynx")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.VETERAN, detected.wheelType)
+    }
+
+    // ==================== Ninebot Detection ====================
+
+    @Test
+    fun `detect Ninebot from device name`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "NINEBOT-S2")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.NINEBOT, detected.wheelType)
+    }
+
+    // ==================== Ambiguous Detection ====================
+
+    @Test
+    fun `return ambiguous for standard services without name`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, null)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Ambiguous)
+        val ambiguous = result as WheelTypeDetector.DetectionResult.Ambiguous
+        assertTrue(WheelType.GOTWAY in ambiguous.possibleTypes)
+        assertTrue(WheelType.KINGSONG in ambiguous.possibleTypes)
+        assertTrue(WheelType.NINEBOT in ambiguous.possibleTypes)
+    }
+
+    @Test
+    fun `return ambiguous for unknown device name`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "UNKNOWN-WHEEL")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Ambiguous)
+    }
+
+    // ==================== Unknown Detection ====================
+
+    @Test
+    fun `return unknown for no recognized services`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "00001800-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("00002a00-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Unknown)
+    }
+
+    @Test
+    fun `return unknown for empty services`() {
+        val services = DiscoveredServices(services = emptyList())
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Unknown)
+    }
+
+    // ==================== getUuidsForType ====================
+
+    @Test
+    fun `getUuidsForType returns correct info for KingSong`() {
+        val info = detector.getUuidsForType(WheelType.KINGSONG)
+
+        assertNotNull(info)
+        assertEquals(WheelType.KINGSONG, info.wheelType)
+        assertEquals(BleUuids.Kingsong.SERVICE, info.readServiceUuid)
+        assertEquals(BleUuids.Kingsong.READ_CHARACTERISTIC, info.readCharacteristicUuid)
+    }
+
+    @Test
+    fun `getUuidsForType returns correct info for Inmotion V1`() {
+        val info = detector.getUuidsForType(WheelType.INMOTION)
+
+        assertNotNull(info)
+        assertEquals(WheelType.INMOTION, info.wheelType)
+        assertEquals(BleUuids.Inmotion.READ_SERVICE, info.readServiceUuid)
+        assertEquals(BleUuids.Inmotion.READ_CHARACTERISTIC, info.readCharacteristicUuid)
+        assertEquals(BleUuids.Inmotion.WRITE_SERVICE, info.writeServiceUuid)
+        assertEquals(BleUuids.Inmotion.WRITE_CHARACTERISTIC, info.writeCharacteristicUuid)
+    }
+
+    @Test
+    fun `getUuidsForType returns correct info for Inmotion V2`() {
+        val info = detector.getUuidsForType(WheelType.INMOTION_V2)
+
+        assertNotNull(info)
+        assertEquals(WheelType.INMOTION_V2, info.wheelType)
+        assertEquals(BleUuids.InmotionV2.SERVICE, info.readServiceUuid)
+        assertEquals(BleUuids.InmotionV2.READ_CHARACTERISTIC, info.readCharacteristicUuid)
+    }
+
+    @Test
+    fun `getUuidsForType returns correct info for Ninebot Z`() {
+        val info = detector.getUuidsForType(WheelType.NINEBOT_Z)
+
+        assertNotNull(info)
+        assertEquals(WheelType.NINEBOT_Z, info.wheelType)
+        assertEquals(BleUuids.NinebotZ.SERVICE, info.readServiceUuid)
+    }
+
+    @Test
+    fun `getUuidsForType returns correct info for Veteran`() {
+        val info = detector.getUuidsForType(WheelType.VETERAN)
+
+        assertNotNull(info)
+        assertEquals(WheelType.VETERAN, info.wheelType)
+        // Veteran uses Gotway UUIDs
+        assertEquals(BleUuids.Gotway.SERVICE, info.readServiceUuid)
+    }
+
+    @Test
+    fun `getUuidsForType returns null for Unknown`() {
+        val info = detector.getUuidsForType(WheelType.Unknown)
+        assertNull(info)
+    }
+
+    // ==================== Case Sensitivity ====================
+
+    @Test
+    fun `detection is case-insensitive for UUIDs`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E", // uppercase
+                    characteristics = listOf(
+                        "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
+                        "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+                    )
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.NINEBOT_Z, detected.wheelType)
+    }
+
+    @Test
+    fun `device name matching is case-insensitive`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "ks-s18") // lowercase
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+    }
+}

@@ -71,11 +71,14 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 - [x] WheelConnectionInfo for connection configuration
 - [ ] Integration tests (requires device)
 
-### 3.4 iOS BLE Implementation (Stub)
-- [x] BleManager.ios.kt stub with CoreBluetooth documentation
-- [ ] CBCentralManager wrapper (TODO)
-- [ ] CBPeripheral handling (TODO)
-- [ ] Characteristic discovery and notification (TODO)
+### 3.4 iOS BLE Implementation ✅
+- [x] BleManager.ios.kt with full CoreBluetooth integration
+- [x] CBCentralManager wrapper with delegate callbacks
+- [x] CBPeripheral handling with delegate callbacks
+- [x] Characteristic discovery and notification subscription
+- [x] ByteArray <-> NSData conversion utilities
+- [x] Chunked write support for Inmotion V1
+- [ ] Real device testing (requires iOS app scaffold)
 
 ### 3.5 Keep-Alive Timer ✅
 - [x] Platform-agnostic timer abstraction (KeepAliveTimer)

@@ -58,10 +58,10 @@ class ByteUtilsTest {
     }
 
     @Test
-    fun `getInt2 handles high byte values`() {
-        // 0xFF00 = 65280 (unsigned)
+    fun `getInt2 handles high byte values as signed`() {
+        // 0xFF00 = -256 (signed short extended to int)
         val bytes = byteArrayOf(0xFF.toByte(), 0x00)
-        assertEquals(0xFF00, ByteUtils.getInt2(bytes, 0))
+        assertEquals(-256, ByteUtils.getInt2(bytes, 0))
     }
 
     @Test
@@ -78,9 +78,10 @@ class ByteUtilsTest {
     }
 
     @Test
-    fun `getInt4 handles high byte values`() {
+    fun `getInt4 handles high byte values as signed`() {
+        // 0xFFFFFFFF = -1 (signed int extended to long)
         val bytes = byteArrayOf(0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte())
-        assertEquals(0xFFFFFFFFL, ByteUtils.getInt4(bytes, 0))
+        assertEquals(-1L, ByteUtils.getInt4(bytes, 0))
     }
 
     // ==================== Reversed Byte Order Reads ====================
@@ -485,8 +486,9 @@ class ByteUtilsTest {
     @Test
     fun `reading with different offsets works correctly`() {
         val bytes = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte())
-        assertEquals(0xAABB, ByteUtils.getInt2(bytes, 0))
-        assertEquals(0xBBCC, ByteUtils.getInt2(bytes, 1))
-        assertEquals(0xCCDD, ByteUtils.getInt2(bytes, 2))
+        // These are signed values: 0xAABB = -21829, 0xBBCC = -17460, 0xCCDD = -13091
+        assertEquals(0xAABB.toShort().toInt(), ByteUtils.getInt2(bytes, 0))
+        assertEquals(0xBBCC.toShort().toInt(), ByteUtils.getInt2(bytes, 1))
+        assertEquals(0xCCDD.toShort().toInt(), ByteUtils.getInt2(bytes, 2))
     }
 }

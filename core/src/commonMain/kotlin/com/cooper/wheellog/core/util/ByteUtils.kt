@@ -26,35 +26,44 @@ object ByteUtils {
 
     /**
      * Read a 16-bit signed integer from byte array at offset (Big Endian).
+     * Matches legacy ByteBuffer.getShort() behavior - returns signed value.
      */
     fun getInt2(arr: ByteArray, offset: Int): Int {
         if (arr.size < offset + 2) return 0
-        return ((arr[offset].toInt() and 0xFF) shl 8) or (arr[offset + 1].toInt() and 0xFF)
+        // Build unsigned value first, then convert to signed short, then to int (with sign extension)
+        val unsigned = ((arr[offset].toInt() and 0xFF) shl 8) or (arr[offset + 1].toInt() and 0xFF)
+        return unsigned.toShort().toInt()
     }
 
     /**
      * Read a 16-bit signed integer from byte array at offset with reversed byte order.
      * First swaps every 2 bytes, then reads as Big Endian.
+     * Matches legacy ByteBuffer.getShort() behavior - returns signed value.
      */
     fun getInt2R(arr: ByteArray, offset: Int): Int {
         if (arr.size < offset + 2) return 0
         val reversed = reverseEvery2(arr, offset, 2)
-        return ((reversed[0].toInt() and 0xFF) shl 8) or (reversed[1].toInt() and 0xFF)
+        val unsigned = ((reversed[0].toInt() and 0xFF) shl 8) or (reversed[1].toInt() and 0xFF)
+        return unsigned.toShort().toInt()
     }
 
     /**
      * Read a 32-bit signed integer from byte array at offset (Big Endian).
+     * Matches legacy ByteBuffer.getInt() behavior - returns signed value as Long.
      */
     fun getInt4(arr: ByteArray, offset: Int): Long {
         if (arr.size < offset + 4) return 0L
-        return ((arr[offset].toLong() and 0xFF) shl 24) or
-                ((arr[offset + 1].toLong() and 0xFF) shl 16) or
-                ((arr[offset + 2].toLong() and 0xFF) shl 8) or
-                (arr[offset + 3].toLong() and 0xFF)
+        // Build as int (which is signed), then convert to long (with sign extension)
+        val value = ((arr[offset].toInt() and 0xFF) shl 24) or
+                ((arr[offset + 1].toInt() and 0xFF) shl 16) or
+                ((arr[offset + 2].toInt() and 0xFF) shl 8) or
+                (arr[offset + 3].toInt() and 0xFF)
+        return value.toLong()
     }
 
     /**
      * Read a 32-bit signed integer from byte array at offset with reversed byte order.
+     * Matches legacy ByteBuffer.getInt() behavior - returns signed value.
      */
     fun getInt4R(arr: ByteArray, offset: Int): Int {
         if (arr.size < offset + 4) return 0

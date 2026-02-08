@@ -97,9 +97,12 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 
 ## Phase 4: Integration
 
-### 4.1 Android Integration
-- [ ] WheelData adapter to use KMP WheelState
-- [ ] BluetoothService delegates to core BleManager
+### 4.1 Android Integration 🔄 IN PROGRESS
+- [x] KmpWheelBridge for parallel decoding alongside existing adapters
+- [x] BluetoothService feeds data to KMP bridge
+- [x] Comparison utility to validate KMP vs legacy decoder output
+- [ ] WheelData adapter to use KMP WheelState (optional, if bridge works)
+- [ ] BluetoothService delegates writes to core BleManager
 - [ ] Maintain backward compatibility with existing UI
 
 ### 4.2 iOS App Scaffold

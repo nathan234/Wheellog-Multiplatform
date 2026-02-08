@@ -5,6 +5,7 @@ import android.bluetooth.*
 import android.content.Intent
 import android.os.*
 import android.os.PowerManager.WakeLock
+import com.cooper.wheellog.kmp.KmpWheelBridge
 import com.cooper.wheellog.utils.*
 import com.cooper.wheellog.utils.Constants.WHEEL_TYPE
 import com.cooper.wheellog.utils.SomeUtil.playSound
@@ -308,6 +309,11 @@ class BluetoothService: Service() {
             }
             else -> {}
         }
+
+        // Feed data to KMP decoder in parallel for validation
+        if (wd.wheelType != WHEEL_TYPE.Unknown) {
+            KmpWheelBridge.instance.onDataReceived(value, wd.wheelType)
+        }
     }
 
     private fun broadcastConnectionUpdate(autoConnect: Boolean = false, directSearch: Boolean = false) {
@@ -409,6 +415,10 @@ class BluetoothService: Service() {
     fun disconnect() {
         Timber.i("call disconnect()")
         disconnectRequested = true
+
+        // Reset KMP bridge
+        KmpWheelBridge.instance.reset()
+
         if (!central.isBluetoothEnabled || (connectionState != ConnectionState.CONNECTED && !isWheelSearch)) {
             Timber.i("not connected.")
             return

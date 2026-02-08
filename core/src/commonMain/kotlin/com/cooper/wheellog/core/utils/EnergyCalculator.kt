@@ -19,8 +19,7 @@ package com.cooper.wheellog.core.utils
  * val whPerKm = calculator.getWhPerKm(currentTimeMs)
  * ```
  *
- * Note: This class is not thread-safe. Callers should ensure
- * thread safety if accessing from multiple threads.
+ * This class is thread-safe.
  */
 class EnergyCalculator {
 
@@ -31,6 +30,7 @@ class EnergyCalculator {
     )
 
     private val samples = mutableListOf<PowerSample>()
+    private val lock = Lock()
 
     // Cache for computed values
     private var cachedPowerHour: Double = 0.0
@@ -57,8 +57,10 @@ class EnergyCalculator {
      * @param currentTimeMs Current time in milliseconds
      */
     fun pushSample(powerWatts: Double, distanceMeters: Int, currentTimeMs: Long) {
-        samples.add(PowerSample(currentTimeMs, distanceMeters, powerWatts))
-        pruneOldSamples(currentTimeMs)
+        lock.withLock {
+            samples.add(PowerSample(currentTimeMs, distanceMeters, powerWatts))
+            pruneOldSamplesInternal(currentTimeMs)
+        }
     }
 
     /**
@@ -67,25 +69,25 @@ class EnergyCalculator {
      * @param currentTimeMs Current time in milliseconds
      * @return Energy in Wh, or 0.0 if no recent data
      */
-    fun getPowerHour(currentTimeMs: Long): Double {
+    fun getPowerHour(currentTimeMs: Long): Double = lock.withLock {
         // Return cached value if still valid
         if (currentTimeMs - cachedPowerHourTime < CACHE_DURATION_MS) {
-            return cachedPowerHour
+            return@withLock cachedPowerHour
         }
 
-        if (!isDataFresh(currentTimeMs)) {
-            return cachedPowerHour
+        if (!isDataFreshInternal(currentTimeMs)) {
+            return@withLock cachedPowerHour
         }
 
-        pruneOldSamples(currentTimeMs)
+        pruneOldSamplesInternal(currentTimeMs)
 
         if (samples.size < 2) {
-            return 0.0
+            return@withLock 0.0
         }
 
         val elapsedTimeMs = samples.last().timeMs - samples.first().timeMs
         if (elapsedTimeMs <= 0) {
-            return 0.0
+            return@withLock 0.0
         }
 
         // Average power over the window
@@ -95,7 +97,7 @@ class EnergyCalculator {
         cachedPowerHour = avgPower * elapsedTimeMs / 3_600_000.0
         cachedPowerHourTime = currentTimeMs
 
-        return cachedPowerHour
+        cachedPowerHour
     }
 
     /**
@@ -104,58 +106,73 @@ class EnergyCalculator {
      * @param currentTimeMs Current time in milliseconds
      * @return Wh/km, or 0.0 if no distance traveled or no recent data
      */
-    fun getWhPerKm(currentTimeMs: Long): Double {
+    fun getWhPerKm(currentTimeMs: Long): Double = lock.withLock {
         // Return cached value if still valid
         if (currentTimeMs - cachedWhPerKmTime < CACHE_DURATION_MS) {
-            return cachedWhPerKm
+            return@withLock cachedWhPerKm
         }
 
-        if (!isDataFresh(currentTimeMs)) {
-            return cachedWhPerKm
+        if (!isDataFreshInternal(currentTimeMs)) {
+            return@withLock cachedWhPerKm
         }
 
         if (samples.size < 2) {
-            return 0.0
+            return@withLock 0.0
         }
 
         val distanceMeters = samples.last().distanceMeters - samples.first().distanceMeters
         if (distanceMeters <= 0) {
-            return 0.0
+            return@withLock 0.0
         }
 
-        val powerHour = getPowerHour(currentTimeMs)
+        // Need to compute power hour without lock (already holding it)
+        val powerHour = computePowerHourInternal(currentTimeMs)
 
         // Convert meters to km
         cachedWhPerKm = powerHour * 1000.0 / distanceMeters
         cachedWhPerKmTime = currentTimeMs
 
-        return cachedWhPerKm
+        cachedWhPerKm
     }
 
     /**
      * Clear all samples and reset the calculator.
      */
     fun reset() {
-        samples.clear()
-        cachedPowerHour = 0.0
-        cachedPowerHourTime = 0
-        cachedWhPerKm = 0.0
-        cachedWhPerKmTime = 0
+        lock.withLock {
+            samples.clear()
+            cachedPowerHour = 0.0
+            cachedPowerHourTime = 0
+            cachedWhPerKm = 0.0
+            cachedWhPerKmTime = 0
+        }
     }
 
     /**
      * Get the number of samples currently stored.
      */
     val sampleCount: Int
-        get() = samples.size
+        get() = lock.withLock { samples.size }
 
-    private fun isDataFresh(currentTimeMs: Long): Boolean {
+    // Internal methods (must be called while holding lock)
+
+    private fun isDataFreshInternal(currentTimeMs: Long): Boolean {
         if (samples.isEmpty()) return false
         return currentTimeMs - samples.last().timeMs < STALE_THRESHOLD_MS
     }
 
-    private fun pruneOldSamples(currentTimeMs: Long) {
+    private fun pruneOldSamplesInternal(currentTimeMs: Long) {
         val expiryTime = currentTimeMs - MAX_SAMPLE_AGE_MS
         samples.removeAll { it.timeMs < expiryTime }
+    }
+
+    private fun computePowerHourInternal(currentTimeMs: Long): Double {
+        if (samples.size < 2) return 0.0
+
+        val elapsedTimeMs = samples.last().timeMs - samples.first().timeMs
+        if (elapsedTimeMs <= 0) return 0.0
+
+        val avgPower = samples.sumOf { it.powerWatts } / samples.size
+        return avgPower * elapsedTimeMs / 3_600_000.0
     }
 }

@@ -2,6 +2,8 @@ package com.cooper.wheellog.core.alarm
 
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -13,6 +15,8 @@ import kotlin.math.roundToInt
  *
  * Platform-specific effects (vibration, sound, notifications) should be handled
  * by the caller based on the [AlarmResult].
+ *
+ * This class is thread-safe.
  *
  * ## Usage
  * ```
@@ -27,6 +31,8 @@ import kotlin.math.roundToInt
  * ```
  */
 class AlarmChecker {
+
+    private val lock = Lock()
 
     // Throttle state to prevent repeated alarms
     private var speedAlarmExecutingUntil: Long = 0
@@ -53,7 +59,7 @@ class AlarmChecker {
      * @param currentTimeMs Current time in milliseconds (for throttling)
      * @return Result containing all triggered alarms
      */
-    fun check(state: WheelState, config: AlarmConfig, currentTimeMs: Long): AlarmResult {
+    fun check(state: WheelState, config: AlarmConfig, currentTimeMs: Long): AlarmResult = lock.withLock {
         val alarms = mutableListOf<TriggeredAlarm>()
         var preWarning: PreWarning? = null
 
@@ -80,7 +86,7 @@ class AlarmChecker {
         // Check wheel-reported alarm
         checkWheelAlarm(state, config, currentTimeMs)?.let { alarms.add(it) }
 
-        return AlarmResult(
+        AlarmResult(
             triggeredAlarms = alarms,
             preWarning = preWarning
         )
@@ -90,7 +96,7 @@ class AlarmChecker {
      * Reset all alarm throttle states.
      * Call this when disconnecting from a wheel.
      */
-    fun reset() {
+    fun reset() = lock.withLock {
         speedAlarmExecutingUntil = 0
         currentAlarmExecutingUntil = 0
         temperatureAlarmExecutingUntil = 0
@@ -102,14 +108,14 @@ class AlarmChecker {
     /**
      * Get current alarm bitmask (for compatibility).
      */
-    fun getAlarmBitmask(currentTimeMs: Long): Int {
+    fun getAlarmBitmask(currentTimeMs: Long): Int = lock.withLock {
         var mask = 0
         if (currentTimeMs < speedAlarmExecutingUntil) mask = mask or 0x01
         if (currentTimeMs < currentAlarmExecutingUntil) mask = mask or 0x02
         if (currentTimeMs < temperatureAlarmExecutingUntil) mask = mask or 0x04
         if (currentTimeMs < batteryAlarmExecutingUntil) mask = mask or 0x08
         if (currentTimeMs < wheelAlarmExecutingUntil) mask = mask or 0x10
-        return mask
+        mask
     }
 
     // ==================== Private Methods ====================

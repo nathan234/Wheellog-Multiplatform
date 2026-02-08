@@ -12,11 +12,10 @@ class DefaultWheelDecoderFactory : WheelDecoderFactory {
             WheelType.GOTWAY, WheelType.GOTWAY_VIRTUAL -> GotwayDecoder()
             WheelType.VETERAN -> VeteranDecoder()
             WheelType.KINGSONG -> KingsongDecoder()
-            // TODO: Add other decoders as they are migrated
-            // WheelType.INMOTION -> InmotionDecoder()
-            // WheelType.INMOTION_V2 -> InmotionV2Decoder()
-            // WheelType.NINEBOT -> NinebotDecoder()
-            // WheelType.NINEBOT_Z -> NinebotZDecoder()
+            WheelType.NINEBOT -> NinebotDecoder()
+            WheelType.NINEBOT_Z -> NinebotZDecoder()
+            WheelType.INMOTION -> InmotionDecoder()
+            WheelType.INMOTION_V2 -> InmotionV2Decoder()
             else -> null
         }
     }
@@ -26,8 +25,11 @@ class DefaultWheelDecoderFactory : WheelDecoderFactory {
             WheelType.GOTWAY,
             WheelType.GOTWAY_VIRTUAL,
             WheelType.VETERAN,
-            WheelType.KINGSONG
-            // Add more as decoders are implemented
+            WheelType.KINGSONG,
+            WheelType.NINEBOT,
+            WheelType.NINEBOT_Z,
+            WheelType.INMOTION,
+            WheelType.INMOTION_V2
         )
     }
 }

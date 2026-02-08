@@ -55,6 +55,33 @@ struct ScanView: View {
             Text("Tap Scan to search for nearby wheels")
                 .font(.body)
                 .foregroundColor(.secondary)
+
+            #if targetEnvironment(simulator)
+            Divider()
+                .padding(.vertical, 20)
+
+            VStack(spacing: 12) {
+                Text("Simulator Mode")
+                    .font(.headline)
+                    .foregroundColor(.orange)
+                Text("BLE is not available on iOS Simulator")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Button(action: { wheelManager.startMockMode() }) {
+                    HStack {
+                        Image(systemName: "play.circle.fill")
+                        Text("Start Demo Mode")
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+            }
+            #endif
+
             Spacer()
         }
         .frame(maxWidth: .infinity)

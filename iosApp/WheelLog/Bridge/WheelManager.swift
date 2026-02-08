@@ -12,11 +12,16 @@ class WheelManager: ObservableObject {
     @Published private(set) var connectionState: ConnectionStateWrapper = .disconnected
     @Published private(set) var discoveredDevices: [DiscoveredDevice] = []
     @Published private(set) var isScanning: Bool = false
+    @Published var isMockMode: Bool = false
 
     // MARK: - KMP Components
 
     private var bleManager: BleManager?
     private var decoderFactory: DefaultWheelDecoderFactory?
+
+    // MARK: - Mock Data Provider
+
+    private let mockDataProvider = MockDataProvider()
 
     // MARK: - Polling Timers
 
@@ -28,13 +33,20 @@ class WheelManager: ObservableObject {
         // Setup happens in Task
         Task { @MainActor in
             self.setupKmpComponents()
+            self.setupMockProvider()
             self.startPolling()
+
+            // Auto-enable mock mode on simulator
+            #if targetEnvironment(simulator)
+            self.isMockMode = true
+            #endif
         }
     }
 
     deinit {
         connectionPollingTimer?.invalidate()
         connectionPollingTimer = nil
+        mockDataProvider.stop()
     }
 
     private func setupKmpComponents() {
@@ -57,6 +69,54 @@ class WheelManager: ObservableObject {
             print("Services discovered for device: \(deviceName ?? "unknown")")
             // This would typically trigger wheel type detection
         }
+    }
+
+    private func setupMockProvider() {
+        mockDataProvider.onStateUpdate = { [weak self] state in
+            Task { @MainActor in
+                self?.updateFromMock(state)
+            }
+        }
+    }
+
+    private func updateFromMock(_ state: WheelStateBridge) {
+        wheelState = WheelStateWrapper(
+            speedKmh: state.speed,
+            voltage: state.voltage,
+            current: state.current,
+            power: state.power,
+            temperature: Int(state.temperature),
+            batteryLevel: Int(state.battery),
+            totalDistanceKm: state.totalDistance,
+            wheelDistanceKm: state.tripDistance,
+            pwmPercent: (state.speed / 50.0) * 100.0,  // Estimated PWM
+            wheelType: "MOCK",
+            name: state.name,
+            model: state.model
+        )
+
+        if state.isConnected {
+            connectionState = .connected(address: "MOCK-DEVICE", wheelName: state.model)
+        }
+    }
+
+    // MARK: - Mock Mode
+
+    func startMockMode() {
+        isMockMode = true
+        connectionState = .connecting(address: "MOCK-DEVICE")
+
+        // Brief delay to simulate connection
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.mockDataProvider.start()
+        }
+    }
+
+    func stopMockMode() {
+        mockDataProvider.stop()
+        isMockMode = false
+        connectionState = .disconnected
+        wheelState = WheelStateWrapper()
     }
 
     // MARK: - Polling
@@ -202,6 +262,34 @@ struct WheelStateWrapper: Equatable {
         wheelType = "Unknown"
         name = ""
         model = ""
+    }
+
+    init(
+        speedKmh: Double,
+        voltage: Double,
+        current: Double,
+        power: Double,
+        temperature: Int,
+        batteryLevel: Int,
+        totalDistanceKm: Double,
+        wheelDistanceKm: Double,
+        pwmPercent: Double,
+        wheelType: String,
+        name: String,
+        model: String
+    ) {
+        self.speedKmh = speedKmh
+        self.voltage = voltage
+        self.current = current
+        self.power = power
+        self.temperature = temperature
+        self.batteryLevel = batteryLevel
+        self.totalDistanceKm = totalDistanceKm
+        self.wheelDistanceKm = wheelDistanceKm
+        self.pwmPercent = pwmPercent
+        self.wheelType = wheelType
+        self.name = name
+        self.model = model
     }
 
     init(from kmpState: WheelState) {

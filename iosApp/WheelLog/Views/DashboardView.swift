@@ -68,16 +68,34 @@ struct DashboardView: View {
                     .padding(.horizontal)
                 }
 
+                // Demo mode indicator
+                if wheelManager.isMockMode {
+                    HStack {
+                        Image(systemName: "info.circle.fill")
+                        Text("Demo Mode - Simulated Data")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.orange.opacity(0.15))
+                    .cornerRadius(8)
+                }
+
                 // Disconnect button
                 Button(action: {
-                    wheelManager.disconnect()
+                    if wheelManager.isMockMode {
+                        wheelManager.stopMockMode()
+                    } else {
+                        wheelManager.disconnect()
+                    }
                 }) {
-                    Text("Disconnect")
+                    Text(wheelManager.isMockMode ? "Stop Demo" : "Disconnect")
                         .fontWeight(.medium)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.red)
+                        .background(wheelManager.isMockMode ? Color.orange : Color.red)
                         .cornerRadius(12)
                 }
                 .padding(.horizontal)

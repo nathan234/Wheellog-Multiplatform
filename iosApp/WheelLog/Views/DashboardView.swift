@@ -68,7 +68,7 @@ struct DashboardView: View {
                     .padding(.horizontal)
                 }
 
-                // Demo mode indicator
+                // Demo/Test mode indicator
                 if wheelManager.isMockMode {
                     HStack {
                         Image(systemName: "info.circle.fill")
@@ -80,22 +80,35 @@ struct DashboardView: View {
                     .padding(.horizontal, 16)
                     .background(Color.orange.opacity(0.15))
                     .cornerRadius(8)
+                } else if wheelManager.isTestMode {
+                    HStack {
+                        Image(systemName: "testtube.2")
+                        Text("Test Mode - KMP Decoder")
+                    }
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.blue.opacity(0.15))
+                    .cornerRadius(8)
                 }
 
                 // Disconnect button
                 Button(action: {
                     if wheelManager.isMockMode {
                         wheelManager.stopMockMode()
+                    } else if wheelManager.isTestMode {
+                        wheelManager.stopTestMode()
                     } else {
                         wheelManager.disconnect()
                     }
                 }) {
-                    Text(wheelManager.isMockMode ? "Stop Demo" : "Disconnect")
+                    Text(buttonLabel)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(wheelManager.isMockMode ? Color.orange : Color.red)
+                        .background(buttonColor)
                         .cornerRadius(12)
                 }
                 .padding(.horizontal)
@@ -126,6 +139,18 @@ struct DashboardView: View {
         let temp = wheelManager.wheelState.temperature
         if temp <= 40 { return .green }
         if temp <= 55 { return .orange }
+        return .red
+    }
+
+    private var buttonLabel: String {
+        if wheelManager.isMockMode { return "Stop Demo" }
+        if wheelManager.isTestMode { return "Stop Test" }
+        return "Disconnect"
+    }
+
+    private var buttonColor: Color {
+        if wheelManager.isMockMode { return .orange }
+        if wheelManager.isTestMode { return .blue }
         return .red
     }
 }

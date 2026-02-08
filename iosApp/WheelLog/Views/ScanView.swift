@@ -142,27 +142,17 @@ struct ScanView: View {
         // Inject real KS-S18 packets from KingsongDecoderComparisonTest
         // Expected values after decoding:
         // - Model: KS-S18, Version: 2.05
-        // - Speed: 5.15 km/h
-        // - Voltage: 65.05V
-        // - Current: 2.15A
-        // - Temperature: 13°C
-        // - Battery: 12%
-        // - Total Distance: 13.983 km
+        // - Speed: 5.15 km/h, Voltage: 65.05V, Current: 2.15A
+        // - Temperature: 13°C, Battery: 12%
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            let realKingsongPackets = [
-                // Model name packet (KS-S18-0205)
-                "aa554b532d5331382d30323035000000bb1484fd",
-                // Live data packet (speed, voltage, current, temp)
-                "aa556919030200009f36d700140500e0a9145a5a",
-                // Distance/fan/time packet
-                "aa550000090017011502140100004006b9145a5a",
-                // CPU load packet
-                "aa55000000000000000000000000400cf5145a5a",
-                // Output packet
-                "aa55850c010000000000000016000000f6145a5a"
+            let packets = [
+                "aa554b532d5331382d30323035000000bb1484fd",  // Model name
+                "aa556919030200009f36d700140500e0a9145a5a",  // Live data
+                "aa550000090017011502140100004006b9145a5a",  // Distance/fan
+                "aa55000000000000000000000000400cf5145a5a",  // CPU load
+                "aa55850c010000000000000016000000f6145a5a"   // Output
             ]
-
-            for packet in realKingsongPackets {
+            for packet in packets {
                 self.wheelManager.injectTestData(packet)
             }
         }

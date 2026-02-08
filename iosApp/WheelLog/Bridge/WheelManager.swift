@@ -13,6 +13,7 @@ class WheelManager: ObservableObject {
     @Published private(set) var discoveredDevices: [DiscoveredDevice] = []
     @Published private(set) var isScanning: Bool = false
     @Published var isMockMode: Bool = false
+    @Published var isTestMode: Bool = false
 
     // MARK: - KMP Components
 
@@ -140,8 +141,15 @@ class WheelManager: ObservableObject {
     /// Start a test session with a specific wheel type.
     /// This simulates connecting without actual BLE.
     func startTestSession(wheelType: WheelType) {
+        isTestMode = true
         connectionManager?.onWheelTypeDetected(wheelType: wheelType)
         connectionState = .connected(address: "TEST-DEVICE", wheelName: wheelType.name)
+    }
+
+    func stopTestMode() {
+        isTestMode = false
+        connectionState = .disconnected
+        wheelState = WheelStateWrapper()
     }
 
     private func hexStringToBytes(_ hex: String) -> [Int8] {
@@ -172,6 +180,16 @@ class WheelManager: ObservableObject {
     private func pollState() {
         guard !isMockMode else { return }  // Skip polling in mock mode
         guard let cm = connectionManager else { return }
+
+        // In test mode, only poll wheel state (not connection state)
+        if isTestMode {
+            let kmpWheelState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
+            let newWheelState = WheelStateWrapper(from: kmpWheelState)
+            if newWheelState != wheelState {
+                wheelState = newWheelState
+            }
+            return
+        }
 
         // Poll connection state using iOS helper
         let kmpConnectionState = WheelConnectionManagerFactory.shared.getConnectionState(manager: cm)

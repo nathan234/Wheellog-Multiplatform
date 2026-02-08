@@ -171,7 +171,8 @@ class AlarmChecker {
         if (warningPeriodMs == 0L) return null
 
         // Check if enough time has passed since last warning
-        if (currentTimeMs - lastPreWarningTime < warningPeriodMs) return null
+        // (Skip this check if we haven't issued any warning yet)
+        if (lastPreWarningTime > 0 && currentTimeMs - lastPreWarningTime < warningPeriodMs) return null
 
         val warningPwm = config.warningPwm / 100.0
         val pwm = state.calculatedPwm

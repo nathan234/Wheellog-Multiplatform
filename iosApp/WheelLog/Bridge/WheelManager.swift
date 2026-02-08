@@ -17,7 +17,7 @@ class WheelManager: ObservableObject {
     // MARK: - KMP Components
 
     private var bleManager: BleManager?
-    private var decoderFactory: DefaultWheelDecoderFactory?
+    private var connectionManager: WheelConnectionManager?
 
     // MARK: - Mock Data Provider
 
@@ -25,7 +25,7 @@ class WheelManager: ObservableObject {
 
     // MARK: - Polling Timers
 
-    private var connectionPollingTimer: Timer?
+    private var statePollingTimer: Timer?
 
     // MARK: - Initialization
 
@@ -44,8 +44,8 @@ class WheelManager: ObservableObject {
     }
 
     deinit {
-        connectionPollingTimer?.invalidate()
-        connectionPollingTimer = nil
+        statePollingTimer?.invalidate()
+        statePollingTimer = nil
         mockDataProvider.stop()
     }
 
@@ -54,20 +54,18 @@ class WheelManager: ObservableObject {
         bleManager = BleManager()
         bleManager?.initialize()
 
-        // Initialize decoder factory
-        decoderFactory = DefaultWheelDecoderFactory()
+        // Create WheelConnectionManager using iOS factory
+        guard let ble = bleManager else { return }
+        connectionManager = WheelConnectionManagerFactory.shared.create(bleManager: ble)
 
-        // Set up data received callback
-        bleManager?.setDataReceivedCallback { byteArray in
-            // Convert KotlinByteArray to Swift Data/ByteArray if needed
-            // For now this callback is set up but wheel state would come from WheelConnectionManager
-            print("Data received: \(byteArray.size) bytes")
+        // Wire BLE data to connection manager
+        bleManager?.setDataReceivedCallback { [weak self] data in
+            self?.connectionManager?.onDataReceived(data: data)
         }
 
-        // Set up services discovered callback
-        bleManager?.setServicesDiscoveredCallback { services, deviceName in
-            print("Services discovered for device: \(deviceName ?? "unknown")")
-            // This would typically trigger wheel type detection
+        // Wire service discovery to connection manager
+        bleManager?.setServicesDiscoveredCallback { [weak self] services, deviceName in
+            self?.connectionManager?.onServicesDiscovered(services: services, deviceName: deviceName)
         }
     }
 
@@ -119,27 +117,81 @@ class WheelManager: ObservableObject {
         wheelState = WheelStateWrapper()
     }
 
+    // MARK: - Test Data Injection
+
+    /// Inject raw BLE packet for testing the KMP decoder pipeline.
+    /// Use this to test with recorded wheel data on simulator.
+    func injectTestData(_ hexString: String) {
+        guard let cm = connectionManager else {
+            print("Connection manager not initialized")
+            return
+        }
+
+        // Convert hex string to KotlinByteArray
+        let bytes = hexStringToBytes(hexString)
+        let kotlinBytes = KotlinByteArray(size: Int32(bytes.count))
+        for (index, byte) in bytes.enumerated() {
+            kotlinBytes.set(index: Int32(index), value: byte)
+        }
+
+        cm.onDataReceived(data: kotlinBytes)
+    }
+
+    /// Start a test session with a specific wheel type.
+    /// This simulates connecting without actual BLE.
+    func startTestSession(wheelType: WheelType) {
+        connectionManager?.onWheelTypeDetected(wheelType: wheelType)
+        connectionState = .connected(address: "TEST-DEVICE", wheelName: wheelType.name)
+    }
+
+    private func hexStringToBytes(_ hex: String) -> [Int8] {
+        let cleanHex = hex.replacingOccurrences(of: " ", with: "")
+        var bytes: [Int8] = []
+        var index = cleanHex.startIndex
+        while index < cleanHex.endIndex {
+            let nextIndex = cleanHex.index(index, offsetBy: 2)
+            if let byte = UInt8(cleanHex[index..<nextIndex], radix: 16) {
+                bytes.append(Int8(bitPattern: byte))
+            }
+            index = nextIndex
+        }
+        return bytes
+    }
+
     // MARK: - Polling
 
     private func startPolling() {
-        // Poll connection state at 5Hz
-        connectionPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        // Poll wheel state and connection state at 10Hz
+        statePollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.pollConnectionState()
+                self?.pollState()
             }
         }
     }
 
-    private func pollConnectionState() {
-        guard let bleManager = bleManager else { return }
-        // Access the StateFlow value - KMP exposes it as a property
-        if let kmpState = bleManager.connectionState as? ConnectionState {
-            connectionState = ConnectionStateWrapper(from: kmpState)
+    private func pollState() {
+        guard !isMockMode else { return }  // Skip polling in mock mode
+        guard let cm = connectionManager else { return }
+
+        // Poll connection state using iOS helper
+        let kmpConnectionState = WheelConnectionManagerFactory.shared.getConnectionState(manager: cm)
+        let newState = ConnectionStateWrapper(from: kmpConnectionState)
+        if newState != connectionState {
+            connectionState = newState
         }
 
-        // Update scanning state from connection state
+        // Poll wheel state using iOS helper
+        let kmpWheelState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
+        let newWheelState = WheelStateWrapper(from: kmpWheelState)
+        if newWheelState != wheelState {
+            wheelState = newWheelState
+        }
+
+        // Update scanning state
         if case .scanning = connectionState {
             isScanning = true
+        } else if isScanning && connectionState != .scanning {
+            isScanning = false
         }
     }
 
@@ -196,24 +248,25 @@ class WheelManager: ObservableObject {
     // MARK: - Connection
 
     func connect(address: String) {
-        guard let bleManager = bleManager else { return }
+        guard let connectionManager = connectionManager else { return }
 
         connectionState = .connecting(address: address)
 
-        bleManager.connect(address: address) { [weak self] result, error in
-            Task { @MainActor in
-                if let error = error {
-                    self?.connectionState = .failed(error: error.localizedDescription)
+        // Use WheelConnectionManager for connection
+        connectionManager.connect(address: address, wheelType: nil) { error in
+            if let error = error {
+                Task { @MainActor in
+                    self.connectionState = .failed(error: error.localizedDescription)
                 }
-                // Connection state will also be updated through polling
             }
+            // Connection state will be updated through polling
         }
     }
 
     func disconnect() {
-        guard let bleManager = bleManager else { return }
+        guard let connectionManager = connectionManager else { return }
 
-        bleManager.disconnect { [weak self] error in
+        connectionManager.disconnect { [weak self] error in
             Task { @MainActor in
                 self?.connectionState = .disconnected
                 self?.wheelState = WheelStateWrapper()

@@ -1,0 +1,162 @@
+import SwiftUI
+
+struct DashboardView: View {
+    @EnvironmentObject var wheelManager: WheelManager
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Speed gauge
+                SpeedGaugeView(speed: wheelManager.wheelState.speedKmh)
+                    .frame(height: 250)
+                    .padding(.top)
+
+                // Battery and temperature
+                HStack(spacing: 16) {
+                    StatCard(
+                        title: "Battery",
+                        value: "\(wheelManager.wheelState.batteryLevel)%",
+                        icon: batteryIcon,
+                        color: batteryColor
+                    )
+
+                    StatCard(
+                        title: "Temperature",
+                        value: "\(wheelManager.wheelState.temperature)°C",
+                        icon: "thermometer",
+                        color: temperatureColor
+                    )
+                }
+                .padding(.horizontal)
+
+                // Power stats
+                VStack(spacing: 12) {
+                    StatRow(label: "Voltage", value: String(format: "%.1f V", wheelManager.wheelState.voltage))
+                    StatRow(label: "Current", value: String(format: "%.1f A", wheelManager.wheelState.current))
+                    StatRow(label: "Power", value: String(format: "%.0f W", wheelManager.wheelState.power))
+                    StatRow(label: "PWM", value: String(format: "%.1f%%", wheelManager.wheelState.pwmPercent))
+                }
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                .padding(.horizontal)
+
+                // Distance stats
+                VStack(spacing: 12) {
+                    StatRow(label: "Trip Distance", value: String(format: "%.2f km", wheelManager.wheelState.wheelDistanceKm))
+                    StatRow(label: "Total Distance", value: String(format: "%.1f km", wheelManager.wheelState.totalDistanceKm))
+                }
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                .padding(.horizontal)
+
+                // Wheel info
+                if !wheelManager.wheelState.name.isEmpty || !wheelManager.wheelState.model.isEmpty {
+                    VStack(spacing: 12) {
+                        if !wheelManager.wheelState.name.isEmpty {
+                            StatRow(label: "Name", value: wheelManager.wheelState.name)
+                        }
+                        if !wheelManager.wheelState.model.isEmpty {
+                            StatRow(label: "Model", value: wheelManager.wheelState.model)
+                        }
+                        StatRow(label: "Type", value: wheelManager.wheelState.wheelType)
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
+
+                // Disconnect button
+                Button(action: {
+                    wheelManager.disconnect()
+                }) {
+                    Text("Disconnect")
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 20)
+            }
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("Dashboard")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var batteryIcon: String {
+        let level = wheelManager.wheelState.batteryLevel
+        if level >= 75 { return "battery.100" }
+        if level >= 50 { return "battery.75" }
+        if level >= 25 { return "battery.50" }
+        return "battery.25"
+    }
+
+    private var batteryColor: Color {
+        let level = wheelManager.wheelState.batteryLevel
+        if level >= 50 { return .green }
+        if level >= 25 { return .orange }
+        return .red
+    }
+
+    private var temperatureColor: Color {
+        let temp = wheelManager.wheelState.temperature
+        if temp <= 40 { return .green }
+        if temp <= 55 { return .orange }
+        return .red
+    }
+}
+
+struct StatCard: View {
+    let title: String
+    let value: String
+    let icon: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.title)
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+}
+
+struct StatRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.medium)
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        DashboardView()
+            .environmentObject(WheelManager())
+    }
+}

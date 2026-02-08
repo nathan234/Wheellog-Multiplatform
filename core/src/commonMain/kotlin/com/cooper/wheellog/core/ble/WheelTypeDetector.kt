@@ -301,14 +301,3 @@ class WheelTypeDetector {
         }
     }
 }
-
-/**
- * Connection information for a detected wheel.
- */
-data class WheelConnectionInfo(
-    val wheelType: WheelType,
-    val readServiceUuid: String,
-    val readCharacteristicUuid: String,
-    val writeServiceUuid: String,
-    val writeCharacteristicUuid: String
-)

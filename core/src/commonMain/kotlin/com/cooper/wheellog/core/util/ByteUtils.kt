@@ -248,4 +248,38 @@ object ByteUtils {
             cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
     }
+
+    /**
+     * Format a double with the specified number of decimal places.
+     * Kotlin Multiplatform compatible alternative to String.format("%.2f", value).
+     */
+    fun formatDecimal(value: Double, decimals: Int = 2): String {
+        val multiplier = pow10(decimals)
+        val rounded = kotlin.math.round(value * multiplier) / multiplier
+        val parts = rounded.toString().split(".")
+        val intPart = parts[0]
+        val decPart = if (parts.size > 1) parts[1] else ""
+        return if (decimals > 0) {
+            "$intPart.${decPart.padEnd(decimals, '0').take(decimals)}"
+        } else {
+            intPart
+        }
+    }
+
+    /**
+     * Power of 10 helper for formatting.
+     */
+    private fun pow10(n: Int): Double {
+        var result = 1.0
+        repeat(n) { result *= 10.0 }
+        return result
+    }
+
+    /**
+     * Format a byte as 2-digit hex string.
+     */
+    fun formatHex(byte: Byte): String {
+        val hex = (byte.toInt() and 0xFF).toString(16).uppercase()
+        return if (hex.length == 1) "0$hex" else hex
+    }
 }

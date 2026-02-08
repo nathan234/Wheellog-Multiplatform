@@ -459,23 +459,13 @@ class InmotionDecoder : WheelDecoder {
             val alertSpeed = abs((alertValue2 / 3812.0) * 3.6)
 
             val fullText = when (alertId) {
-                0x05 -> "Start from tilt angle %.2f at speed %.2f".format(
-                    alertValue / 100.0, alertSpeed
-                )
-                0x06 -> "Tiltback at speed %.2f at limit %.2f".format(
-                    alertSpeed, alertValue / 1000.0
-                )
+                0x05 -> "Start from tilt angle ${ByteUtils.formatDecimal(alertValue / 100.0)} at speed ${ByteUtils.formatDecimal(alertSpeed)}"
+                0x06 -> "Tiltback at speed ${ByteUtils.formatDecimal(alertSpeed)} at limit ${ByteUtils.formatDecimal(alertValue / 1000.0)}"
                 0x19 -> "Fall Down"
-                0x20 -> "Low battery at voltage %.2f".format(alertValue2 / 100.0)
-                0x21 -> "Speed cut-off at speed %.2f and something %.2f".format(
-                    alertSpeed, alertValue / 10.0
-                )
-                0x26 -> "High load at speed %.2f and current %.2f".format(
-                    alertSpeed, alertValue / 1000.0
-                )
-                0x1d -> "Please repair: bad battery cell found. At voltage %.2f".format(
-                    alertValue2 / 100.0
-                )
+                0x20 -> "Low battery at voltage ${ByteUtils.formatDecimal(alertValue2 / 100.0)}"
+                0x21 -> "Speed cut-off at speed ${ByteUtils.formatDecimal(alertSpeed)} and something ${ByteUtils.formatDecimal(alertValue / 10.0)}"
+                0x26 -> "High load at speed ${ByteUtils.formatDecimal(alertSpeed)} and current ${ByteUtils.formatDecimal(alertValue / 1000.0)}"
+                0x1d -> "Please repair: bad battery cell found. At voltage ${ByteUtils.formatDecimal(alertValue2 / 100.0)}"
                 else -> "Unknown Alert: ID=$alertId value=$alertValue value2=$alertValue2"
             }
 
@@ -520,7 +510,7 @@ class InmotionDecoder : WheelDecoder {
             // Parse serial number (bytes 0-7, reversed hex)
             val serialNumber = StringBuilder()
             for (j in 0 until 8) {
-                serialNumber.append("%02X".format(exData[7 - j]))
+                serialNumber.append(ByteUtils.formatHex(exData[7 - j]))
             }
 
             // Parse settings

@@ -63,23 +63,25 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 - [x] CommandScheduler for delayed commands
 - [x] Unit tests for timer components
 
-### 3.3 Android BLE Implementation
-- [ ] Implement BleManager.android.kt with blessed-android
-- [ ] Bridge to existing BluetoothService (incremental migration)
-- [ ] Characteristic read/write with chunking (20-byte for Inmotion)
-- [ ] MTU negotiation
-- [ ] Integration tests
+### 3.3 Android BLE Implementation ✅
+- [x] Implement BleManager.android.kt with blessed-android
+- [x] Bridge mode for existing BluetoothService (incremental migration)
+- [x] Characteristic read/write with chunking (20-byte for Inmotion)
+- [x] MTU negotiation support
+- [x] WheelConnectionInfo for connection configuration
+- [ ] Integration tests (requires device)
 
-### 3.4 iOS BLE Implementation
-- [ ] Implement BleManager.ios.kt with CoreBluetooth
-- [ ] CBCentralManager wrapper
-- [ ] CBPeripheral handling
-- [ ] Characteristic discovery and notification
+### 3.4 iOS BLE Implementation (Stub)
+- [x] BleManager.ios.kt stub with CoreBluetooth documentation
+- [ ] CBCentralManager wrapper (TODO)
+- [ ] CBPeripheral handling (TODO)
+- [ ] Characteristic discovery and notification (TODO)
 
-### 3.5 Keep-Alive Timer
-- [ ] Platform-agnostic timer abstraction
-- [ ] Decoder-specific intervals (see table below)
-- [ ] Unit tests for timer behavior
+### 3.5 Keep-Alive Timer ✅
+- [x] Platform-agnostic timer abstraction (KeepAliveTimer)
+- [x] Decoder-specific intervals (see table below)
+- [x] Unit tests for timer behavior
+- [x] currentTimeMillis expect/actual for Android/iOS
 
 **Keep-Alive Intervals by Decoder**:
 | Decoder | Interval (ms) |
@@ -196,15 +198,24 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 
 ## Current Status
 
-**Last Updated**: 2024-02-07
+**Last Updated**: 2026-02-07
 
 **Recent Commits**:
+- `84e2aac` Add keep-alive timer and complete WheelConnectionManager
 - `0966f78` Add Inmotion and Ninebot decoders to KMP core module
 - `b21ba88` Add decoder verification tests for KMP core module
 - `3c4f1ea` Add Kotlin Multiplatform core module for iOS support
 
+**Completed in BLE Phase**:
+- [x] BleUuids.kt with all service/characteristic UUIDs
+- [x] WheelTypeDetector for wheel type detection from services
+- [x] WheelConnectionInfo for connection configuration
+- [x] Android BleManager with blessed-android integration
+- [x] KeepAliveTimer, DataTimeoutTracker, CommandScheduler
+- [x] Unit tests for timer components and WheelConnectionInfo
+
 **Next Steps**:
-1. Create BleUuids.kt with all service/characteristic UUIDs
-2. Implement WheelTypeDetector
-3. Add unit tests for wheel type detection
-4. Complete WheelConnectionManager with timer support
+1. Implement iOS BleManager with CoreBluetooth
+2. Create iOS Xcode project scaffold
+3. Bridge Android app to use KMP WheelConnectionManager
+4. Add integration tests with real wheel connections

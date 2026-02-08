@@ -38,6 +38,8 @@ kotlin {
 
         androidMain.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+            // blessed-android for BLE communication
+            implementation("com.github.weliem:blessed-android:2.4.1")
         }
 
         // iosMain is automatically created by the default hierarchy template

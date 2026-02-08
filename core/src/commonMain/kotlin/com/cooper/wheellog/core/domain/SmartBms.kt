@@ -79,6 +79,7 @@ class SmartBms {
         minCell = 0.0
         maxCell = 0.0
         cellDiff = 0.0
+        avgCell = 0.0
         minCellNum = 0
         maxCellNum = 0
         cellNum = 0

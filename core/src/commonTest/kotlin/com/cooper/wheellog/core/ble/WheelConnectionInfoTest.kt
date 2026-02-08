@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
  * Tests for WheelConnectionInfo factory methods and data class.
@@ -132,7 +133,7 @@ class WheelConnectionInfoTest {
 
         assertEquals(info1, info2)
         assertEquals(info1.hashCode(), info2.hashCode())
-        assert(info1 != info3)
+        assertTrue { info1 != info3 }
     }
 
     @Test

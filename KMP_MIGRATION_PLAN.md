@@ -53,14 +53,15 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 - [x] Create `WheelTypeDetector` to identify wheel type from services
 - [x] Unit tests for UUID matching and wheel detection
 
-### 3.2 BLE Abstractions (Common)
+### 3.2 BLE Abstractions (Common) ✅
 - [x] ConnectionState sealed class
 - [x] BleDevice data class
 - [x] BleManager expect class (stubs)
-- [x] WheelConnectionManager (skeleton)
-- [ ] Complete WheelConnectionManager with keep-alive timer
-- [ ] BleCharacteristic abstraction
-- [ ] Unit tests for connection state machine
+- [x] WheelConnectionManager with keep-alive timer
+- [x] KeepAliveTimer for periodic commands
+- [x] DataTimeoutTracker for connection loss detection
+- [x] CommandScheduler for delayed commands
+- [x] Unit tests for timer components
 
 ### 3.3 Android BLE Implementation
 - [ ] Implement BleManager.android.kt with blessed-android

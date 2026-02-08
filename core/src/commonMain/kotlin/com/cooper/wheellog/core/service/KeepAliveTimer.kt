@@ -1,5 +1,6 @@
 package com.cooper.wheellog.core.service
 
+import com.cooper.wheellog.core.utils.Logger
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,7 +70,7 @@ class KeepAliveTimer(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    // Log error but continue timer
+                    Logger.e("KeepAliveTimer", "Error in timer tick callback", e)
                 }
                 delay(intervalMs)
             }
@@ -153,7 +154,7 @@ class DataTimeoutTracker(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        // Log error
+                        Logger.e("DataTimeoutTracker", "Error in timeout callback", e)
                     }
                     break
                 }
@@ -197,6 +198,7 @@ class CommandScheduler(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     private val pendingJobs = mutableListOf<Job>()
+    private val lock = com.cooper.wheellog.core.utils.Lock()
 
     /**
      * Schedule a command to be executed after a delay.
@@ -212,27 +214,44 @@ class CommandScheduler(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // Log error
+                Logger.e("CommandScheduler", "Error executing scheduled command", e)
             }
         }
-        pendingJobs.add(job)
 
-        // Clean up completed jobs
-        pendingJobs.removeAll { !it.isActive }
+        lock.lock()
+        try {
+            pendingJobs.add(job)
+            // Clean up completed jobs
+            pendingJobs.removeAll { !it.isActive }
+        } finally {
+            lock.unlock()
+        }
     }
 
     /**
      * Cancel all pending commands.
      */
     fun cancelAll() {
-        pendingJobs.forEach { it.cancel() }
-        pendingJobs.clear()
+        lock.lock()
+        try {
+            pendingJobs.forEach { it.cancel() }
+            pendingJobs.clear()
+        } finally {
+            lock.unlock()
+        }
     }
 
     /**
      * Get the number of pending commands.
      */
-    fun pendingCount(): Int = pendingJobs.count { it.isActive }
+    fun pendingCount(): Int {
+        lock.lock()
+        try {
+            return pendingJobs.count { it.isActive }
+        } finally {
+            lock.unlock()
+        }
+    }
 }
 
 /**

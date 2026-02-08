@@ -3,6 +3,8 @@ package com.cooper.wheellog.core.protocol
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -18,132 +20,139 @@ import kotlin.math.roundToInt
  *
  * Frame format: AA AA [data with 0xA5 escapes] [checksum] 55 55
  * CAN message structure: 4-byte ID, 8-byte data, len, ch, format, type, [extended_data]
+ *
+ * This class is thread-safe.
  */
 class InmotionDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.INMOTION
 
+    private val stateLock = Lock()
     private val unpacker = InmotionUnpacker()
     private var model = Model.UNKNOWN
     private var isReady = false
     private var needSlowData = true
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        var newState = currentState
-        var hasNewData = false
-        val commands = mutableListOf<WheelCommand>()
-        var news: String? = null
+        return stateLock.withLock {
+            var newState = currentState
+            var hasNewData = false
+            val commands = mutableListOf<WheelCommand>()
+            var news: String? = null
 
-        // Process each byte through the unpacker
-        for (byte in data) {
-            if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                val buffer = unpacker.getBuffer()
-                val canMessage = CANMessage.verify(buffer)
+            // Process each byte through the unpacker
+            for (byte in data) {
+                if (unpacker.addChar(byte.toInt() and 0xFF)) {
+                    val buffer = unpacker.getBuffer()
+                    val canMessage = CANMessage.verify(buffer)
 
-                if (canMessage != null) {
-                    val idValue = IDValue.fromInt(canMessage.id)
+                    if (canMessage != null) {
+                        val idValue = IDValue.fromInt(canMessage.id)
 
-                    when (idValue) {
-                        IDValue.GetFastInfo -> {
-                            val result = canMessage.parseFastInfoMessage(model, newState, config)
-                            if (result != null) {
-                                newState = result.state
-                                hasNewData = true
-                                result.news?.let { news = it }
-                            }
-                        }
-
-                        IDValue.Alert -> {
-                            val alertResult = canMessage.parseAlertInfoMessage(newState)
-                            if (alertResult != null) {
-                                newState = alertResult.state
-                                news = alertResult.news
-                            }
-                        }
-
-                        IDValue.GetSlowInfo -> {
-                            if (canMessage.isValid()) {
-                                needSlowData = false
-                            }
-                            val result = canMessage.parseSlowInfoMessage(newState)
-                            if (result != null) {
-                                newState = result.state
-                                if (result.detectedModel != Model.UNKNOWN) {
-                                    model = result.detectedModel
-                                    isReady = true
+                        when (idValue) {
+                            IDValue.GetFastInfo -> {
+                                val result = canMessage.parseFastInfoMessage(model, newState, config)
+                                if (result != null) {
+                                    newState = result.state
+                                    hasNewData = true
+                                    result.news?.let { news = it }
                                 }
                             }
-                        }
 
-                        IDValue.PinCode -> {
-                            // Password accepted
-                        }
-
-                        IDValue.Calibration -> {
-                            news = if (canMessage.data[0] == 1.toByte()) {
-                                "Calibration success"
-                            } else {
-                                "Calibration failed"
+                            IDValue.Alert -> {
+                                val alertResult = canMessage.parseAlertInfoMessage(newState)
+                                if (alertResult != null) {
+                                    newState = alertResult.state
+                                    news = alertResult.news
+                                }
                             }
-                        }
 
-                        IDValue.RideMode -> {
-                            news = if (canMessage.data[0] == 1.toByte()) {
-                                "Ride mode changed"
-                            } else {
-                                "Ride mode change failed"
+                            IDValue.GetSlowInfo -> {
+                                if (canMessage.isValid()) {
+                                    needSlowData = false
+                                }
+                                val result = canMessage.parseSlowInfoMessage(newState)
+                                if (result != null) {
+                                    newState = result.state
+                                    if (result.detectedModel != Model.UNKNOWN) {
+                                        model = result.detectedModel
+                                        isReady = true
+                                    }
+                                }
                             }
-                        }
 
-                        IDValue.Light -> {
-                            news = if (canMessage.data[0] == 1.toByte()) {
-                                "Light toggled"
-                            } else {
-                                "Light toggle failed"
+                            IDValue.PinCode -> {
+                                // Password accepted
                             }
-                        }
 
-                        IDValue.HandleButton -> {
-                            news = if (canMessage.data[0] == 1.toByte()) {
-                                "Handle button setting changed"
-                            } else {
-                                "Handle button setting failed"
+                            IDValue.Calibration -> {
+                                news = if (canMessage.data[0] == 1.toByte()) {
+                                    "Calibration success"
+                                } else {
+                                    "Calibration failed"
+                                }
                             }
-                        }
 
-                        IDValue.SpeakerVolume -> {
-                            news = if (canMessage.data[0] == 1.toByte()) {
-                                "Speaker volume changed"
-                            } else {
-                                "Speaker volume change failed"
+                            IDValue.RideMode -> {
+                                news = if (canMessage.data[0] == 1.toByte()) {
+                                    "Ride mode changed"
+                                } else {
+                                    "Ride mode change failed"
+                                }
                             }
-                        }
 
-                        else -> {
-                            // Unknown message ID
+                            IDValue.Light -> {
+                                news = if (canMessage.data[0] == 1.toByte()) {
+                                    "Light toggled"
+                                } else {
+                                    "Light toggle failed"
+                                }
+                            }
+
+                            IDValue.HandleButton -> {
+                                news = if (canMessage.data[0] == 1.toByte()) {
+                                    "Handle button setting changed"
+                                } else {
+                                    "Handle button setting failed"
+                                }
+                            }
+
+                            IDValue.SpeakerVolume -> {
+                                news = if (canMessage.data[0] == 1.toByte()) {
+                                    "Speaker volume changed"
+                                } else {
+                                    "Speaker volume change failed"
+                                }
+                            }
+
+                            else -> {
+                                // Unknown message ID
+                            }
                         }
                     }
                 }
             }
-        }
 
-        return if (hasNewData || newState != currentState) {
-            DecodedData(
-                newState = newState,
-                commands = commands,
-                hasNewData = hasNewData,
-                news = news
-            )
-        } else null
+            if (hasNewData || newState != currentState) {
+                DecodedData(
+                    newState = newState,
+                    commands = commands,
+                    hasNewData = hasNewData,
+                    news = news
+                )
+            } else null
+        }
     }
 
-    override fun isReady(): Boolean = isReady && model != Model.UNKNOWN
+    override fun isReady(): Boolean = stateLock.withLock { isReady && model != Model.UNKNOWN }
 
     override fun reset() {
-        unpacker.reset()
-        model = Model.UNKNOWN
-        isReady = false
-        needSlowData = true
+        stateLock.withLock {
+            unpacker.reset()
+            model = Model.UNKNOWN
+            isReady = false
+            needSlowData = true
+        }
     }
 
     override fun getInitCommands(): List<WheelCommand> {

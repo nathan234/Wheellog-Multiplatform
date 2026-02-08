@@ -4,6 +4,8 @@ import com.cooper.wheellog.core.domain.SmartBms
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -15,10 +17,13 @@ import kotlin.math.roundToInt
  * - ExtremeBull
  * - Freestyl3r (custom firmware with hardware PWM)
  * - SmirnoV/SV (Alexovik custom firmware)
+ *
+ * This class is thread-safe.
  */
 class GotwayDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.GOTWAY
+    private val stateLock = Lock()
 
     private val unpacker = GotwayUnpacker()
     private var model = ""
@@ -37,74 +42,76 @@ class GotwayDecoder : WheelDecoder {
     private var bms2 = SmartBms()
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        var newState = currentState
-        var hasNewData = false
-        val commands = mutableListOf<WheelCommand>()
-        var news: String? = null
+        return stateLock.withLock {
+            var newState = currentState
+            var hasNewData = false
+            val commands = mutableListOf<WheelCommand>()
+            var news: String? = null
 
-        // Try to parse firmware/model info from string data
-        if (model.isEmpty() || fw.isEmpty()) {
-            val dataStr = data.decodeToString().trim()
-            when {
-                dataStr.startsWith("NAME") -> {
-                    model = dataStr.substring(5).trim()
-                    newState = newState.copy(model = model)
-                }
-                dataStr.startsWith("GW") -> {
-                    fw = dataStr.substring(2).trim()
-                    fwProt = "Begode"
-                    isReady = true
-                    newState = newState.copy(version = fw)
-                }
-                dataStr.startsWith("JN") -> {
-                    fw = dataStr.substring(2).trim()
-                    fwProt = "ExtremeBull"
-                    isReady = true
-                    newState = newState.copy(version = fw)
-                }
-                dataStr.startsWith("CF") -> {
-                    fw = dataStr.substring(2).trim()
-                    fwProt = "Freestyl3r"
-                    isReady = true
-                    newState = newState.copy(version = fw)
-                }
-                dataStr.startsWith("BF") -> {
-                    fw = dataStr.substring(2).trim()
-                    fwProt = "SV"
-                    isReady = true
-                    newState = newState.copy(version = fw)
-                }
-                dataStr.startsWith("MPU") -> {
-                    imu = dataStr.substring(1, minOf(7, dataStr.length)).trim()
+            // Try to parse firmware/model info from string data
+            if (model.isEmpty() || fw.isEmpty()) {
+                val dataStr = data.decodeToString().trim()
+                when {
+                    dataStr.startsWith("NAME") -> {
+                        model = dataStr.substring(5).trim()
+                        newState = newState.copy(model = model)
+                    }
+                    dataStr.startsWith("GW") -> {
+                        fw = dataStr.substring(2).trim()
+                        fwProt = "Begode"
+                        isReady = true
+                        newState = newState.copy(version = fw)
+                    }
+                    dataStr.startsWith("JN") -> {
+                        fw = dataStr.substring(2).trim()
+                        fwProt = "ExtremeBull"
+                        isReady = true
+                        newState = newState.copy(version = fw)
+                    }
+                    dataStr.startsWith("CF") -> {
+                        fw = dataStr.substring(2).trim()
+                        fwProt = "Freestyl3r"
+                        isReady = true
+                        newState = newState.copy(version = fw)
+                    }
+                    dataStr.startsWith("BF") -> {
+                        fw = dataStr.substring(2).trim()
+                        fwProt = "SV"
+                        isReady = true
+                        newState = newState.copy(version = fw)
+                    }
+                    dataStr.startsWith("MPU") -> {
+                        imu = dataStr.substring(1, minOf(7, dataStr.length)).trim()
+                    }
                 }
             }
-        }
 
-        // Process each byte through the unpacker
-        for (byte in data) {
-            if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                val buff = unpacker.getBuffer()
-                val result = processFrame(buff, newState, config)
-                if (result != null) {
-                    newState = result.state
-                    hasNewData = hasNewData || result.hasNewData
-                    result.news?.let { news = it }
-                    commands.addAll(result.commands)
+            // Process each byte through the unpacker
+            for (byte in data) {
+                if (unpacker.addChar(byte.toInt() and 0xFF)) {
+                    val buff = unpacker.getBuffer()
+                    val result = processFrame(buff, newState, config)
+                    if (result != null) {
+                        newState = result.state
+                        hasNewData = hasNewData || result.hasNewData
+                        result.news?.let { news = it }
+                        commands.addAll(result.commands)
+                    }
                 }
             }
-        }
 
-        return if (hasNewData || newState != currentState) {
-            DecodedData(
-                newState = newState.copy(
-                    bms1 = bms1,
-                    bms2 = bms2
-                ),
-                commands = commands,
-                hasNewData = hasNewData,
-                news = news
-            )
-        } else null
+            if (hasNewData || newState != currentState) {
+                DecodedData(
+                    newState = newState.copy(
+                        bms1 = bms1,
+                        bms2 = bms2
+                    ),
+                    commands = commands,
+                    hasNewData = hasNewData,
+                    news = news
+                )
+            } else null
+        }
     }
 
     private data class FrameResult(
@@ -456,22 +463,26 @@ class GotwayDecoder : WheelDecoder {
         return voltage.toDouble()
     }
 
-    override fun isReady(): Boolean = isReady && bms1.voltage > 0 || bms2.voltage > 0
+    override fun isReady(): Boolean = stateLock.withLock {
+        isReady && bms1.voltage > 0 || bms2.voltage > 0
+    }
 
     override fun reset() {
-        unpacker.reset()
-        model = ""
-        imu = ""
-        fw = ""
-        fwProt = ""
-        smartBmsCells = 0
-        trueVoltage = false
-        trueCurrent = false
-        bmsCurrent = false
-        truePWM = false
-        isReady = false
-        bms1 = SmartBms()
-        bms2 = SmartBms()
+        stateLock.withLock {
+            unpacker.reset()
+            model = ""
+            imu = ""
+            fw = ""
+            fwProt = ""
+            smartBmsCells = 0
+            trueVoltage = false
+            trueCurrent = false
+            bmsCurrent = false
+            truePWM = false
+            isReady = false
+            bms1 = SmartBms()
+            bms2 = SmartBms()
+        }
     }
 
     override fun getInitCommands(): List<WheelCommand> {

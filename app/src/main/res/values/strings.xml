@@ -195,6 +195,11 @@
     <string name="newton">N*m</string>
     <string name="max_speed_dial_title">Top limit of outer dial</string>
     <string name="max_speed_dial_description">The maximum number shown on the outer dial (speed or current)</string>
+    <string name="decoder_mode_title">Decoder Mode</string>
+    <string name="decoder_mode_description">Select which decoder implementation to use</string>
+    <string name="decoder_mode_legacy">Legacy Only</string>
+    <string name="decoder_mode_kmp">KMP Only</string>
+    <string name="decoder_mode_both">Both (Comparison)</string>
     <string name="measurement_systems_category_title">Measurement systems</string>
     <string name="use_mph_title">Use MPH</string>
     <string name="use_mph_description">Show speed in miles rather than kilometers</string>

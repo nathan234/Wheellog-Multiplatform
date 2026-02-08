@@ -3,6 +3,8 @@ package com.cooper.wheellog.core.protocol
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.roundToInt
 
 /**
@@ -22,12 +24,15 @@ import kotlin.math.roundToInt
  * - Command: Command byte (masked with 0x7F)
  * - Data: Variable length payload
  * - Checksum: XOR of all bytes from flags to end of data
+ *
+ * This class is thread-safe.
  */
 class InmotionV2Decoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.INMOTION_V2
     override val keepAliveIntervalMs: Long = 25L
 
+    private val stateLock = Lock()
     private val unpacker = InmotionV2Unpacker()
     private var model = Model.UNKNOWN
     private var protoVer = 0
@@ -87,7 +92,7 @@ class InmotionV2Decoder : WheelDecoder {
         const val CONTROL = 0x60
     }
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? = stateLock.withLock {
         var newState = currentState
         var hasNewData = false
         var news: String? = null
@@ -108,7 +113,7 @@ class InmotionV2Decoder : WheelDecoder {
             }
         }
 
-        return if (hasNewData || newState != currentState) {
+        if (hasNewData || newState != currentState) {
             DecodedData(
                 newState = newState,
                 hasNewData = hasNewData,
@@ -876,9 +881,9 @@ class InmotionV2Decoder : WheelDecoder {
         }.trim()
     }
 
-    override fun isReady(): Boolean = isModelDetected && version.isNotEmpty()
+    override fun isReady(): Boolean = stateLock.withLock { isModelDetected && version.isNotEmpty() }
 
-    override fun reset() {
+    override fun reset() = stateLock.withLock {
         unpacker.reset()
         model = Model.UNKNOWN
         protoVer = 0

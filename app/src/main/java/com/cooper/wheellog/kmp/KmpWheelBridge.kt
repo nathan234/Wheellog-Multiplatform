@@ -45,6 +45,12 @@ class KmpWheelBridge private constructor() {
     private var currentWheelType: WheelType = WheelType.Unknown
 
     /**
+     * When true, KMP state updates are synced to WheelData.
+     * Enable this when using KMP_ONLY mode so the existing UI continues to work.
+     */
+    var syncToWheelData: Boolean = false
+
+    /**
      * Current wheel state from KMP decoder.
      * Compare with WheelData values to validate decoder correctness.
      */
@@ -115,6 +121,11 @@ class KmpWheelBridge private constructor() {
                 result?.let { decoded ->
                     _wheelState.value = decoded.newState
 
+                    // Sync to WheelData when in KMP_ONLY mode
+                    if (syncToWheelData) {
+                        syncStateToWheelData(decoded.newState)
+                    }
+
                     // Log commands that would be sent (for debugging)
                     if (decoded.commands.isNotEmpty()) {
                         Timber.d("KmpWheelBridge: Decoder returned ${decoded.commands.size} commands")
@@ -159,6 +170,37 @@ class KmpWheelBridge private constructor() {
      */
     fun getKeepAliveIntervalMs(): Long {
         return currentDecoder?.keepAliveIntervalMs ?: 0
+    }
+
+    /**
+     * Sync KMP WheelState to legacy WheelData.
+     * Used in KMP_ONLY mode to keep the existing UI working.
+     */
+    private fun syncStateToWheelData(state: WheelState) {
+        val wd = WheelData.getInstance() ?: return
+
+        // Core telemetry
+        wd.setSpeed(state.speed)
+        wd.setVoltage(state.voltage)
+        wd.setPower(state.power)
+        wd.batteryLevel = state.batteryLevel
+        wd.setTemperature(state.temperature)
+
+        // Distance
+        wd.totalDistance = state.totalDistance
+        // wheelDistance is package-private, skip it
+
+        // Info
+        if (state.name.isNotEmpty()) wd.setName(state.name)
+        if (state.model.isNotEmpty()) wd.setModel(state.model)
+        if (state.serialNumber.isNotEmpty()) wd.setSerial(state.serialNumber)
+        if (state.version.isNotEmpty()) wd.setVersion(state.version)
+
+        // Additional telemetry
+        wd.setTemperature2(state.temperature2)
+        wd.setFanStatus(state.fanStatus)
+        wd.setOutput(state.output)
+        wd.setCpuLoad(state.cpuLoad)
     }
 
     /**

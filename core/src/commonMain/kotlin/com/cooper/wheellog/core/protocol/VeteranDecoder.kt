@@ -4,6 +4,8 @@ import com.cooper.wheellog.core.domain.SmartBms
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -136,10 +138,13 @@ class VeteranUnpacker {
  * - Lynx
  * - Oryx
  * - Nosfet Apex/Aero
+ *
+ * This class is thread-safe.
  */
 class VeteranDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.VETERAN
+    private val stateLock = Lock()
 
     private val unpacker = VeteranUnpacker()
     private var lastPacketTime = 0L
@@ -148,34 +153,36 @@ class VeteranDecoder : WheelDecoder {
     private var bms2 = SmartBms()
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        val currentTime = currentTimeMillis()
+        return stateLock.withLock {
+            val currentTime = currentTimeMillis()
 
-        // Reset unpacker if too much time has passed (packet loss)
-        if (currentTime - lastPacketTime > WAITING_TIME) {
-            unpacker.reset()
-        }
-        lastPacketTime = currentTime
+            // Reset unpacker if too much time has passed (packet loss)
+            if (currentTime - lastPacketTime > WAITING_TIME) {
+                unpacker.reset()
+            }
+            lastPacketTime = currentTime
 
-        var newState = currentState
-        var hasNewData = false
+            var newState = currentState
+            var hasNewData = false
 
-        for (byte in data) {
-            if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                val buff = unpacker.getBuffer()
-                val result = processFrame(buff, newState, config)
-                if (result != null) {
-                    newState = result
-                    hasNewData = true
+            for (byte in data) {
+                if (unpacker.addChar(byte.toInt() and 0xFF)) {
+                    val buff = unpacker.getBuffer()
+                    val result = processFrame(buff, newState, config)
+                    if (result != null) {
+                        newState = result
+                        hasNewData = true
+                    }
                 }
             }
-        }
 
-        return if (hasNewData) {
-            DecodedData(
-                newState = newState.copy(bms1 = bms1, bms2 = bms2),
-                hasNewData = true
-            )
-        } else null
+            if (hasNewData) {
+                DecodedData(
+                    newState = newState.copy(bms1 = bms1, bms2 = bms2),
+                    hasNewData = true
+                )
+            } else null
+        }
     }
 
     private fun processFrame(
@@ -416,14 +423,16 @@ class VeteranDecoder : WheelDecoder {
         }
     }
 
-    override fun isReady(): Boolean = mVer != 0
+    override fun isReady(): Boolean = stateLock.withLock { mVer != 0 }
 
     override fun reset() {
-        unpacker.reset()
-        lastPacketTime = 0
-        mVer = 0
-        bms1 = SmartBms()
-        bms2 = SmartBms()
+        stateLock.withLock {
+            unpacker.reset()
+            lastPacketTime = 0
+            mVer = 0
+            bms1 = SmartBms()
+            bms2 = SmartBms()
+        }
     }
 
     override fun getInitCommands(): List<WheelCommand> = emptyList()

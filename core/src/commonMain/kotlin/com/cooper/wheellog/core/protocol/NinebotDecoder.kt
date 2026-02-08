@@ -3,10 +3,14 @@ package com.cooper.wheellog.core.protocol
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
 
 /**
  * Ninebot protocol decoder.
+ *
+ * This class is thread-safe.
  *
  * Supports multiple protocol versions:
  * - Default: Standard Ninebot protocol
@@ -26,6 +30,7 @@ class NinebotDecoder(
 ) : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.NINEBOT
+    private val stateLock = Lock()
 
     private val unpacker = NinebotUnpacker()
 
@@ -151,33 +156,35 @@ class NinebotDecoder(
     }
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        var newState = currentState
-        var hasNewData = false
-        val commands = mutableListOf<WheelCommand>()
+        return stateLock.withLock {
+            var newState = currentState
+            var hasNewData = false
+            val commands = mutableListOf<WheelCommand>()
 
-        for (byte in data) {
-            if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                val buffer = unpacker.getBuffer()
-                val result = verifyAndParse(buffer)
+            for (byte in data) {
+                if (unpacker.addChar(byte.toInt() and 0xFF)) {
+                    val buffer = unpacker.getBuffer()
+                    val result = verifyAndParse(buffer)
 
-                if (result != null) {
-                    val frameResult = processMessage(result, newState)
-                    if (frameResult != null) {
-                        newState = frameResult.state
-                        hasNewData = hasNewData || frameResult.hasNewData
-                        commands.addAll(frameResult.commands)
+                    if (result != null) {
+                        val frameResult = processMessage(result, newState)
+                        if (frameResult != null) {
+                            newState = frameResult.state
+                            hasNewData = hasNewData || frameResult.hasNewData
+                            commands.addAll(frameResult.commands)
+                        }
                     }
                 }
             }
-        }
 
-        return if (hasNewData || newState != currentState) {
-            DecodedData(
-                newState = newState,
-                commands = commands,
-                hasNewData = hasNewData
-            )
-        } else null
+            if (hasNewData || newState != currentState) {
+                DecodedData(
+                    newState = newState,
+                    commands = commands,
+                    hasNewData = hasNewData
+                )
+            } else null
+        }
     }
 
     /**
@@ -470,24 +477,28 @@ class NinebotDecoder(
     )
 
     override fun isReady(): Boolean {
-        return serialNumber.isNotEmpty() &&
-                version.isNotEmpty() &&
-                voltage != 0
+        return stateLock.withLock {
+            serialNumber.isNotEmpty() &&
+                    version.isNotEmpty() &&
+                    voltage != 0
+        }
     }
 
     override fun reset() {
-        unpacker.reset()
-        connectionState = ConnectionState.WAITING_SERIAL
-        gamma = ByteArray(16) { 0 }
-        serialNumber = ""
-        version = ""
-        batt = 0
-        speed = 0
-        distance = 0
-        temperature = 0
-        voltage = 0
-        current = 0
-        power = 0
+        stateLock.withLock {
+            unpacker.reset()
+            connectionState = ConnectionState.WAITING_SERIAL
+            gamma = ByteArray(16) { 0 }
+            serialNumber = ""
+            version = ""
+            batt = 0
+            speed = 0
+            distance = 0
+            temperature = 0
+            voltage = 0
+            current = 0
+            power = 0
+        }
     }
 
     override val keepAliveIntervalMs: Long = 125L // 25ms * 5 steps

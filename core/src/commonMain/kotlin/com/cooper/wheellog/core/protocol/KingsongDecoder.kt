@@ -4,6 +4,8 @@ import com.cooper.wheellog.core.domain.SmartBms
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.roundToInt
 
 /**
@@ -16,11 +18,17 @@ import kotlin.math.roundToInt
  * - KS-14, KS-16, KS-18 series
  * - KS-S18, KS-S16, KS-S19, KS-S20, KS-S22
  * - KS-F18P, KS-F22P
+ *
+ * Thread-safe: All mutable state is protected by a lock.
  */
 class KingsongDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.KINGSONG
 
+    // Lock to protect mutable state from concurrent access
+    private val stateLock = Lock()
+
+    // Mutable state (protected by stateLock)
     private var ksAlarm1Speed = 0
     private var ksAlarm2Speed = 0
     private var ksAlarm3Speed = 0
@@ -46,27 +54,29 @@ class KingsongDecoder : WheelDecoder {
         val frameType = data[16].toInt() and 0xFF
         val commands = mutableListOf<WheelCommand>()
 
-        val newState = when (frameType) {
-            0xA9 -> processLiveData(data, currentState, config)
-            0xB9 -> processDistanceTimeData(data, currentState)
-            0xBB -> processNameTypeData(data, currentState)
-            0xB3 -> processSerialNumber(data, currentState, commands)
-            0xF5 -> processCpuLoadPwm(data, currentState)
-            0xF6 -> processSpeedLimit(data, currentState)
-            0xA4, 0xB5 -> processMaxSpeedAlerts(data, currentState, commands)
-            0xF1, 0xF2 -> processBmsData(data, currentState, frameType)
-            0xE1, 0xE2 -> processBmsSerial(data, frameType)
-            0xE5, 0xE6 -> processBmsFirmware(data, frameType)
-            else -> null
-        }
+        return stateLock.withLock {
+            val newState = when (frameType) {
+                0xA9 -> processLiveData(data, currentState, config)
+                0xB9 -> processDistanceTimeData(data, currentState)
+                0xBB -> processNameTypeData(data, currentState)
+                0xB3 -> processSerialNumber(data, currentState, commands)
+                0xF5 -> processCpuLoadPwm(data, currentState)
+                0xF6 -> processSpeedLimit(data, currentState)
+                0xA4, 0xB5 -> processMaxSpeedAlerts(data, currentState, commands)
+                0xF1, 0xF2 -> processBmsData(data, currentState, frameType)
+                0xE1, 0xE2 -> processBmsSerial(data, frameType)
+                0xE5, 0xE6 -> processBmsFirmware(data, frameType)
+                else -> null
+            }
 
-        return if (newState != null) {
-            DecodedData(
-                newState = newState.copy(bms1 = bms1, bms2 = bms2),
-                commands = commands,
-                hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5
-            )
-        } else null
+            if (newState != null) {
+                DecodedData(
+                    newState = newState.copy(bms1 = bms1, bms2 = bms2),
+                    commands = commands,
+                    hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5
+                )
+            } else null
+        }
     }
 
     /**
@@ -534,9 +544,11 @@ class KingsongDecoder : WheelDecoder {
         )
     }
 
-    override fun isReady(): Boolean = model.isNotEmpty() && bms1.voltage > 0
+    override fun isReady(): Boolean = stateLock.withLock {
+        model.isNotEmpty() && bms1.voltage > 0
+    }
 
-    override fun reset() {
+    override fun reset() = stateLock.withLock {
         ksAlarm1Speed = 0
         ksAlarm2Speed = 0
         ksAlarm3Speed = 0

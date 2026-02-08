@@ -2,6 +2,9 @@ package com.cooper.wheellog.core.service
 
 import com.cooper.wheellog.core.ble.DiscoveredService
 import com.cooper.wheellog.core.ble.DiscoveredServices
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.Logger
+import com.cooper.wheellog.core.utils.withLock
 import kotlinx.cinterop.*
 import kotlin.experimental.ExperimentalObjCName
 import kotlinx.cinterop.ObjCSignatureOverride
@@ -55,8 +58,9 @@ actual class BleManager {
     private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
     private var scanCallback: ((BleDevice) -> Unit)? = null
 
-    // Connection continuation for suspend function
+    // Connection continuation for suspend function (protected by continuationLock)
     private var connectionContinuation: CancellableContinuation<Result<BleConnection>>? = null
+    private val continuationLock = Lock()
 
     // Delegate instances (prevent garbage collection)
     private var centralDelegate: CBCentralManagerDelegateImpl? = null
@@ -120,7 +124,9 @@ actual class BleManager {
         _connectionState.value = ConnectionState.Connecting(address)
 
         return suspendCancellableCoroutine { continuation ->
-            connectionContinuation = continuation
+            continuationLock.withLock {
+                connectionContinuation = continuation
+            }
 
             // Try to retrieve peripheral by UUID
             val uuid = NSUUID(uUIDString = address)
@@ -133,15 +139,19 @@ actual class BleManager {
                 central.connectPeripheral(peripheral, options = null)
             } else {
                 // Peripheral not found, need to scan
-                continuation.resume(
-                    Result.failure(Exception("Peripheral not found: $address"))
-                ) {}
-                connectionContinuation = null
+                continuationLock.withLock {
+                    connectionContinuation?.resume(
+                        Result.failure(Exception("Peripheral not found: $address"))
+                    ) {}
+                    connectionContinuation = null
+                }
             }
 
             continuation.invokeOnCancellation {
                 currentPeripheral?.let { central.cancelPeripheralConnection(it) }
-                connectionContinuation = null
+                continuationLock.withLock {
+                    connectionContinuation = null
+                }
             }
         }
     }
@@ -263,8 +273,10 @@ actual class BleManager {
         val errorMessage = error?.localizedDescription ?: "Connection failed"
         _connectionState.value = ConnectionState.Failed(errorMessage)
 
-        connectionContinuation?.resume(Result.failure(Exception(errorMessage))) {}
-        connectionContinuation = null
+        continuationLock.withLock {
+            connectionContinuation?.resume(Result.failure(Exception(errorMessage))) {}
+            connectionContinuation = null
+        }
     }
 
     internal fun onPeripheralDisconnected(peripheral: CBPeripheral, error: NSError?) {
@@ -354,8 +366,10 @@ actual class BleManager {
                 wheelName = peripheral.name ?: "Unknown"
             )
 
-            connectionContinuation?.resume(Result.success(BleConnection(peripheral))) {}
-            connectionContinuation = null
+            continuationLock.withLock {
+                connectionContinuation?.resume(Result.success(BleConnection(peripheral))) {}
+                connectionContinuation = null
+            }
         }
     }
 

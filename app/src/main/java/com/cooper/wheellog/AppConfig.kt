@@ -56,6 +56,13 @@ class AppConfig(var context: Context): KoinComponent {
 
     var useComposeUI: Boolean = false
 
+    var decoderModeInt: Int
+        get() = getValue(R.string.decoder_mode, 0)
+        set(value) = setValue(R.string.decoder_mode, value)
+
+    val decoderMode: com.cooper.wheellog.kmp.DecoderMode
+        get() = com.cooper.wheellog.kmp.DecoderMode.fromInt(decoderModeInt)
+
     var dayNightThemeMode: Int
         get() = getValue(R.string.day_night_theme, MODE_NIGHT_UNSPECIFIED.toString()).toInt()
         set(value) = setValue(R.string.day_night_theme, value.toString())

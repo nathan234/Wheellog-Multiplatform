@@ -4,6 +4,8 @@ import com.cooper.wheellog.core.domain.SmartBms
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.withLock
 
 /**
  * Frame unpacker for Ninebot Z-series wheels (e.g., Z10).
@@ -370,10 +372,13 @@ enum class NinebotZConnectionState(val value: Int) {
  * - CRC16 checksum verification
  * - Dual BMS support with cell voltage, temperature, and health data
  * - Connection state machine for proper handshake sequence
+ *
+ * This class is thread-safe.
  */
 class NinebotZDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.NINEBOT_Z
+    private val stateLock = Lock()
 
     private val unpacker = NinebotZUnpacker()
     private var gamma = ByteArray(16) { 0 }
@@ -401,35 +406,37 @@ class NinebotZDecoder : WheelDecoder {
     private var speakerVolume = 0
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        var newState = currentState
-        var hasNewData = false
-        val commands = mutableListOf<WheelCommand>()
+        return stateLock.withLock {
+            var newState = currentState
+            var hasNewData = false
+            val commands = mutableListOf<WheelCommand>()
 
-        for (byte in data) {
-            if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                val buffer = unpacker.getBuffer()
-                val result = CANMessage.verify(buffer, gamma)
+            for (byte in data) {
+                if (unpacker.addChar(byte.toInt() and 0xFF)) {
+                    val buffer = unpacker.getBuffer()
+                    val result = CANMessage.verify(buffer, gamma)
 
-                if (result != null) {
-                    val parseResult = processMessage(result, newState)
-                    if (parseResult.first != null) {
-                        newState = parseResult.first!!
-                        hasNewData = parseResult.second
+                    if (result != null) {
+                        val parseResult = processMessage(result, newState)
+                        if (parseResult.first != null) {
+                            newState = parseResult.first!!
+                            hasNewData = parseResult.second
+                        }
+                        parseResult.third?.let { commands.add(it) }
                     }
-                    parseResult.third?.let { commands.add(it) }
+
+                    unpacker.reset()
                 }
-
-                unpacker.reset()
             }
-        }
 
-        return if (hasNewData || commands.isNotEmpty()) {
-            DecodedData(
-                newState = newState.copy(bms1 = bms1, bms2 = bms2),
-                hasNewData = hasNewData,
-                commands = commands
-            )
-        } else null
+            if (hasNewData || commands.isNotEmpty()) {
+                DecodedData(
+                    newState = newState.copy(bms1 = bms1, bms2 = bms2),
+                    hasNewData = hasNewData,
+                    commands = commands
+                )
+            } else null
+        }
     }
 
     /**
@@ -835,31 +842,35 @@ class NinebotZDecoder : WheelDecoder {
     }
 
     override fun isReady(): Boolean {
-        return connectionState == NinebotZConnectionState.READY
+        return stateLock.withLock {
+            connectionState == NinebotZConnectionState.READY
+        }
     }
 
     override fun reset() {
-        unpacker.reset()
-        gamma = ByteArray(16) { 0 }
-        connectionState = NinebotZConnectionState.INIT
-        bmsReadingMode = false
-        bms1 = SmartBms()
-        bms2 = SmartBms()
-        lockMode = 0
-        limitedMode = 0
-        limitModeSpeed = 0
-        alarms = 0
-        alarm1Speed = 0
-        alarm2Speed = 0
-        alarm3Speed = 0
-        ledMode = 0
-        ledColor1 = 0
-        ledColor2 = 0
-        ledColor3 = 0
-        ledColor4 = 0
-        pedalSensitivity = 0
-        driveFlags = 0
-        speakerVolume = 0
+        stateLock.withLock {
+            unpacker.reset()
+            gamma = ByteArray(16) { 0 }
+            connectionState = NinebotZConnectionState.INIT
+            bmsReadingMode = false
+            bms1 = SmartBms()
+            bms2 = SmartBms()
+            lockMode = 0
+            limitedMode = 0
+            limitModeSpeed = 0
+            alarms = 0
+            alarm1Speed = 0
+            alarm2Speed = 0
+            alarm3Speed = 0
+            ledMode = 0
+            ledColor1 = 0
+            ledColor2 = 0
+            ledColor3 = 0
+            ledColor4 = 0
+            pedalSensitivity = 0
+            driveFlags = 0
+            speakerVolume = 0
+        }
     }
 
     /**

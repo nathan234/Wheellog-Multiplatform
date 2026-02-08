@@ -137,6 +137,7 @@
     <string name="use_raw_data" translatable="false">use_raw_data</string>
 
     // APP PREFERENCES
+    <string name="decoder_mode" translatable="false">decoder_mode</string>
     <string name="use_mph" translatable="false">use_mph</string>
     <string name="use_fahrenheit" translatable="false">use_fahrenheit</string>
     <string name="use_eng" translatable="false">use_eng</string>

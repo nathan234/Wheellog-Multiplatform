@@ -55,3 +55,7 @@ app/schemas/*
 .kotlin/
 # Claude Code session data
 .claude/
+
+# Xcode user data
+iosApp/**/*.xcworkspace/
+iosApp/**/xcuserdata/

@@ -123,6 +123,7 @@ object StringUtil {
         } else {
             val currentDecimals = str.length - dotIndex - 1
             when {
+                decimals == 0 -> str.substring(0, dotIndex)  // No decimals - remove the dot
                 currentDecimals < decimals -> str + "0".repeat(decimals - currentDecimals)
                 currentDecimals > decimals -> str.substring(0, dotIndex + decimals + 1)
                 else -> str

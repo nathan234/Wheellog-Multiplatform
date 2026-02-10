@@ -3,11 +3,50 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
+    private let kmToMiles = 0.62137119223733
+
+    private var displaySpeed: Double {
+        wheelManager.useMph
+            ? wheelManager.wheelState.speedKmh * kmToMiles
+            : wheelManager.wheelState.speedKmh
+    }
+
+    private var speedUnit: String {
+        wheelManager.useMph ? "mph" : "km/h"
+    }
+
+    private var displayTemperature: String {
+        let tempC = wheelManager.wheelState.temperature
+        if wheelManager.useFahrenheit {
+            let tempF = Double(tempC) * 9.0 / 5.0 + 32
+            return String(format: "%.0f°F", tempF)
+        }
+        return "\(tempC)°C"
+    }
+
+    private func formatDistance(_ km: Double) -> String {
+        if wheelManager.useMph {
+            return String(format: "%.2f mi", km * kmToMiles)
+        }
+        return String(format: "%.2f km", km)
+    }
+
+    private func formatTotalDistance(_ km: Double) -> String {
+        if wheelManager.useMph {
+            return String(format: "%.1f mi", km * kmToMiles)
+        }
+        return String(format: "%.1f km", km)
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 // Speed gauge
-                SpeedGaugeView(speed: wheelManager.wheelState.speedKmh)
+                SpeedGaugeView(
+                    speed: displaySpeed,
+                    maxSpeed: wheelManager.useMph ? 31.0 : 50.0,
+                    unitLabel: speedUnit
+                )
                     .frame(height: 250)
                     .padding(.top)
 
@@ -22,7 +61,7 @@ struct DashboardView: View {
 
                     StatCard(
                         title: "Temperature",
-                        value: "\(wheelManager.wheelState.temperature)°C",
+                        value: displayTemperature,
                         icon: "thermometer",
                         color: temperatureColor
                     )
@@ -43,8 +82,8 @@ struct DashboardView: View {
 
                 // Distance stats
                 VStack(spacing: 12) {
-                    StatRow(label: "Trip Distance", value: String(format: "%.2f km", wheelManager.wheelState.wheelDistanceKm))
-                    StatRow(label: "Total Distance", value: String(format: "%.1f km", wheelManager.wheelState.totalDistanceKm))
+                    StatRow(label: "Trip Distance", value: formatDistance(wheelManager.wheelState.wheelDistanceKm))
+                    StatRow(label: "Total Distance", value: formatTotalDistance(wheelManager.wheelState.totalDistanceKm))
                 }
                 .padding()
                 .background(Color(.secondarySystemGroupedBackground))
@@ -118,6 +157,13 @@ struct DashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(destination: SettingsView()) {
+                    Image(systemName: "gearshape")
+                }
+            }
+        }
     }
 
     private var batteryIcon: String {
@@ -136,9 +182,10 @@ struct DashboardView: View {
     }
 
     private var temperatureColor: Color {
-        let temp = wheelManager.wheelState.temperature
-        if temp <= 40 { return .green }
-        if temp <= 55 { return .orange }
+        // Thresholds are in °C regardless of display unit
+        let tempC = wheelManager.wheelState.temperature
+        if tempC <= 40 { return .green }
+        if tempC <= 55 { return .orange }
         return .red
     }
 

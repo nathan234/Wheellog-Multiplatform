@@ -15,6 +15,14 @@ class WheelManager: ObservableObject {
     @Published var isMockMode: Bool = false
     @Published var isTestMode: Bool = false
 
+    // Unit preferences (persisted to UserDefaults, matching Android's use_mph / use_fahrenheit)
+    @Published var useMph: Bool = UserDefaults.standard.bool(forKey: "use_mph") {
+        didSet { UserDefaults.standard.set(useMph, forKey: "use_mph") }
+    }
+    @Published var useFahrenheit: Bool = UserDefaults.standard.bool(forKey: "use_fahrenheit") {
+        didSet { UserDefaults.standard.set(useFahrenheit, forKey: "use_fahrenheit") }
+    }
+
     // MARK: - KMP Components
 
     private var bleManager: BleManager?

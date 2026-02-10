@@ -331,6 +331,122 @@ class WheelStateTest {
         assertEquals(0.62137119223733, WheelState.KM_TO_MILES, 0.00000001)
     }
 
+    // ==================== Display-Layer Unit Conversion ====================
+    // These tests verify the conversion formulas used by both Android (MathsUtil)
+    // and iOS (DashboardView) produce identical results for typical EUC values.
+
+    @Test
+    fun `speed display - metric vs imperial at typical EUC speeds`() {
+        // Android: formatSpeed(kmh, useMph) = "%.1f mph" with MathsUtil.kmToMiles(kmh)
+        // iOS: displaySpeed = speedKmh * kmToMiles
+        val speeds = listOf(
+            WheelState(speed = 0),      // 0 km/h = 0 mph
+            WheelState(speed = 1500),   // 15 km/h = 9.3 mph (walking speed EUC)
+            WheelState(speed = 2500),   // 25 km/h = 15.5 mph (city cruising)
+            WheelState(speed = 4000),   // 40 km/h = 24.9 mph (fast cruising)
+            WheelState(speed = 5000),   // 50 km/h = 31.1 mph (high speed)
+            WheelState(speed = 8000),   // 80 km/h = 49.7 mph (Begode Master top speed)
+        )
+
+        val expectedMph = listOf(0.0, 9.32, 15.53, 24.85, 31.07, 49.71)
+
+        for (i in speeds.indices) {
+            // Verify speedKmh * KM_TO_MILES == speedMph (same formula both platforms use)
+            assertEquals(
+                speeds[i].speedKmh * WheelState.KM_TO_MILES,
+                speeds[i].speedMph,
+                0.001,
+                "speedMph should equal speedKmh * KM_TO_MILES for speed=${speeds[i].speed}"
+            )
+            assertEquals(expectedMph[i], speeds[i].speedMph, 0.01, "mph at ${speeds[i].speedKmh} km/h")
+        }
+    }
+
+    @Test
+    fun `distance display - metric vs imperial at typical EUC distances`() {
+        // Android: formatDistance(km, useMph) = "%.2f mi" with MathsUtil.kmToMiles(km)
+        // iOS: formatDistance(km) = "%.2f mi" with km * kmToMiles
+        val distances = listOf(
+            WheelState(wheelDistance = 500),      // 0.5 km trip
+            WheelState(wheelDistance = 5000),     // 5 km trip
+            WheelState(wheelDistance = 25000),    // 25 km trip (good range)
+            WheelState(wheelDistance = 80000),    // 80 km trip (max range)
+        )
+
+        val expectedMiles = listOf(0.31, 3.11, 15.53, 49.71)
+
+        for (i in distances.indices) {
+            val miles = distances[i].wheelDistanceKm * WheelState.KM_TO_MILES
+            assertEquals(expectedMiles[i], miles, 0.01, "miles at ${distances[i].wheelDistanceKm} km")
+        }
+    }
+
+    @Test
+    fun `total distance display - metric vs imperial`() {
+        val distances = listOf(
+            WheelState(totalDistance = 100000),     // 100 km
+            WheelState(totalDistance = 1500000),    // 1500 km
+            WheelState(totalDistance = 10000000),   // 10000 km (well-used wheel)
+        )
+
+        val expectedMiles = listOf(62.1, 932.1, 6213.7)
+
+        for (i in distances.indices) {
+            val miles = distances[i].totalDistanceKm * WheelState.KM_TO_MILES
+            assertEquals(expectedMiles[i], miles, 0.1, "miles at ${distances[i].totalDistanceKm} km")
+        }
+    }
+
+    @Test
+    fun `temperature display - Celsius vs Fahrenheit at EUC operating range`() {
+        // Android: MathsUtil.celsiusToFahrenheit(temp) = temp * 9.0 / 5.0 + 32
+        // iOS: Double(tempC) * 9.0 / 5.0 + 32
+        val temps = listOf(
+            WheelState(temperature = -1000),  // -10°C = 14°F (winter riding)
+            WheelState(temperature = 0),      //   0°C = 32°F (freezing)
+            WheelState(temperature = 2000),   //  20°C = 68°F (room temp)
+            WheelState(temperature = 2500),   //  25°C = 77°F (comfortable)
+            WheelState(temperature = 3500),   //  35°C = 95°F (warm motor)
+            WheelState(temperature = 4000),   //  40°C = 104°F (color threshold: green→orange)
+            WheelState(temperature = 5000),   //  50°C = 122°F (hot motor)
+            WheelState(temperature = 5500),   //  55°C = 131°F (color threshold: orange→red)
+            WheelState(temperature = 7000),   //  70°C = 158°F (overheating)
+        )
+
+        val expectedF = listOf(14.0, 32.0, 68.0, 77.0, 95.0, 104.0, 122.0, 131.0, 158.0)
+
+        for (i in temps.indices) {
+            assertEquals(
+                expectedF[i], temps[i].temperatureF, 0.1,
+                "°F at ${temps[i].temperatureC}°C"
+            )
+            // Verify formula: temperatureC * 9/5 + 32 == temperatureF
+            val manualF = temps[i].temperatureC * 9.0 / 5.0 + 32
+            assertEquals(temps[i].temperatureF, manualF, 0.001,
+                "temperatureF should match manual formula")
+        }
+    }
+
+    @Test
+    fun `conversion constant matches Android MathsUtil kmToMilesMultiplier`() {
+        // Android: MathsUtil.kmToMilesMultiplier = 0.62137119223733
+        // KMP:     WheelState.KM_TO_MILES         = 0.62137119223733
+        // iOS:     DashboardView.kmToMiles         = 0.62137119223733
+        // All three must be identical to avoid display discrepancies
+        assertEquals(0.62137119223733, WheelState.KM_TO_MILES)
+    }
+
+    @Test
+    fun `imperial conversion roundtrip preserves reasonable precision`() {
+        // Converting km→mi→km should not accumulate significant error
+        val originalKm = 42.195  // Marathon distance
+        val miles = originalKm * WheelState.KM_TO_MILES
+        val backToKm = miles / WheelState.KM_TO_MILES
+
+        assertEquals(originalKm, backToKm, 0.0001)
+        assertEquals(26.22, miles, 0.01)  // Marathon is ~26.22 miles
+    }
+
     // ==================== Data Class Copy ====================
 
     @Test

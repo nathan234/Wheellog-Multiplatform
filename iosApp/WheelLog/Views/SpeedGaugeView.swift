@@ -3,10 +3,12 @@ import SwiftUI
 struct SpeedGaugeView: View {
     let speed: Double
     let maxSpeed: Double
+    let unitLabel: String
 
-    init(speed: Double, maxSpeed: Double = 50.0) {
+    init(speed: Double, maxSpeed: Double = 50.0, unitLabel: String = "km/h") {
         self.speed = speed
         self.maxSpeed = maxSpeed
+        self.unitLabel = unitLabel
     }
 
     private var speedProgress: Double {
@@ -65,7 +67,7 @@ struct SpeedGaugeView: View {
                         .font(.system(size: size * 0.18, weight: .bold, design: .rounded))
                         .foregroundColor(speedColor)
 
-                    Text("km/h")
+                    Text(unitLabel)
                         .font(.system(size: size * 0.06))
                         .foregroundColor(.secondary)
                 }

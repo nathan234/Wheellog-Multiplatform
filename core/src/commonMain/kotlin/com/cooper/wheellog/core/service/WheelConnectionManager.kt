@@ -9,6 +9,7 @@ import com.cooper.wheellog.core.protocol.DecoderConfig
 import com.cooper.wheellog.core.protocol.WheelCommand
 import com.cooper.wheellog.core.protocol.WheelDecoder
 import com.cooper.wheellog.core.protocol.WheelDecoderFactory
+import com.cooper.wheellog.core.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -182,32 +183,42 @@ class WheelConnectionManager(
         lastDataReceivedTime = currentTimeMillis()
         dataTimeoutTracker.onDataReceived()
 
-        currentDecoder?.let { decoder ->
-            val result = decoder.decode(data, _wheelState.value, decoderConfig)
-            result?.let { decoded ->
-                _wheelState.value = decoded.newState
+        val decoder = currentDecoder
+        if (decoder == null) {
+            Logger.w("WheelConnectionManager", "Data received (${data.size} bytes) but no decoder set")
+            return
+        }
 
-                // Send any response commands
-                if (decoded.commands.isNotEmpty()) {
-                    scope.launch {
-                        decoded.commands.forEach { cmd ->
-                            sendCommand(cmd)
-                        }
-                    }
-                }
+        val result = decoder.decode(data, _wheelState.value, decoderConfig)
+        if (result == null) {
+            Logger.d("WheelConnectionManager", "decode() returned null for ${data.size} bytes (decoder=${decoder.wheelType})")
+            return
+        }
 
-                // Update connection state if decoder is ready
-                if (decoder.isReady() && _connectionState.value !is ConnectionState.Connected) {
-                    val address = getCurrentAddress() ?: ""
-                    _connectionState.value = ConnectionState.Connected(
-                        address = address,
-                        wheelName = decoded.newState.name.ifEmpty { decoded.newState.model }
-                    )
+        _wheelState.value = result.newState
 
-                    // Start keep-alive timer now that we're fully connected
-                    startKeepAliveTimer()
+        // Send any response commands
+        if (result.commands.isNotEmpty()) {
+            scope.launch {
+                result.commands.forEach { cmd ->
+                    sendCommand(cmd)
                 }
             }
+        }
+
+        // Update connection state if decoder is ready
+        if (decoder.isReady() && _connectionState.value !is ConnectionState.Connected) {
+            val address = getCurrentAddress() ?: ""
+            Logger.d("WheelConnectionManager", "Decoder ready, transitioning to Connected")
+            _connectionState.value = ConnectionState.Connected(
+                address = address,
+                wheelName = result.newState.name.ifEmpty { result.newState.model }
+            )
+
+            // Start keep-alive timer now that we're fully connected
+            startKeepAliveTimer()
+        } else if (!decoder.isReady()) {
+            Logger.d("WheelConnectionManager", "Decoded OK but isReady()=false (decoder=${decoder.wheelType})")
         }
     }
 
@@ -219,10 +230,13 @@ class WheelConnectionManager(
      * @param deviceName The device name for detection heuristics
      */
     fun onServicesDiscovered(services: DiscoveredServices, deviceName: String?) {
+        Logger.d("WheelConnectionManager", "onServicesDiscovered: deviceName=$deviceName, services=${services.serviceUuids()}")
         val result = wheelTypeDetector.detect(services, deviceName)
+        Logger.d("WheelConnectionManager", "Detection result: $result")
 
         when (result) {
             is WheelTypeDetector.DetectionResult.Detected -> {
+                Logger.d("WheelConnectionManager", "Detected: ${result.wheelType}, read=${result.readServiceUuid}/${result.readCharacteristicUuid}")
                 connectionInfo = WheelConnectionInfo(
                     wheelType = result.wheelType,
                     readServiceUuid = result.readServiceUuid,
@@ -233,10 +247,12 @@ class WheelConnectionManager(
                 setupDecoder(result.wheelType)
             }
             is WheelTypeDetector.DetectionResult.Ambiguous -> {
-                // Use auto-detect decoder for ambiguous cases
+                Logger.d("WheelConnectionManager", "Ambiguous: ${result.possibleTypes}, using GOTWAY_VIRTUAL")
+                connectionInfo = wheelTypeDetector.getUuidsForType(WheelType.GOTWAY_VIRTUAL)
                 setupDecoder(WheelType.GOTWAY_VIRTUAL)
             }
             is WheelTypeDetector.DetectionResult.Unknown -> {
+                Logger.w("WheelConnectionManager", "Unknown wheel: ${result.reason}")
                 _connectionState.value = ConnectionState.Failed(
                     "Unknown wheel type: ${result.reason}"
                 )

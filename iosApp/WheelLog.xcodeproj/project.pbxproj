@@ -7,23 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		/* App files */
 		A1000001221F0000000001 /* WheelLogApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000011 /* WheelLogApp.swift */; };
 		A1000001221F0000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000012 /* ContentView.swift */; };
 		A1000001221F0000000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000013 /* Assets.xcassets */; };
-		/* Bridge files */
 		A1000001221F0000000004 /* WheelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000014 /* WheelManager.swift */; };
 		A1000001221F0000000005 /* StateFlowObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000015 /* StateFlowObserver.swift */; };
-		A1000001221F000000000A /* MockDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F000000001B /* MockDataProvider.swift */; };
-		/* View files */
 		A1000001221F0000000006 /* ScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000016 /* ScanView.swift */; };
 		A1000001221F0000000007 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000017 /* DashboardView.swift */; };
 		A1000001221F0000000008 /* SpeedGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000018 /* SpeedGaugeView.swift */; };
 		A1000001221F0000000009 /* ConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000019 /* ConnectionBanner.swift */; };
+		A1000001221F000000000A /* MockDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F000000001B /* MockDataProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A1000001221F0000000100 /* WheelLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WheelLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000001221F0000000011 /* WheelLogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelLogApp.swift; sourceTree = "<group>"; };
 		A1000001221F0000000012 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A1000001221F0000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -35,6 +31,7 @@
 		A1000001221F0000000019 /* ConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionBanner.swift; sourceTree = "<group>"; };
 		A1000001221F000000001A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1000001221F000000001B /* MockDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDataProvider.swift; sourceTree = "<group>"; };
+		A1000001221F0000000100 /* WheelLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WheelLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -342,10 +339,13 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
-				FRAMEWORK_SEARCH_PATHS = (
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../core/build/bin/iosArm64/releaseFramework",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"$(SRCROOT)/../core/build/bin/iosSimulatorArm64/releaseFramework",
-					"$(SRCROOT)/../core/build/bin/iosArm64/releaseFramework",
 					"$(SRCROOT)/../core/build/bin/iosX64/releaseFramework",
 				);
 				GENERATE_INFOPLIST_FILE = NO;
@@ -367,7 +367,7 @@
 					"-framework",
 					WheelLogCore,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.cooper.wheellog;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wheellog.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -385,10 +385,13 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
-				FRAMEWORK_SEARCH_PATHS = (
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(SRCROOT)/../core/build/bin/iosArm64/releaseFramework",
+				);
+				"FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					"$(SRCROOT)/../core/build/bin/iosSimulatorArm64/releaseFramework",
-					"$(SRCROOT)/../core/build/bin/iosArm64/releaseFramework",
 					"$(SRCROOT)/../core/build/bin/iosX64/releaseFramework",
 				);
 				GENERATE_INFOPLIST_FILE = NO;
@@ -410,7 +413,7 @@
 					"-framework",
 					WheelLogCore,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.cooper.wheellog;
+				PRODUCT_BUNDLE_IDENTIFIER = com.wheellog.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

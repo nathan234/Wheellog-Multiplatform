@@ -62,6 +62,9 @@ actual class BleManager {
     private var connectionContinuation: CancellableContinuation<Result<BleConnection>>? = null
     private val continuationLock = Lock()
 
+    // Track which services have completed characteristic discovery
+    private val discoveredServiceUuids = mutableSetOf<String>()
+
     // Delegate instances (prevent garbage collection)
     private var centralDelegate: CBCentralManagerDelegateImpl? = null
     private var peripheralDelegate: CBPeripheralDelegateImpl? = null
@@ -163,6 +166,7 @@ actual class BleManager {
         currentPeripheral = null
         writeCharacteristic = null
         readCharacteristic = null
+        discoveredServiceUuids.clear()
         _connectionState.value = ConnectionState.Disconnected
     }
 
@@ -293,6 +297,7 @@ actual class BleManager {
         currentPeripheral = null
         writeCharacteristic = null
         readCharacteristic = null
+        discoveredServiceUuids.clear()
     }
 
     internal fun onServicesDiscovered(peripheral: CBPeripheral, error: NSError?) {
@@ -312,52 +317,43 @@ actual class BleManager {
     }
 
     internal fun onCharacteristicsDiscovered(peripheral: CBPeripheral, service: CBService, error: NSError?) {
+        val serviceUuid = service.UUID.UUIDString
+
         if (error != null) {
-            return
+            Logger.w("BleManager", "Characteristic discovery error for service $serviceUuid: ${error.localizedDescription}")
         }
 
-        // Check if this is our read or write service
-        val serviceUuid = service.UUID.UUIDString.lowercase()
+        // Track this service as having completed characteristic discovery
+        discoveredServiceUuids.add(serviceUuid.lowercase())
 
-        if (readServiceUuid != null && serviceUuid == readServiceUuid?.lowercase()) {
-            readCharacteristic = service.characteristics?.firstOrNull { char ->
-                (char as? CBCharacteristic)?.UUID?.UUIDString?.lowercase() == readCharUuid?.lowercase()
-            } as? CBCharacteristic
-
-            // Enable notifications for read characteristic
-            readCharacteristic?.let { char ->
-                peripheral.setNotifyValue(true, char)
-            }
-        }
-
-        if (writeServiceUuid != null && serviceUuid == writeServiceUuid?.lowercase()) {
-            writeCharacteristic = service.characteristics?.firstOrNull { char ->
-                (char as? CBCharacteristic)?.UUID?.UUIDString?.lowercase() == writeCharUuid?.lowercase()
-            } as? CBCharacteristic
-        }
-
-        // Check if all services have been discovered
-        val allServicesDiscovered = peripheral.services?.all { svc ->
-            (svc as? CBService)?.characteristics != null
-        } ?: false
+        // Check if all services have completed characteristic discovery
+        val totalServices = peripheral.services?.size ?: 0
+        val allServicesDiscovered = discoveredServiceUuids.size >= totalServices
 
         if (allServicesDiscovered) {
-            // Build complete DiscoveredServices
+            // Build complete DiscoveredServices (expand short CoreBluetooth UUIDs to 128-bit)
             val discoveredServices = peripheral.services?.mapNotNull { svc ->
                 (svc as? CBService)?.let { cbService ->
                     DiscoveredService(
-                        uuid = cbService.UUID.UUIDString,
+                        uuid = expandCoreBluetoothUuid(cbService.UUID.UUIDString),
                         characteristics = cbService.characteristics?.mapNotNull { char ->
-                            (char as? CBCharacteristic)?.UUID?.UUIDString
+                            (char as? CBCharacteristic)?.let {
+                                expandCoreBluetoothUuid(it.UUID.UUIDString)
+                            }
                         } ?: emptyList()
                     )
                 }
             } ?: emptyList()
 
+            // Invoke callback — this triggers wheel type detection and configureForWheel()
             onServicesDiscoveredCallback?.invoke(
                 DiscoveredServices(discoveredServices),
                 peripheral.name
             )
+
+            // Now that UUIDs are configured (via callback → Swift → configureForWheel),
+            // match and subscribe to the correct characteristics
+            setupCharacteristics(peripheral)
 
             // Connection complete
             val address = peripheral.identifier.UUIDString
@@ -373,13 +369,68 @@ actual class BleManager {
         }
     }
 
+    /**
+     * Match read/write characteristics against the configured UUIDs and enable notifications.
+     * Must be called after configureForWheel() has set the UUID fields.
+     */
+    private fun setupCharacteristics(peripheral: CBPeripheral) {
+        val rServiceUuid = readServiceUuid?.lowercase()
+        val rCharUuid = readCharUuid?.lowercase()
+        val wServiceUuid = writeServiceUuid?.lowercase()
+        val wCharUuid = writeCharUuid?.lowercase()
+
+        if (rServiceUuid == null || rCharUuid == null) {
+            Logger.w("BleManager", "Read UUIDs not configured, cannot set up characteristics")
+            return
+        }
+
+        peripheral.services?.forEach { svc ->
+            val cbService = svc as? CBService ?: return@forEach
+            val serviceUuid = expandCoreBluetoothUuid(cbService.UUID.UUIDString).lowercase()
+
+            if (serviceUuid == rServiceUuid) {
+                readCharacteristic = cbService.characteristics?.firstOrNull { char ->
+                    (char as? CBCharacteristic)?.let {
+                        expandCoreBluetoothUuid(it.UUID.UUIDString).lowercase() == rCharUuid
+                    } ?: false
+                } as? CBCharacteristic
+
+                readCharacteristic?.let { char ->
+                    peripheral.setNotifyValue(true, char)
+                    Logger.d("BleManager", "Subscribed to read characteristic: $rCharUuid")
+                }
+            }
+
+            if (wServiceUuid != null && wCharUuid != null && serviceUuid == wServiceUuid) {
+                writeCharacteristic = cbService.characteristics?.firstOrNull { char ->
+                    (char as? CBCharacteristic)?.let {
+                        expandCoreBluetoothUuid(it.UUID.UUIDString).lowercase() == wCharUuid
+                    } ?: false
+                } as? CBCharacteristic
+
+                if (writeCharacteristic != null) {
+                    Logger.d("BleManager", "Found write characteristic: $wCharUuid")
+                }
+            }
+        }
+
+        if (readCharacteristic == null) {
+            Logger.w("BleManager", "Read characteristic not found: service=$rServiceUuid char=$rCharUuid")
+        }
+        if (writeCharacteristic == null && wCharUuid != null) {
+            Logger.w("BleManager", "Write characteristic not found: service=$wServiceUuid char=$wCharUuid")
+        }
+    }
+
     internal fun onCharacteristicValueUpdated(characteristic: CBCharacteristic, error: NSError?) {
         if (error != null) {
+            Logger.w("BleManager", "Characteristic update error: ${error.localizedDescription}")
             return
         }
 
         val data = characteristic.value?.toByteArray()
         if (data != null) {
+            Logger.d("BleManager", "Data received: ${data.size} bytes from ${characteristic.UUID.UUIDString}")
             onDataReceivedCallback?.invoke(data)
         }
     }
@@ -467,6 +518,25 @@ actual class BleConnection(
     val address: String get() = peripheral.identifier.UUIDString
     val name: String? get() = peripheral.name
     val isConnected: Boolean get() = peripheral.state == CBPeripheralStateConnected
+}
+
+// ==================== UUID Normalization ====================
+
+/**
+ * Expand CoreBluetooth short UUID strings to full 128-bit format.
+ *
+ * CoreBluetooth returns short UUIDs for standard Bluetooth SIG services:
+ * - 4-char: "FFE0" → "0000FFE0-0000-1000-8000-00805F9B34FB"
+ * - 8-char: "0000FFE0" → "0000FFE0-0000-1000-8000-00805F9B34FB"
+ * - Full 128-bit UUIDs are returned as-is.
+ */
+private fun expandCoreBluetoothUuid(uuidString: String): String {
+    val BLE_BASE_SUFFIX = "-0000-1000-8000-00805F9B34FB"
+    return when (uuidString.length) {
+        4 -> "0000$uuidString$BLE_BASE_SUFFIX"
+        8 -> "$uuidString$BLE_BASE_SUFFIX"
+        else -> uuidString
+    }
 }
 
 // ==================== Extension Functions ====================

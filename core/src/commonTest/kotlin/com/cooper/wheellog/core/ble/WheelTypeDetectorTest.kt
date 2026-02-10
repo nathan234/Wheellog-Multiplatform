@@ -112,8 +112,8 @@ class WheelTypeDetectorTest {
     // ==================== KingSong Detection ====================
 
     @Test
-    fun `detect KingSong from fff0 service`() {
-        // KingSong has the fff0 service
+    fun `detect KingSong from device name with fff0 service`() {
+        // KingSong has the fff0 service and a KS- name
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -130,12 +130,34 @@ class WheelTypeDetectorTest {
             )
         )
 
-        val result = detector.detect(services)
+        val result = detector.detect(services, "KS-S18")
 
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.KINGSONG, detected.wheelType)
         assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
+    }
+
+    @Test
+    fun `fff0 service without name returns ambiguous`() {
+        // fff0 service is shared by both Gotway and KingSong, so without
+        // a device name it should be ambiguous
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000fff0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000fff1-0000-1000-8000-00805f9b34fb")
+                ),
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Ambiguous)
     }
 
     @Test
@@ -155,7 +177,7 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.KINGSONG, detected.wheelType)
-        assertEquals(WheelTypeDetector.Confidence.MEDIUM, detected.confidence)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
     }
 
     // ==================== Gotway Detection ====================
@@ -176,7 +198,7 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.GOTWAY, detected.wheelType)
-        assertEquals(WheelTypeDetector.Confidence.MEDIUM, detected.confidence)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
     }
 
     @Test
@@ -215,7 +237,7 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.VETERAN, detected.wheelType)
-        assertEquals(WheelTypeDetector.Confidence.MEDIUM, detected.confidence)
+        assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
     }
 
     @Test
@@ -254,6 +276,113 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.NINEBOT, detected.wheelType)
+    }
+
+    // ==================== Name Priority Over Service Heuristics ====================
+
+    @Test
+    fun `Gotway with fff0 service detected by name not as KingSong`() {
+        // Real Gotway wheel profile: has fff0 service (shared with KingSong)
+        // but device name says "GotWay_008977" — name should take priority
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000180a-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("00002a23-0000-1000-8000-00805f9b34fb")
+                ),
+                DiscoveredService(
+                    uuid = "0000fff0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000fff1-0000-1000-8000-00805f9b34fb")
+                ),
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                ),
+                DiscoveredService(
+                    uuid = "1d14d6ee-fd63-4fa1-bfa4-8f47b42119f0",
+                    characteristics = listOf("f7bf3564-fb6d-4e53-88a4-5e37e0326063")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "GotWay_008977")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.GOTWAY, detected.wheelType)
+        assertEquals(BleUuids.Gotway.SERVICE, detected.readServiceUuid)
+    }
+
+    @Test
+    fun `KingSong with fff0 service detected by name`() {
+        // Real KingSong wheel profile: has fff0 service and KS- name
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000fff0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf(
+                        "0000fff1-0000-1000-8000-00805f9b34fb",
+                        "0000fff2-0000-1000-8000-00805f9b34fb",
+                        "0000fff3-0000-1000-8000-00805f9b34fb"
+                    )
+                ),
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val result = detector.detect(services, "KS-14S")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+    }
+
+    @Test
+    fun `name detection takes priority over service detection`() {
+        // Nordic UART service would normally trigger Ninebot Z detection,
+        // but a Veteran name should take priority
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+                    characteristics = listOf(
+                        "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
+                        "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+                    )
+                )
+            )
+        )
+
+        val result = detector.detect(services, "Sherman-S")
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.VETERAN, detected.wheelType)
+    }
+
+    @Test
+    fun `Gotway detected with various name patterns`() {
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                    characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+                )
+            )
+        )
+
+        val gotwayNames = listOf("GotWay_123", "GW-Test", "BEGODE-Hero", "Nikola+", "Monster Pro", "MSP-HT")
+        for (name in gotwayNames) {
+            val result = detector.detect(services, name)
+            assertTrue(
+                result is WheelTypeDetector.DetectionResult.Detected &&
+                    result.wheelType == WheelType.GOTWAY,
+                "Expected GOTWAY for name '$name' but got $result"
+            )
+        }
     }
 
     // ==================== Ambiguous Detection ====================

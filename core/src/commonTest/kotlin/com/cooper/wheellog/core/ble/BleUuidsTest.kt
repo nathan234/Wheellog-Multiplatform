@@ -1,5 +1,6 @@
 package com.cooper.wheellog.core.ble
 
+import com.cooper.wheellog.core.domain.WheelType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -76,6 +77,115 @@ class BleUuidsTest {
         assertEquals("00002902-0000-1000-8000-00805f9b34fb", BleUuids.CLIENT_CHARACTERISTIC_CONFIG)
         assertEquals(BleUuids.CLIENT_CHARACTERISTIC_CONFIG, BleUuids.Kingsong.DESCRIPTOR)
         assertEquals(BleUuids.CLIENT_CHARACTERISTIC_CONFIG, BleUuids.Inmotion.DESCRIPTOR)
+    }
+}
+
+/**
+ * Tests for CoreBluetooth short UUID expansion.
+ *
+ * CoreBluetooth returns short UUID strings for standard Bluetooth SIG services:
+ * - 4-char: "FFE0" instead of "0000FFE0-0000-1000-8000-00805F9B34FB"
+ * - 8-char: "0000FFE0" instead of "0000FFE0-0000-1000-8000-00805F9B34FB"
+ *
+ * These tests verify that DiscoveredServices built from expanded short UUIDs
+ * correctly match against the full 128-bit UUIDs used in BleUuids.
+ */
+class CoreBluetoothUuidExpansionTest {
+
+    private val BLE_BASE_SUFFIX = "-0000-1000-8000-00805F9B34FB"
+
+    /** Simulate the expansion done in BleManager.ios.kt */
+    private fun expandCoreBluetoothUuid(uuidString: String): String {
+        return when (uuidString.length) {
+            4 -> "0000$uuidString$BLE_BASE_SUFFIX"
+            8 -> "$uuidString$BLE_BASE_SUFFIX"
+            else -> uuidString
+        }
+    }
+
+    @Test
+    fun `expand 4-char short UUID to full 128-bit`() {
+        val expanded = expandCoreBluetoothUuid("FFE0")
+        assertTrue(BleUuids.matches(expanded, BleUuids.Gotway.SERVICE))
+    }
+
+    @Test
+    fun `expand 8-char short UUID to full 128-bit`() {
+        val expanded = expandCoreBluetoothUuid("0000FFE1")
+        assertTrue(BleUuids.matches(expanded, BleUuids.Gotway.READ_CHARACTERISTIC))
+    }
+
+    @Test
+    fun `full 128-bit UUID passes through unchanged`() {
+        val uuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+        assertEquals(uuid, expandCoreBluetoothUuid(uuid))
+    }
+
+    @Test
+    fun `expanded UUIDs match in DiscoveredServices`() {
+        // Simulate building DiscoveredServices from CoreBluetooth short UUIDs
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid("FFE0"),
+                    characteristics = listOf(expandCoreBluetoothUuid("FFE1"))
+                ),
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid("FFF0"),
+                    characteristics = listOf(expandCoreBluetoothUuid("FFF1"))
+                )
+            )
+        )
+
+        assertTrue(services.hasService(BleUuids.Gotway.SERVICE))
+        assertTrue(services.hasCharacteristic(BleUuids.Gotway.SERVICE, BleUuids.Gotway.READ_CHARACTERISTIC))
+        assertTrue(services.hasService("0000fff0-0000-1000-8000-00805f9b34fb"))
+    }
+
+    @Test
+    fun `expanded Nordic UART UUIDs match`() {
+        // Nordic UART uses full 128-bit UUIDs, not short ones
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid("6E400001-B5A3-F393-E0A9-E50E24DCCA9E"),
+                    characteristics = listOf(
+                        expandCoreBluetoothUuid("6E400002-B5A3-F393-E0A9-E50E24DCCA9E"),
+                        expandCoreBluetoothUuid("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
+                    )
+                )
+            )
+        )
+
+        assertTrue(services.hasService(BleUuids.InmotionV2.SERVICE))
+        assertTrue(services.hasCharacteristic(BleUuids.InmotionV2.SERVICE, BleUuids.InmotionV2.READ_CHARACTERISTIC))
+    }
+
+    @Test
+    fun `WheelTypeDetector works with expanded CoreBluetooth UUIDs`() {
+        val detector = WheelTypeDetector()
+
+        // Simulate a real Gotway wheel as seen by CoreBluetooth
+        val services = DiscoveredServices(
+            services = listOf(
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid("180A"),
+                    characteristics = listOf(expandCoreBluetoothUuid("2A23"))
+                ),
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid("FFF0"),
+                    characteristics = listOf(expandCoreBluetoothUuid("FFF1"))
+                ),
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid("FFE0"),
+                    characteristics = listOf(expandCoreBluetoothUuid("FFE1"))
+                )
+            )
+        )
+
+        val result = detector.detect(services, "GotWay_008977")
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
+        assertEquals(WheelType.GOTWAY, (result as WheelTypeDetector.DetectionResult.Detected).wheelType)
     }
 }
 

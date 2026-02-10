@@ -67,6 +67,12 @@ class WheelTypeDetector {
      * @return Detection result with wheel type and connection info
      */
     fun detect(services: DiscoveredServices, deviceName: String? = null): DetectionResult {
+        // First: try to detect from device name (most reliable when available).
+        // Many wheels share the same service UUIDs (e.g. both Gotway and KingSong
+        // can have fff0), but device names are unambiguous.
+        val nameResult = detectFromName(deviceName)
+        if (nameResult != null) return nameResult
+
         // Check for Nordic UART service (used by Inmotion V2 and Ninebot Z)
         val hasNordicUart = services.hasService(BleUuids.InmotionV2.SERVICE)
 
@@ -75,9 +81,6 @@ class WheelTypeDetector {
 
         // Check for Inmotion-specific write service (ffe5)
         val hasInmotionWriteService = services.hasService(BleUuids.Inmotion.WRITE_SERVICE)
-
-        // Check for KingSong-specific service (fff0)
-        val hasKingsongService = services.hasService("0000fff0-0000-1000-8000-00805f9b34fb")
 
         // Check for specific characteristics
         val hasInmotionReadChar = services.hasCharacteristic(
@@ -126,21 +129,18 @@ class WheelTypeDetector {
                 )
             }
 
-            // KingSong: Has fff0 service or specific name pattern
-            hasKingsongService -> {
-                DetectionResult.Detected(
-                    wheelType = WheelType.KINGSONG,
-                    readServiceUuid = BleUuids.Kingsong.SERVICE,
-                    readCharacteristicUuid = BleUuids.Kingsong.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.Kingsong.SERVICE,
-                    writeCharacteristicUuid = BleUuids.Kingsong.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.HIGH
-                )
-            }
-
             // Standard service (ffe0/ffe1) - Could be Gotway, Veteran, Ninebot, or KingSong
             hasStandardService -> {
-                detectFromNameOrAmbiguous(deviceName, services)
+                // Ambiguous — fall back to auto-detect decoder with Gotway UUIDs
+                DetectionResult.Ambiguous(
+                    possibleTypes = listOf(
+                        WheelType.GOTWAY,
+                        WheelType.KINGSONG,
+                        WheelType.NINEBOT
+                    ),
+                    reason = "Standard BLE profile detected. Device name '$deviceName' " +
+                            "does not match known patterns. Will use auto-detection."
+                )
             }
 
             // No recognized services
@@ -153,13 +153,11 @@ class WheelTypeDetector {
     }
 
     /**
-     * Try to detect wheel type from device name when services are ambiguous.
+     * Try to detect wheel type from device name alone.
+     * Returns null if name doesn't match any known pattern.
      */
-    private fun detectFromNameOrAmbiguous(
-        deviceName: String?,
-        services: DiscoveredServices
-    ): DetectionResult {
-        val name = deviceName?.uppercase() ?: ""
+    private fun detectFromName(deviceName: String?): DetectionResult? {
+        val name = deviceName?.uppercase() ?: return null
 
         return when {
             // Veteran patterns
@@ -174,13 +172,13 @@ class WheelTypeDetector {
                     readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
                     writeServiceUuid = BleUuids.Gotway.SERVICE,
                     writeCharacteristicUuid = BleUuids.Gotway.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.MEDIUM
+                    confidence = Confidence.HIGH
                 )
             }
 
             // Gotway/Begode patterns
-            name.contains("GW") ||
             name.contains("GOTWAY") ||
+            name.startsWith("GW") ||
             name.contains("BEGODE") ||
             name.contains("MCMASTER") ||
             name.contains("NIKOLA") ||
@@ -196,7 +194,7 @@ class WheelTypeDetector {
                     readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
                     writeServiceUuid = BleUuids.Gotway.SERVICE,
                     writeCharacteristicUuid = BleUuids.Gotway.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.MEDIUM
+                    confidence = Confidence.HIGH
                 )
             }
 
@@ -210,7 +208,7 @@ class WheelTypeDetector {
                     readCharacteristicUuid = BleUuids.Kingsong.READ_CHARACTERISTIC,
                     writeServiceUuid = BleUuids.Kingsong.SERVICE,
                     writeCharacteristicUuid = BleUuids.Kingsong.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.MEDIUM
+                    confidence = Confidence.HIGH
                 )
             }
 
@@ -223,22 +221,11 @@ class WheelTypeDetector {
                     readCharacteristicUuid = BleUuids.Ninebot.READ_CHARACTERISTIC,
                     writeServiceUuid = BleUuids.Ninebot.SERVICE,
                     writeCharacteristicUuid = BleUuids.Ninebot.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.MEDIUM
+                    confidence = Confidence.HIGH
                 )
             }
 
-            // Ambiguous - return possible types for auto-detect
-            else -> {
-                DetectionResult.Ambiguous(
-                    possibleTypes = listOf(
-                        WheelType.GOTWAY,
-                        WheelType.KINGSONG,
-                        WheelType.NINEBOT
-                    ),
-                    reason = "Standard BLE profile detected. Device name '$deviceName' " +
-                            "does not match known patterns. Will use auto-detection."
-                )
-            }
+            else -> null
         }
     }
 

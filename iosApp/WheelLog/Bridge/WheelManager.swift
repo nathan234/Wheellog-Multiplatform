@@ -66,7 +66,19 @@ class WheelManager: ObservableObject {
 
         // Wire service discovery to connection manager
         bleManager?.setServicesDiscoveredCallback { [weak self] services, deviceName in
-            self?.connectionManager?.onServicesDiscovered(services: services, deviceName: deviceName)
+            guard let self = self else { return }
+            self.connectionManager?.onServicesDiscovered(services: services, deviceName: deviceName)
+
+            // After wheel type detection, configure BLE manager with the detected UUIDs
+            // so it can match and subscribe to the correct characteristics
+            if let info = self.connectionManager?.getConnectionInfo() {
+                self.bleManager?.configureForWheel(
+                    readServiceUuid: info.readServiceUuid,
+                    readCharUuid: info.readCharacteristicUuid,
+                    writeServiceUuid: info.writeServiceUuid,
+                    writeCharUuid: info.writeCharacteristicUuid
+                )
+            }
         }
     }
 

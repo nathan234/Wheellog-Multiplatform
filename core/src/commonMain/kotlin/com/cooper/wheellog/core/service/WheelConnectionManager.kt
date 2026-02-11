@@ -148,29 +148,17 @@ class WheelConnectionManager(
                     bleManager.write(command.data)
                 }
             }
-            is WheelCommand.Beep -> {
-                // Protocol-specific beep command would be sent via SendBytes
-            }
-            is WheelCommand.SetLight -> {
-                // Protocol-specific light command would be sent via SendBytes
-            }
-            is WheelCommand.SetLed -> {
-                // Protocol-specific LED command would be sent via SendBytes
-            }
-            is WheelCommand.SetPedalsMode -> {
-                // Protocol-specific pedals mode command would be sent via SendBytes
-            }
-            is WheelCommand.SetAlarmMode -> {
-                // Protocol-specific alarm mode command would be sent via SendBytes
-            }
-            is WheelCommand.SetLock -> {
-                // Protocol-specific lock command would be sent via SendBytes
-            }
-            is WheelCommand.PowerOff -> {
-                // Protocol-specific power off command would be sent via SendBytes
-            }
-            is WheelCommand.Calibrate -> {
-                // Protocol-specific calibration command would be sent via SendBytes
+            else -> {
+                val rawCommands = currentDecoder?.buildCommand(command) ?: return
+                for (cmd in rawCommands) {
+                    when (cmd) {
+                        is WheelCommand.SendBytes -> bleManager.write(cmd.data)
+                        is WheelCommand.SendDelayed -> commandScheduler.schedule(cmd.delayMs) {
+                            bleManager.write(cmd.data)
+                        }
+                        else -> {} // prevent recursion
+                    }
+                }
             }
         }
     }

@@ -155,6 +155,18 @@ class InmotionDecoder : WheelDecoder {
         }
     }
 
+    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        return when (command) {
+            is WheelCommand.Beep -> listOf(
+                WheelCommand.SendBytes(CANMessage.wheelBeep().writeBuffer())
+            )
+            is WheelCommand.SetLight -> listOf(
+                WheelCommand.SendBytes(CANMessage.setLight(command.enabled).writeBuffer())
+            )
+            else -> emptyList()
+        }
+    }
+
     override fun getInitCommands(): List<WheelCommand> {
         return emptyList()
     }

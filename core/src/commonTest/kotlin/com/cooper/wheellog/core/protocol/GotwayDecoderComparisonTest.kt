@@ -685,6 +685,38 @@ class GotwayDecoderComparisonTest {
                 distanceBytes + phaseCurrentBytes + temperatureBytes + tail + footer
     }
 
+    // ==================== buildCommand ====================
+
+    @Test
+    fun `buildCommand Beep returns SendBytes with b`() {
+        val commands = decoder.buildCommand(WheelCommand.Beep)
+        assertEquals(1, commands.size)
+        val cmd = commands[0] as WheelCommand.SendBytes
+        assertEquals("b", cmd.data.decodeToString())
+    }
+
+    @Test
+    fun `buildCommand SetLight true returns SendBytes with Q`() {
+        val commands = decoder.buildCommand(WheelCommand.SetLight(true))
+        assertEquals(1, commands.size)
+        val cmd = commands[0] as WheelCommand.SendBytes
+        assertEquals("Q", cmd.data.decodeToString())
+    }
+
+    @Test
+    fun `buildCommand SetLight false returns SendBytes with E`() {
+        val commands = decoder.buildCommand(WheelCommand.SetLight(false))
+        assertEquals(1, commands.size)
+        val cmd = commands[0] as WheelCommand.SendBytes
+        assertEquals("E", cmd.data.decodeToString())
+    }
+
+    @Test
+    fun `buildCommand unsupported command returns empty list`() {
+        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        assertTrue(commands.isEmpty())
+    }
+
     // ==================== Battery Calculation ====================
 
     @Test

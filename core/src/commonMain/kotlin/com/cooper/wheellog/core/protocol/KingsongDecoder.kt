@@ -564,6 +564,30 @@ class KingsongDecoder : WheelDecoder {
         bms2 = SmartBms()
     }
 
+    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        return when (command) {
+            is WheelCommand.Beep -> {
+                val data = byteArrayOf(
+                    0xAA.toByte(), 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x88.toByte(), 0x14, 0x5A, 0x5A
+                )
+                listOf(WheelCommand.SendBytes(data))
+            }
+            is WheelCommand.SetLight -> {
+                val mode: Byte = if (command.enabled) 0x12 else 0x13
+                val enable: Byte = 0x01
+                val data = byteArrayOf(
+                    0xAA.toByte(), 0x55, mode, enable, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x73, 0x14, 0x5A, 0x5A
+                )
+                listOf(WheelCommand.SendBytes(data))
+            }
+            else -> emptyList()
+        }
+    }
+
     override fun getInitCommands(): List<WheelCommand> {
         return listOf(
             WheelCommand.SendBytes(createRequest(0x9B)), // Request name

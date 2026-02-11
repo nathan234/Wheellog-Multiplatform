@@ -5,6 +5,7 @@ import com.cooper.wheellog.core.protocol.DefaultWheelDecoderFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * iOS factory and helpers for WheelConnectionManager.
@@ -46,5 +47,17 @@ object WheelConnectionManagerFactory {
      */
     fun isConnected(manager: WheelConnectionManager): Boolean {
         return manager.connectionState.value.isConnected
+    }
+
+    fun sendBeep(manager: WheelConnectionManager) {
+        CoroutineScope(Dispatchers.Main).launch {
+            manager.wheelBeep()
+        }
+    }
+
+    fun sendToggleLight(manager: WheelConnectionManager, enabled: Boolean) {
+        CoroutineScope(Dispatchers.Main).launch {
+            manager.toggleLight(enabled)
+        }
     }
 }

@@ -892,6 +892,18 @@ class InmotionV2Decoder : WheelDecoder {
         isModelDetected = false
     }
 
+    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        return when (command) {
+            is WheelCommand.Beep -> listOf(
+                WheelCommand.SendBytes(playBeepMessage(0x18))
+            )
+            is WheelCommand.SetLight -> listOf(
+                WheelCommand.SendBytes(setLightMessage(command.enabled))
+            )
+            else -> emptyList()
+        }
+    }
+
     override fun getInitCommands(): List<WheelCommand> {
         return listOf(
             WheelCommand.SendBytes(buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x01))),

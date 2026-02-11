@@ -22,6 +22,7 @@ class WheelManager: ObservableObject {
     @Published var useFahrenheit: Bool = UserDefaults.standard.bool(forKey: "use_fahrenheit") {
         didSet { UserDefaults.standard.set(useFahrenheit, forKey: "use_fahrenheit") }
     }
+    @Published var isLightOn: Bool = false
 
     // MARK: - KMP Components
 
@@ -243,6 +244,19 @@ class WheelManager: ObservableObject {
         if newState.inMiles != wheelState.inMiles {
             useMph = newState.inMiles
         }
+    }
+
+    // MARK: - Wheel Commands
+
+    func wheelBeep() {
+        guard let cm = connectionManager else { return }
+        WheelConnectionManagerFactory.shared.sendBeep(manager: cm)
+    }
+
+    func toggleLight() {
+        guard let cm = connectionManager else { return }
+        isLightOn.toggle()
+        WheelConnectionManagerFactory.shared.sendToggleLight(manager: cm, enabled: isLightOn)
     }
 
     // MARK: - Scanning

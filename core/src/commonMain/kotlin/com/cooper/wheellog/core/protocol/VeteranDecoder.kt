@@ -435,6 +435,21 @@ class VeteranDecoder : WheelDecoder {
         }
     }
 
+    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        return when (command) {
+            is WheelCommand.Beep -> listOf(
+                WheelCommand.SendBytes("b".encodeToByteArray())
+            )
+            is WheelCommand.SetLight -> listOf(
+                WheelCommand.SendBytes(
+                    if (command.enabled) "SetLightON".encodeToByteArray()
+                    else "SetLightOFF".encodeToByteArray()
+                )
+            )
+            else -> emptyList()
+        }
+    }
+
     override fun getInitCommands(): List<WheelCommand> = emptyList()
 
     companion object {

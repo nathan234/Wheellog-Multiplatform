@@ -497,6 +497,20 @@ class GotwayDecoder : WheelDecoder {
         }
     }
 
+    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        return when (command) {
+            is WheelCommand.Beep -> listOf(
+                WheelCommand.SendBytes("b".encodeToByteArray())
+            )
+            is WheelCommand.SetLight -> listOf(
+                WheelCommand.SendBytes(
+                    if (command.enabled) "Q".encodeToByteArray() else "E".encodeToByteArray()
+                )
+            )
+            else -> emptyList()
+        }
+    }
+
     override fun getInitCommands(): List<WheelCommand> {
         // Request firmware version and name
         return listOf(

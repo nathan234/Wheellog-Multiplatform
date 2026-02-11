@@ -173,6 +173,38 @@ struct DashboardView: View {
                     .cornerRadius(8)
                 }
 
+                // Horn and Light controls
+                if !wheelManager.isMockMode && !wheelManager.isTestMode {
+                    HStack(spacing: 12) {
+                        Button(action: { wheelManager.wheelBeep() }) {
+                            HStack {
+                                Image(systemName: "speaker.wave.2.fill")
+                                Text("Horn")
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                        }
+
+                        Button(action: { wheelManager.toggleLight() }) {
+                            HStack {
+                                Image(systemName: wheelManager.isLightOn ? "lightbulb.fill" : "lightbulb")
+                                Text("Light")
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(wheelManager.isLightOn ? Color.yellow : Color.blue)
+                            .cornerRadius(12)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+
                 // Disconnect button
                 Button(action: {
                     if wheelManager.isMockMode {

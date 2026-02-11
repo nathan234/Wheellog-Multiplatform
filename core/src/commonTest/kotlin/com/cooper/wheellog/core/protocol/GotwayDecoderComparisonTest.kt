@@ -475,14 +475,159 @@ class GotwayDecoderComparisonTest {
         assertFalse(result2!!.newState.inMiles, "inMiles should be false when LSB is 0")
     }
 
+    // ==================== Frame 0x04 Wheel Settings ====================
+
+    @Test
+    fun `frame 0x04 pedalsMode extracted and inverted from settings bits 13-14`() {
+        // Settings bits 13-14 encode raw pedals mode; decoder inverts: 2 - raw
+        // Raw 0 → inverted 2 (Soft), Raw 1 → 1 (Medium), Raw 2 → 0 (Hard)
+        for (rawMode in 0..2) {
+            val settingsWord = rawMode shl 13
+            val packet = buildTotalDistancePacket(totalDistance = 1000L, settingsWord = settingsWord)
+
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, defaultConfig)
+
+            assertNotNull(result)
+            assertEquals(2 - rawMode, result!!.newState.pedalsMode,
+                "Raw pedalsMode=$rawMode should become ${2 - rawMode} after inversion")
+        }
+    }
+
+    @Test
+    fun `frame 0x04 tiltBackSpeed from bytes 10-11`() {
+        val packet = buildTotalDistancePacket(totalDistance = 1000L, tiltBackSpeed = 45)
+
+        decoder.reset()
+        val result = decoder.decode(packet, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertEquals(45, result!!.newState.tiltBackSpeed, "Tilt-back speed should be 45 km/h")
+    }
+
+    @Test
+    fun `frame 0x04 tiltBackSpeed ge 100 clamped to 0`() {
+        val packet = buildTotalDistancePacket(totalDistance = 1000L, tiltBackSpeed = 100)
+
+        decoder.reset()
+        val result = decoder.decode(packet, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertEquals(0, result!!.newState.tiltBackSpeed,
+            "Tilt-back speed >= 100 should be clamped to 0")
+    }
+
+    @Test
+    fun `frame 0x04 lightMode from byte 15 bits 0-1`() {
+        for (mode in 0..2) {
+            val packet = buildTotalDistancePacket(totalDistance = 1000L, lightMode = mode)
+
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, defaultConfig)
+
+            assertNotNull(result)
+            assertEquals(mode, result!!.newState.lightMode,
+                "Light mode should be $mode")
+        }
+    }
+
+    @Test
+    fun `frame 0x04 ledMode from byte 13`() {
+        for (mode in 0..9) {
+            val packet = buildTotalDistancePacket(totalDistance = 1000L, ledMode = mode)
+
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, defaultConfig)
+
+            assertNotNull(result)
+            assertEquals(mode, result!!.newState.ledMode,
+                "LED mode should be $mode")
+        }
+    }
+
+    @Test
+    fun `frame 0x04 speedAlarms from settings bits 10-12`() {
+        for (alarmVal in 0..2) {
+            val settingsWord = alarmVal shl 10
+            val packet = buildTotalDistancePacket(totalDistance = 1000L, settingsWord = settingsWord)
+
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, defaultConfig)
+
+            assertNotNull(result)
+            assertEquals(alarmVal, result!!.newState.speedAlarms,
+                "Speed alarms should be $alarmVal")
+        }
+    }
+
+    @Test
+    fun `frame 0x04 rollAngle from settings bits 7-9`() {
+        for (rollVal in 0..2) {
+            val settingsWord = rollVal shl 7
+            val packet = buildTotalDistancePacket(totalDistance = 1000L, settingsWord = settingsWord)
+
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, defaultConfig)
+
+            assertNotNull(result)
+            assertEquals(rollVal, result!!.newState.rollAngle,
+                "Roll angle should be $rollVal")
+        }
+    }
+
+    @Test
+    fun `frame 0x04 all settings combined`() {
+        // pedalsMode raw=1 (Medium after inversion=1), speedAlarms=2, rollAngle=1, inMiles=1
+        val settingsWord = (1 shl 13) or (2 shl 10) or (1 shl 7) or 0x01
+        val packet = buildTotalDistancePacket(
+            totalDistance = 50000L,
+            settingsWord = settingsWord,
+            tiltBackSpeed = 35,
+            ledMode = 5,
+            lightMode = 2
+        )
+
+        decoder.reset()
+        val result = decoder.decode(packet, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        val state = result!!.newState
+        assertEquals(1, state.pedalsMode, "pedalsMode: raw 1 → inverted 1 (Medium)")
+        assertEquals(2, state.speedAlarms, "speedAlarms should be 2")
+        assertEquals(1, state.rollAngle, "rollAngle should be 1 (Medium)")
+        assertEquals(35, state.tiltBackSpeed, "tiltBackSpeed should be 35")
+        assertEquals(5, state.ledMode, "ledMode should be 5")
+        assertEquals(2, state.lightMode, "lightMode should be 2 (Strobe)")
+        assertTrue(state.inMiles, "inMiles should be true")
+    }
+
     // ==================== Helper ====================
 
     /**
      * Build a Gotway total distance + settings packet (frame type 0x04).
+     *
+     * Packet layout (20 bytes + 4 footer):
+     *   [0-1]  header: 55 AA
+     *   [2-5]  totalDistance (4 bytes, big-endian)
+     *   [6-7]  settings word (pedalsMode bits 13-14, speedAlarms bits 10-12, rollAngle bits 7-9, inMiles bit 0)
+     *   [8-9]  powerOffTime
+     *   [10-11] tiltBackSpeed (big-endian short, >=100 treated as 0)
+     *   [12]   padding
+     *   [13]   ledMode
+     *   [14]   alert flags
+     *   [15]   lightMode (bits 0-1)
+     *   [16-17] padding
+     *   [18]   frame type (0x04)
+     *   [19]   tail (0x18)
+     *   [20-23] footer: 5A 5A 5A 5A
      */
     private fun buildTotalDistancePacket(
         totalDistance: Long,
-        settingsWord: Int = 0
+        settingsWord: Int = 0,
+        tiltBackSpeed: Int = 0,
+        ledMode: Int = 0,
+        alert: Int = 0,
+        lightMode: Int = 0
     ): ByteArray {
         val header = byteArrayOf(0x55, 0xAA.toByte())
         val distBytes = byteArrayOf(
@@ -495,14 +640,23 @@ class GotwayDecoderComparisonTest {
             ((settingsWord shr 8) and 0xFF).toByte(),
             (settingsWord and 0xFF).toByte()
         )
-        // bytes 8-9: powerOffTime, 10-11: tiltBackSpeed, 12: padding, 13: ledMode,
-        // 14: alert, 15: lightMode, 16-17: padding
-        val remaining = ByteArray(10) { 0 }
+        val powerOffTime = byteArrayOf(0x00, 0x00)
+        val tiltBackBytes = byteArrayOf(
+            ((tiltBackSpeed shr 8) and 0xFF).toByte(),
+            (tiltBackSpeed and 0xFF).toByte()
+        )
+        val padding12 = byteArrayOf(0x00)
+        val ledModeByte = byteArrayOf(ledMode.toByte())
+        val alertByte = byteArrayOf(alert.toByte())
+        val lightModeByte = byteArrayOf(lightMode.toByte())
+        val padding16_17 = byteArrayOf(0x00, 0x00)
         val frameType = byteArrayOf(0x04)
         val tail = byteArrayOf(0x18)
         val footer = byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
 
-        return header + distBytes + settingsBytes + remaining + frameType + tail + footer
+        return header + distBytes + settingsBytes + powerOffTime + tiltBackBytes +
+                padding12 + ledModeByte + alertByte + lightModeByte + padding16_17 +
+                frameType + tail + footer
     }
 
     /**

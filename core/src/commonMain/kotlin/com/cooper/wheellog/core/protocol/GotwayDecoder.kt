@@ -350,6 +350,12 @@ class GotwayDecoder : WheelDecoder {
             return FrameResult(
                 state = currentState.copy(
                     totalDistance = totalDistance,
+                    pedalsMode = 2 - pedalsMode,
+                    speedAlarms = speedAlarms,
+                    rollAngle = rollAngle,
+                    tiltBackSpeed = tiltBackSpeed,
+                    lightMode = lightMode,
+                    ledMode = ledMode,
                     wheelAlarm = wheelAlarm,
                     alert = alertLine,
                     inMiles = inMiles == 1

@@ -355,6 +355,12 @@ struct WheelStateWrapper: Equatable {
     // Wheel-reported settings
     let inMiles: Bool
 
+    // Wheel settings (from BLE frame 0x04)
+    let pedalsMode: Int32    // 0=Hard, 1=Medium, 2=Soft, -1=unknown
+    let tiltBackSpeed: Int32 // km/h
+    let lightMode: Int32     // 0=Off, 1=On, 2=Strobe, -1=unknown
+    let ledMode: Int32       // 0-9, -1=unknown
+
     init() {
         speedKmh = 0
         voltage = 0
@@ -369,6 +375,10 @@ struct WheelStateWrapper: Equatable {
         name = ""
         model = ""
         inMiles = false
+        pedalsMode = -1
+        tiltBackSpeed = 0
+        lightMode = -1
+        ledMode = -1
     }
 
     init(
@@ -384,7 +394,11 @@ struct WheelStateWrapper: Equatable {
         wheelType: String,
         name: String,
         model: String,
-        inMiles: Bool = false
+        inMiles: Bool = false,
+        pedalsMode: Int32 = -1,
+        tiltBackSpeed: Int32 = 0,
+        lightMode: Int32 = -1,
+        ledMode: Int32 = -1
     ) {
         self.speedKmh = speedKmh
         self.voltage = voltage
@@ -399,6 +413,10 @@ struct WheelStateWrapper: Equatable {
         self.name = name
         self.model = model
         self.inMiles = inMiles
+        self.pedalsMode = pedalsMode
+        self.tiltBackSpeed = tiltBackSpeed
+        self.lightMode = lightMode
+        self.ledMode = ledMode
     }
 
     init(from kmpState: WheelState) {
@@ -415,6 +433,10 @@ struct WheelStateWrapper: Equatable {
         name = kmpState.name
         model = kmpState.model
         inMiles = kmpState.inMiles
+        pedalsMode = kmpState.pedalsMode
+        tiltBackSpeed = kmpState.tiltBackSpeed
+        lightMode = kmpState.lightMode
+        ledMode = kmpState.ledMode
     }
 }
 

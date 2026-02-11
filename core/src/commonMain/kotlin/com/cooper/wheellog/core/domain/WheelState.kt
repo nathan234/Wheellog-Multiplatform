@@ -66,6 +66,12 @@ data class WheelState(
 
     // Wheel settings reported via BLE
     val inMiles: Boolean = false,
+    val pedalsMode: Int = -1,       // 0=Hard, 1=Medium, 2=Soft (-1=unknown)
+    val speedAlarms: Int = -1,      // 0=alarms on, 1=off level 1, 2=off level 2
+    val rollAngle: Int = -1,        // 0=Low, 1=Medium, 2=High
+    val tiltBackSpeed: Int = 0,     // km/h (0-99)
+    val lightMode: Int = -1,        // 0=Off, 1=On, 2=Strobe
+    val ledMode: Int = -1,          // 0-9 LED pattern
 
     // Error tracking
     val error: String = "",

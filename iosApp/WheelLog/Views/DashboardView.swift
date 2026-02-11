@@ -38,6 +38,33 @@ struct DashboardView: View {
         return String(format: "%.1f km", km)
     }
 
+    private var pedalsModeText: String {
+        switch wheelManager.wheelState.pedalsMode {
+        case 0: return "Hard"
+        case 1: return "Medium"
+        case 2: return "Soft"
+        default: return "Unknown"
+        }
+    }
+
+    private var lightModeText: String {
+        switch wheelManager.wheelState.lightMode {
+        case 0: return "Off"
+        case 1: return "On"
+        case 2: return "Strobe"
+        default: return "Unknown"
+        }
+    }
+
+    private var tiltBackSpeedText: String {
+        let speed = wheelManager.wheelState.tiltBackSpeed
+        if speed == 0 { return "Off" }
+        if wheelManager.useMph {
+            return String(format: "%.0f mph", Double(speed) * kmToMiles)
+        }
+        return "\(speed) km/h"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -89,6 +116,20 @@ struct DashboardView: View {
                 .background(Color(.secondarySystemGroupedBackground))
                 .cornerRadius(12)
                 .padding(.horizontal)
+
+                // Wheel settings (only show if settings have been received)
+                if wheelManager.wheelState.pedalsMode >= 0 {
+                    VStack(spacing: 12) {
+                        StatRow(label: "Pedals Mode", value: pedalsModeText)
+                        StatRow(label: "Tilt-Back Speed", value: tiltBackSpeedText)
+                        StatRow(label: "Light", value: lightModeText)
+                        StatRow(label: "LED Mode", value: "\(wheelManager.wheelState.ledMode)")
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                }
 
                 // Wheel info
                 if !wheelManager.wheelState.name.isEmpty || !wheelManager.wheelState.model.isEmpty {

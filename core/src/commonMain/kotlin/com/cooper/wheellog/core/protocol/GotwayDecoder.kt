@@ -351,7 +351,8 @@ class GotwayDecoder : WheelDecoder {
                 state = currentState.copy(
                     totalDistance = totalDistance,
                     wheelAlarm = wheelAlarm,
-                    alert = alertLine
+                    alert = alertLine,
+                    inMiles = inMiles == 1
                 ),
                 hasNewData = false,
                 news = news

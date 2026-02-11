@@ -6,6 +6,8 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -425,7 +427,83 @@ class GotwayDecoderComparisonTest {
         assertEquals(10000L, result.newState.wheelDistance, "Distance unscaled without useRatio")
     }
 
+    // ==================== inMiles from Wheel Settings ====================
+
+    @Test
+    fun `frame 0x04 with inMiles=1 sets state inMiles true - matches legacy gwInMiles`() {
+        // Legacy GotwayAdapter line 293-307: reads inMiles from settings byte, stores in appConfig.gwInMiles
+        // Build frame type 0x04 with settings byte LSB = 1 (miles)
+        val packet = buildTotalDistancePacket(totalDistance = 50000L, settingsWord = 0x01)
+
+        decoder.reset()
+        val result = decoder.decode(packet, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertTrue(result!!.newState.inMiles, "Wheel reporting miles mode should set inMiles=true")
+    }
+
+    @Test
+    fun `frame 0x04 with inMiles=0 sets state inMiles false - matches legacy gwInMiles`() {
+        // Settings byte LSB = 0 (km)
+        val packet = buildTotalDistancePacket(totalDistance = 50000L, settingsWord = 0x00)
+
+        decoder.reset()
+        val result = decoder.decode(packet, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertFalse(result!!.newState.inMiles, "Wheel reporting km mode should set inMiles=false")
+    }
+
+    @Test
+    fun `frame 0x04 inMiles only reads LSB ignoring other settings bits`() {
+        // Settings word 0x6001 = pedals/speed/roll bits set, but LSB = 1 (miles)
+        val packet = buildTotalDistancePacket(totalDistance = 50000L, settingsWord = 0x6001)
+
+        decoder.reset()
+        val result = decoder.decode(packet, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertTrue(result!!.newState.inMiles, "inMiles should only check LSB")
+
+        // Settings word 0x6000 = same upper bits, LSB = 0 (km)
+        val packet2 = buildTotalDistancePacket(totalDistance = 50000L, settingsWord = 0x6000)
+
+        decoder.reset()
+        val result2 = decoder.decode(packet2, defaultState, defaultConfig)
+
+        assertNotNull(result2)
+        assertFalse(result2!!.newState.inMiles, "inMiles should be false when LSB is 0")
+    }
+
     // ==================== Helper ====================
+
+    /**
+     * Build a Gotway total distance + settings packet (frame type 0x04).
+     */
+    private fun buildTotalDistancePacket(
+        totalDistance: Long,
+        settingsWord: Int = 0
+    ): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val distBytes = byteArrayOf(
+            ((totalDistance shr 24) and 0xFF).toByte(),
+            ((totalDistance shr 16) and 0xFF).toByte(),
+            ((totalDistance shr 8) and 0xFF).toByte(),
+            (totalDistance and 0xFF).toByte()
+        )
+        val settingsBytes = byteArrayOf(
+            ((settingsWord shr 8) and 0xFF).toByte(),
+            (settingsWord and 0xFF).toByte()
+        )
+        // bytes 8-9: powerOffTime, 10-11: tiltBackSpeed, 12: padding, 13: ledMode,
+        // 14: alert, 15: lightMode, 16-17: padding
+        val remaining = ByteArray(10) { 0 }
+        val frameType = byteArrayOf(0x04)
+        val tail = byteArrayOf(0x18)
+        val footer = byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
+
+        return header + distBytes + settingsBytes + remaining + frameType + tail + footer
+    }
 
     /**
      * Build a Gotway live data packet (frame type 0x00) with specified raw values.

@@ -206,6 +206,7 @@ class WheelManager: ObservableObject {
             let kmpWheelState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
             let newWheelState = WheelStateWrapper(from: kmpWheelState)
             if newWheelState != wheelState {
+                syncUnitsFromWheel(newWheelState)
                 wheelState = newWheelState
             }
             return
@@ -222,6 +223,7 @@ class WheelManager: ObservableObject {
         let kmpWheelState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
         let newWheelState = WheelStateWrapper(from: kmpWheelState)
         if newWheelState != wheelState {
+            syncUnitsFromWheel(newWheelState)
             wheelState = newWheelState
         }
 
@@ -230,6 +232,16 @@ class WheelManager: ObservableObject {
             isScanning = true
         } else if isScanning && connectionState != .scanning {
             isScanning = false
+        }
+    }
+
+    // MARK: - Unit Sync
+
+    /// Auto-set useMph based on the wheel's reported miles setting.
+    /// Called when wheel state changes so the app matches the wheel's configuration.
+    private func syncUnitsFromWheel(_ newState: WheelStateWrapper) {
+        if newState.inMiles != wheelState.inMiles {
+            useMph = newState.inMiles
         }
     }
 
@@ -340,6 +352,9 @@ struct WheelStateWrapper: Equatable {
     let name: String
     let model: String
 
+    // Wheel-reported settings
+    let inMiles: Bool
+
     init() {
         speedKmh = 0
         voltage = 0
@@ -353,6 +368,7 @@ struct WheelStateWrapper: Equatable {
         wheelType = "Unknown"
         name = ""
         model = ""
+        inMiles = false
     }
 
     init(
@@ -367,7 +383,8 @@ struct WheelStateWrapper: Equatable {
         pwmPercent: Double,
         wheelType: String,
         name: String,
-        model: String
+        model: String,
+        inMiles: Bool = false
     ) {
         self.speedKmh = speedKmh
         self.voltage = voltage
@@ -381,6 +398,7 @@ struct WheelStateWrapper: Equatable {
         self.wheelType = wheelType
         self.name = name
         self.model = model
+        self.inMiles = inMiles
     }
 
     init(from kmpState: WheelState) {
@@ -396,6 +414,7 @@ struct WheelStateWrapper: Equatable {
         wheelType = kmpState.wheelType.name
         name = kmpState.name
         model = kmpState.model
+        inMiles = kmpState.inMiles
     }
 }
 

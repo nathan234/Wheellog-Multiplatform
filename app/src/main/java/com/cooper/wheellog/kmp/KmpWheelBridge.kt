@@ -71,11 +71,19 @@ class KmpWheelBridge private constructor() {
      * Update decoder configuration.
      * Call this when user settings change (e.g., mph vs km/h).
      */
-    fun updateConfig(useMph: Boolean, useFahrenheit: Boolean, useCustomPercents: Boolean) {
+    fun updateConfig(
+        useMph: Boolean,
+        useFahrenheit: Boolean,
+        useCustomPercents: Boolean,
+        gotwayNegative: Int = 0,
+        useRatio: Boolean = false
+    ) {
         _decoderConfig.value = DecoderConfig(
             useMph = useMph,
             useFahrenheit = useFahrenheit,
-            useCustomPercents = useCustomPercents
+            useCustomPercents = useCustomPercents,
+            gotwayNegative = gotwayNegative,
+            useRatio = useRatio
         )
     }
 

@@ -126,7 +126,21 @@ data class DecoderConfig(
     /**
      * Password for InMotion wheels.
      */
-    val wheelPassword: String = ""
+    val wheelPassword: String = "",
+
+    /**
+     * Gotway speed/current polarity.
+     * 0 = absolute value (always positive), default for most wheels.
+     * 1 = keep original sign.
+     * -1 = invert sign.
+     */
+    val gotwayNegative: Int = 0,
+
+    /**
+     * Apply 0.875 ratio to Gotway speed/distance values.
+     * Some Gotway boards report inflated values that need scaling.
+     */
+    val useRatio: Boolean = false
 )
 
 /**

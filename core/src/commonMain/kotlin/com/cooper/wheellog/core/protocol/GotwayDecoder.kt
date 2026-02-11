@@ -130,7 +130,7 @@ class GotwayDecoder : WheelDecoder {
 
         val frameType = buff[18].toInt() and 0xFF
         val isAlexovikFW = fwProt == "SV"
-        val gotwayNegative = 1 // config could provide this
+        val gotwayNegative = config.gotwayNegative
 
         return when (frameType) {
             0x00 -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative)
@@ -200,9 +200,11 @@ class GotwayDecoder : WheelDecoder {
             calculateStandardPercent(voltage)
         }
 
-        // Apply ratio if configured
-        val ratio = RATIO_GW
-        // Note: ratio application would be controlled by config
+        // Apply ratio if configured (some boards report inflated values)
+        if (config.useRatio) {
+            speed = (speed * RATIO_GW).roundToInt()
+            distance = (distance * RATIO_GW).roundToInt().toLong()
+        }
 
         // Scale voltage based on wheel configuration
         voltage = scaleVoltage(voltage, config).roundToInt()
@@ -310,6 +312,9 @@ class GotwayDecoder : WheelDecoder {
         isAlexovikFW: Boolean
     ): FrameResult {
         var totalDistance = ByteUtils.getInt4(buff, 2)
+        if (config.useRatio) {
+            totalDistance = (totalDistance * RATIO_GW).roundToInt().toLong()
+        }
 
         var news: String? = null
 

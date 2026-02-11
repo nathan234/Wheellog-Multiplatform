@@ -68,18 +68,17 @@ class GotwayDecoderTest {
         assertNotNull(result)
         assertTrue(result.hasNewData)
 
-        // WheelState stores speed in raw format after applying 3.6 conversion
-        // speed = -1111 * 3.6 = -3999.6 -> -4000
-        // Original WheelData divides by 10, giving -400
-        val expectedSpeed = (speed * 3.6).roundToInt()
+        // Default gotwayNegative=0 takes abs() of speed, matching Android legacy default
+        // speed = abs(round(-1111 * 3.6)) = abs(-4000) = 4000
+        val expectedSpeed = abs((speed * 3.6).roundToInt())
         assertEquals(expectedSpeed, result.newState.speed)
 
         // Temperature uses MPU6050 formula: (raw/340 + 36.53) * 100
         // raw = 99, so temp = (99/340 + 36.53) * 100 = 3682
         assertEquals(3682, result.newState.temperature)
 
-        // Phase current is multiplied by gotwayNegative (1) in decoder
-        assertEquals(phaseCurrent.toInt(), result.newState.phaseCurrent)
+        // Phase current is abs() with gotwayNegative=0, matching Android legacy default
+        assertEquals(abs(phaseCurrent.toInt()), result.newState.phaseCurrent)
 
         // Voltage is passed through (will be scaled by scaleVoltage if configured)
         assertEquals(voltage.toInt(), result.newState.voltage)

@@ -34,46 +34,34 @@ class GotwayDecoderComparisonTest {
     @Test
     fun `decode with normal data matches legacy expected values`() {
         // From GotwayAdapterTest: decode with normal data
-        // Legacy builds packet: header + voltage + speed + padding + distance + phaseCurrent + temperature + footer
+        // Legacy default: gotwayNegative = 0 (abs value)
         val voltage: Short = 6000
-        val speed: Short = -1111  // Negative speed
+        val speed: Short = -1111  // Raw negative speed from wheel
         val temperature: Short = 99
         val distance: Short = 3231
         val phaseCurrent: Short = -8322
 
-        val header = byteArrayOf(0x55, 0xAA.toByte())
-        val voltageBytes = ByteUtils.getBytes(voltage)
-        val speedBytes = ByteUtils.getBytes(speed)
-        val distanceBytes = ByteUtils.getBytes(distance)
-        val phaseCurrentBytes = ByteUtils.getBytes(phaseCurrent)
-        val temperatureBytes = ByteUtils.getBytes(temperature)
-        val footer = byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
-
-        val byteArray = header + voltageBytes + speedBytes + byteArrayOf(0, 0) +
-                distanceBytes + phaseCurrentBytes + temperatureBytes + footer
+        val byteArray = buildLiveDataPacket(voltage, speed, distance, phaseCurrent, temperature)
 
         decoder.reset()
         val result = decoder.decode(byteArray, defaultState, defaultConfig)
 
-        // Expected values from legacy test:
-        // - speedInKm = round(speed * 3.6 / 10).toInt() = round(-1111 * 3.6 / 10) = -400
-        // - temperature = 36 (from MPU6050 formula)
-        // - phaseCurrent = -8322 / 100.0 = -83.22
-        // - voltage = 6000 / 100.0 = 60.0
-        // - wheelDistance = 3231 / 1000.0 = 3.231 km
-        // - battery = 54%
-
         assertTrue(result != null && result.hasNewData, "Should decode successfully")
-
         val state = result!!.newState
+
+        // With gotwayNegative=0 (default), speed should be absolute value
+        // Legacy: speed = abs(round(-1111 * 3.6)) = abs(-3999.6) = abs(-4000) = 4000
+        val expectedSpeed = abs((-1111 * 3.6).roundToInt())
+        assertEquals(expectedSpeed, state.speed, "Speed should be absolute value with gotwayNegative=0")
+        assertTrue(state.speed > 0, "Forward speed must be positive")
 
         // Verify voltage
         assertEquals(6000, state.voltage, "Voltage should be 6000 (raw units)")
         assertEquals(60.0, state.voltageV, 0.01, "Voltage should be 60.0V")
 
-        // Verify phase current (signed value)
-        assertEquals(-8322, state.phaseCurrent, "Phase current should be -8322 (raw)")
-        assertEquals(-83.22, state.phaseCurrentA, 0.01, "Phase current should be -83.22A")
+        // Verify phase current is also absolute with gotwayNegative=0
+        assertEquals(abs(phaseCurrent.toInt()), state.phaseCurrent,
+            "Phase current should be absolute value with gotwayNegative=0")
 
         // Verify wheel distance
         assertEquals(3231, state.wheelDistance, "Wheel distance should be 3231m")
@@ -273,6 +261,196 @@ class GotwayDecoderComparisonTest {
 
         // Valid frame structure should be recognized
         // (may or may not produce hasNewData depending on frame type)
+    }
+
+    // ==================== gotwayNegative Parity with Legacy ====================
+
+    @Test
+    fun `gotwayNegative 0 takes absolute value of speed - matches legacy`() {
+        // Legacy GotwayAdapter line 145-148: if (gotwayNegative == 0) speed = Math.abs(speed)
+        // Default config has gotwayNegative = 0
+        val rawSpeed: Short = -500  // Wheel sends negative for forward on some boards
+        val byteArray = buildLiveDataPacket(speed = rawSpeed)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 0)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        val speed = result!!.newState.speed
+
+        // Legacy: abs(round(-500 * 3.6)) = abs(-1800) = 1800
+        val expected = abs((-500 * 3.6).roundToInt())
+        assertEquals(expected, speed, "gotwayNegative=0 should take abs(speed)")
+        assertTrue(speed > 0, "Speed must be positive with gotwayNegative=0")
+    }
+
+    @Test
+    fun `gotwayNegative 1 preserves original sign - matches legacy`() {
+        // Legacy GotwayAdapter line 153: speed = speed * gotwayNegative (1)
+        val rawSpeed: Short = -500
+        val byteArray = buildLiveDataPacket(speed = rawSpeed)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 1)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        val speed = result!!.newState.speed
+
+        // Legacy: speed * 1 = round(-500 * 3.6) * 1 = -1800
+        val expected = (-500 * 3.6).roundToInt() * 1
+        assertEquals(expected, speed, "gotwayNegative=1 should preserve sign")
+        assertTrue(speed < 0, "Negative raw speed stays negative with gotwayNegative=1")
+    }
+
+    @Test
+    fun `gotwayNegative -1 inverts sign - matches legacy`() {
+        // Legacy GotwayAdapter line 153: speed = speed * gotwayNegative (-1)
+        val rawSpeed: Short = -500
+        val byteArray = buildLiveDataPacket(speed = rawSpeed)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = -1)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        val speed = result!!.newState.speed
+
+        // Legacy: speed * -1 = round(-500 * 3.6) * -1 = -1800 * -1 = 1800
+        val expected = (-500 * 3.6).roundToInt() * -1
+        assertEquals(expected, speed, "gotwayNegative=-1 should invert sign")
+        assertTrue(speed > 0, "Inverted negative raw speed becomes positive")
+    }
+
+    @Test
+    fun `gotwayNegative 0 also affects phaseCurrent and hwPwm - matches legacy`() {
+        // Legacy lines 145-148: all three get abs() when gotwayNegative=0
+        val rawPhaseCurrent: Short = -2500
+        val byteArray = buildLiveDataPacket(phaseCurrent = rawPhaseCurrent)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 0)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        assertEquals(abs(rawPhaseCurrent.toInt()), result!!.newState.phaseCurrent,
+            "Phase current should be absolute with gotwayNegative=0")
+    }
+
+    // ==================== useRatio Parity with Legacy ====================
+
+    @Test
+    fun `useRatio scales speed by 0_875 - matches legacy`() {
+        // Legacy GotwayAdapter line 181: speed = Math.round(speed * RATIO_GW)
+        val rawSpeed: Short = 1000  // Positive speed
+        val byteArray = buildLiveDataPacket(speed = rawSpeed)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 0, useRatio = true)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        val speed = result!!.newState.speed
+
+        // Legacy: round(abs(round(1000 * 3.6)) * 0.875) = round(3600 * 0.875) = round(3150) = 3150
+        val rawConvertedSpeed = abs((1000 * 3.6).roundToInt())
+        val expected = (rawConvertedSpeed * 0.875).roundToInt()
+        assertEquals(expected, speed, "useRatio should scale speed by 0.875")
+    }
+
+    @Test
+    fun `useRatio scales distance by 0_875 - matches legacy`() {
+        // Legacy GotwayAdapter line 180: distance = Math.round(distance * RATIO_GW)
+        val rawDistance: Short = 10000
+        val byteArray = buildLiveDataPacket(distance = rawDistance)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 0, useRatio = true)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        val distance = result!!.newState.wheelDistance
+
+        // Legacy: round(10000 * 0.875) = 8750
+        val expected = (10000 * 0.875).roundToInt().toLong()
+        assertEquals(expected, distance, "useRatio should scale distance by 0.875")
+    }
+
+    @Test
+    fun `useRatio scales totalDistance by 0_875 - matches legacy`() {
+        // Legacy GotwayAdapter line 282-283: totalDistance = Math.round(totalDistance * RATIO_GW)
+        val totalDist = 100000L  // 100 km in meters
+
+        // Build a frame type 0x04 (total distance) packet
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val distBytes = byteArrayOf(
+            ((totalDist shr 24) and 0xFF).toByte(),
+            ((totalDist shr 16) and 0xFF).toByte(),
+            ((totalDist shr 8) and 0xFF).toByte(),
+            (totalDist and 0xFF).toByte()
+        )
+        val settingsAndPadding = ByteArray(14) { 0 }
+        val frameType = byteArrayOf(0x04)
+        val footer = byteArrayOf(0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+
+        val packet = header + distBytes + settingsAndPadding + frameType + footer
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 0, useRatio = true)
+        val result = decoder.decode(packet, defaultState, config)
+
+        if (result != null) {
+            // Legacy: round(100000 * 0.875) = 87500
+            val expected = (100000 * 0.875).roundToInt().toLong()
+            assertEquals(expected, result.newState.totalDistance,
+                "useRatio should scale totalDistance by 0.875")
+        }
+    }
+
+    @Test
+    fun `useRatio false does not scale values - matches legacy`() {
+        val rawSpeed: Short = 1000
+        val rawDistance: Short = 10000
+        val byteArray = buildLiveDataPacket(speed = rawSpeed, distance = rawDistance)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 0, useRatio = false)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+
+        val expectedSpeed = abs((1000 * 3.6).roundToInt())
+        assertEquals(expectedSpeed, result!!.newState.speed, "Speed unscaled without useRatio")
+        assertEquals(10000L, result.newState.wheelDistance, "Distance unscaled without useRatio")
+    }
+
+    // ==================== Helper ====================
+
+    /**
+     * Build a Gotway live data packet (frame type 0x00) with specified raw values.
+     * Matches the packet format used by both legacy GotwayAdapter and KMP GotwayDecoder.
+     */
+    private fun buildLiveDataPacket(
+        voltage: Short = 6000,
+        speed: Short = 0,
+        distance: Short = 0,
+        phaseCurrent: Short = 0,
+        temperature: Short = 99
+    ): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val voltageBytes = ByteUtils.getBytes(voltage)
+        val speedBytes = ByteUtils.getBytes(speed)
+        val padding = byteArrayOf(0, 0)  // bytes 6-7
+        val distanceBytes = ByteUtils.getBytes(distance)
+        val phaseCurrentBytes = ByteUtils.getBytes(phaseCurrent)
+        val temperatureBytes = ByteUtils.getBytes(temperature)
+        // bytes 14-15 (hwPwm), 16-17 (padding), 18 (frame type 0x00), 19 (padding)
+        val tail = byteArrayOf(0, 0, 0, 0, 0x00, 0x18)
+        val footer = byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
+
+        return header + voltageBytes + speedBytes + padding +
+                distanceBytes + phaseCurrentBytes + temperatureBytes + tail + footer
     }
 
     // ==================== Battery Calculation ====================

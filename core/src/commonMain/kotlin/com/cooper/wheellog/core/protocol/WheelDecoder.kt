@@ -146,7 +146,14 @@ data class DecoderConfig(
      * Apply 0.875 ratio to Gotway speed/distance values.
      * Some Gotway boards report inflated values that need scaling.
      */
-    val useRatio: Boolean = false
+    val useRatio: Boolean = false,
+
+    /**
+     * Gotway/Begode battery voltage configuration.
+     * 0 = 67.2V (16S), 1 = 84V (20S), 2 = 100.8V (24S),
+     * 3 = 126V (28S), 4 = 134.4V (32S), 5 = 168V (40S), 6 = 151V (36S).
+     */
+    val gotwayVoltage: Int = 0
 )
 
 /**

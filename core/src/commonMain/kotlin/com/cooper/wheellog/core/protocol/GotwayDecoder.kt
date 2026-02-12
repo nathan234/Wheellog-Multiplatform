@@ -469,10 +469,17 @@ class GotwayDecoder : WheelDecoder {
     }
 
     private fun scaleVoltage(voltage: Int, config: DecoderConfig): Double {
-        // Scale based on battery configuration
-        // Default assumes 67.2V (16S) battery
-        // This could be extended to handle different voltage configs
-        return voltage.toDouble()
+        val scaler = when (config.gotwayVoltage) {
+            0 -> 1.0                    // 67.2V (16S)
+            1 -> 1.25                   // 84V (20S)
+            2 -> 1.5                    // 100.8V (24S)
+            3 -> 1.7380952380952381     // 126V (28S)
+            4 -> 2.0                    // 134.4V (32S)
+            5 -> 2.5                    // 168V (40S)
+            6 -> 2.25                   // 151V (36S)
+            else -> 1.0
+        }
+        return voltage * scaler
     }
 
     override fun isReady(): Boolean = stateLock.withLock {

@@ -220,6 +220,337 @@ class GotwayDecoderTest {
         assertEquals(13983L, state.totalDistance)
     }
 
+    // ==================== Voltage Scaling ====================
+
+    @Test
+    fun `voltage scaling default (67V) is 1x`() {
+        val cfg = config.copy(gotwayVoltage = 0)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 1.0 = 6000
+        assertEquals(6000, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling 84V is 1_25x`() {
+        val cfg = config.copy(gotwayVoltage = 1)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 1.25 = 7500
+        assertEquals(7500, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling 100V is 1_5x`() {
+        val cfg = config.copy(gotwayVoltage = 2)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 1.5 = 9000
+        assertEquals(9000, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling 126V is 1_738x`() {
+        val cfg = config.copy(gotwayVoltage = 3)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 1.7380952... = 10428.57... rounds to 10429
+        assertEquals(10429, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling 134V is 2x`() {
+        val cfg = config.copy(gotwayVoltage = 4)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 2.0 = 12000
+        assertEquals(12000, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling 168V is 2_5x`() {
+        val cfg = config.copy(gotwayVoltage = 5)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 2.5 = 15000
+        assertEquals(15000, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling 151V is 2_25x`() {
+        val cfg = config.copy(gotwayVoltage = 6)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        // 6000 * 2.25 = 13500
+        assertEquals(13500, result.newState.voltage)
+    }
+
+    @Test
+    fun `voltage scaling unknown value falls back to 1x`() {
+        val cfg = config.copy(gotwayVoltage = 99)
+        val result = decodeNormalData(voltage = 6000, config = cfg)
+        assertNotNull(result)
+        assertEquals(6000, result.newState.voltage)
+    }
+
+    // ==================== Veteran Model Names ====================
+
+    @Test
+    fun `veteran decoder identifies Sherman (mVer 1)`() {
+        val state = decodeVeteranFrame(mVer = 1)
+        assertEquals("Sherman", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Abrams (mVer 2)`() {
+        val state = decodeVeteranFrame(mVer = 2)
+        assertEquals("Abrams", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Sherman S (mVer 3)`() {
+        val state = decodeVeteranFrame(mVer = 3)
+        assertEquals("Sherman S", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Patton (mVer 4)`() {
+        val state = decodeVeteranFrame(mVer = 4)
+        assertEquals("Patton", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Lynx (mVer 5)`() {
+        val state = decodeVeteranFrame(mVer = 5)
+        assertEquals("Lynx", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Sherman L (mVer 6)`() {
+        val state = decodeVeteranFrame(mVer = 6)
+        assertEquals("Sherman L", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Patton S (mVer 7)`() {
+        val state = decodeVeteranFrame(mVer = 7)
+        assertEquals("Patton S", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Oryx (mVer 8)`() {
+        val state = decodeVeteranFrame(mVer = 8)
+        assertEquals("Oryx", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Nosfet Apex (mVer 42)`() {
+        val state = decodeVeteranFrame(mVer = 42)
+        assertEquals("Nosfet Apex", state.model)
+    }
+
+    @Test
+    fun `veteran decoder identifies Nosfet Aero (mVer 43)`() {
+        val state = decodeVeteranFrame(mVer = 43)
+        assertEquals("Nosfet Aero", state.model)
+    }
+
+    // ==================== Kingsong Model Detection ====================
+
+    @Test
+    fun `kingsong identifies S16 as 84V wheel`() {
+        val ksDecoder = KingsongDecoder()
+        // Send name frame "KS-S16-0001"
+        val namePacket = buildKsNamePacket("KS-S16-0001")
+        val livePacket = buildKsLivePacket(voltage = 8000)
+        var state = WheelState()
+
+        val r1 = ksDecoder.decode(namePacket, state, config)
+        if (r1 != null) state = r1.newState
+        assertEquals("KS-S16", state.model)
+
+        val r2 = ksDecoder.decode(livePacket, state, config)
+        assertNotNull(r2)
+        // 84V wheel: 8000 -> (8000-6250)/20 = 87%
+        assertEquals(87, r2.newState.batteryLevel)
+    }
+
+    @Test
+    fun `kingsong identifies F18P as 151V wheel`() {
+        val ksDecoder = KingsongDecoder()
+        val namePacket = buildKsNamePacket("KS-F18P-001")
+        val livePacket = buildKsLivePacket(voltage = 14000)
+        var state = WheelState()
+
+        val r1 = ksDecoder.decode(namePacket, state, config)
+        if (r1 != null) state = r1.newState
+        assertEquals("KS-F18P", state.model)
+
+        val r2 = ksDecoder.decode(livePacket, state, config)
+        assertNotNull(r2)
+        // 151V wheel: (14000-11250)/36 = 76%
+        assertEquals(76, r2.newState.batteryLevel)
+    }
+
+    @Test
+    fun `kingsong identifies F22P as 176V wheel`() {
+        val ksDecoder = KingsongDecoder()
+        val namePacket = buildKsNamePacket("KS-F22P-001")
+        val livePacket = buildKsLivePacket(voltage = 16000)
+        var state = WheelState()
+
+        val r1 = ksDecoder.decode(namePacket, state, config)
+        if (r1 != null) state = r1.newState
+        assertEquals("KS-F22P", state.model)
+
+        val r2 = ksDecoder.decode(livePacket, state, config)
+        assertNotNull(r2)
+        // 176V wheel: (16000-13125)/42 = 68%
+        assertEquals(68, r2.newState.batteryLevel)
+    }
+
+    @Test
+    fun `kingsong identifies S19 as 100V wheel`() {
+        val ksDecoder = KingsongDecoder()
+        val namePacket = buildKsNamePacket("KS-S19-0001")
+        val livePacket = buildKsLivePacket(voltage = 9000)
+        var state = WheelState()
+
+        val r1 = ksDecoder.decode(namePacket, state, config)
+        if (r1 != null) state = r1.newState
+        assertEquals("KS-S19", state.model)
+
+        val r2 = ksDecoder.decode(livePacket, state, config)
+        assertNotNull(r2)
+        // 100V wheel: (9000-7500)/24 = 62%
+        assertEquals(62, r2.newState.batteryLevel)
+    }
+
+    // ==================== InmotionV2 Model IDs ====================
+
+    @Test
+    fun `inmotionV2 all model IDs resolve correctly`() {
+        val expected = mapOf(
+            Pair(6, 1) to "Inmotion V11",
+            Pair(6, 2) to "Inmotion V11y",
+            Pair(7, 1) to "Inmotion V12 HS",
+            Pair(7, 2) to "Inmotion V12 HT",
+            Pair(7, 3) to "Inmotion V12 PRO",
+            Pair(8, 1) to "Inmotion V13",
+            Pair(8, 2) to "Inmotion V13 PRO",
+            Pair(9, 1) to "Inmotion V14 50GB",
+            Pair(9, 2) to "Inmotion V14 50S",
+            Pair(11, 1) to "Inmotion V12S",
+            Pair(12, 1) to "Inmotion V9"
+        )
+
+        for ((ids, name) in expected) {
+            val model = InmotionV2Decoder.Model.findById(ids.first, ids.second)
+            assertEquals(name, model.displayName, "Model for series=${ids.first}, type=${ids.second}")
+        }
+    }
+
+    @Test
+    fun `inmotionV2 cell counts are correct`() {
+        assertEquals(20, InmotionV2Decoder.Model.V11.cellCount)
+        assertEquals(20, InmotionV2Decoder.Model.V11Y.cellCount)
+        assertEquals(24, InmotionV2Decoder.Model.V12HS.cellCount)
+        assertEquals(24, InmotionV2Decoder.Model.V12HT.cellCount)
+        assertEquals(24, InmotionV2Decoder.Model.V12PRO.cellCount)
+        assertEquals(30, InmotionV2Decoder.Model.V13.cellCount)
+        assertEquals(30, InmotionV2Decoder.Model.V13PRO.cellCount)
+        assertEquals(32, InmotionV2Decoder.Model.V14g.cellCount)
+        assertEquals(32, InmotionV2Decoder.Model.V14s.cellCount)
+        assertEquals(20, InmotionV2Decoder.Model.V12S.cellCount)
+        assertEquals(20, InmotionV2Decoder.Model.V9.cellCount)
+    }
+
+    @Test
+    fun `inmotionV2 unknown series returns UNKNOWN`() {
+        val model = InmotionV2Decoder.Model.findById(99, 1)
+        assertEquals(InmotionV2Decoder.Model.UNKNOWN, model)
+    }
+
+    // ==================== Helpers ====================
+
+    private fun decodeNormalData(voltage: Short = 6000, config: DecoderConfig = this.config): DecodedData? {
+        val freshDecoder = GotwayDecoder()
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val byteArray = header +
+            shortToBytesBE(voltage) +
+            shortToBytesBE(0) + // speed
+            byteArrayOf(0, 0) +
+            shortToBytesBE(0) + // distance
+            shortToBytesBE(0) + // phaseCurrent
+            shortToBytesBE(99) + // temperature
+            byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+        return freshDecoder.decode(byteArray, WheelState(), config)
+    }
+
+    /**
+     * Build a minimal Veteran frame with the given mVer encoded in the version field.
+     * Version field = mVer * 1000 (so mVer=5 -> version=5000 -> "5.0.00")
+     */
+    private fun decodeVeteranFrame(mVer: Int): WheelState {
+        val vetDecoder = VeteranDecoder()
+        val ver = mVer * 1000
+        // Build a 36-byte Veteran frame: header(3) + len(1) + data(32)
+        val frame = ByteArray(36)
+        // Header: DC 5A 5C
+        frame[0] = 0xDC.toByte()
+        frame[1] = 0x5A
+        frame[2] = 0x5C
+        frame[3] = 32 // length
+        // Voltage at offset 4 (2 bytes BE): 9686 (96.86V)
+        frame[4] = 0x25; frame[5] = 0xD6.toByte()
+        // Version at offset 28 (2 bytes BE)
+        frame[28] = ((ver shr 8) and 0xFF).toByte()
+        frame[29] = (ver and 0xFF).toByte()
+
+        var state = WheelState()
+        val result = vetDecoder.decode(frame, state, config)
+        assertNotNull(result, "Veteran frame should decode for mVer=$mVer")
+        return result.newState
+    }
+
+    /**
+     * Build a KingSong 0xBB name frame.
+     */
+    private fun buildKsNamePacket(name: String): ByteArray {
+        val packet = ByteArray(20)
+        packet[0] = 0xAA.toByte()
+        packet[1] = 0x55
+        val nameBytes = name.encodeToByteArray()
+        for (i in nameBytes.indices) {
+            if (i + 2 < 16) packet[i + 2] = nameBytes[i]
+        }
+        packet[16] = 0xBB.toByte()
+        packet[17] = 0x14
+        packet[18] = 0x5A
+        packet[19] = 0x5A
+        return packet
+    }
+
+    /**
+     * Build a KingSong 0xA9 live data frame with given voltage.
+     */
+    private fun buildKsLivePacket(voltage: Int): ByteArray {
+        val packet = ByteArray(20)
+        packet[0] = 0xAA.toByte()
+        packet[1] = 0x55
+        // Voltage at offset 2-3 (LE)
+        packet[2] = (voltage and 0xFF).toByte()
+        packet[3] = ((voltage shr 8) and 0xFF).toByte()
+        // Mode indicator
+        packet[15] = 0xE0.toByte()
+        // Frame type
+        packet[16] = 0xA9.toByte()
+        packet[17] = 0x14
+        packet[18] = 0x5A
+        packet[19] = 0x5A
+        return packet
+    }
+
     // Helper function to convert short to big-endian bytes
     private fun shortToBytesBE(value: Short): ByteArray {
         return byteArrayOf(
@@ -227,4 +558,6 @@ class GotwayDecoderTest {
             (value.toInt() and 0xFF).toByte()
         )
     }
+
+    private fun shortToBytesBE(value: Int): ByteArray = shortToBytesBE(value.toShort())
 }

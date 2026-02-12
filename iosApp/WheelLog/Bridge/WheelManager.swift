@@ -197,6 +197,55 @@ class WheelManager: ObservableObject {
         if state.isConnected {
             connectionState = .connected(address: "MOCK-DEVICE", wheelName: state.model)
         }
+
+        // Feed telemetry buffer for chart view
+        telemetryBuffer.addSampleIfNeeded(
+            speedKmh: wheelState.speedKmh,
+            current: wheelState.current,
+            power: wheelState.power,
+            temperature: wheelState.temperature,
+            battery: wheelState.batteryLevel
+        )
+
+        // Check alarms
+        let values = AlarmManager.WheelValues(
+            speedKmh: wheelState.speedKmh,
+            current: wheelState.current,
+            temperature: wheelState.temperature,
+            batteryLevel: wheelState.batteryLevel
+        )
+        let settings = AlarmManager.AlarmSettings(
+            enabled: alarmsEnabled,
+            alarm1Speed: alarm1Speed,
+            alarm2Speed: alarm2Speed,
+            alarm3Speed: alarm3Speed,
+            alarmCurrent: alarmCurrent,
+            alarmTemperature: alarmTemperature,
+            alarmBattery: alarmBattery,
+            action: alarmAction
+        )
+        alarmManager.checkAlarms(values: values, settings: settings)
+        activeAlarms = alarmManager.activeAlarms
+
+        // Write ride log sample
+        if isLogging {
+            let sampleData = RideLogger.SampleData(
+                speedKmh: wheelState.speedKmh,
+                voltage: wheelState.voltage,
+                current: wheelState.current,
+                power: wheelState.power,
+                pwm: wheelState.pwmPercent,
+                batteryLevel: wheelState.batteryLevel,
+                wheelDistanceKm: wheelState.wheelDistanceKm,
+                totalDistanceKm: wheelState.totalDistanceKm,
+                temperature: wheelState.temperature
+            )
+            rideLogger.writeSampleIfThrottled(
+                data: sampleData,
+                location: locationManager.currentLocation,
+                includeGPS: logGPS
+            )
+        }
     }
 
     // MARK: - Mock Mode

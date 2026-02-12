@@ -24,6 +24,37 @@ class WheelManager: ObservableObject {
     }
     @Published var isLightOn: Bool = false
 
+    // Alarm settings (persisted to UserDefaults, stored in km/h and °C internally)
+    @Published var alarmsEnabled: Bool = UserDefaults.standard.bool(forKey: "alarms_enabled") {
+        didSet { UserDefaults.standard.set(alarmsEnabled, forKey: "alarms_enabled") }
+    }
+    @Published var alarm1Speed: Double = UserDefaults.standard.double(forKey: "alarm_1_speed") {
+        didSet { UserDefaults.standard.set(alarm1Speed, forKey: "alarm_1_speed") }
+    }
+    @Published var alarm2Speed: Double = UserDefaults.standard.double(forKey: "alarm_2_speed") {
+        didSet { UserDefaults.standard.set(alarm2Speed, forKey: "alarm_2_speed") }
+    }
+    @Published var alarm3Speed: Double = UserDefaults.standard.double(forKey: "alarm_3_speed") {
+        didSet { UserDefaults.standard.set(alarm3Speed, forKey: "alarm_3_speed") }
+    }
+    @Published var alarmCurrent: Double = UserDefaults.standard.double(forKey: "alarm_current") {
+        didSet { UserDefaults.standard.set(alarmCurrent, forKey: "alarm_current") }
+    }
+    @Published var alarmTemperature: Double = UserDefaults.standard.double(forKey: "alarm_temperature") {
+        didSet { UserDefaults.standard.set(alarmTemperature, forKey: "alarm_temperature") }
+    }
+    @Published var alarmBattery: Double = UserDefaults.standard.double(forKey: "alarm_battery") {
+        didSet { UserDefaults.standard.set(alarmBattery, forKey: "alarm_battery") }
+    }
+
+    // Connection settings (persisted to UserDefaults)
+    @Published var autoReconnect: Bool = UserDefaults.standard.bool(forKey: "use_reconnect") {
+        didSet { UserDefaults.standard.set(autoReconnect, forKey: "use_reconnect") }
+    }
+    @Published var showUnknownDevices: Bool = UserDefaults.standard.bool(forKey: "show_unknown_devices") {
+        didSet { UserDefaults.standard.set(showUnknownDevices, forKey: "show_unknown_devices") }
+    }
+
     // MARK: - KMP Components
 
     private var bleManager: BleManager?

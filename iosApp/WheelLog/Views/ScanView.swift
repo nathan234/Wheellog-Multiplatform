@@ -2,6 +2,11 @@ import SwiftUI
 
 struct ScanView: View {
     @EnvironmentObject var wheelManager: WheelManager
+    @State private var scanPulse = false
+
+    private var hasDevices: Bool {
+        !wheelManager.discoveredDevices.isEmpty
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,54 +16,80 @@ struct ScanView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 Spacer()
-                scanButton
             }
             .padding()
 
-            // Device list
-            if wheelManager.discoveredDevices.isEmpty {
-                emptyState
-            } else {
+            // Scan button — always visible
+            scanButton
+                .onChange(of: wheelManager.isScanning) { scanning in
+                    if scanning {
+                        scanPulse = true
+                    } else {
+                        scanPulse = false
+                    }
+                }
+
+            if hasDevices {
                 deviceList
+            } else {
+                emptyState
             }
         }
         .background(Color(.systemGroupedBackground))
     }
 
     private var scanButton: some View {
-        Button(action: toggleScan) {
-            HStack(spacing: 6) {
-                if wheelManager.isScanning {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle())
-                        .scaleEffect(0.8)
+        let isScanning = wheelManager.isScanning
+        let size: CGFloat = hasDevices ? 100 : 160
+
+        return Button(action: toggleScan) {
+            ZStack {
+                Circle()
+                    .fill(isScanning ? Color.red : Color.blue)
+                    .frame(width: size, height: size)
+                    .shadow(color: (isScanning ? Color.red : Color.blue).opacity(0.4), radius: 12, y: 4)
+
+                if isScanning {
+                    Circle()
+                        .stroke(Color.red.opacity(0.3), lineWidth: 3)
+                        .frame(width: size + 20, height: size + 20)
+                        .scaleEffect(scanPulse ? 1.3 : 1.0)
+                        .opacity(scanPulse ? 0.0 : 0.6)
+                        .animation(.easeOut(duration: 1.5).repeatForever(autoreverses: false), value: scanPulse)
                 }
-                Text(wheelManager.isScanning ? "Stop" : "Scan")
+
+                VStack(spacing: hasDevices ? 4 : 8) {
+                    Image(systemName: isScanning ? "stop.fill" : (hasDevices ? "arrow.clockwise" : "antenna.radiowaves.left.and.right"))
+                        .font(.system(size: hasDevices ? 24 : 40, weight: .medium))
+                    Text(isScanning ? "Cancel" : (hasDevices ? "Rescan" : "Scan"))
+                        .font(hasDevices ? .body : .title2)
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.white)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(wheelManager.isScanning ? Color.red : Color.blue)
-            .foregroundColor(.white)
-            .cornerRadius(8)
         }
+        .buttonStyle(.plain)
+        .padding(.vertical, hasDevices ? 12 : 0)
+        .animation(.easeInOut(duration: 0.3), value: hasDevices)
     }
 
     private var emptyState: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "antenna.radiowaves.left.and.right")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
-            Text("No Devices Found")
-                .font(.title2)
-                .fontWeight(.medium)
-            Text("Tap Scan to search for nearby wheels")
-                .font(.body)
-                .foregroundColor(.secondary)
+
+            if wheelManager.isScanning {
+                Text("Searching for nearby wheels...")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("Tap to search for nearby wheels")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
 
             #if targetEnvironment(simulator)
             Divider()
-                .padding(.vertical, 20)
+                .padding(.vertical, 12)
 
             VStack(spacing: 12) {
                 Text("Simulator Mode")
@@ -97,7 +128,6 @@ struct ScanView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity)
-        .background(Color(.systemGroupedBackground))
     }
 
     private var deviceList: some View {

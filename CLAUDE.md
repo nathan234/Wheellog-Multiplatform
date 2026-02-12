@@ -78,4 +78,4 @@ BLE is not available on iOS Simulator. Use the test mode instead:
 
 ## Branch
 
-Active development: `feature/kmp-migration`
+Active development: `main`

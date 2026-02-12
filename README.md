@@ -104,7 +104,7 @@ iOS always uses the KMP decoders.
 
 ## Contributing
 
-Pull requests are welcome on the `feature/kmp-migration` branch. Please run `./gradlew :core:testDebugUnitTest` before submitting.
+Pull requests are welcome on the `main` branch. Please run `./gradlew :core:testDebugUnitTest` before submitting.
 
 ## Acknowledgments
 

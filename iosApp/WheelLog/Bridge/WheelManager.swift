@@ -190,8 +190,8 @@ class WheelManager: ObservableObject {
     // MARK: - Polling
 
     private func startPolling() {
-        // Poll wheel state and connection state at 10Hz
-        statePollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        // Poll wheel state and connection state at 20Hz
+        statePollingTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.pollState()
             }

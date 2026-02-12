@@ -1,5 +1,6 @@
 package com.cooper.wheellog.core.service
 
+import com.cooper.wheellog.core.ble.BleUuids
 import com.cooper.wheellog.core.ble.DiscoveredService
 import com.cooper.wheellog.core.ble.DiscoveredServices
 import com.cooper.wheellog.core.utils.Lock
@@ -269,8 +270,8 @@ actual class BleManager {
         _connectionState.value = ConnectionState.DiscoveringServices(
             peripheral.identifier.UUIDString
         )
-        // Discover all services
-        peripheral.discoverServices(serviceUUIDs = null)
+        // Discover only the services used by supported wheels
+        peripheral.discoverServices(serviceUUIDs = wheelServiceUUIDs())
     }
 
     internal fun onConnectionFailed(peripheral: CBPeripheral, error: NSError?) {
@@ -519,6 +520,22 @@ actual class BleConnection(
     val name: String? get() = peripheral.name
     val isConnected: Boolean get() = peripheral.state == CBPeripheralStateConnected
 }
+
+// ==================== Service UUID Filter ====================
+
+/**
+ * Returns the 3 BLE service UUIDs used by all supported wheel types.
+ * Passing these to discoverServices() skips standard services (Generic Access,
+ * Device Information, Battery, etc.) that add ~50-100ms each to discovery.
+ */
+private fun wheelServiceUUIDs(): List<CBUUID> = listOf(
+    // Kingsong, Gotway/Veteran, Ninebot, Inmotion V1 read
+    CBUUID.UUIDWithString(BleUuids.Kingsong.SERVICE),
+    // Inmotion V1 write
+    CBUUID.UUIDWithString(BleUuids.Inmotion.WRITE_SERVICE),
+    // Nordic UART — InmotionV2, NinebotZ
+    CBUUID.UUIDWithString(BleUuids.InmotionV2.SERVICE),
+)
 
 // ==================== UUID Normalization ====================
 

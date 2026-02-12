@@ -18,6 +18,9 @@ struct ContentView: View {
                 }
             }
         }
+        // Reset NavigationStack (pop any pushed views like Settings) when
+        // transitioning between connected and disconnected states.
+        .id(wheelManager.connectionState.isConnected)
     }
 }
 

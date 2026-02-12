@@ -298,6 +298,75 @@ class WheelStateTest {
         assertEquals(5.5, state.wheelDistanceKm, 0.001)
     }
 
+    // ==================== inMiles Distance Conversion ====================
+
+    @Test
+    fun `totalDistanceKm when inMiles false treats raw as meters`() {
+        val state = WheelState(totalDistance = 1163400, inMiles = false)
+
+        // 1163400 meters = 1163.4 km
+        assertEquals(1163.4, state.totalDistanceKm, 0.001)
+    }
+
+    @Test
+    fun `totalDistanceKm when inMiles true converts miles to km`() {
+        // When inMiles=true, raw value / 1000 gives miles, not km
+        // 1163400 / 1000 = 1163.4 miles = 1872.3 km
+        val state = WheelState(totalDistance = 1163400, inMiles = true)
+
+        val expectedKm = 1163.4 / WheelState.KM_TO_MILES  // 1872.3 km
+        assertEquals(expectedKm, state.totalDistanceKm, 0.1)
+    }
+
+    @Test
+    fun `totalDistanceKm inMiles roundtrip gives correct miles for display`() {
+        // Simulates the full display path: raw → totalDistanceKm → display miles
+        val rawFromWheel = 1150000L  // Wheel reports 1150.0 miles
+        val state = WheelState(totalDistance = rawFromWheel, inMiles = true)
+
+        // Display layer: totalDistanceKm * KM_TO_MILES should give back ~1150 miles
+        val displayMiles = state.totalDistanceKm * WheelState.KM_TO_MILES
+        assertEquals(1150.0, displayMiles, 0.01)
+    }
+
+    @Test
+    fun `wheelDistanceKm when inMiles false treats raw as meters`() {
+        val state = WheelState(wheelDistance = 5500, inMiles = false)
+
+        assertEquals(5.5, state.wheelDistanceKm, 0.001)
+    }
+
+    @Test
+    fun `wheelDistanceKm when inMiles true converts miles to km`() {
+        // 5500 / 1000 = 5.5 miles = 8.85 km
+        val state = WheelState(wheelDistance = 5500, inMiles = true)
+
+        val expectedKm = 5.5 / WheelState.KM_TO_MILES
+        assertEquals(expectedKm, state.wheelDistanceKm, 0.01)
+    }
+
+    @Test
+    fun `wheelDistanceKm inMiles roundtrip gives correct miles for display`() {
+        val rawFromWheel = 10000L  // Wheel reports 10.0 miles trip
+        val state = WheelState(wheelDistance = rawFromWheel, inMiles = true)
+
+        val displayMiles = state.wheelDistanceKm * WheelState.KM_TO_MILES
+        assertEquals(10.0, displayMiles, 0.01)
+    }
+
+    @Test
+    fun `inMiles false and true give different totalDistanceKm for same raw value`() {
+        val raw = 1000000L
+        val stateKm = WheelState(totalDistance = raw, inMiles = false)
+        val stateMi = WheelState(totalDistance = raw, inMiles = true)
+
+        // inMiles=false: 1000 km
+        assertEquals(1000.0, stateKm.totalDistanceKm, 0.001)
+        // inMiles=true: 1000 miles = 1609.3 km
+        assertEquals(1000.0 / WheelState.KM_TO_MILES, stateMi.totalDistanceKm, 0.1)
+        assertTrue(stateMi.totalDistanceKm > stateKm.totalDistanceKm)
+    }
+
     // ==================== PWM and Output Computed Properties ====================
 
     @Test

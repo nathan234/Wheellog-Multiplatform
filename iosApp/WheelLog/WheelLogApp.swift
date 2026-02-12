@@ -10,7 +10,7 @@ struct WheelLogApp: App {
             ContentView()
                 .environmentObject(wheelManager)
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             switch newPhase {
             case .background:
                 wheelManager.onEnterBackground()

@@ -97,7 +97,7 @@ struct SettingsView: View {
                     Text(appVersion)
                         .foregroundColor(.secondary)
                 }
-                Link("GitHub Repository", destination: URL(string: "https://github.com/wheellog/wheellog.android")!)
+                Link("GitHub Repository", destination: URL(string: "https://github.com/nathan234/Wheellog-Multiplatform")!)
             }
         }
         .navigationTitle("Settings")

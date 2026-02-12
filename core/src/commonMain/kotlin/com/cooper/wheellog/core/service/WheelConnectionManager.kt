@@ -288,6 +288,14 @@ class WheelConnectionManager(
         sendCommand(WheelCommand.SetLight(enabled))
     }
 
+    /**
+     * Set pedals mode on the connected wheel.
+     * @param mode 0=Hard, 1=Medium, 2=Soft
+     */
+    suspend fun setPedalsMode(mode: Int) {
+        sendCommand(WheelCommand.SetPedalsMode(mode))
+    }
+
     // ==================== Private Methods ====================
 
     private fun setupDecoder(wheelType: WheelType) {

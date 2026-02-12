@@ -47,6 +47,12 @@ class WheelManager: ObservableObject {
         didSet { UserDefaults.standard.set(alarmBattery, forKey: "alarm_battery") }
     }
 
+    // Alarm action (Feature 1)
+    @Published var alarmAction: AlarmAction = AlarmAction(rawValue: UserDefaults.standard.integer(forKey: "alarm_action")) ?? .phoneOnly {
+        didSet { UserDefaults.standard.set(alarmAction.rawValue, forKey: "alarm_action") }
+    }
+    @Published private(set) var activeAlarms: Set<AlarmType> = []
+
     // Connection settings (persisted to UserDefaults)
     @Published var autoReconnect: Bool = UserDefaults.standard.bool(forKey: "use_reconnect") {
         didSet { UserDefaults.standard.set(autoReconnect, forKey: "use_reconnect") }
@@ -54,6 +60,18 @@ class WheelManager: ObservableObject {
     @Published var showUnknownDevices: Bool = UserDefaults.standard.bool(forKey: "show_unknown_devices") {
         didSet { UserDefaults.standard.set(showUnknownDevices, forKey: "show_unknown_devices") }
     }
+
+    // Auto-reconnect state (Feature 2)
+    @Published private(set) var reconnectState: AutoReconnectManager.ReconnectState = .idle
+
+    // Logging settings (Feature 3)
+    @Published var autoStartLogging: Bool = UserDefaults.standard.bool(forKey: "auto_start_logging") {
+        didSet { UserDefaults.standard.set(autoStartLogging, forKey: "auto_start_logging") }
+    }
+    @Published var logGPS: Bool = UserDefaults.standard.bool(forKey: "log_gps") {
+        didSet { UserDefaults.standard.set(logGPS, forKey: "log_gps") }
+    }
+    @Published private(set) var isLogging: Bool = false
 
     // MARK: - KMP Components
 
@@ -63,6 +81,21 @@ class WheelManager: ObservableObject {
     // MARK: - Mock Data Provider
 
     private let mockDataProvider = MockDataProvider()
+
+    // MARK: - Feature Managers
+
+    let alarmManager = AlarmManager()
+    let reconnectManager = AutoReconnectManager()
+    let rideLogger = RideLogger()
+    let rideStore = RideStore()
+    let locationManager = LocationManager()
+    let backgroundManager = BackgroundManager()
+    let telemetryBuffer = TelemetryBuffer()
+
+    // MARK: - Connection Tracking
+
+    private var lastConnectedAddress: String?
+    private var previousConnectionState: ConnectionStateWrapper = .disconnected
 
     // MARK: - Polling Timers
 
@@ -75,7 +108,9 @@ class WheelManager: ObservableObject {
         Task { @MainActor in
             self.setupKmpComponents()
             self.setupMockProvider()
+            self.setupAlarmCallbacks()
             self.startPolling()
+            self.backgroundManager.requestNotificationPermission()
 
             // Auto-enable mock mode on simulator
             #if targetEnvironment(simulator)
@@ -130,6 +165,19 @@ class WheelManager: ObservableObject {
         }
     }
 
+    private func setupAlarmCallbacks() {
+        alarmManager.sendWheelBeep = { [weak self] in
+            self?.wheelBeep()
+        }
+
+        alarmManager.onAlarmFired = { [weak self] type, message in
+            guard let self = self else { return }
+            if self.backgroundManager.isInBackground {
+                self.backgroundManager.postAlarmNotification(type: type, value: message)
+            }
+        }
+    }
+
     private func updateFromMock(_ state: WheelStateBridge) {
         wheelState = WheelStateWrapper(
             speedKmh: state.speed,
@@ -168,6 +216,7 @@ class WheelManager: ObservableObject {
         isMockMode = false
         connectionState = .disconnected
         wheelState = WheelStateWrapper()
+        telemetryBuffer.clear()
     }
 
     // MARK: - Test Data Injection
@@ -202,6 +251,7 @@ class WheelManager: ObservableObject {
         isTestMode = false
         connectionState = .disconnected
         wheelState = WheelStateWrapper()
+        telemetryBuffer.clear()
     }
 
     private func hexStringToBytes(_ hex: String) -> [Int8] {
@@ -248,6 +298,7 @@ class WheelManager: ObservableObject {
         let kmpConnectionState = WheelConnectionManagerFactory.shared.getConnectionState(manager: cm)
         let newState = ConnectionStateWrapper(from: kmpConnectionState)
         if newState != connectionState {
+            handleConnectionStateChange(from: connectionState, to: newState)
             connectionState = newState
         }
 
@@ -264,6 +315,102 @@ class WheelManager: ObservableObject {
             isScanning = true
         } else if isScanning && connectionState != .scanning {
             isScanning = false
+        }
+
+        // Feature 1: Check alarms when connected
+        if connectionState.isConnected {
+            let values = AlarmManager.WheelValues(
+                speedKmh: wheelState.speedKmh,
+                current: wheelState.current,
+                temperature: wheelState.temperature,
+                batteryLevel: wheelState.batteryLevel
+            )
+            let settings = AlarmManager.AlarmSettings(
+                enabled: alarmsEnabled,
+                alarm1Speed: alarm1Speed,
+                alarm2Speed: alarm2Speed,
+                alarm3Speed: alarm3Speed,
+                alarmCurrent: alarmCurrent,
+                alarmTemperature: alarmTemperature,
+                alarmBattery: alarmBattery,
+                action: alarmAction
+            )
+            alarmManager.checkAlarms(values: values, settings: settings)
+            activeAlarms = alarmManager.activeAlarms
+        }
+
+        // Feature 3: Write ride log sample
+        if isLogging {
+            let sampleData = RideLogger.SampleData(
+                speedKmh: wheelState.speedKmh,
+                voltage: wheelState.voltage,
+                current: wheelState.current,
+                power: wheelState.power,
+                pwm: wheelState.pwmPercent,
+                batteryLevel: wheelState.batteryLevel,
+                wheelDistanceKm: wheelState.wheelDistanceKm,
+                totalDistanceKm: wheelState.totalDistanceKm,
+                temperature: wheelState.temperature
+            )
+            rideLogger.writeSampleIfThrottled(
+                data: sampleData,
+                location: locationManager.currentLocation,
+                includeGPS: logGPS
+            )
+        }
+
+        // Feature 6: Telemetry buffer sampling
+        if connectionState.isConnected {
+            telemetryBuffer.addSampleIfNeeded(
+                speedKmh: wheelState.speedKmh,
+                current: wheelState.current,
+                power: wheelState.power,
+                temperature: wheelState.temperature,
+                battery: wheelState.batteryLevel
+            )
+        }
+
+        // Feature 2: Update reconnect state
+        reconnectState = reconnectManager.state
+    }
+
+    // MARK: - Connection State Changes
+
+    private func handleConnectionStateChange(from oldState: ConnectionStateWrapper, to newState: ConnectionStateWrapper) {
+        // Track connected address
+        if case .connected(let address, _) = newState {
+            lastConnectedAddress = address
+            reconnectManager.onConnectionEstablished()
+
+            // Auto-start logging if enabled
+            if autoStartLogging && !isLogging {
+                startLogging()
+            }
+        }
+
+        // Detect connection lost → start auto-reconnect
+        if case .connectionLost(let address, _) = newState {
+            if autoReconnect {
+                reconnectManager.startReconnecting(address: address) { [weak self] addr in
+                    guard let self = self else { return }
+                    self.connect(address: addr)
+                }
+            }
+
+            // Stop logging on disconnect
+            if isLogging {
+                stopLogging()
+            }
+
+            telemetryBuffer.clear()
+        }
+
+        // Also handle explicit disconnected state
+        if case .disconnected = newState, oldState.isConnected {
+            if isLogging {
+                stopLogging()
+            }
+            telemetryBuffer.clear()
         }
     }
 
@@ -288,6 +435,42 @@ class WheelManager: ObservableObject {
         guard let cm = connectionManager else { return }
         isLightOn.toggle()
         WheelConnectionManagerFactory.shared.sendToggleLight(manager: cm, enabled: isLightOn)
+    }
+
+    func setPedalsMode(_ mode: Int) {
+        guard let cm = connectionManager else { return }
+        WheelConnectionManagerFactory.shared.sendSetPedalsMode(manager: cm, mode: Int32(mode))
+    }
+
+    // MARK: - Ride Logging (Feature 3)
+
+    func startLogging() {
+        if logGPS {
+            locationManager.startTracking()
+        }
+        if rideLogger.startLogging(includeGPS: logGPS) {
+            isLogging = true
+        }
+    }
+
+    func stopLogging() {
+        if let metadata = rideLogger.stopLogging(currentDistance: wheelState.totalDistanceKm) {
+            rideStore.addRide(metadata)
+        }
+        locationManager.stopTracking()
+        isLogging = false
+    }
+
+    // MARK: - Background Mode (Feature 4)
+
+    func onEnterBackground() {
+        if connectionState.isConnected {
+            backgroundManager.beginBackgroundTask()
+        }
+    }
+
+    func onEnterForeground() {
+        backgroundManager.endBackgroundTask()
     }
 
     // MARK: - Scanning
@@ -361,10 +544,19 @@ class WheelManager: ObservableObject {
     func disconnect() {
         guard let connectionManager = connectionManager else { return }
 
+        // Explicit disconnect — stop reconnection
+        reconnectManager.stop()
+
+        // Stop logging
+        if isLogging {
+            stopLogging()
+        }
+
         connectionManager.disconnect { [weak self] error in
             Task { @MainActor in
                 self?.connectionState = .disconnected
                 self?.wheelState = WheelStateWrapper()
+                self?.telemetryBuffer.clear()
                 if let error = error {
                     print("Disconnect error: \(error.localizedDescription)")
                 }

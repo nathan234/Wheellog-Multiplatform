@@ -68,6 +68,11 @@ struct DashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
+                // Alarm banner (Feature 1)
+                if !wheelManager.activeAlarms.isEmpty {
+                    AlarmBannerView(activeAlarms: wheelManager.activeAlarms)
+                }
+
                 // Speed gauge
                 SpeedGaugeView(
                     speed: displaySpeed,
@@ -173,7 +178,7 @@ struct DashboardView: View {
                     .cornerRadius(8)
                 }
 
-                // Horn and Light controls
+                // Controls row: Horn, Light, Record, Chart
                 if !wheelManager.isMockMode && !wheelManager.isTestMode {
                     HStack(spacing: 12) {
                         Button(action: { wheelManager.wheelBeep() }) {
@@ -204,6 +209,46 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal)
                 }
+
+                // Record and Chart row
+                HStack(spacing: 12) {
+                    // Record button (Feature 3)
+                    if wheelManager.connectionState.isConnected {
+                        Button(action: {
+                            if wheelManager.isLogging {
+                                wheelManager.stopLogging()
+                            } else {
+                                wheelManager.startLogging()
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
+                                Text(wheelManager.isLogging ? "Stop" : "Record")
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(wheelManager.isLogging ? Color.red : Color.gray)
+                            .cornerRadius(12)
+                        }
+                    }
+
+                    // Chart link (Feature 6)
+                    NavigationLink(destination: TelemetryChartView()) {
+                        HStack {
+                            Image(systemName: "chart.xyaxis.line")
+                            Text("Chart")
+                        }
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.purple)
+                        .cornerRadius(12)
+                    }
+                }
+                .padding(.horizontal)
 
                 // Disconnect button
                 Button(action: {
@@ -265,6 +310,50 @@ struct DashboardView: View {
         if wheelManager.isMockMode { return .orange }
         if wheelManager.isTestMode { return .blue }
         return .red
+    }
+}
+
+// MARK: - Alarm Banner (Feature 1)
+
+struct AlarmBannerView: View {
+    let activeAlarms: Set<AlarmType>
+
+    @State private var isPulsing = false
+
+    private var alarmText: String {
+        let types = activeAlarms.sorted { $0.rawValue < $1.rawValue }
+        return types.map { type in
+            switch type {
+            case .speed1: return "Speed 1"
+            case .speed2: return "Speed 2"
+            case .speed3: return "Speed 3"
+            case .current: return "Current"
+            case .temperature: return "Temp"
+            case .battery: return "Battery"
+            }
+        }.joined(separator: ", ")
+    }
+
+    var body: some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("ALARM: \(alarmText)")
+                .fontWeight(.bold)
+        }
+        .font(.subheadline)
+        .foregroundColor(.white)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            isPulsing ? Color.red : Color.orange
+        )
+        .cornerRadius(8)
+        .padding(.horizontal)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        }
     }
 }
 

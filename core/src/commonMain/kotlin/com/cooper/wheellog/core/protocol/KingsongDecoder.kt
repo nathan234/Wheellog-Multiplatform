@@ -584,6 +584,14 @@ class KingsongDecoder : WheelDecoder {
                 )
                 listOf(WheelCommand.SendBytes(data))
             }
+            is WheelCommand.SetPedalsMode -> {
+                val data = byteArrayOf(
+                    0xAA.toByte(), 0x55, command.mode.toByte(), 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    0x00, 0x00, 0x00, 0x00, 0x87.toByte(), 0x14, 0x5A, 0x5A
+                )
+                listOf(WheelCommand.SendBytes(data))
+            }
             else -> emptyList()
         }
     }

@@ -7,10 +7,20 @@ struct ConnectionBanner: View {
         if shouldShowBanner {
             HStack(spacing: 8) {
                 statusIcon
-                Text(wheelManager.connectionState.statusText)
+                Text(bannerText)
                     .font(.subheadline)
                     .fontWeight(.medium)
                 Spacer()
+
+                // Cancel button for reconnection (Feature 2)
+                if isReconnecting {
+                    Button("Cancel") {
+                        wheelManager.reconnectManager.stop()
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                }
             }
             .padding(.horizontal)
             .padding(.vertical, 10)
@@ -24,7 +34,7 @@ struct ConnectionBanner: View {
     private var shouldShowBanner: Bool {
         switch wheelManager.connectionState {
         case .disconnected:
-            return false
+            return isReconnecting
         case .scanning:
             return false
         default:
@@ -32,25 +42,51 @@ struct ConnectionBanner: View {
         }
     }
 
+    private var isReconnecting: Bool {
+        wheelManager.reconnectState != .idle
+    }
+
+    private var bannerText: String {
+        // Feature 2: Show reconnect info when reconnecting
+        switch wheelManager.reconnectState {
+        case .waiting(let attempt, let nextRetryDate):
+            let seconds = max(0, Int(nextRetryDate.timeIntervalSinceNow))
+            return "Reconnecting in \(seconds)s... (attempt \(attempt))"
+        case .attempting(let attempt):
+            return "Reconnecting... (attempt \(attempt))"
+        case .idle:
+            return wheelManager.connectionState.statusText
+        }
+    }
+
     @ViewBuilder
     private var statusIcon: some View {
-        switch wheelManager.connectionState {
-        case .connecting, .discoveringServices:
+        if isReconnecting {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 .scaleEffect(0.8)
-        case .connected:
-            Image(systemName: "checkmark.circle.fill")
-        case .connectionLost:
-            Image(systemName: "exclamationmark.triangle.fill")
-        case .failed:
-            Image(systemName: "xmark.circle.fill")
-        default:
-            EmptyView()
+        } else {
+            switch wheelManager.connectionState {
+            case .connecting, .discoveringServices:
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(0.8)
+            case .connected:
+                Image(systemName: "checkmark.circle.fill")
+            case .connectionLost:
+                Image(systemName: "exclamationmark.triangle.fill")
+            case .failed:
+                Image(systemName: "xmark.circle.fill")
+            default:
+                EmptyView()
+            }
         }
     }
 
     private var bannerColor: Color {
+        if isReconnecting {
+            return .orange
+        }
         switch wheelManager.connectionState {
         case .connecting, .discoveringServices:
             return .blue

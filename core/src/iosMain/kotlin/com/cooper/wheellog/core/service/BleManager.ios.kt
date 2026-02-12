@@ -81,7 +81,11 @@ actual class BleManager {
         if (centralManager == null) {
             centralDelegate = CBCentralManagerDelegateImpl(this)
             peripheralDelegate = CBPeripheralDelegateImpl(this)
-            centralManager = CBCentralManager(delegate = centralDelegate, queue = null)
+            centralManager = CBCentralManager(
+                delegate = centralDelegate,
+                queue = null,
+                options = mapOf(CBCentralManagerOptionRestoreIdentifierKey to "WheelLogBLE")
+            )
         }
     }
 
@@ -267,11 +271,25 @@ actual class BleManager {
     }
 
     internal fun onPeripheralConnected(peripheral: CBPeripheral) {
+        // Store peripheral UUID for state restoration
+        NSUserDefaults.standardUserDefaults.setObject(
+            peripheral.identifier.UUIDString,
+            forKey = "WheelLogLastPeripheralUUID"
+        )
+
         _connectionState.value = ConnectionState.DiscoveringServices(
             peripheral.identifier.UUIDString
         )
         // Discover only the services used by supported wheels
         peripheral.discoverServices(serviceUUIDs = wheelServiceUUIDs())
+    }
+
+    internal fun onWillRestoreState(peripherals: List<CBPeripheral>?) {
+        peripherals?.firstOrNull()?.let { peripheral ->
+            currentPeripheral = peripheral
+            peripheral.delegate = peripheralDelegate
+            Logger.d("BleManager", "Restored peripheral: ${peripheral.identifier.UUIDString}")
+        }
     }
 
     internal fun onConnectionFailed(peripheral: CBPeripheral, error: NSError?) {
@@ -477,6 +495,12 @@ private class CBCentralManagerDelegateImpl(
         error: NSError?
     ) {
         manager.onPeripheralDisconnected(didDisconnectPeripheral, error)
+    }
+
+    override fun centralManager(central: CBCentralManager, willRestoreState: Map<Any?, *>) {
+        @Suppress("UNCHECKED_CAST")
+        val peripherals = willRestoreState[CBCentralManagerRestoredStatePeripheralsKey] as? List<CBPeripheral>
+        manager.onWillRestoreState(peripherals)
     }
 }
 

@@ -24,6 +24,14 @@ struct ContentView: View {
                 Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
             }
 
+            // Rides tab (Feature 3)
+            NavigationStack {
+                RidesView()
+            }
+            .tabItem {
+                Label("Rides", systemImage: "road.lanes")
+            }
+
             NavigationStack {
                 SettingsView()
             }

@@ -60,4 +60,10 @@ object WheelConnectionManagerFactory {
             manager.toggleLight(enabled)
         }
     }
+
+    fun sendSetPedalsMode(manager: WheelConnectionManager, mode: Int) {
+        CoroutineScope(Dispatchers.Main).launch {
+            manager.setPedalsMode(mode)
+        }
+    }
 }

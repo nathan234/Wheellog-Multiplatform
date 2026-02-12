@@ -18,6 +18,13 @@ struct SettingsView: View {
                 Toggle("Enable Alarms", isOn: $wheelManager.alarmsEnabled)
 
                 if wheelManager.alarmsEnabled {
+                    // Alarm action picker (Feature 1)
+                    Picker("Alarm Action", selection: $wheelManager.alarmAction) {
+                        ForEach(AlarmAction.allCases, id: \.self) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+
                     alarmSlider(
                         label: "Alarm 1 Speed",
                         value: $wheelManager.alarm1Speed,
@@ -69,23 +76,40 @@ struct SettingsView: View {
                 }
             }
 
+            // MARK: - Logging (Feature 3)
+            Section {
+                Toggle("Auto-Start Logging", isOn: $wheelManager.autoStartLogging)
+                Toggle("Include GPS", isOn: $wheelManager.logGPS)
+            } header: {
+                Text("Logging")
+            } footer: {
+                Text("GPS requires location permission. Logs are saved as CSV files.")
+            }
+
             // MARK: - Connection
             Section("Connection") {
                 Toggle("Auto Reconnect", isOn: $wheelManager.autoReconnect)
                 Toggle("Show Unknown Devices", isOn: $wheelManager.showUnknownDevices)
             }
 
-            // MARK: - Wheel Settings
+            // MARK: - Wheel Settings (Feature 5: interactive pedals mode)
             if wheelManager.connectionState.isConnected {
                 Section {
-                    settingsRow("Pedals Mode", value: pedalsModeText)
+                    // Pedals mode — interactive picker when connected
+                    Picker("Pedals Mode", selection: pedalsModeBinding) {
+                        Text("Hard").tag(0)
+                        Text("Medium").tag(1)
+                        Text("Soft").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+
                     settingsRow("Tilt-Back Speed", value: tiltBackSpeedText)
                     settingsRow("Light Mode", value: lightModeText)
                     settingsRow("LED Mode", value: ledModeText)
                 } header: {
                     Text("Wheel Settings")
                 } footer: {
-                    Text("Current values reported by the wheel.")
+                    Text("Pedals mode is sent to the wheel immediately.")
                 }
             }
 
@@ -102,6 +126,17 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Pedals Mode Binding (Feature 5)
+
+    private var pedalsModeBinding: Binding<Int> {
+        Binding<Int>(
+            get: { Int(wheelManager.wheelState.pedalsMode) },
+            set: { newMode in
+                wheelManager.setPedalsMode(newMode)
+            }
+        )
     }
 
     // MARK: - Alarm Slider Helper
@@ -142,15 +177,6 @@ struct SettingsView: View {
             Spacer()
             Text(value)
                 .foregroundColor(.secondary)
-        }
-    }
-
-    private var pedalsModeText: String {
-        switch wheelManager.wheelState.pedalsMode {
-        case 0: return "Hard"
-        case 1: return "Medium"
-        case 2: return "Soft"
-        default: return "Unknown"
         }
     }
 

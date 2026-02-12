@@ -11,12 +11,6 @@ struct ScanView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 Spacer()
-                NavigationLink(destination: SettingsView()) {
-                    Image(systemName: "gearshape")
-                        .font(.title2)
-                        .foregroundColor(.primary)
-                }
-                .padding(.trailing, 8)
                 scanButton
             }
             .padding()

@@ -4,23 +4,33 @@ struct ContentView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                if wheelManager.connectionState.isConnected {
-                    DashboardView()
-                } else {
-                    ScanView()
-                }
+        TabView {
+            NavigationStack {
+                ZStack {
+                    if wheelManager.connectionState.isConnected {
+                        DashboardView()
+                    } else {
+                        ScanView()
+                    }
 
-                VStack {
-                    ConnectionBanner()
-                    Spacer()
+                    VStack {
+                        ConnectionBanner()
+                        Spacer()
+                    }
                 }
             }
+            .id(wheelManager.connectionState.isConnected)
+            .tabItem {
+                Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
+            }
+
+            NavigationStack {
+                SettingsView()
+            }
+            .tabItem {
+                Label("Settings", systemImage: "gearshape")
+            }
         }
-        // Reset NavigationStack (pop any pushed views like Settings) when
-        // transitioning between connected and disconnected states.
-        .id(wheelManager.connectionState.isConnected)
     }
 }
 

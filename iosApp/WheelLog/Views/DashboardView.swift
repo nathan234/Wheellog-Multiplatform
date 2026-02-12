@@ -230,13 +230,6 @@ struct DashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: SettingsView()) {
-                    Image(systemName: "gearshape")
-                }
-            }
-        }
     }
 
     private var batteryIcon: String {

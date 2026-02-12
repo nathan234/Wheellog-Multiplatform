@@ -1,55 +1,111 @@
-# WheelLog.Android
+# WheelLog Multiplatform
 
-[![Latest release](https://img.shields.io/github/release/wheellog/wheellog.android.svg)](https://github.com/wheellog/wheellog.android/releases/latest)
-[![Build Status](https://github.com/wheellog/wheellog.android/workflows/Gradle%20CI/badge.svg?branch=master)](https://github.com/wheellog/wheellog.android/actions)
+Open-source companion app for electric unicycles (EUC), built with **Kotlin Multiplatform** to share protocol decoders across Android and iOS.
 
-Unofficial App for EUC on Android. 
-The following manufacturers are supported:
-- InMotion
-- KingSong
-- Gotway
-- Veteran
-- Ninebot Zx, S2, C/P/E+, Mini
+## Supported Wheels
 
-| <img src='https://github.com/Wheellog/Wheellog.Android/assets/27482193/2dd0d43b-53a6-4dc4-9794-ddee620628bb' width=400 /> | <img src='https://user-images.githubusercontent.com/27482193/114169041-bdb6ee00-9939-11eb-8fb9-f07b9eac1b2f.png' width=400 /> | <img src='https://github.com/Wheellog/Wheellog.Android/assets/27482193/d7fb7006-1ab3-4ca1-be9f-8d59ec88e376' width=400 />
-|--|--|--|
+| Manufacturer | Models |
+|---|---|
+| KingSong | S18, S22, 16X, 18L/XL, and more |
+| Gotway / Begode | MCM5, Nikola, Monster, Sherman, etc. |
+| Veteran | Sherman, Abrams, Patton |
+| InMotion | V5F, V8, V10, V11, V12, V13 |
+| InMotion V2 | V14, Challenger |
+| Ninebot | Z6/Z10, S2, One C/P/E+, Mini |
+
+## Features
+
+### Real-Time Telemetry
+Live dashboard with speed gauge, battery, temperature, voltage, current, power, PWM, and distance tracking.
+
+### Alarm System
+Configurable speed, current, temperature, and low-battery alarms with audio beeps, haptic feedback, and optional wheel horn activation. Alarms fire with a 5-second cooldown and work in background mode via local notifications.
+
+### Ride Logging
+Record rides to CSV with optional GPS coordinates. Auto-start logging on connect, browse past rides, and share CSV files directly from the app.
+
+### Real-Time Charts
+Scrolling 60-second telemetry chart with toggleable series for speed, current, power, and temperature. Built with Swift Charts on iOS.
+
+### Auto-Reconnect
+Automatic reconnection with exponential backoff (2s to 30s) when connection drops, with cancel UI in the connection banner.
+
+### Wheel Settings
+Read and change wheel settings over BLE. Pedals mode (Hard/Medium/Soft) can be changed directly from the app on supported wheels.
+
+### Background Mode
+Maintains BLE connection, alarms, and ride logging when the app is backgrounded. Alarm notifications are delivered as local push notifications.
+
+<!-- Screenshots will go here -->
+<!-- | ![Dashboard](screenshots/dashboard.png) | ![Chart](screenshots/chart.png) | ![Settings](screenshots/settings.png) | -->
+<!-- |---|---|---| -->
+
+## Architecture
+
+```
+Wheellog.Android/
+├── core/                    # Kotlin Multiplatform shared module
+│   └── src/
+│       ├── commonMain/      # Protocol decoders, wheel state, connection manager
+│       ├── androidMain/     # Android BLE implementation
+│       └── iosMain/         # iOS CoreBluetooth implementation
+├── app/                     # Android app
+├── iosApp/                  # iOS SwiftUI app
+│   └── WheelLog/
+│       ├── Bridge/          # Swift-to-KMP wrappers
+│       └── Views/           # SwiftUI views
+└── wearos/                  # WearOS companion app
+```
+
+All wheel protocol decoders live in `core/` and are shared between platforms. The decoders are thread-safe (protected by `Lock`) and fully tested with 581+ unit tests.
+
+## Building
+
+### Prerequisites
+
+- Android Studio or IntelliJ with Kotlin Multiplatform plugin
+- Xcode 15+ (for iOS)
+- JDK 17+
+
+### Android
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+### iOS
+
+```bash
+# Build the KMP framework
+./gradlew :core:linkReleaseFrameworkIosSimulatorArm64
+
+# Then open and build in Xcode
+open iosApp/WheelLog.xcodeproj
+```
+
+### Tests
+
+```bash
+# Run all KMP decoder tests
+./gradlew :core:testDebugUnitTest
+```
+
+## Android Decoder Mode
+
+The Android app supports three decoder modes under **Settings > Application Settings > Decoder Mode**:
+
+| Mode | Description |
+|---|---|
+| **Legacy Only** (default) | Original Java/Kotlin decoders |
+| **KMP Only** | New cross-platform decoders |
+| **Both** | Run both in parallel for comparison |
+
+iOS always uses the KMP decoders.
 
 ## Contributing
 
-### 🛠️ Pull requests
-A pull request is a way to suggest changes in this repository. We accept pull requests in the `master` branch.
+Pull requests are welcome on the `feature/kmp-migration` branch. Please run `./gradlew :core:testDebugUnitTest` before submitting.
 
-## App stores
+## Acknowledgments
 
- [![google-play-badge](http://github.com/Wheellog/Wheellog.Android/assets/27482193/8cc988b8-d5af-4c3f-a87a-9cd2c72f4b65)](https://play.google.com/store/apps/details?id=com.cooper.wheellog)
- [![huawei-app-gallery](http://github.com/Wheellog/Wheellog.Android/assets/27482193/bbf2dbea-95cf-465e-9244-ba12e9aa2fe0)](https://appgallery.huawei.com/#/app/C109077151)
-
-## ⌚ Smart watch applications
-
-- [Samsung Gear](https://github.com/juliomap/WheelLog-Tizen)
-- Smart watch from Pebble company. Discontinued in 2016. [app code](https://github.com/JumpMaster/WheelLogPebble)
-- Garmin Connect IQ [watch application](https://github.com/Wheellog/Companion.Garmin).
-You can also download the app from [ConnectIQ Store](https://apps.garmin.com/en-US/apps/35719a02-8a5d-46bc-b474-f26c54c4e045).
-- Xiaomi [Mi band 3/4/5/6](https://github.com/Wheellog/Wheellog.Android/wiki/Work-with-Mi-Band)
-
-## 🚀 Quick start
-
-Minimum requirements:
-- Device running Windows, macOS, Linux or chromeOS
-- Android device [in dev mode and enable USB debugging](https://developer.android.com/studio/debug/dev-options)
-
-Let's start
-- Download, install and open [Android studio](https://developer.android.com/studio/)
-- In main menu `File -> New -> Project From Version Control` 
-
-![image](https://user-images.githubusercontent.com/27482193/115096600-8abebc80-9f2e-11eb-9ba5-3a70dba14e17.png)
-- Insert URL `https://github.com/Wheellog/Wheellog.Android.git` and click on `Clone`
-- Install SDK and connect android device
-- Setup private tokens in `local.properties`
-  - [AppMetrica](https://appmetrica.yandex.ru/) `metrica_api`
-  - [ElectroClub](https://electro.club/) `ec_accessToken` _(optional)_
-- Click `Run` button - Enjoy!
-
-## 💤 Based on
-
-[palachzzz fork](https://github.com/palachzzz/WheelLogAndroid)
+Originally based on [WheelLog.Android](https://github.com/Wheellog/Wheellog.Android) by the WheelLog team and [palachzzz fork](https://github.com/palachzzz/WheelLogAndroid).

@@ -6,6 +6,7 @@ import kotlin.math.abs
 import kotlin.math.round
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -357,5 +358,208 @@ class KingsongDecoderComparisonTest {
         // The 0x7F byte indicates this is a BMS packet
         val containsBmsIndicator = bmsPacket.any { (it.toInt() and 0xFF) == 0x7F }
         assertTrue(containsBmsIndicator, "BMS packet should contain 0x7F indicator byte")
+    }
+
+    // ==================== CPU Load and Output (0xF5 Frame) ====================
+
+    @Test
+    fun `CPU load and output from 0xF5 frame`() {
+        // Frame 0xF5 contains CPU load at byte 14 and output at byte 15
+        // From legacy test data: cpuLoad=64, output=12
+        // Real packet from KS-S18 test:
+        val cpuPacket = "aa55000000000000000000000000400cf5145a5a".hexToByteArray()
+
+        // First need to set model via name packet so decoder is initialized
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        if (nameResult != null) state = nameResult.newState
+
+        val cpuResult = decoder.decode(cpuPacket, state, defaultConfig)
+        assertNotNull(cpuResult, "F5 frame should be decoded")
+        state = cpuResult!!.newState
+
+        // byte 14 = 0x40 = 64 (cpuLoad)
+        assertEquals(64, state.cpuLoad, "CPU load should be 64")
+        // byte 15 = 0x0C = 12, output = 12 * 100 = 1200
+        assertEquals(1200, state.output, "Output should be 1200 (12 * 100)")
+    }
+
+    // ==================== Speed Limit (0xF6 Frame) ====================
+
+    @Test
+    fun `speed limit from 0xF6 frame`() {
+        // Frame 0xF6 contains speed limit at bytes 2-3 (reversed per KS protocol)
+        // Legacy expects speedLimit=32.05 from value 3205
+        // Build packet: AA 55 [speedLimit LE 2 bytes] ... F6 ...
+        val speedLimitRaw = 3205 // 32.05 km/h * 100
+        val lo = (speedLimitRaw and 0xFF).toByte()
+        val hi = ((speedLimitRaw shr 8) and 0xFF).toByte()
+
+        val packet = ByteArray(20)
+        packet[0] = 0xAA.toByte()
+        packet[1] = 0x55
+        packet[2] = lo   // speed limit low byte
+        packet[3] = hi   // speed limit high byte
+        packet[16] = 0xF6.toByte()
+        packet[17] = 0x14
+        packet[18] = 0x5A
+        packet[19] = 0x5A
+
+        // Set up model first
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        decoder.reset()
+        var state = defaultState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        if (nameResult != null) state = nameResult.newState
+
+        val result = decoder.decode(packet, state, defaultConfig)
+        assertNotNull(result, "F6 frame should be decoded")
+        assertEquals(32.05, result!!.newState.speedLimit, 0.01, "Speed limit should be 32.05 km/h")
+    }
+
+    // ==================== Battery Calculation for 84V Wheel ====================
+
+    @Test
+    fun `battery calculation for 84V wheel - standard`() {
+        // 84V wheels (KS-S18, KS-16X, etc.): standard formula
+        // voltage < 6250 → 0%, voltage >= 8250 → 100%, else (voltage-6250)/20
+
+        // Need to set model to an 84V wheel first
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        decoder.reset()
+        var state = defaultState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        if (nameResult != null) state = nameResult.newState
+
+        val testCases = listOf(
+            6250 to 0,    // Empty
+            6450 to 10,   // (6450-6250)/20 = 10
+            7250 to 50,   // (7250-6250)/20 = 50
+            8250 to 100,  // Full
+            8400 to 100   // Above max
+        )
+
+        for ((voltage, expectedBattery) in testCases) {
+            // Build live data packet (0xA9 frame) with the voltage
+            val lo = (voltage and 0xFF).toByte()
+            val hi = ((voltage shr 8) and 0xFF).toByte()
+
+            val packet = ByteArray(20)
+            packet[0] = 0xAA.toByte()
+            packet[1] = 0x55
+            packet[2] = lo
+            packet[3] = hi
+            packet[16] = 0xA9.toByte()
+            packet[17] = 0x14
+            packet[18] = 0x5A
+            packet[19] = 0x5A
+
+            val result = decoder.decode(packet, state, defaultConfig)
+            assertNotNull(result, "Should decode 0xA9 frame at voltage $voltage")
+            assertEquals(expectedBattery, result!!.newState.batteryLevel,
+                "Battery at ${voltage / 100.0}V for 84V wheel should be $expectedBattery%")
+            state = result.newState
+        }
+    }
+
+    // ==================== Battery Calculation for 126V Wheel ====================
+
+    @Test
+    fun `battery calculation for 126V wheel - standard`() {
+        // 126V wheels (KS-S20, KS-S22): standard formula
+        // voltage < 9375 → 0%, voltage >= 12375 → 100%, else (voltage-9375)/30
+
+        val namePacket = "aa554b532d5332302d30323035000000bb1484fd".hexToByteArray()
+        decoder.reset()
+        var state = defaultState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        if (nameResult != null) state = nameResult.newState
+
+        val testCases = listOf(
+            9375 to 0,    // Empty
+            9675 to 10,   // (9675-9375)/30 = 10
+            10875 to 50,  // (10875-9375)/30 = 50
+            12375 to 100, // Full
+            12600 to 100  // Above max
+        )
+
+        for ((voltage, expectedBattery) in testCases) {
+            val lo = (voltage and 0xFF).toByte()
+            val hi = ((voltage shr 8) and 0xFF).toByte()
+
+            val packet = ByteArray(20)
+            packet[0] = 0xAA.toByte()
+            packet[1] = 0x55
+            packet[2] = lo
+            packet[3] = hi
+            packet[16] = 0xA9.toByte()
+            packet[17] = 0x14
+            packet[18] = 0x5A
+            packet[19] = 0x5A
+
+            val result = decoder.decode(packet, state, defaultConfig)
+            assertNotNull(result, "Should decode 0xA9 frame at voltage $voltage")
+            assertEquals(expectedBattery, result!!.newState.batteryLevel,
+                "Battery at ${voltage / 100.0}V for 126V wheel should be $expectedBattery%")
+            state = result.newState
+        }
+    }
+
+    // ==================== BMS Cell Voltage Parsing (0xF1 Frame) ====================
+
+    @Test
+    fun `BMS cell voltage and capacity from 0xF1 pNum 0x00`() {
+        // Frame 0xF1 with pNum 0x00 contains: voltage, current, remCap, factoryCap, fullCycles
+        // Build packet with known values: BMS voltage=8400 (84.00V), current=100 (1.00A)
+        val bmsVoltage = 8400
+        val bmsCurrent = 100
+        val remCap = 200    // *10 = 2000 mAh
+        val factoryCap = 300 // *10 = 3000 mAh
+        val fullCycles = 50
+
+        val packet = ByteArray(20)
+        packet[0] = 0xAA.toByte()
+        packet[1] = 0x55
+        // bytes 2-3: voltage LE
+        packet[2] = (bmsVoltage and 0xFF).toByte()
+        packet[3] = ((bmsVoltage shr 8) and 0xFF).toByte()
+        // bytes 4-5: current LE
+        packet[4] = (bmsCurrent and 0xFF).toByte()
+        packet[5] = ((bmsCurrent shr 8) and 0xFF).toByte()
+        // bytes 6-7: remCap LE
+        packet[6] = (remCap and 0xFF).toByte()
+        packet[7] = ((remCap shr 8) and 0xFF).toByte()
+        // bytes 8-9: factoryCap LE
+        packet[8] = (factoryCap and 0xFF).toByte()
+        packet[9] = ((factoryCap shr 8) and 0xFF).toByte()
+        // bytes 10-11: fullCycles LE
+        packet[10] = (fullCycles and 0xFF).toByte()
+        packet[11] = ((fullCycles shr 8) and 0xFF).toByte()
+
+        packet[16] = 0xF1.toByte()  // BMS1
+        packet[17] = 0x00           // pNum = 0x00 (voltage/current/capacity)
+        packet[18] = 0x5A
+        packet[19] = 0x5A
+
+        // Set model first
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        decoder.reset()
+        var state = defaultState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        if (nameResult != null) state = nameResult.newState
+
+        val result = decoder.decode(packet, state, defaultConfig)
+        assertNotNull(result, "F1 frame should be decoded")
+        val bms1 = result!!.newState.bms1
+        assertNotNull(bms1, "BMS1 should be populated")
+        assertEquals(84.0, bms1!!.voltage, 0.01, "BMS voltage should be 84.00V")
+        assertEquals(1.0, bms1.current, 0.01, "BMS current should be 1.00A")
+        assertEquals(2000, bms1.remCap, "BMS remaining capacity should be 2000 mAh")
+        assertEquals(3000, bms1.factoryCap, "BMS factory capacity should be 3000 mAh")
+        assertEquals(50, bms1.fullCycles, "BMS full cycles should be 50")
     }
 }

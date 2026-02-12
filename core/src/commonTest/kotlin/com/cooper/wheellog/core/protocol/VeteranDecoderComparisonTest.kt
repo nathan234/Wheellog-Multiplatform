@@ -336,4 +336,131 @@ class VeteranDecoderComparisonTest {
         assertEquals(50, temp1, "Old board temperature should be 50")
         assertEquals(45, temp2, "New board temperature should be 45")
     }
+
+    // ==================== Battery Calculation for 126V Model (Patton) ====================
+
+    @Test
+    fun `battery calculation for Patton 126V model`() {
+        // From VeteranAdapterTest: decode veteran patton
+        // Patton has mVer=4 (version "004.0.07"), uses 126V battery curve
+        val byteArray1 = "dc5a5c26302b00001fdc00002038000000000d15".hexToByteArray()
+        val byteArray2 = "0a79000000fa01900fa700031b690000006fffff".hexToByteArray()
+        val byteArray3 = "5678".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+        for (packet in listOf(byteArray1, byteArray2, byteArray3)) {
+            val result = decoder.decode(packet, state, defaultConfig)
+            if (result != null) state = result.newState
+        }
+
+        // Expected from legacy test:
+        assertEquals(0, abs(state.speed), "Speed should be 0")
+        assertEquals(33, state.temperatureC, "Temperature should be 33°C")
+        assertEquals(123.31, state.voltageV, 0.01, "Voltage should be 123.31V")
+        assertEquals(0.0, state.currentA, 0.01, "Phase current should be 0.0A")
+        assertEquals(8248, state.totalDistance.toInt(), "Total distance should be 8248m")
+        assertEquals(100, state.batteryLevel, "Battery should be 100%")
+    }
+
+    // ==================== Battery Calculation for 151V Model (Lynx) ====================
+
+    @Test
+    fun `battery calculation for Lynx 151V model`() {
+        // From VeteranAdapterTest: decode veteran lynx crc
+        // Lynx has mVer=5 (version "005.0.04"), uses 151V battery curve, CRC format
+        val byteArray1 = "dc5a5c53391b000006d000000770000000260bcc".hexToByteArray()
+        val byteArray2 = "0e08000000fa00c8138c00b4000b014c80c80000".hexToByteArray()
+        val byteArray3 = "808080808080010008808080800fee0fee0fee0f".hexToByteArray()
+        val byteArray4 = "ee0fef0fe80fef0fef0ff00ff00ff00fea0fef0f".hexToByteArray()
+        val byteArray5 = "ef0fefdab22518".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+
+        for (packet in listOf(byteArray1, byteArray2, byteArray3, byteArray4, byteArray5)) {
+            val result = decoder.decode(packet, state, defaultConfig)
+            if (result != null) {
+                state = result.newState
+            }
+        }
+
+        // Expected from legacy test:
+        assertEquals(0, abs(state.speed), "Speed should be 0")
+        assertEquals(30, state.temperatureC, "Temperature should be 30°C")
+        assertEquals(146.19, state.voltageV, 0.01, "Voltage should be 146.19V")
+        assertEquals(1904, state.totalDistance.toInt(), "Total distance should be 1904m")
+        assertEquals(94, state.batteryLevel, "Battery should be 94%")
+    }
+
+    // ==================== veteranNegative (Speed Polarity) ====================
+
+    @Test
+    fun `decode veteran speed is positive with default config`() {
+        // Veteran decoder currently uses veteranNegative=1 internally
+        // Test that speed comes through correctly for positive speed
+        val byteArray1 = "DC5A5C20238A0112121A00004D450005064611F2".hexToByteArray()
+        val byteArray2 = "0E1000000AF00AF0041B000300000000".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+        val result1 = decoder.decode(byteArray1, state, defaultConfig)
+        if (result1 != null) state = result1.newState
+        val result2 = decoder.decode(byteArray2, state, defaultConfig)
+
+        assertTrue(result2?.hasNewData == true, "Should decode data")
+        // Raw speed = 0x0112 = 274, * 10 = 2740
+        // With veteranNegative=1, speed = 2740 * 1 = 2740 (positive)
+        assertEquals(2740, result2!!.newState.speed,
+            "Speed should be 2740 (27.40 km/h)")
+        assertTrue(result2.newState.speed > 0, "Speed should be positive")
+    }
+
+    @Test
+    fun `decode veteran negative speed preserved when raw value is negative`() {
+        // Build a packet with negative raw speed to test sign handling
+        // Header: DC 5A 5C 20
+        // Voltage at bytes 4-5: 9500 = 0x251C
+        // Speed at bytes 6-7: -274 = 0xFEEE
+        val byteArray1 = "DC5A5C20251CFEEE121A00004D450005064611F2".hexToByteArray()
+        val byteArray2 = "0E1000000AF00AF0041B000300000000".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+        val result1 = decoder.decode(byteArray1, state, defaultConfig)
+        if (result1 != null) state = result1.newState
+        val result2 = decoder.decode(byteArray2, state, defaultConfig)
+
+        assertTrue(result2?.hasNewData == true, "Should decode data")
+        // Raw speed = -274, * 10 = -2740, * veteranNegative(1) = -2740
+        assertEquals(-2740, result2!!.newState.speed,
+            "Negative speed should be preserved (-27.40 km/h)")
+        assertTrue(result2.newState.speed < 0, "Speed should be negative")
+    }
+
+    // ==================== Sherman S Variant Header ====================
+
+    @Test
+    fun `decode veteran sherman S with variant header byte`() {
+        // From VeteranAdapterTest: decode veteran sherman s 1
+        // Header uses 0x22 as 4th byte (len=34) instead of 0x20 (len=32)
+        val byteArray1 = "DC5A5C22266200000084000017A2000000000C38".hexToByteArray()
+        val byteArray2 = "0B03000000C600E40BBD0003188B0000006F".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+        val result1 = decoder.decode(byteArray1, state, defaultConfig)
+        if (result1 != null) state = result1.newState
+        val result2 = decoder.decode(byteArray2, state, defaultConfig)
+
+        assertTrue(result2?.hasNewData == true, "Sherman S header variant should decode")
+        val finalState = result2!!.newState
+
+        // Expected from legacy test:
+        assertEquals(0, abs(finalState.speed), "Speed should be 0")
+        assertEquals(31, finalState.temperatureC, "Temperature should be 31°C")
+        assertEquals(98.26, finalState.voltageV, 0.01, "Voltage should be 98.26V")
+        assertEquals(6050, finalState.totalDistance.toInt(), "Total distance should be 6050m")
+        assertEquals(97, finalState.batteryLevel, "Battery should be 97%")
+    }
 }

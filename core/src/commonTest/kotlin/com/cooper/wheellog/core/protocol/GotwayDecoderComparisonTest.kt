@@ -750,4 +750,166 @@ class GotwayDecoderComparisonTest {
             }
         }
     }
+
+    // ==================== Alert Parsing ====================
+
+    @Test
+    fun `frame 0x04 alert field is parsed`() {
+        // Alert byte at offset 14 in frame 0x04 encodes various alarm conditions
+        // Non-zero alert should produce a non-empty alert string
+
+        // Alert = 0x06: Speed1 (bit 2) + Speed2 (bit 1)
+        val packetWithAlert = buildTotalDistancePacket(
+            totalDistance = 1000L, alert = 0x06
+        )
+        decoder.reset()
+        val result = decoder.decode(packetWithAlert, defaultState, defaultConfig)
+        assertNotNull(result)
+        assertTrue(result!!.newState.alert.isNotEmpty(),
+            "Non-zero alert flags should produce non-empty alert string")
+        assertTrue(result.newState.alert.contains("Speed"),
+            "Alert string should contain speed alarm text")
+
+        // Alert = 0x00: no alarms
+        val packetNoAlert = buildTotalDistancePacket(
+            totalDistance = 1000L, alert = 0x00
+        )
+        decoder.reset()
+        val resultNoAlert = decoder.decode(packetNoAlert, defaultState, defaultConfig)
+        assertNotNull(resultNoAlert)
+        assertEquals("", resultNoAlert!!.newState.alert,
+            "Zero alert flags should produce empty alert string")
+    }
+
+    // ==================== Battery Curves ====================
+
+    @Test
+    fun `battery calculation at key voltage breakpoints - standard`() {
+        // Standard battery formula: voltage 5290=0%, 6580=100%
+        // Intermediate: (voltage - 5290) / 13
+        val testCases = listOf(
+            5290 to 0,     // Empty
+            5420 to 10,    // (5420-5290)/13 = 10
+            5940 to 50,    // (5940-5290)/13 = 50
+            6580 to 100,   // Full
+            6700 to 100    // Above max
+        )
+
+        for ((voltage, expectedBattery) in testCases) {
+            val packet = buildLiveDataPacket(voltage = voltage.toShort())
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, defaultConfig)
+            assertTrue(result != null && result.hasNewData, "Voltage $voltage should decode")
+            assertEquals(expectedBattery, result!!.newState.batteryLevel,
+                "Battery at ${voltage / 100.0}V should be $expectedBattery%")
+        }
+    }
+
+    @Test
+    fun `battery calculation with useCustomPercents`() {
+        // Better battery formula: voltage 5120=0%, 5440-6680 mid, >6680=100%
+        val testCases = listOf(
+            5120 to 0,    // Empty
+            5290 to 4,    // (5290-5120)/36 = 4
+            6680 to 100,  // Full
+            7000 to 100   // Above max
+        )
+
+        val customConfig = DecoderConfig(useCustomPercents = true)
+
+        for ((voltage, expectedBattery) in testCases) {
+            val packet = buildLiveDataPacket(voltage = voltage.toShort())
+            decoder.reset()
+            val result = decoder.decode(packet, defaultState, customConfig)
+            assertTrue(result != null && result.hasNewData, "Voltage $voltage should decode")
+            assertEquals(expectedBattery, result!!.newState.batteryLevel,
+                "Custom battery at ${voltage / 100.0}V should be $expectedBattery%")
+        }
+    }
+
+    // ==================== gotwayNegative Edge Cases ====================
+
+    @Test
+    fun `gotwayNegative 1 preserves negative speed and phaseCurrent`() {
+        // Ensure actually negative values (not just positive) are preserved
+        val rawSpeed: Short = -1000
+        val rawPhaseCurrent: Short = -5000
+        val byteArray = buildLiveDataPacket(speed = rawSpeed, phaseCurrent = rawPhaseCurrent)
+
+        decoder.reset()
+        val config = DecoderConfig(gotwayNegative = 1)
+        val result = decoder.decode(byteArray, defaultState, config)
+
+        assertTrue(result != null && result.hasNewData)
+        val state = result!!.newState
+
+        // speed = round(-1000 * 3.6) * 1 = -3600
+        val expectedSpeed = (-1000 * 3.6).roundToInt() * 1
+        assertEquals(expectedSpeed, state.speed, "Negative speed should be preserved")
+        assertTrue(state.speed < 0, "Speed should be negative with gotwayNegative=1")
+
+        // phaseCurrent is multiplied by gotwayNegative (1), staying negative
+        assertEquals(-5000, state.phaseCurrent,
+            "Negative phaseCurrent should be preserved with gotwayNegative=1")
+    }
+
+    @Test
+    fun `zero speed and zero phaseCurrent across all gotwayNegative modes`() {
+        // Edge case: zero values should stay zero regardless of mode
+        val byteArray = buildLiveDataPacket(speed = 0, phaseCurrent = 0)
+
+        for (mode in listOf(0, 1, -1)) {
+            val config = DecoderConfig(gotwayNegative = mode)
+            decoder.reset()
+            val result = decoder.decode(byteArray, defaultState, config)
+
+            assertTrue(result != null && result.hasNewData)
+            assertEquals(0, result!!.newState.speed,
+                "Zero speed should stay zero with gotwayNegative=$mode")
+            assertEquals(0, result.newState.phaseCurrent,
+                "Zero phaseCurrent should stay zero with gotwayNegative=$mode")
+        }
+    }
+
+    // ==================== Frame 0x04 Settings Boundary Values ====================
+
+    @Test
+    fun `frame 0x04 with all settings at boundary values`() {
+        // Test tiltBackSpeed=99 (max valid)
+        val packetMax = buildTotalDistancePacket(totalDistance = 1000L, tiltBackSpeed = 99)
+        decoder.reset()
+        var result = decoder.decode(packetMax, defaultState, defaultConfig)
+        assertNotNull(result)
+        assertEquals(99, result!!.newState.tiltBackSpeed,
+            "TiltBackSpeed 99 should be valid")
+
+        // Test tiltBackSpeed=100 (should clamp to 0)
+        val packetOver = buildTotalDistancePacket(totalDistance = 1000L, tiltBackSpeed = 100)
+        decoder.reset()
+        result = decoder.decode(packetOver, defaultState, defaultConfig)
+        assertNotNull(result)
+        assertEquals(0, result!!.newState.tiltBackSpeed,
+            "TiltBackSpeed 100 should clamp to 0")
+
+        // Test pedalsMode raw=3 (should remain 3 since inversion only applies to 0/1/2)
+        // Decoder logic: 2 - rawMode, so raw 3 → 2-3 = -1
+        // But the legacy code may handle this differently - let's test what happens
+        val settingsRaw3 = 3 shl 13
+        val packetPedals3 = buildTotalDistancePacket(totalDistance = 1000L, settingsWord = settingsRaw3)
+        decoder.reset()
+        result = decoder.decode(packetPedals3, defaultState, defaultConfig)
+        assertNotNull(result)
+        // raw 3 → 2-3 = -1
+        assertEquals(-1, result!!.newState.pedalsMode,
+            "PedalsMode raw 3 should become -1 after inversion (2-3)")
+
+        // Test all LED modes 0-9
+        for (led in 0..9) {
+            val p = buildTotalDistancePacket(totalDistance = 1000L, ledMode = led)
+            decoder.reset()
+            result = decoder.decode(p, defaultState, defaultConfig)
+            assertNotNull(result)
+            assertEquals(led, result!!.newState.ledMode, "LED mode $led should be set correctly")
+        }
+    }
 }

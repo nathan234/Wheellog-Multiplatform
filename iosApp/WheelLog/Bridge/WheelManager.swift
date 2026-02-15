@@ -763,7 +763,7 @@ struct BmsSnapshotWrapper: Equatable {
         minCellNum = Int(snapshot.minCellNum)
         maxCellNum = Int(snapshot.maxCellNum)
         cellNum = Int(snapshot.cellNum)
-        cells = (0..<Int(snapshot.cellNum)).map { snapshot.cells[Int32($0)] as! Double }
+        cells = (0..<Int(snapshot.cellNum)).map { (snapshot.cells.get(index: Int32($0)) as! NSNumber).doubleValue }
     }
 }
 

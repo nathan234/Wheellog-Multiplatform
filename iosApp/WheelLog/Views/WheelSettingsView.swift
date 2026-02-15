@@ -324,7 +324,7 @@ struct WheelSettingsView: View {
     private var lightToggleBinding: Binding<Bool> {
         Binding(
             get: { wheelManager.wheelState.lightMode > 0 },
-            set: { wheelManager.toggleLight() }
+            set: { _ in wheelManager.toggleLight() }
         )
     }
 

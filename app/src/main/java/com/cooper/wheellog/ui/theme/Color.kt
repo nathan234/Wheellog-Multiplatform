@@ -1,6 +1,7 @@
 package com.cooper.wheellog.ui.theme
 import androidx.compose.ui.graphics.Color
 
+// Light theme: matches iOS systemGroupedBackground / secondarySystemGroupedBackground
 val md_theme_light_primary = Color(0xFF1560A5)
 val md_theme_light_onPrimary = Color(0xFFFFFFFF)
 val md_theme_light_primaryContainer = Color(0xFFD3E4FF)
@@ -17,11 +18,11 @@ val md_theme_light_error = Color(0xFFBA1A1A)
 val md_theme_light_errorContainer = Color(0xFFFFDAD6)
 val md_theme_light_onError = Color(0xFFFFFFFF)
 val md_theme_light_onErrorContainer = Color(0xFF410002)
-val md_theme_light_background = Color(0xFF284a73)
-val md_theme_light_onBackground = Color(0xFFD1C4E9)
-val md_theme_light_surface = md_theme_light_background
-val md_theme_light_onSurface = md_theme_light_onBackground
-val md_theme_light_surfaceVariant = Color(0xFFDFE2EB)
+val md_theme_light_background = Color(0xFFF2F2F7)       // iOS systemGroupedBackground
+val md_theme_light_onBackground = Color(0xFF1C1B1F)
+val md_theme_light_surface = Color(0xFFF2F2F7)           // iOS systemGroupedBackground
+val md_theme_light_onSurface = Color(0xFF1C1B1F)
+val md_theme_light_surfaceVariant = Color(0xFFFFFFFF)    // iOS secondarySystemGroupedBackground
 val md_theme_light_onSurfaceVariant = Color(0xFF43474E)
 val md_theme_light_outline = Color(0xFF73777F)
 val md_theme_light_inverseOnSurface = Color(0xFFF1F0F4)

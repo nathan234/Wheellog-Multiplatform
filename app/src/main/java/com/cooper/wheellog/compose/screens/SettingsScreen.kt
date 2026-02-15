@@ -31,10 +31,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.LocalContext
 import com.cooper.wheellog.BuildConfig
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.kmp.DecoderMode
 import com.cooper.wheellog.compose.components.StatRow
+import com.cooper.wheellog.core.domain.AppConstants
 import java.util.Locale
 
 private const val KM_TO_MILES = 0.62137119223733
@@ -240,6 +245,27 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         SettingsSection(title = "About") {
             StatRow(label = "Version", value = BuildConfig.VERSION_NAME)
             StatRow(label = "Build Date", value = BuildConfig.BUILD_DATE)
+            HorizontalDivider()
+            val context = LocalContext.current
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.GITHUB_REPO_URL))
+                        )
+                    }
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("GitHub Repository")
+                Text(
+                    "Open",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
 
         Spacer(Modifier.height(16.dp))

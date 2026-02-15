@@ -1,4 +1,5 @@
 import SwiftUI
+import WheelLogCore
 
 struct SettingsView: View {
     @EnvironmentObject var wheelManager: WheelManager
@@ -121,7 +122,7 @@ struct SettingsView: View {
                     Text(appVersion)
                         .foregroundColor(.secondary)
                 }
-                Link("GitHub Repository", destination: URL(string: "https://github.com/nathan234/Wheellog-Multiplatform")!)
+                Link("GitHub Repository", destination: URL(string: AppConstants.shared.GITHUB_REPO_URL)!)
             }
         }
         .navigationTitle("Settings")

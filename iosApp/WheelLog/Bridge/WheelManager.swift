@@ -51,7 +51,57 @@ class WheelManager: ObservableObject {
     @Published var alarmAction: AlarmAction = AlarmAction(rawValue: UserDefaults.standard.integer(forKey: "alarm_action")) ?? .phoneOnly {
         didSet { UserDefaults.standard.set(alarmAction.rawValue, forKey: "alarm_action") }
     }
-    @Published private(set) var activeAlarms: Set<AlarmType> = []
+    @Published private(set) var activeAlarms: Set<AlarmDisplayType> = []
+
+    // PWM-based alarm settings
+    @Published var pwmBasedAlarms: Bool = UserDefaults.standard.bool(forKey: "pwm_based_alarms") {
+        didSet { UserDefaults.standard.set(pwmBasedAlarms, forKey: "pwm_based_alarms") }
+    }
+    @Published var alarmFactor1: Double = {
+        let v = UserDefaults.standard.double(forKey: "alarm_factor1")
+        return v == 0 ? 80 : v
+    }() {
+        didSet { UserDefaults.standard.set(alarmFactor1, forKey: "alarm_factor1") }
+    }
+    @Published var alarmFactor2: Double = {
+        let v = UserDefaults.standard.double(forKey: "alarm_factor2")
+        return v == 0 ? 95 : v
+    }() {
+        didSet { UserDefaults.standard.set(alarmFactor2, forKey: "alarm_factor2") }
+    }
+
+    // Pre-warning settings
+    @Published var warningPwm: Double = UserDefaults.standard.double(forKey: "warning_pwm") {
+        didSet { UserDefaults.standard.set(warningPwm, forKey: "warning_pwm") }
+    }
+    @Published var warningSpeed: Double = UserDefaults.standard.double(forKey: "warning_speed") {
+        didSet { UserDefaults.standard.set(warningSpeed, forKey: "warning_speed") }
+    }
+    @Published var warningSpeedPeriod: Double = UserDefaults.standard.double(forKey: "warning_speed_period") {
+        didSet { UserDefaults.standard.set(warningSpeedPeriod, forKey: "warning_speed_period") }
+    }
+
+    // Battery thresholds per speed alarm
+    @Published var alarm1Battery: Double = UserDefaults.standard.double(forKey: "alarm_1_battery") {
+        didSet { UserDefaults.standard.set(alarm1Battery, forKey: "alarm_1_battery") }
+    }
+    @Published var alarm2Battery: Double = UserDefaults.standard.double(forKey: "alarm_2_battery") {
+        didSet { UserDefaults.standard.set(alarm2Battery, forKey: "alarm_2_battery") }
+    }
+    @Published var alarm3Battery: Double = UserDefaults.standard.double(forKey: "alarm_3_battery") {
+        didSet { UserDefaults.standard.set(alarm3Battery, forKey: "alarm_3_battery") }
+    }
+
+    // New alarm types
+    @Published var alarmPhaseCurrent: Double = UserDefaults.standard.double(forKey: "alarm_phase_current") {
+        didSet { UserDefaults.standard.set(alarmPhaseCurrent, forKey: "alarm_phase_current") }
+    }
+    @Published var alarmMotorTemperature: Double = UserDefaults.standard.double(forKey: "alarm_motor_temperature") {
+        didSet { UserDefaults.standard.set(alarmMotorTemperature, forKey: "alarm_motor_temperature") }
+    }
+    @Published var alarmWheel: Bool = UserDefaults.standard.bool(forKey: "alarm_wheel") {
+        didSet { UserDefaults.standard.set(alarmWheel, forKey: "alarm_wheel") }
+    }
 
     // Connection settings (persisted to UserDefaults)
     @Published var autoReconnect: Bool = UserDefaults.standard.bool(forKey: "use_reconnect") {
@@ -164,10 +214,10 @@ class WheelManager: ObservableObject {
             self?.wheelBeep()
         }
 
-        alarmManager.onAlarmFired = { [weak self] type, message in
+        alarmManager.onAlarmFired = { [weak self] displayType, message in
             guard let self = self else { return }
             if self.backgroundManager.isInBackground {
-                self.backgroundManager.postAlarmNotification(type: type, value: message)
+                self.backgroundManager.postAlarmNotification(type: displayType, value: message)
             }
         }
     }
@@ -225,24 +275,10 @@ class WheelManager: ObservableObject {
             gpsSpeedKmh: gpsSpeed
         )
 
-        // Check alarms
-        let values = AlarmManager.WheelValues(
-            speedKmh: wheelState.speedKmh,
-            current: wheelState.current,
-            temperature: wheelState.temperature,
-            batteryLevel: wheelState.batteryLevel
-        )
-        let settings = AlarmManager.AlarmSettings(
-            enabled: alarmsEnabled,
-            alarm1Speed: alarm1Speed,
-            alarm2Speed: alarm2Speed,
-            alarm3Speed: alarm3Speed,
-            alarmCurrent: alarmCurrent,
-            alarmTemperature: alarmTemperature,
-            alarmBattery: alarmBattery,
-            action: alarmAction
-        )
-        alarmManager.checkAlarms(values: values, settings: settings)
+        // Check alarms via KMP
+        let kmpAlarmState = WheelConnectionManagerFactory.shared.getDemoState(provider: demoProvider)
+        let alarmConfig = buildAlarmConfig()
+        alarmManager.checkAlarms(state: kmpAlarmState, config: alarmConfig, enabled: alarmsEnabled, action: alarmAction)
         activeAlarms = alarmManager.activeAlarms
     }
 
@@ -344,25 +380,11 @@ class WheelManager: ObservableObject {
             isScanning = false
         }
 
-        // Feature 1: Check alarms when connected
+        // Feature 1: Check alarms when connected via KMP
         if connectionState.isConnected {
-            let values = AlarmManager.WheelValues(
-                speedKmh: wheelState.speedKmh,
-                current: wheelState.current,
-                temperature: wheelState.temperature,
-                batteryLevel: wheelState.batteryLevel
-            )
-            let settings = AlarmManager.AlarmSettings(
-                enabled: alarmsEnabled,
-                alarm1Speed: alarm1Speed,
-                alarm2Speed: alarm2Speed,
-                alarm3Speed: alarm3Speed,
-                alarmCurrent: alarmCurrent,
-                alarmTemperature: alarmTemperature,
-                alarmBattery: alarmBattery,
-                action: alarmAction
-            )
-            alarmManager.checkAlarms(values: values, settings: settings)
+            let kmpAlarmState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
+            let alarmConfig = buildAlarmConfig()
+            alarmManager.checkAlarms(state: kmpAlarmState, config: alarmConfig, enabled: alarmsEnabled, action: alarmAction)
             activeAlarms = alarmManager.activeAlarms
         }
 
@@ -403,6 +425,31 @@ class WheelManager: ObservableObject {
 
         // Feature 2: Update reconnect state
         reconnectState = reconnectManager.state
+    }
+
+    // MARK: - Alarm Config Builder
+
+    private func buildAlarmConfig() -> AlarmConfig {
+        return WheelConnectionManagerFactory.shared.createAlarmConfig(
+            pwmBasedAlarms: pwmBasedAlarms,
+            alarmFactor1: Int32(alarmFactor1),
+            alarmFactor2: Int32(alarmFactor2),
+            warningPwm: Int32(warningPwm),
+            warningSpeed: Int32(warningSpeed),
+            warningSpeedPeriod: Int32(warningSpeedPeriod),
+            alarm1Speed: Int32(alarm1Speed),
+            alarm1Battery: Int32(alarm1Battery),
+            alarm2Speed: Int32(alarm2Speed),
+            alarm2Battery: Int32(alarm2Battery),
+            alarm3Speed: Int32(alarm3Speed),
+            alarm3Battery: Int32(alarm3Battery),
+            alarmCurrent: Int32(alarmCurrent),
+            alarmPhaseCurrent: Int32(alarmPhaseCurrent),
+            alarmTemperature: Int32(alarmTemperature),
+            alarmMotorTemperature: Int32(alarmMotorTemperature),
+            alarmBattery: Int32(alarmBattery),
+            alarmWheel: alarmWheel
+        )
     }
 
     // MARK: - Connection State Changes

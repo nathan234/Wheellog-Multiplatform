@@ -1,5 +1,8 @@
 package com.cooper.wheellog.core.service
 
+import com.cooper.wheellog.core.alarm.AlarmChecker
+import com.cooper.wheellog.core.alarm.AlarmConfig
+import com.cooper.wheellog.core.alarm.AlarmResult
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.protocol.DefaultWheelDecoderFactory
 import kotlinx.coroutines.CoroutineScope
@@ -309,5 +312,70 @@ object WheelConnectionManagerFactory {
 
     fun getDemoState(provider: DemoDataProvider): WheelState {
         return provider.wheelState.value
+    }
+
+    // MARK: - Alarm Checker
+
+    fun createAlarmChecker(): AlarmChecker {
+        return AlarmChecker()
+    }
+
+    fun checkAlarms(
+        checker: AlarmChecker,
+        state: WheelState,
+        config: AlarmConfig,
+        currentTimeMs: Long
+    ): AlarmResult {
+        return checker.check(state, config, currentTimeMs)
+    }
+
+    fun resetAlarmChecker(checker: AlarmChecker) {
+        checker.reset()
+    }
+
+    /**
+     * Swift-callable factory for AlarmConfig.
+     * Kotlin data class default params don't export to Swift, so all 18 params are explicit.
+     */
+    fun createAlarmConfig(
+        pwmBasedAlarms: Boolean,
+        alarmFactor1: Int,
+        alarmFactor2: Int,
+        warningPwm: Int,
+        warningSpeed: Int,
+        warningSpeedPeriod: Int,
+        alarm1Speed: Int,
+        alarm1Battery: Int,
+        alarm2Speed: Int,
+        alarm2Battery: Int,
+        alarm3Speed: Int,
+        alarm3Battery: Int,
+        alarmCurrent: Int,
+        alarmPhaseCurrent: Int,
+        alarmTemperature: Int,
+        alarmMotorTemperature: Int,
+        alarmBattery: Int,
+        alarmWheel: Boolean
+    ): AlarmConfig {
+        return AlarmConfig(
+            pwmBasedAlarms = pwmBasedAlarms,
+            alarmFactor1 = alarmFactor1,
+            alarmFactor2 = alarmFactor2,
+            warningPwm = warningPwm,
+            warningSpeed = warningSpeed,
+            warningSpeedPeriod = warningSpeedPeriod,
+            alarm1Speed = alarm1Speed,
+            alarm1Battery = alarm1Battery,
+            alarm2Speed = alarm2Speed,
+            alarm2Battery = alarm2Battery,
+            alarm3Speed = alarm3Speed,
+            alarm3Battery = alarm3Battery,
+            alarmCurrent = alarmCurrent,
+            alarmPhaseCurrent = alarmPhaseCurrent,
+            alarmTemperature = alarmTemperature,
+            alarmMotorTemperature = alarmMotorTemperature,
+            alarmBattery = alarmBattery,
+            alarmWheel = alarmWheel
+        )
     }
 }

@@ -19,13 +19,78 @@ struct SettingsView: View {
                 Toggle("Enable Alarms", isOn: $wheelManager.alarmsEnabled)
 
                 if wheelManager.alarmsEnabled {
-                    // Alarm action picker (Feature 1)
+                    // Alarm action picker
                     Picker("Alarm Action", selection: $wheelManager.alarmAction) {
                         ForEach(AlarmAction.allCases, id: \.self) { action in
                             Text(action.label).tag(action)
                         }
                     }
 
+                    Toggle("PWM-Based Alarms", isOn: $wheelManager.pwmBasedAlarms)
+                }
+            } header: {
+                Text("Speed & Safety Alarms")
+            } footer: {
+                if wheelManager.alarmsEnabled {
+                    Text(wheelManager.pwmBasedAlarms
+                        ? "PWM mode triggers alarms based on motor load percentage."
+                        : "Set to 0 to disable individual alarms.")
+                }
+            }
+
+            // PWM-based alarm settings
+            if wheelManager.alarmsEnabled && wheelManager.pwmBasedAlarms {
+                Section("PWM Alarm Thresholds") {
+                    alarmSlider(
+                        label: "Alarm Factor 1",
+                        value: $wheelManager.alarmFactor1,
+                        range: 0...99,
+                        displayValue: wheelManager.alarmFactor1,
+                        unit: "%"
+                    )
+                    alarmSlider(
+                        label: "Alarm Factor 2",
+                        value: $wheelManager.alarmFactor2,
+                        range: 0...99,
+                        displayValue: wheelManager.alarmFactor2,
+                        unit: "%"
+                    )
+                }
+
+                Section {
+                    alarmSlider(
+                        label: "Warning Speed",
+                        value: $wheelManager.warningSpeed,
+                        range: 0...120,
+                        displayValue: displaySpeed(wheelManager.warningSpeed),
+                        unit: wheelManager.useMph ? "mph" : "km/h"
+                    )
+                    alarmSlider(
+                        label: "Warning PWM",
+                        value: $wheelManager.warningPwm,
+                        range: 0...99,
+                        displayValue: wheelManager.warningPwm,
+                        unit: "%"
+                    )
+                    if wheelManager.warningSpeed > 0 || wheelManager.warningPwm > 0 {
+                        alarmSlider(
+                            label: "Warning Period",
+                            value: $wheelManager.warningSpeedPeriod,
+                            range: 0...60,
+                            displayValue: wheelManager.warningSpeedPeriod,
+                            unit: "sec"
+                        )
+                    }
+                } header: {
+                    Text("Pre-Warnings")
+                } footer: {
+                    Text("Advisory tones before full alarms. Set warning period > 0 to enable.")
+                }
+            }
+
+            // Old-style speed alarm settings
+            if wheelManager.alarmsEnabled && !wheelManager.pwmBasedAlarms {
+                Section("Speed Alarms") {
                     alarmSlider(
                         label: "Alarm 1 Speed",
                         value: $wheelManager.alarm1Speed,
@@ -34,12 +99,28 @@ struct SettingsView: View {
                         unit: wheelManager.useMph ? "mph" : "km/h"
                     )
                     alarmSlider(
+                        label: "Alarm 1 Battery",
+                        value: $wheelManager.alarm1Battery,
+                        range: 0...100,
+                        displayValue: wheelManager.alarm1Battery,
+                        unit: "%"
+                    )
+
+                    alarmSlider(
                         label: "Alarm 2 Speed",
                         value: $wheelManager.alarm2Speed,
                         range: 0...100,
                         displayValue: displaySpeed(wheelManager.alarm2Speed),
                         unit: wheelManager.useMph ? "mph" : "km/h"
                     )
+                    alarmSlider(
+                        label: "Alarm 2 Battery",
+                        value: $wheelManager.alarm2Battery,
+                        range: 0...100,
+                        displayValue: wheelManager.alarm2Battery,
+                        unit: "%"
+                    )
+
                     alarmSlider(
                         label: "Alarm 3 Speed",
                         value: $wheelManager.alarm3Speed,
@@ -48,10 +129,30 @@ struct SettingsView: View {
                         unit: wheelManager.useMph ? "mph" : "km/h"
                     )
                     alarmSlider(
+                        label: "Alarm 3 Battery",
+                        value: $wheelManager.alarm3Battery,
+                        range: 0...100,
+                        displayValue: wheelManager.alarm3Battery,
+                        unit: "%"
+                    )
+                }
+            }
+
+            // Always-shown alarm types
+            if wheelManager.alarmsEnabled {
+                Section("Other Alarms") {
+                    alarmSlider(
                         label: "Current Alarm",
                         value: $wheelManager.alarmCurrent,
                         range: 0...100,
                         displayValue: wheelManager.alarmCurrent,
+                        unit: "A"
+                    )
+                    alarmSlider(
+                        label: "Phase Current Alarm",
+                        value: $wheelManager.alarmPhaseCurrent,
+                        range: 0...400,
+                        displayValue: wheelManager.alarmPhaseCurrent,
                         unit: "A"
                     )
                     alarmSlider(
@@ -62,18 +163,20 @@ struct SettingsView: View {
                         unit: wheelManager.useFahrenheit ? "°F" : "°C"
                     )
                     alarmSlider(
+                        label: "Motor Temp Alarm",
+                        value: $wheelManager.alarmMotorTemperature,
+                        range: 0...200,
+                        displayValue: displayTemperature(wheelManager.alarmMotorTemperature),
+                        unit: wheelManager.useFahrenheit ? "°F" : "°C"
+                    )
+                    alarmSlider(
                         label: "Battery Alarm",
                         value: $wheelManager.alarmBattery,
                         range: 0...100,
                         displayValue: wheelManager.alarmBattery,
                         unit: "%"
                     )
-                }
-            } header: {
-                Text("Speed & Safety Alarms")
-            } footer: {
-                if wheelManager.alarmsEnabled {
-                    Text("Set to 0 to disable individual alarms.")
+                    Toggle("Wheel Alarm", isOn: $wheelManager.alarmWheel)
                 }
             }
 

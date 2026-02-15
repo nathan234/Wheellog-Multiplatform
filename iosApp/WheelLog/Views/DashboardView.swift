@@ -410,22 +410,13 @@ struct DashboardView: View {
 // MARK: - Alarm Banner
 
 struct AlarmBannerView: View {
-    let activeAlarms: Set<AlarmType>
+    let activeAlarms: Set<AlarmDisplayType>
 
     @State private var isPulsing = false
 
     private var alarmText: String {
         let types = activeAlarms.sorted { $0.rawValue < $1.rawValue }
-        return types.map { type in
-            switch type {
-            case .speed1: return "Speed 1"
-            case .speed2: return "Speed 2"
-            case .speed3: return "Speed 3"
-            case .current: return "Current"
-            case .temperature: return "Temp"
-            case .battery: return "Battery"
-            }
-        }.joined(separator: ", ")
+        return types.map { $0.displayName }.joined(separator: ", ")
     }
 
     var body: some View {

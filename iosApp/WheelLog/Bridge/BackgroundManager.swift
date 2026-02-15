@@ -23,7 +23,7 @@ class BackgroundManager: ObservableObject {
 
     // MARK: - Alarm Notification
 
-    func postAlarmNotification(type: AlarmType, value: String) {
+    func postAlarmNotification(type: AlarmDisplayType, value: String) {
         let content = UNMutableNotificationContent()
         content.title = "WheelLog Alarm"
         content.body = value

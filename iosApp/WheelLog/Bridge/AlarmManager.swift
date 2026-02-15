@@ -1,9 +1,39 @@
 import Foundation
 import AVFoundation
 import UIKit
+import WheelLogCore
 
-enum AlarmType: String, CaseIterable, Hashable {
-    case speed1, speed2, speed3, current, temperature, battery
+/// Maps KMP AlarmType enum values to Swift for display and notification purposes.
+enum AlarmDisplayType: String, CaseIterable, Hashable {
+    case speed1, speed2, speed3, current, temperature, pwm, battery, wheel
+
+    var displayName: String {
+        switch self {
+        case .speed1: return "Speed 1"
+        case .speed2: return "Speed 2"
+        case .speed3: return "Speed 3"
+        case .current: return "Current"
+        case .temperature: return "Temp"
+        case .pwm: return "PWM"
+        case .battery: return "Battery"
+        case .wheel: return "Wheel"
+        }
+    }
+
+    /// Map from KMP AlarmType to Swift AlarmDisplayType
+    static func from(kmpAlarmType: AlarmType) -> AlarmDisplayType? {
+        switch kmpAlarmType {
+        case .speed1: return .speed1
+        case .speed2: return .speed2
+        case .speed3: return .speed3
+        case .current: return .current
+        case .temperature: return .temperature
+        case .pwm: return .pwm
+        case .battery: return .battery
+        case .wheel: return .wheel
+        default: return nil
+        }
+    }
 }
 
 enum AlarmAction: Int, CaseIterable {
@@ -23,13 +53,13 @@ enum AlarmAction: Int, CaseIterable {
 @MainActor
 class AlarmManager: ObservableObject {
 
-    @Published var activeAlarms: Set<AlarmType> = []
+    @Published var activeAlarms: Set<AlarmDisplayType> = []
 
-    var onAlarmFired: ((AlarmType, String) -> Void)?
+    var onAlarmFired: ((AlarmDisplayType, String) -> Void)?
     var sendWheelBeep: (() -> Void)?
 
-    private var lastFiredTime: [AlarmType: Date] = [:]
-    private let cooldownInterval: TimeInterval = 5.0
+    // KMP alarm checker (created once, reused)
+    private let kmpChecker: AlarmChecker
 
     // Audio
     private var audioEngine: AVAudioEngine?
@@ -39,92 +69,81 @@ class AlarmManager: ObservableObject {
     private let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
     private let notificationFeedback = UINotificationFeedbackGenerator()
 
-    nonisolated init() {}
-
-    // MARK: - Alarm Check
-
-    struct AlarmSettings {
-        let enabled: Bool
-        let alarm1Speed: Double
-        let alarm2Speed: Double
-        let alarm3Speed: Double
-        let alarmCurrent: Double
-        let alarmTemperature: Double
-        let alarmBattery: Double
-        let action: AlarmAction
+    nonisolated init() {
+        kmpChecker = WheelConnectionManagerFactory.shared.createAlarmChecker()
     }
 
-    struct WheelValues {
-        let speedKmh: Double
-        let current: Double
-        let temperature: Int
-        let batteryLevel: Int
-    }
+    // MARK: - KMP Alarm Check
 
-    func checkAlarms(values: WheelValues, settings: AlarmSettings) {
-        guard settings.enabled else {
+    func checkAlarms(state: WheelState, config: AlarmConfig, enabled: Bool, action: AlarmAction) {
+        guard enabled else {
             if !activeAlarms.isEmpty {
                 activeAlarms = []
             }
             return
         }
 
-        var newActive: Set<AlarmType> = []
+        let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let result = WheelConnectionManagerFactory.shared.checkAlarms(
+            checker: kmpChecker,
+            state: state,
+            config: config,
+            currentTimeMs: currentTimeMs
+        )
 
-        // Speed alarms
-        if settings.alarm1Speed > 0, values.speedKmh >= settings.alarm1Speed {
-            newActive.insert(.speed1)
-        }
-        if settings.alarm2Speed > 0, values.speedKmh >= settings.alarm2Speed {
-            newActive.insert(.speed2)
-        }
-        if settings.alarm3Speed > 0, values.speedKmh >= settings.alarm3Speed {
-            newActive.insert(.speed3)
+        processAlarmResult(result, action: action)
+    }
+
+    func reset() {
+        WheelConnectionManagerFactory.shared.resetAlarmChecker(checker: kmpChecker)
+        activeAlarms = []
+    }
+
+    // MARK: - Process Result
+
+    private func processAlarmResult(_ result: AlarmResult, action: AlarmAction) {
+        var newActive: Set<AlarmDisplayType> = []
+
+        for alarm in result.triggeredAlarms {
+            guard let displayType = AlarmDisplayType.from(kmpAlarmType: alarm.type) else { continue }
+            newActive.insert(displayType)
+
+            // Fire platform effects for each triggered alarm
+            fireAlarm(
+                type: displayType,
+                action: action,
+                toneDurationMs: Int(alarm.toneDuration)
+            )
         }
 
-        // Current alarm
-        if settings.alarmCurrent > 0, abs(values.current) >= settings.alarmCurrent {
-            newActive.insert(.current)
-        }
-
-        // Temperature alarm
-        if settings.alarmTemperature > 0, Double(values.temperature) >= settings.alarmTemperature {
-            newActive.insert(.temperature)
-        }
-
-        // Battery alarm (inverted — alarm when LOW)
-        if settings.alarmBattery > 0, Double(values.batteryLevel) <= settings.alarmBattery {
-            newActive.insert(.battery)
-        }
-
-        // Fire alarms for newly triggered types
-        let now = Date()
-        for type in newActive {
-            if !activeAlarms.contains(type) || canFire(type, now: now) {
-                if canFire(type, now: now) {
-                    fireAlarm(type: type, action: settings.action)
-                    lastFiredTime[type] = now
-                }
-            }
+        // Handle pre-warning (advisory tone, no haptic)
+        if let preWarning = result.preWarning {
+            playPreWarning(type: preWarning.type)
         }
 
         activeAlarms = newActive
     }
 
-    private func canFire(_ type: AlarmType, now: Date) -> Bool {
-        guard let last = lastFiredTime[type] else { return true }
-        return now.timeIntervalSince(last) >= cooldownInterval
-    }
-
     // MARK: - Fire Alarm
 
-    private func fireAlarm(type: AlarmType, action: AlarmAction) {
-        // Audio beep
-        playBeep(for: type)
+    private func fireAlarm(type: AlarmDisplayType, action: AlarmAction, toneDurationMs: Int) {
+        // Audio beep with KMP-computed duration
+        let frequency: Float
+        switch type {
+        case .speed1, .speed2, .speed3, .pwm: frequency = 1000
+        case .current: frequency = 800
+        case .temperature: frequency = 600
+        case .battery: frequency = 400
+        case .wheel: frequency = 1200
+        }
+
+        setupAudioSessionIfNeeded()
+        let duration = Float(toneDurationMs) / 1000.0
+        generateTone(frequency: frequency, duration: max(duration, 0.02))
 
         // Haptic
         switch type {
-        case .speed1, .speed2, .speed3, .current:
+        case .speed1, .speed2, .speed3, .current, .pwm, .wheel:
             heavyImpact.impactOccurred()
         case .temperature, .battery:
             notificationFeedback.notificationOccurred(.warning)
@@ -140,31 +159,29 @@ class AlarmManager: ObservableObject {
         onAlarmFired?(type, message)
     }
 
-    private func alarmMessage(for type: AlarmType) -> String {
+    // MARK: - Pre-Warning
+
+    private func playPreWarning(type: PreWarningType) {
+        setupAudioSessionIfNeeded()
+        // Distinct advisory tone: lower volume, shorter, different frequency
+        let frequency: Float = type == .pwm ? 700 : 500
+        generateTone(frequency: frequency, duration: 0.1)
+    }
+
+    private func alarmMessage(for type: AlarmDisplayType) -> String {
         switch type {
         case .speed1: return "Speed alarm 1 triggered"
         case .speed2: return "Speed alarm 2 triggered"
         case .speed3: return "Speed alarm 3 triggered"
         case .current: return "Current alarm triggered"
         case .temperature: return "Temperature alarm triggered"
+        case .pwm: return "PWM alarm triggered"
         case .battery: return "Low battery alarm triggered"
+        case .wheel: return "Wheel alarm triggered"
         }
     }
 
     // MARK: - Audio
-
-    private func playBeep(for type: AlarmType) {
-        let frequency: Float
-        switch type {
-        case .speed1, .speed2, .speed3: frequency = 1000
-        case .current: frequency = 800
-        case .temperature: frequency = 600
-        case .battery: frequency = 400
-        }
-
-        setupAudioSessionIfNeeded()
-        generateTone(frequency: frequency, duration: 0.2)
-    }
 
     private func setupAudioSessionIfNeeded() {
         guard audioEngine == nil else { return }

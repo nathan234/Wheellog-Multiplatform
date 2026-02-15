@@ -80,9 +80,18 @@ fun applicationScreen(
                     DecoderMode.BOTH.value.toString() to stringResource(R.string.decoder_mode_both),
                 ),
                 defaultKey = appConfig.decoderModeInt.toString(),
-                showDiv = false,
             ) {
                 appConfig.decoderModeInt = it.first.toInt()
+            }
+
+            switchPref(
+                name = "Use New Compose UI",
+                desc = "Switch to the new Compose-based interface (requires restart)",
+                default = appConfig.useComposeUI,
+                showDiv = false,
+            ) {
+                restartRequiredAlert = true
+                appConfig.useComposeUI = it
             }
         }
 

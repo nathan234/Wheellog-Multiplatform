@@ -54,7 +54,9 @@ class AppConfig(var context: Context): KoinComponent {
             }
         }
 
-    var useComposeUI: Boolean = false
+    var useComposeUI: Boolean
+        get() = getValue("use_compose_ui", false)
+        set(value) = setValue("use_compose_ui", value)
 
     var decoderModeInt: Int
         get() = getValue(R.string.decoder_mode, 0)

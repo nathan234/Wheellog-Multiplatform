@@ -1,5 +1,7 @@
 package com.cooper.wheellog.core.service
 
+import com.cooper.wheellog.core.domain.BmsSnapshot
+import com.cooper.wheellog.core.domain.SmartBms
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import kotlinx.coroutines.CoroutineScope
@@ -64,6 +66,52 @@ class DemoDataProvider {
         _wheelState.value = WheelState()
     }
 
+    private fun generateBmsSnapshot(packVoltage: Double, packCurrent: Double): BmsSnapshot {
+        val cellCount = 16
+        val nominalCell = packVoltage / cellCount
+        val cells = Array(SmartBms.MAX_CELLS) { i ->
+            if (i < cellCount) {
+                // Small variation per cell with slight sine wobble
+                nominalCell + sin((tick + i * 37).toDouble() * 0.02) * 0.015
+            } else 0.0
+        }
+
+        var minV = cells[0]; var maxV = cells[0]; var sum = 0.0
+        var minI = 0; var maxI = 0
+        for (i in 0 until cellCount) {
+            val v = cells[i]
+            sum += v
+            if (v < minV) { minV = v; minI = i }
+            if (v > maxV) { maxV = v; maxI = i }
+        }
+
+        return BmsSnapshot(
+            serialNumber = "DEMO-BMS-001",
+            versionNumber = "1.0.0",
+            factoryCap = 9600,
+            actualCap = 9600,
+            fullCycles = 42,
+            chargeCount = 100,
+            mfgDateStr = "01.01.2024",
+            status = 1,
+            remCap = (9600 * battery / 100),
+            remPerc = battery,
+            current = packCurrent,
+            voltage = packVoltage,
+            temp1 = 25.0 + sin(tick.toDouble() * 0.01) * 3.0,
+            temp2 = 24.0 + sin(tick.toDouble() * 0.012) * 2.0,
+            health = 98,
+            cellNum = cellCount,
+            cells = cells,
+            minCell = minV,
+            maxCell = maxV,
+            cellDiff = maxV - minV,
+            avgCell = sum / cellCount,
+            minCellNum = minI + 1,
+            maxCellNum = maxI + 1
+        )
+    }
+
     private fun generateData() {
         tick++
 
@@ -105,6 +153,13 @@ class DemoDataProvider {
         // Trip distance accumulates: speed (km/h) → m per 0.1s tick
         tripDistanceM += speed / 3.6 * 0.1
 
+        // Generate BMS data (update every second = every 10 ticks)
+        val bmsSnapshot = if (tick % 10 == 0 || tick == 1) {
+            generateBmsSnapshot(voltage, current)
+        } else {
+            _wheelState.value.bms1
+        }
+
         // Convert to WheelState internal units (1/100)
         _wheelState.value = WheelState(
             speed = (speed * 100).toInt(),
@@ -118,7 +173,8 @@ class DemoDataProvider {
             calculatedPwm = speed / 50.0,
             wheelType = WheelType.Unknown,
             name = "Demo",
-            model = "Demo Wheel"
+            model = "Demo Wheel",
+            bms1 = bmsSnapshot
         )
     }
 }

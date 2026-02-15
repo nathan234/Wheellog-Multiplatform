@@ -178,7 +178,7 @@ class VeteranDecoder : WheelDecoder {
 
             if (hasNewData) {
                 DecodedData(
-                    newState = newState.copy(bms1 = bms1, bms2 = bms2),
+                    newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
                     hasNewData = true
                 )
             } else null
@@ -437,15 +437,37 @@ class VeteranDecoder : WheelDecoder {
 
     override fun buildCommand(command: WheelCommand): List<WheelCommand> {
         return when (command) {
-            is WheelCommand.Beep -> listOf(
-                WheelCommand.SendBytes("b".encodeToByteArray())
-            )
+            is WheelCommand.Beep -> {
+                val ver = stateLock.withLock { mVer }
+                if (ver < 3) {
+                    listOf(WheelCommand.SendBytes("b".encodeToByteArray()))
+                } else {
+                    listOf(WheelCommand.SendBytes(byteArrayOf(
+                        0x4C, 0x6B, 0x41, 0x70, 0x0E, 0x00,
+                        0x80.toByte(), 0x80.toByte(), 0x80.toByte(), 0x01,
+                        0xCA.toByte(), 0x87.toByte(), 0xE6.toByte(), 0x6F
+                    )))
+                }
+            }
             is WheelCommand.SetLight -> listOf(
                 WheelCommand.SendBytes(
                     if (command.enabled) "SetLightON".encodeToByteArray()
                     else "SetLightOFF".encodeToByteArray()
                 )
             )
+            is WheelCommand.SetPedalsMode -> {
+                // 0=hard, 1=medium, 2=soft
+                val cmd = when (command.mode) {
+                    0 -> "SETh"
+                    1 -> "SETm"
+                    2 -> "SETs"
+                    else -> return emptyList()
+                }
+                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.ResetTrip -> {
+                listOf(WheelCommand.SendBytes("CLEARMETER".encodeToByteArray()))
+            }
             else -> emptyList()
         }
     }

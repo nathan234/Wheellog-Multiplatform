@@ -713,7 +713,7 @@ class GotwayDecoderComparisonTest {
 
     @Test
     fun `buildCommand unsupported command returns empty list`() {
-        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        val commands = decoder.buildCommand(WheelCommand.SetDrl(true))
         assertTrue(commands.isEmpty())
     }
 

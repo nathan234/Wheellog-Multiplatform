@@ -61,8 +61,8 @@ data class WheelState(
     val btName: String = "",
 
     // BMS data
-    val bms1: SmartBms? = null,
-    val bms2: SmartBms? = null,
+    val bms1: BmsSnapshot? = null,
+    val bms2: BmsSnapshot? = null,
 
     // Wheel settings reported via BLE
     val inMiles: Boolean = false,

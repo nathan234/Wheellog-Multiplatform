@@ -238,7 +238,7 @@ class CANMessage private constructor(
         /**
          * Build a complete message buffer including header and CRC.
          */
-        private fun buildMessage(
+        fun buildMessage(
             source: Int,
             destination: Int,
             command: Int,
@@ -431,7 +431,7 @@ class NinebotZDecoder : WheelDecoder {
 
             if (hasNewData || commands.isNotEmpty()) {
                 DecodedData(
-                    newState = newState.copy(bms1 = bms1, bms2 = bms2),
+                    newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
                     hasNewData = hasNewData,
                     commands = commands
                 )
@@ -871,6 +871,103 @@ class NinebotZDecoder : WheelDecoder {
             driveFlags = 0
             speakerVolume = 0
         }
+    }
+
+    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        return stateLock.withLock {
+            val g = gamma
+            when (command) {
+                is WheelCommand.SetDrl -> {
+                    // Bit 0: DRL
+                    val newFlags = (driveFlags and 0xFFFE) or (if (command.enabled) 1 else 0)
+                    driveFlags = newFlags
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.DRIVE_FLAGS, shortToLE(newFlags), g)))
+                }
+                is WheelCommand.SetLight -> {
+                    // Bit 2: Light
+                    val newFlags = (driveFlags and 0xFFFB) or ((if (command.enabled) 1 else 0) shl 2)
+                    driveFlags = newFlags
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.DRIVE_FLAGS, shortToLE(newFlags), g)))
+                }
+                is WheelCommand.SetTailLight -> {
+                    // Bit 1: Tail light
+                    val newFlags = (driveFlags and 0xFFFD) or ((if (command.enabled) 1 else 0) shl 1)
+                    driveFlags = newFlags
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.DRIVE_FLAGS, shortToLE(newFlags), g)))
+                }
+                is WheelCommand.SetHandleButton -> {
+                    // Bit 3: Handle button (inverted: enabled=true clears bit)
+                    val newFlags = (driveFlags and 0xFFF7) or ((if (command.enabled) 0 else 1) shl 3)
+                    driveFlags = newFlags
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.DRIVE_FLAGS, shortToLE(newFlags), g)))
+                }
+                is WheelCommand.SetBrakeAssist -> {
+                    // Bit 4: Brake assist (inverted: enabled=true clears bit)
+                    val newFlags = (driveFlags and 0xFFEF) or ((if (command.enabled) 0 else 1) shl 4)
+                    driveFlags = newFlags
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.DRIVE_FLAGS, shortToLE(newFlags), g)))
+                }
+                is WheelCommand.SetLedColor -> {
+                    val param = CANMessage.Param.LED_COLOR1 + (command.ledNum - 1) * 2
+                    val data = if (command.value < 256) {
+                        byteArrayOf(0xF0.toByte(), (command.value and 0xFF).toByte(), 0x00, 0x00)
+                    } else {
+                        byteArrayOf(0x00, 0x00, 0x00, 0x00)
+                    }
+                    listOf(WheelCommand.SendBytes(CANMessage.buildMessage(CANMessage.Addr.APP, CANMessage.Addr.CONTROLLER, CANMessage.Comm.WRITE, param, data, g)))
+                }
+                is WheelCommand.SetAlarmEnabled -> {
+                    val bit = command.num - 1
+                    val mask = 1 shl bit
+                    alarms = (alarms and mask.inv()) or ((if (command.enabled) 1 else 0) shl bit)
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.ALARMS, shortToLE(alarms), g)))
+                }
+                is WheelCommand.SetAlarmSpeed -> {
+                    val param = when (command.num) {
+                        1 -> CANMessage.Param.ALARM1_SPEED
+                        2 -> CANMessage.Param.ALARM2_SPEED
+                        3 -> CANMessage.Param.ALARM3_SPEED
+                        else -> return@withLock emptyList()
+                    }
+                    val speed = command.speed * 100
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, param, shortToLE(speed), g)))
+                }
+                is WheelCommand.SetLimitedMode -> {
+                    val value: Byte = if (command.enabled) 1 else 0
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.LIMITED_MODE, byteArrayOf(value), g)))
+                }
+                is WheelCommand.SetLimitedSpeed -> {
+                    val speed = command.speed * 100
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.LIMIT_MODE_SPEED, shortToLE(speed), g)))
+                }
+                is WheelCommand.SetPedalSensitivity -> {
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.PEDAL_SENSITIVITY, shortToLE(command.sensitivity), g)))
+                }
+                is WheelCommand.SetLedMode -> {
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.LED_MODE, shortToLE(command.mode), g)))
+                }
+                is WheelCommand.SetSpeakerVolume -> {
+                    val value = command.volume shl 3
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.SPEAKER_VOLUME, shortToLE(value), g)))
+                }
+                is WheelCommand.SetLock -> {
+                    val value: Byte = if (command.locked) 1 else 0
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.LOCK_MODE, byteArrayOf(value, 0x00), g)))
+                }
+                is WheelCommand.Calibrate -> {
+                    listOf(WheelCommand.SendBytes(writeMessage(CANMessage.Comm.WRITE, CANMessage.Param.CALIBRATION, byteArrayOf(0x01, 0x00), g)))
+                }
+                else -> emptyList()
+            }
+        }
+    }
+
+    private fun writeMessage(command: Int, parameter: Int, data: ByteArray, gamma: ByteArray): ByteArray {
+        return CANMessage.buildMessage(CANMessage.Addr.APP, CANMessage.Addr.CONTROLLER, command, parameter, data, gamma)
+    }
+
+    private fun shortToLE(value: Int): ByteArray {
+        return byteArrayOf((value and 0xFF).toByte(), ((value shr 8) and 0xFF).toByte())
     }
 
     /**

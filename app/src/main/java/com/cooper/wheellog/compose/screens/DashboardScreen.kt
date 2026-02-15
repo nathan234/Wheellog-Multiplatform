@@ -55,7 +55,8 @@ private const val KM_TO_MILES = 0.62137119223733
 @Composable
 fun DashboardScreen(
     viewModel: WheelViewModel,
-    onNavigateToChart: () -> Unit
+    onNavigateToChart: () -> Unit,
+    onNavigateToBms: () -> Unit = {}
 ) {
     val wheelState by viewModel.wheelState.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
@@ -230,6 +231,17 @@ fun DashboardScreen(
                 Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
                 Text("Chart")
+            }
+
+            Button(
+                onClick = onNavigateToBms,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF607D8B)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Default.BatteryFull, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text("BMS")
             }
         }
 

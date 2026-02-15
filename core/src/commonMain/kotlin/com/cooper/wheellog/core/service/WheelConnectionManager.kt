@@ -296,6 +296,43 @@ class WheelConnectionManager(
         sendCommand(WheelCommand.SetPedalsMode(mode))
     }
 
+    suspend fun setLightMode(mode: Int) { sendCommand(WheelCommand.SetLightMode(mode)) }
+    suspend fun setLed(enabled: Boolean) { sendCommand(WheelCommand.SetLed(enabled)) }
+    suspend fun setLedMode(mode: Int) { sendCommand(WheelCommand.SetLedMode(mode)) }
+    suspend fun setStrobeMode(mode: Int) { sendCommand(WheelCommand.SetStrobeMode(mode)) }
+    suspend fun setAlarmMode(mode: Int) { sendCommand(WheelCommand.SetAlarmMode(mode)) }
+    suspend fun calibrate() { sendCommand(WheelCommand.Calibrate) }
+    suspend fun powerOff() { sendCommand(WheelCommand.PowerOff) }
+    suspend fun setLock(locked: Boolean) { sendCommand(WheelCommand.SetLock(locked)) }
+    suspend fun resetTrip() { sendCommand(WheelCommand.ResetTrip) }
+    suspend fun setMaxSpeed(speed: Int) { sendCommand(WheelCommand.SetMaxSpeed(speed)) }
+    suspend fun setAlarmSpeed(speed: Int, num: Int) { sendCommand(WheelCommand.SetAlarmSpeed(speed, num)) }
+    suspend fun setAlarmEnabled(enabled: Boolean, num: Int) { sendCommand(WheelCommand.SetAlarmEnabled(enabled, num)) }
+    suspend fun setLimitedMode(enabled: Boolean) { sendCommand(WheelCommand.SetLimitedMode(enabled)) }
+    suspend fun setLimitedSpeed(speed: Int) { sendCommand(WheelCommand.SetLimitedSpeed(speed)) }
+    suspend fun setTailLight(enabled: Boolean) { sendCommand(WheelCommand.SetTailLight(enabled)) }
+    suspend fun setDrl(enabled: Boolean) { sendCommand(WheelCommand.SetDrl(enabled)) }
+    suspend fun setLedColor(value: Int, ledNum: Int) { sendCommand(WheelCommand.SetLedColor(value, ledNum)) }
+    suspend fun setLightBrightness(value: Int) { sendCommand(WheelCommand.SetLightBrightness(value)) }
+    suspend fun setHandleButton(enabled: Boolean) { sendCommand(WheelCommand.SetHandleButton(enabled)) }
+    suspend fun setBrakeAssist(enabled: Boolean) { sendCommand(WheelCommand.SetBrakeAssist(enabled)) }
+    suspend fun setTransportMode(enabled: Boolean) { sendCommand(WheelCommand.SetTransportMode(enabled)) }
+    suspend fun setRideMode(enabled: Boolean) { sendCommand(WheelCommand.SetRideMode(enabled)) }
+    suspend fun setGoHomeMode(enabled: Boolean) { sendCommand(WheelCommand.SetGoHomeMode(enabled)) }
+    suspend fun setFancierMode(enabled: Boolean) { sendCommand(WheelCommand.SetFancierMode(enabled)) }
+    suspend fun setRollAngleMode(mode: Int) { sendCommand(WheelCommand.SetRollAngleMode(mode)) }
+    suspend fun setMute(enabled: Boolean) { sendCommand(WheelCommand.SetMute(enabled)) }
+    suspend fun setSpeakerVolume(volume: Int) { sendCommand(WheelCommand.SetSpeakerVolume(volume)) }
+    suspend fun setBeeperVolume(volume: Int) { sendCommand(WheelCommand.SetBeeperVolume(volume)) }
+    suspend fun setFanQuiet(enabled: Boolean) { sendCommand(WheelCommand.SetFanQuiet(enabled)) }
+    suspend fun setFan(enabled: Boolean) { sendCommand(WheelCommand.SetFan(enabled)) }
+    suspend fun setPedalTilt(angle: Int) { sendCommand(WheelCommand.SetPedalTilt(angle)) }
+    suspend fun setPedalSensitivity(sensitivity: Int) { sendCommand(WheelCommand.SetPedalSensitivity(sensitivity)) }
+    suspend fun setMilesMode(enabled: Boolean) { sendCommand(WheelCommand.SetMilesMode(enabled)) }
+    suspend fun requestBmsData(bmsNum: Int, dataType: Int) { sendCommand(WheelCommand.RequestBmsData(bmsNum, dataType)) }
+    suspend fun setKingsongAlarms(a1: Int, a2: Int, a3: Int, max: Int) { sendCommand(WheelCommand.SetKingsongAlarms(a1, a2, a3, max)) }
+    suspend fun requestAlarmSettings() { sendCommand(WheelCommand.RequestAlarmSettings) }
+
     // ==================== Private Methods ====================
 
     private fun setupDecoder(wheelType: WheelType) {

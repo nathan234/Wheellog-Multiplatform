@@ -5,11 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cooper.wheellog.AppConfig
 import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.logging.RideLogger
 import com.cooper.wheellog.core.service.BleDevice
 import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.DemoDataProvider
 import com.cooper.wheellog.core.service.WheelConnectionManager
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -135,6 +140,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopDemo() {
+        if (rideLogger.isLogging) stopLogging()
         demoDataProvider.stop()
         _isDemo.value = false
         _connectionState.value = ConnectionState.Disconnected
@@ -191,6 +197,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             stopDemo()
             return
         }
+        if (rideLogger.isLogging) stopLogging()
         viewModelScope.launch {
             connectionManager?.disconnect()
         }
@@ -221,8 +228,49 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Logging ---
 
+    private val rideLogger = RideLogger()
+
     fun toggleLogging() {
-        _isLogging.value = !_isLogging.value
+        if (rideLogger.isLogging) {
+            stopLogging()
+        } else {
+            startLogging()
+        }
+    }
+
+    private fun startLogging() {
+        val app = getApplication<Application>()
+        val ridesDir = File(app.getExternalFilesDir(null), "rides")
+        ridesDir.mkdirs()
+        val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss", Locale.US)
+        val fileName = "${sdf.format(Date())}.csv"
+        val filePath = File(ridesDir, fileName).absolutePath
+        val includeGps = appConfig.logLocationData
+
+        val now = System.currentTimeMillis()
+        if (rideLogger.start(filePath, includeGps, now)) {
+            _isLogging.value = true
+            startLogSampling()
+        }
+    }
+
+    private fun stopLogging() {
+        logSamplingJob?.cancel()
+        logSamplingJob = null
+        rideLogger.stop(System.currentTimeMillis())
+        _isLogging.value = false
+    }
+
+    private var logSamplingJob: Job? = null
+
+    private fun startLogSampling() {
+        logSamplingJob = viewModelScope.launch {
+            wheelState.collect { state ->
+                if (rideLogger.isLogging) {
+                    rideLogger.writeSample(state, null, System.currentTimeMillis())
+                }
+            }
+        }
     }
 
     // --- Telemetry buffering ---

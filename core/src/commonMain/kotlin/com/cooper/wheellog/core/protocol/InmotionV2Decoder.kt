@@ -900,6 +900,75 @@ class InmotionV2Decoder : WheelDecoder {
             is WheelCommand.SetLight -> listOf(
                 WheelCommand.SendBytes(setLightMessage(command.enabled))
             )
+            is WheelCommand.SetLock -> listOf(
+                WheelCommand.SendBytes(setLockMessage(command.locked))
+            )
+            is WheelCommand.PowerOff -> listOf(
+                WheelCommand.SendBytes(buildMessage(Flag.INITIAL, Command.DIAGNOSTIC, byteArrayOf(0x81.toByte(), 0x00)))
+            )
+            is WheelCommand.Calibrate -> listOf(
+                WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x42, 0x01, 0x00, 0x01)))
+            )
+            is WheelCommand.SetHandleButton -> {
+                // Inverted logic: enabled=true sends 0, enabled=false sends 1
+                val enable: Byte = if (command.enabled) 0 else 1
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x2E, enable))))
+            }
+            is WheelCommand.SetRideMode -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x23, enable))))
+            }
+            is WheelCommand.SetSpeakerVolume -> listOf(
+                WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x26, (command.volume and 0xFF).toByte())))
+            )
+            is WheelCommand.SetPedalTilt -> {
+                val value = (command.angle * 10).toShort()
+                val lo = (value.toInt() and 0xFF).toByte()
+                val hi = ((value.toInt() shr 8) and 0xFF).toByte()
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x22, lo, hi))))
+            }
+            is WheelCommand.SetPedalSensitivity -> {
+                val s = (command.sensitivity and 0xFF).toByte()
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x25, s, s))))
+            }
+            is WheelCommand.SetTransportMode -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x32, enable))))
+            }
+            is WheelCommand.SetDrl -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x2D, enable))))
+            }
+            is WheelCommand.SetGoHomeMode -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x37, enable))))
+            }
+            is WheelCommand.SetFancierMode -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x24, enable))))
+            }
+            is WheelCommand.SetMute -> {
+                // Inverted: mute=true sends 0, mute=false sends 1
+                val enable: Byte = if (command.enabled) 0 else 1
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x2C, enable))))
+            }
+            is WheelCommand.SetFanQuiet -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x38, enable))))
+            }
+            is WheelCommand.SetFan -> {
+                val enable: Byte = if (command.enabled) 1 else 0
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x43, enable))))
+            }
+            is WheelCommand.SetLightBrightness -> listOf(
+                WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x2B, (command.value and 0xFF).toByte())))
+            )
+            is WheelCommand.SetMaxSpeed -> {
+                val value = (command.speed * 100).toShort()
+                val lo = (value.toInt() and 0xFF).toByte()
+                val hi = ((value.toInt() shr 8) and 0xFF).toByte()
+                listOf(WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x21, lo, hi))))
+            }
             else -> emptyList()
         }
     }

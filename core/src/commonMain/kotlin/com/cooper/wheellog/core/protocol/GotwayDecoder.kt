@@ -103,8 +103,8 @@ class GotwayDecoder : WheelDecoder {
             if (hasNewData || newState != currentState) {
                 DecodedData(
                     newState = newState.copy(
-                        bms1 = bms1,
-                        bms2 = bms2
+                        bms1 = bms1.toSnapshot(),
+                        bms2 = bms2.toSnapshot()
                     ),
                     commands = commands,
                     hasNewData = hasNewData,
@@ -509,11 +509,103 @@ class GotwayDecoder : WheelDecoder {
             is WheelCommand.Beep -> listOf(
                 WheelCommand.SendBytes("b".encodeToByteArray())
             )
-            is WheelCommand.SetLight -> listOf(
-                WheelCommand.SendBytes(
-                    if (command.enabled) "Q".encodeToByteArray() else "E".encodeToByteArray()
+            is WheelCommand.SetLight -> {
+                val mode = if (command.enabled) 1 else 0
+                buildCommand(WheelCommand.SetLightMode(mode))
+            }
+            is WheelCommand.SetLightMode -> {
+                // 0=off("E"), 1=on("Q"), 2=strobe("T")
+                val cmd = when (command.mode) {
+                    1 -> "Q"
+                    2 -> "T"
+                    else -> "E"
+                }
+                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.SetPedalsMode -> {
+                // 0=hard("h"), 1=fast("f"), 2=soft("s"), 3=intermediate("i")
+                val cmd = when (command.mode) {
+                    0 -> "h"
+                    1 -> "f"
+                    2 -> "s"
+                    3 -> "i"
+                    else -> return emptyList()
+                }
+                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.SetMilesMode -> {
+                val cmd = if (command.enabled) "m" else "g"
+                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.SetRollAngleMode -> {
+                // 0=normal(">"), 1=equal("="), 2=reverse("<")
+                val cmd = when (command.mode) {
+                    0 -> ">"
+                    1 -> "="
+                    2 -> "<"
+                    else -> return emptyList()
+                }
+                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.SetLedMode -> {
+                // Multi-step: "W" then "M" after 100ms, then mode digit after 300ms then "b" after 100ms
+                val param = byteArrayOf(((command.mode % 10) + 0x30).toByte())
+                listOf(
+                    WheelCommand.SendBytes("W".encodeToByteArray()),
+                    WheelCommand.SendDelayed("M".encodeToByteArray(), 100),
+                    WheelCommand.SendDelayed(param, 300),
+                    WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
                 )
-            )
+            }
+            is WheelCommand.SetBeeperVolume -> {
+                // Multi-step: "W" then "B" after 100ms, then volume digit after 300ms then "b" after 100ms
+                val param = byteArrayOf(((command.volume % 10) + 0x30).toByte())
+                listOf(
+                    WheelCommand.SendBytes("W".encodeToByteArray()),
+                    WheelCommand.SendDelayed("B".encodeToByteArray(), 100),
+                    WheelCommand.SendDelayed(param, 300),
+                    WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
+                )
+            }
+            is WheelCommand.SetAlarmMode -> {
+                // 0=two alarms("o"), 1=one alarm("u"), 2=off("i"), 3=CF tiltback("I")
+                val cmd = when (command.mode) {
+                    0 -> "o"
+                    1 -> "u"
+                    2 -> "i"
+                    3 -> "I"
+                    else -> return emptyList()
+                }
+                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.Calibrate -> {
+                listOf(
+                    WheelCommand.SendBytes("c".encodeToByteArray()),
+                    WheelCommand.SendDelayed("y".encodeToByteArray(), 300)
+                )
+            }
+            is WheelCommand.SetMaxSpeed -> {
+                if (command.speed != 0) {
+                    val hhh = byteArrayOf(((command.speed / 10) + 0x30).toByte())
+                    val lll = byteArrayOf(((command.speed % 10) + 0x30).toByte())
+                    listOf(
+                        WheelCommand.SendBytes("b".encodeToByteArray()),
+                        WheelCommand.SendDelayed("W".encodeToByteArray(), 100),
+                        WheelCommand.SendDelayed("Y".encodeToByteArray(), 100),
+                        WheelCommand.SendDelayed(hhh, 200),
+                        WheelCommand.SendDelayed(lll, 100),
+                        WheelCommand.SendDelayed("b".encodeToByteArray(), 200),
+                        WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
+                    )
+                } else {
+                    listOf(
+                        WheelCommand.SendBytes("b".encodeToByteArray()),
+                        WheelCommand.SendDelayed("\"".encodeToByteArray(), 100),
+                        WheelCommand.SendDelayed("b".encodeToByteArray(), 200),
+                        WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
+                    )
+                }
+            }
             else -> emptyList()
         }
     }

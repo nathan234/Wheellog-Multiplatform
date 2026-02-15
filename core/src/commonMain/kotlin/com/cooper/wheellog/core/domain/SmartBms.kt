@@ -86,7 +86,139 @@ class SmartBms {
         cells = Array(MAX_CELLS) { 0.0 }
     }
 
+    fun toSnapshot(): BmsSnapshot = BmsSnapshot(
+        serialNumber = serialNumber,
+        versionNumber = versionNumber,
+        factoryCap = factoryCap,
+        actualCap = actualCap,
+        fullCycles = fullCycles,
+        chargeCount = chargeCount,
+        mfgDateStr = mfgDateStr,
+        status = status,
+        remCap = remCap,
+        remPerc = remPerc,
+        current = current,
+        voltage = voltage,
+        semiVoltage1 = semiVoltage1,
+        semiVoltage2 = semiVoltage2,
+        temp1 = temp1,
+        temp2 = temp2,
+        temp3 = temp3,
+        temp4 = temp4,
+        temp5 = temp5,
+        temp6 = temp6,
+        tempMos = tempMos,
+        tempMosEnv = tempMosEnv,
+        temp1Env = temp1Env,
+        temp2Env = temp2Env,
+        humidity1Env = humidity1Env,
+        humidity2Env = humidity2Env,
+        balanceMap = balanceMap,
+        health = health,
+        minCell = minCell,
+        maxCell = maxCell,
+        cellDiff = cellDiff,
+        avgCell = avgCell,
+        minCellNum = minCellNum,
+        maxCellNum = maxCellNum,
+        cellNum = cellNum,
+        cells = cells.copyOf()
+    )
+
     companion object {
         const val MAX_CELLS = 56
+    }
+}
+
+/**
+ * Immutable snapshot of BMS data for use in [WheelState] StateFlow.
+ * Created via [SmartBms.toSnapshot].
+ */
+data class BmsSnapshot(
+    val serialNumber: String = "",
+    val versionNumber: String = "",
+    val factoryCap: Int = 0,
+    val actualCap: Int = 0,
+    val fullCycles: Int = 0,
+    val chargeCount: Int = 0,
+    val mfgDateStr: String = "",
+    val status: Int = 0,
+    val remCap: Int = 0,
+    val remPerc: Int = 0,
+    val current: Double = 0.0,
+    val voltage: Double = 0.0,
+    val semiVoltage1: Double = 0.0,
+    val semiVoltage2: Double = 0.0,
+    val temp1: Double = 0.0,
+    val temp2: Double = 0.0,
+    val temp3: Double = 0.0,
+    val temp4: Double = 0.0,
+    val temp5: Double = 0.0,
+    val temp6: Double = 0.0,
+    val tempMos: Double = 0.0,
+    val tempMosEnv: Double = 0.0,
+    val temp1Env: Double = 0.0,
+    val temp2Env: Double = 0.0,
+    val humidity1Env: Double = 0.0,
+    val humidity2Env: Double = 0.0,
+    val balanceMap: Int = 0,
+    val health: Int = 0,
+    val minCell: Double = 0.0,
+    val maxCell: Double = 0.0,
+    val cellDiff: Double = 0.0,
+    val avgCell: Double = 0.0,
+    val minCellNum: Int = 0,
+    val maxCellNum: Int = 0,
+    val cellNum: Int = 0,
+    val cells: Array<Double> = Array(SmartBms.MAX_CELLS) { 0.0 }
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is BmsSnapshot) return false
+        return serialNumber == other.serialNumber &&
+            versionNumber == other.versionNumber &&
+            factoryCap == other.factoryCap &&
+            actualCap == other.actualCap &&
+            fullCycles == other.fullCycles &&
+            chargeCount == other.chargeCount &&
+            mfgDateStr == other.mfgDateStr &&
+            status == other.status &&
+            remCap == other.remCap &&
+            remPerc == other.remPerc &&
+            current == other.current &&
+            voltage == other.voltage &&
+            semiVoltage1 == other.semiVoltage1 &&
+            semiVoltage2 == other.semiVoltage2 &&
+            temp1 == other.temp1 &&
+            temp2 == other.temp2 &&
+            temp3 == other.temp3 &&
+            temp4 == other.temp4 &&
+            temp5 == other.temp5 &&
+            temp6 == other.temp6 &&
+            tempMos == other.tempMos &&
+            tempMosEnv == other.tempMosEnv &&
+            temp1Env == other.temp1Env &&
+            temp2Env == other.temp2Env &&
+            humidity1Env == other.humidity1Env &&
+            humidity2Env == other.humidity2Env &&
+            balanceMap == other.balanceMap &&
+            health == other.health &&
+            minCell == other.minCell &&
+            maxCell == other.maxCell &&
+            cellDiff == other.cellDiff &&
+            avgCell == other.avgCell &&
+            minCellNum == other.minCellNum &&
+            maxCellNum == other.maxCellNum &&
+            cellNum == other.cellNum &&
+            cells.contentEquals(other.cells)
+    }
+
+    override fun hashCode(): Int {
+        var result = serialNumber.hashCode()
+        result = 31 * result + voltage.hashCode()
+        result = 31 * result + current.hashCode()
+        result = 31 * result + cellNum
+        result = 31 * result + cells.contentHashCode()
+        return result
     }
 }

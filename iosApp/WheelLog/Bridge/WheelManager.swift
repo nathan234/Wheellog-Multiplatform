@@ -623,6 +623,10 @@ struct WheelStateWrapper: Equatable {
     let lightMode: Int32     // 0=Off, 1=On, 2=Strobe, -1=unknown
     let ledMode: Int32       // 0-9, -1=unknown
 
+    // BMS data
+    let bms1: BmsSnapshotWrapper?
+    let bms2: BmsSnapshotWrapper?
+
     init() {
         speedKmh = 0
         voltage = 0
@@ -641,6 +645,8 @@ struct WheelStateWrapper: Equatable {
         tiltBackSpeed = 0
         lightMode = -1
         ledMode = -1
+        bms1 = nil
+        bms2 = nil
     }
 
     init(
@@ -660,7 +666,9 @@ struct WheelStateWrapper: Equatable {
         pedalsMode: Int32 = -1,
         tiltBackSpeed: Int32 = 0,
         lightMode: Int32 = -1,
-        ledMode: Int32 = -1
+        ledMode: Int32 = -1,
+        bms1: BmsSnapshotWrapper? = nil,
+        bms2: BmsSnapshotWrapper? = nil
     ) {
         self.speedKmh = speedKmh
         self.voltage = voltage
@@ -679,6 +687,8 @@ struct WheelStateWrapper: Equatable {
         self.tiltBackSpeed = tiltBackSpeed
         self.lightMode = lightMode
         self.ledMode = ledMode
+        self.bms1 = bms1
+        self.bms2 = bms2
     }
 
     init(from kmpState: WheelState) {
@@ -699,6 +709,61 @@ struct WheelStateWrapper: Equatable {
         tiltBackSpeed = kmpState.tiltBackSpeed
         lightMode = kmpState.lightMode
         ledMode = kmpState.ledMode
+        bms1 = kmpState.bms1.map { BmsSnapshotWrapper(from: $0) }
+        bms2 = kmpState.bms2.map { BmsSnapshotWrapper(from: $0) }
+    }
+}
+
+/// Swift wrapper for KMP BmsSnapshot
+struct BmsSnapshotWrapper: Equatable {
+    let serialNumber: String
+    let versionNumber: String
+    let factoryCap: Int
+    let actualCap: Int
+    let fullCycles: Int
+    let chargeCount: Int
+    let mfgDateStr: String
+    let status: Int
+    let remCap: Int
+    let remPerc: Int
+    let current: Double
+    let voltage: Double
+    let temp1: Double
+    let temp2: Double
+    let health: Int
+    let minCell: Double
+    let maxCell: Double
+    let cellDiff: Double
+    let avgCell: Double
+    let minCellNum: Int
+    let maxCellNum: Int
+    let cellNum: Int
+    let cells: [Double]
+
+    init(from snapshot: BmsSnapshot) {
+        serialNumber = snapshot.serialNumber
+        versionNumber = snapshot.versionNumber
+        factoryCap = Int(snapshot.factoryCap)
+        actualCap = Int(snapshot.actualCap)
+        fullCycles = Int(snapshot.fullCycles)
+        chargeCount = Int(snapshot.chargeCount)
+        mfgDateStr = snapshot.mfgDateStr
+        status = Int(snapshot.status)
+        remCap = Int(snapshot.remCap)
+        remPerc = Int(snapshot.remPerc)
+        current = snapshot.current
+        voltage = snapshot.voltage
+        temp1 = snapshot.temp1
+        temp2 = snapshot.temp2
+        health = Int(snapshot.health)
+        minCell = snapshot.minCell
+        maxCell = snapshot.maxCell
+        cellDiff = snapshot.cellDiff
+        avgCell = snapshot.avgCell
+        minCellNum = Int(snapshot.minCellNum)
+        maxCellNum = Int(snapshot.maxCellNum)
+        cellNum = Int(snapshot.cellNum)
+        cells = (0..<Int(snapshot.cellNum)).map { snapshot.cells[Int32($0)] as! Double }
     }
 }
 

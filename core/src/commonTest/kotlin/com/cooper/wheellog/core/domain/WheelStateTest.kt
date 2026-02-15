@@ -765,9 +765,11 @@ class WheelStateTest {
         bms.current = 0.17
         bms.cellNum = 14
 
-        val state = WheelState(bms1 = bms)
+        val state = WheelState(bms1 = bms.toSnapshot())
 
-        assertEquals(bms, state.bms1)
+        assertEquals(57.86, state.bms1!!.voltage, 0.01)
+        assertEquals(0.17, state.bms1!!.current, 0.01)
+        assertEquals(14, state.bms1!!.cellNum)
         assertNull(state.bms2)
     }
 
@@ -779,7 +781,7 @@ class WheelStateTest {
         val bms2 = SmartBms()
         bms2.serialNumber = "BMS2"
 
-        val state = WheelState(bms1 = bms1, bms2 = bms2)
+        val state = WheelState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
 
         assertEquals("BMS1", state.bms1?.serialNumber)
         assertEquals("BMS2", state.bms2?.serialNumber)

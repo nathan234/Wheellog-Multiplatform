@@ -190,45 +190,89 @@ sealed class WheelCommand {
         }
     }
 
-    /**
-     * Request to play a beep on the wheel.
-     */
+    // --- Basic controls ---
+
     data object Beep : WheelCommand()
-
-    /**
-     * Request to toggle the light.
-     */
     data class SetLight(val enabled: Boolean) : WheelCommand()
-
-    /**
-     * Request to toggle the LED.
-     */
+    data class SetLightMode(val mode: Int) : WheelCommand()
     data class SetLed(val enabled: Boolean) : WheelCommand()
-
-    /**
-     * Set pedal mode/hardness.
-     */
+    data class SetLedMode(val mode: Int) : WheelCommand()
+    data class SetStrobeMode(val mode: Int) : WheelCommand()
     data class SetPedalsMode(val mode: Int) : WheelCommand()
-
-    /**
-     * Set alarm mode.
-     */
     data class SetAlarmMode(val mode: Int) : WheelCommand()
-
-    /**
-     * Calibrate the wheel.
-     */
     data object Calibrate : WheelCommand()
-
-    /**
-     * Power off the wheel.
-     */
     data object PowerOff : WheelCommand()
+    data class SetLock(val locked: Boolean) : WheelCommand()
+    data object ResetTrip : WheelCommand()
+
+    // --- Speed & alarm settings ---
+
+    data class SetMaxSpeed(val speed: Int) : WheelCommand()
+    data class SetAlarmSpeed(val speed: Int, val num: Int) : WheelCommand()
+    data class SetAlarmEnabled(val enabled: Boolean, val num: Int) : WheelCommand()
+    data class SetLimitedMode(val enabled: Boolean) : WheelCommand()
+    data class SetLimitedSpeed(val speed: Int) : WheelCommand()
+
+    // --- Lighting ---
+
+    data class SetTailLight(val enabled: Boolean) : WheelCommand()
+    data class SetDrl(val enabled: Boolean) : WheelCommand()
+    data class SetLedColor(val value: Int, val ledNum: Int) : WheelCommand()
+    data class SetLightBrightness(val value: Int) : WheelCommand()
+
+    // --- Ride modes & behavior ---
+
+    data class SetHandleButton(val enabled: Boolean) : WheelCommand()
+    data class SetBrakeAssist(val enabled: Boolean) : WheelCommand()
+    data class SetTransportMode(val enabled: Boolean) : WheelCommand()
+    data class SetRideMode(val enabled: Boolean) : WheelCommand()
+    data class SetGoHomeMode(val enabled: Boolean) : WheelCommand()
+    data class SetFancierMode(val enabled: Boolean) : WheelCommand()
+    data class SetRollAngleMode(val mode: Int) : WheelCommand()
+
+    // --- Audio ---
+
+    data class SetMute(val enabled: Boolean) : WheelCommand()
+    data class SetSpeakerVolume(val volume: Int) : WheelCommand()
+    data class SetBeeperVolume(val volume: Int) : WheelCommand()
+
+    // --- Thermal ---
+
+    data class SetFanQuiet(val enabled: Boolean) : WheelCommand()
+    data class SetFan(val enabled: Boolean) : WheelCommand()
+
+    // --- Pedal tuning ---
+
+    data class SetPedalTilt(val angle: Int) : WheelCommand()
+    data class SetPedalSensitivity(val sensitivity: Int) : WheelCommand()
+
+    // --- Units ---
+
+    data class SetMilesMode(val enabled: Boolean) : WheelCommand()
+
+    // --- BMS requests (Kingsong) ---
 
     /**
-     * Lock/unlock the wheel.
+     * Request BMS data. bmsNum: 1 or 2, dataType: 0=serial, 1=moreData, 2=firmware
      */
-    data class SetLock(val locked: Boolean) : WheelCommand()
+    data class RequestBmsData(val bmsNum: Int, val dataType: Int) : WheelCommand()
+
+    // --- Kingsong alarm+speed combo ---
+
+    /**
+     * Set all three alarm speeds and max speed in one command (Kingsong-specific).
+     */
+    data class SetKingsongAlarms(
+        val alarm1Speed: Int,
+        val alarm2Speed: Int,
+        val alarm3Speed: Int,
+        val maxSpeed: Int
+    ) : WheelCommand()
+
+    /**
+     * Request alarm settings and max speed from the wheel.
+     */
+    data object RequestAlarmSettings : WheelCommand()
 }
 
 /**

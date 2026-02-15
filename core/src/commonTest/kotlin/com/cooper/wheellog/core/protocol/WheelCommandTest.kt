@@ -34,7 +34,8 @@ class WheelCommandTest {
         val cmd = commands[0] as WheelCommand.SendBytes
         assertEquals(20, cmd.data.size)
         assertEquals(0x73.toByte(), cmd.data[16], "Frame type should be 0x73")
-        assertEquals(0x12.toByte(), cmd.data[2], "Light on mode byte")
+        // SetLight(true) maps to mode 1 = 0x13 (light on in KS protocol)
+        assertEquals(0x13.toByte(), cmd.data[2], "Light on mode byte")
         assertEquals(0x01.toByte(), cmd.data[3], "Enable byte")
     }
 
@@ -46,13 +47,14 @@ class WheelCommandTest {
         val cmd = commands[0] as WheelCommand.SendBytes
         assertEquals(20, cmd.data.size)
         assertEquals(0x73.toByte(), cmd.data[16], "Frame type should be 0x73")
-        assertEquals(0x13.toByte(), cmd.data[2], "Light off mode byte")
+        // SetLight(false) maps to mode 0 = 0x12 (light off in KS protocol)
+        assertEquals(0x12.toByte(), cmd.data[2], "Light off mode byte")
     }
 
     @Test
     fun `KingsongDecoder unsupported command returns empty list`() {
         val decoder = KingsongDecoder()
-        assertTrue(decoder.buildCommand(WheelCommand.PowerOff).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
     }
 
     // ==================== Veteran ====================
@@ -116,7 +118,7 @@ class WheelCommandTest {
     @Test
     fun `InmotionDecoder unsupported command returns empty list`() {
         val decoder = InmotionDecoder()
-        assertTrue(decoder.buildCommand(WheelCommand.PowerOff).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
     }
 
     // ==================== Inmotion V2 ====================
@@ -145,7 +147,7 @@ class WheelCommandTest {
     @Test
     fun `InmotionV2Decoder unsupported command returns empty list`() {
         val decoder = InmotionV2Decoder()
-        assertTrue(decoder.buildCommand(WheelCommand.Calibrate).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
     }
 
     // ==================== Ninebot ====================
@@ -161,10 +163,18 @@ class WheelCommandTest {
     // ==================== Ninebot Z ====================
 
     @Test
-    fun `NinebotZDecoder returns empty list for all commands`() {
+    fun `NinebotZDecoder SetLight returns non-empty result`() {
+        val decoder = NinebotZDecoder()
+        // NinebotZ now supports SetLight via DriveFlags
+        val commandsOn = decoder.buildCommand(WheelCommand.SetLight(true))
+        assertEquals(1, commandsOn.size)
+        assertTrue((commandsOn[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `NinebotZDecoder unsupported command returns empty list`() {
         val decoder = NinebotZDecoder()
         assertTrue(decoder.buildCommand(WheelCommand.Beep).isEmpty())
-        assertTrue(decoder.buildCommand(WheelCommand.SetLight(true)).isEmpty())
-        assertTrue(decoder.buildCommand(WheelCommand.SetLight(false)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
     }
 }

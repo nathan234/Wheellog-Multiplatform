@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.compose.SmartBmsScreen
 import com.cooper.wheellog.compose.screens.ChartScreen
 import com.cooper.wheellog.compose.screens.DashboardScreen
 import com.cooper.wheellog.compose.screens.RidesScreen
@@ -41,8 +42,8 @@ fun AppNavigation(viewModel: WheelViewModel) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Hide bottom bar on chart screen
-    val showBottomBar = currentRoute != "chart"
+    // Hide bottom bar on chart and BMS screens
+    val showBottomBar = currentRoute != "chart" && currentRoute != "bms"
 
     Scaffold(
         bottomBar = {
@@ -78,7 +79,8 @@ fun AppNavigation(viewModel: WheelViewModel) {
                 if (connectionState.isConnected || connectionState.isConnecting) {
                     DashboardScreen(
                         viewModel = viewModel,
-                        onNavigateToChart = { navController.navigate("chart") }
+                        onNavigateToChart = { navController.navigate("chart") },
+                        onNavigateToBms = { navController.navigate("bms") }
                     )
                 } else {
                     ScanScreen(viewModel = viewModel)
@@ -95,6 +97,9 @@ fun AppNavigation(viewModel: WheelViewModel) {
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
+            }
+            composable("bms") {
+                SmartBmsScreen(viewModel = viewModel)
             }
         }
     }

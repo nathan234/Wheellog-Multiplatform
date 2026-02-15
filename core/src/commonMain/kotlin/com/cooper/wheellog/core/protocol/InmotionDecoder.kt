@@ -163,6 +163,33 @@ class InmotionDecoder : WheelDecoder {
             is WheelCommand.SetLight -> listOf(
                 WheelCommand.SendBytes(CANMessage.setLight(command.enabled).writeBuffer())
             )
+            is WheelCommand.SetLed -> listOf(
+                WheelCommand.SendBytes(CANMessage.setLed(command.enabled).writeBuffer())
+            )
+            is WheelCommand.PowerOff -> listOf(
+                WheelCommand.SendBytes(CANMessage.powerOff().writeBuffer())
+            )
+            is WheelCommand.Calibrate -> listOf(
+                WheelCommand.SendBytes(CANMessage.wheelCalibration().writeBuffer())
+            )
+            is WheelCommand.SetMaxSpeed -> listOf(
+                WheelCommand.SendBytes(CANMessage.setMaxSpeed(command.speed).writeBuffer())
+            )
+            is WheelCommand.SetHandleButton -> listOf(
+                WheelCommand.SendBytes(CANMessage.setHandleButton(command.enabled).writeBuffer())
+            )
+            is WheelCommand.SetSpeakerVolume -> listOf(
+                WheelCommand.SendBytes(CANMessage.setSpeakerVolume(command.volume).writeBuffer())
+            )
+            is WheelCommand.SetRideMode -> listOf(
+                WheelCommand.SendBytes(CANMessage.setRideMode(command.enabled).writeBuffer())
+            )
+            is WheelCommand.SetPedalSensitivity -> listOf(
+                WheelCommand.SendBytes(CANMessage.setPedalSensitivity(command.sensitivity).writeBuffer())
+            )
+            is WheelCommand.SetPedalTilt -> listOf(
+                WheelCommand.SendBytes(CANMessage.setTiltHorizon(command.angle).writeBuffer())
+            )
             else -> emptyList()
         }
     }

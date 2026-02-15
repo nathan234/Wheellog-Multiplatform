@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject var wheelManager: WheelManager
     @State private var showChart = false
+    @State private var showBms = false
 
     private let kmToMiles = 0.62137119223733
 
@@ -235,6 +236,20 @@ struct DashboardView: View {
                         }
                     }
 
+                    // BMS link
+                    Button(action: { showBms = true }) {
+                        HStack {
+                            Image(systemName: "battery.100")
+                            Text("BMS")
+                        }
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.gray)
+                        .cornerRadius(12)
+                    }
+
                     // Chart link (Feature 6)
                     Button(action: { showChart = true }) {
                         HStack {
@@ -278,6 +293,9 @@ struct DashboardView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showChart) {
             TelemetryChartView()
+        }
+        .navigationDestination(isPresented: $showBms) {
+            SmartBmsView()
         }
     }
 

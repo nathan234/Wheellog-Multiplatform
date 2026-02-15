@@ -71,7 +71,7 @@ class KingsongDecoder : WheelDecoder {
 
             if (newState != null) {
                 DecodedData(
-                    newState = newState.copy(bms1 = bms1, bms2 = bms2),
+                    newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
                     commands = commands,
                     hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5
                 )
@@ -567,33 +567,86 @@ class KingsongDecoder : WheelDecoder {
     override fun buildCommand(command: WheelCommand): List<WheelCommand> {
         return when (command) {
             is WheelCommand.Beep -> {
-                val data = byteArrayOf(
-                    0xAA.toByte(), 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x88.toByte(), 0x14, 0x5A, 0x5A
-                )
-                listOf(WheelCommand.SendBytes(data))
+                listOf(WheelCommand.SendBytes(createRequest(0x88)))
             }
             is WheelCommand.SetLight -> {
-                val mode: Byte = if (command.enabled) 0x12 else 0x13
-                val enable: Byte = 0x01
-                val data = byteArrayOf(
-                    0xAA.toByte(), 0x55, mode, enable, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x73, 0x14, 0x5A, 0x5A
-                )
+                // SetLight(true) = light on = mode 1, SetLight(false) = light off = mode 0
+                val mode = if (command.enabled) 1 else 0
+                buildCommand(WheelCommand.SetLightMode(mode))
+            }
+            is WheelCommand.SetLightMode -> {
+                // mode: 0=off(0x12), 1=on(0x13), 2=strobe(0x14)
+                val data = getEmptyRequest()
+                data[2] = (command.mode + 0x12).toByte()
+                data[3] = 0x01
+                data[16] = 0x73
                 listOf(WheelCommand.SendBytes(data))
             }
             is WheelCommand.SetPedalsMode -> {
-                val data = byteArrayOf(
-                    0xAA.toByte(), 0x55, command.mode.toByte(), 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00, 0x00, 0x00, 0x87.toByte(), 0x14, 0x5A, 0x5A
-                )
+                val data = getEmptyRequest()
+                data[2] = command.mode.toByte()
+                data[3] = 0xE0.toByte()
+                data[16] = 0x87.toByte()
+                data[17] = 0x15
+                listOf(WheelCommand.SendBytes(data))
+            }
+            is WheelCommand.Calibrate -> {
+                listOf(WheelCommand.SendBytes(createRequest(0x89)))
+            }
+            is WheelCommand.PowerOff -> {
+                listOf(WheelCommand.SendBytes(createRequest(0x40)))
+            }
+            is WheelCommand.SetLedMode -> {
+                val data = getEmptyRequest()
+                data[2] = command.mode.toByte()
+                data[16] = 0x6C
+                listOf(WheelCommand.SendBytes(data))
+            }
+            is WheelCommand.SetStrobeMode -> {
+                val data = getEmptyRequest()
+                data[2] = command.mode.toByte()
+                data[16] = 0x53
+                listOf(WheelCommand.SendBytes(data))
+            }
+            is WheelCommand.SetKingsongAlarms -> {
+                val data = getEmptyRequest()
+                data[2] = command.alarm1Speed.toByte()
+                data[4] = command.alarm2Speed.toByte()
+                data[6] = command.alarm3Speed.toByte()
+                data[8] = command.maxSpeed.toByte()
+                data[16] = 0x85.toByte()
+                listOf(WheelCommand.SendBytes(data))
+            }
+            is WheelCommand.RequestAlarmSettings -> {
+                listOf(WheelCommand.SendBytes(createRequest(0x98)))
+            }
+            is WheelCommand.RequestBmsData -> {
+                // bmsNum: 1 or 2, dataType: 0=serial, 1=moreData, 2=firmware
+                // Maps to: E1(bms1 serial), E2(bms2 serial), E3(bms1 more), E4(bms2 more), E5(bms1 fw), E6(bms2 fw)
+                val typeBase = when (command.dataType) {
+                    0 -> 0xE1 // serial
+                    1 -> 0xE3 // moreData
+                    2 -> 0xE5 // firmware
+                    else -> return emptyList()
+                }
+                val type = typeBase + (command.bmsNum - 1) // bms1=+0, bms2=+1
+                val data = getEmptyRequest()
+                data[16] = type.toByte()
+                data[17] = 0x00
+                data[18] = 0x00
+                data[19] = 0x00
                 listOf(WheelCommand.SendBytes(data))
             }
             else -> emptyList()
         }
+    }
+
+    private fun getEmptyRequest(): ByteArray {
+        return byteArrayOf(
+            0xAA.toByte(), 0x55, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x14, 0x5A, 0x5A
+        )
     }
 
     override fun getInitCommands(): List<WheelCommand> {

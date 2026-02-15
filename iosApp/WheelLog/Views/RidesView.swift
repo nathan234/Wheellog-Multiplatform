@@ -59,26 +59,30 @@ struct RidesView: View {
     private func rideRow(_ ride: RideMetadata) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(ride.startDate, style: .date)
+                // Friendly date title
+                Text(friendlyDate(ride.startDate))
                     .font(.headline)
-                Text(ride.startDate, style: .time)
+
+                // Line 1: Duration + Distance
+                Text("\(formatDuration(ride.duration))  |  \(formatDistance(ride.distance))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+
+                // Line 2: Max speed + Avg speed
+                Text("\(formatSpeed(ride.maxSpeed)) max  |  \(formatSpeed(ride.avgSpeed)) avg")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                // Line 3: Power + Energy (if data exists)
+                if ride.maxPower > 0 || ride.consumptionWhPerKm > 0 {
+                    let parts = powerEnergyParts(ride)
+                    Text(parts)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
 
             Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(formatDuration(ride.duration))
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                Text(formatDistance(ride.distance))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(formatSpeed(ride.maxSpeed) + " max")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
 
             ShareLink(item: wheelManager.rideStore.fileURL(for: ride)) {
                 Image(systemName: "square.and.arrow.up")
@@ -87,6 +91,22 @@ struct RidesView: View {
             .buttonStyle(.borderless)
         }
         .padding(.vertical, 2)
+    }
+
+    private func powerEnergyParts(_ ride: RideMetadata) -> String {
+        var parts: [String] = []
+        if ride.maxPower > 0 {
+            parts.append("\(Int(ride.maxPower)) W max")
+        }
+        if ride.consumptionWhPerKm > 0 {
+            if wheelManager.useMph {
+                let whPerMi = ride.consumptionWhPerKm / kmToMiles
+                parts.append(String(format: "%.1f Wh/mi", whPerMi))
+            } else {
+                parts.append(String(format: "%.1f Wh/km", ride.consumptionWhPerKm))
+            }
+        }
+        return parts.joined(separator: "  |  ")
     }
 
     private func toggleLogging() {
@@ -121,6 +141,29 @@ struct RidesView: View {
             return String(format: "%.0f mph", kmh * kmToMiles)
         }
         return String(format: "%.0f km/h", kmh)
+    }
+
+    private func friendlyDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let now = Date()
+
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "h:mm a"
+        let timeStr = timeFormatter.string(from: date)
+
+        if calendar.isDateInToday(date) {
+            return "Today, \(timeStr)"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yesterday, \(timeStr)"
+        } else if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "EEE, MMM d"
+            return "\(dayFormatter.string(from: date)), \(timeStr)"
+        } else {
+            let dayFormatter = DateFormatter()
+            dayFormatter.dateFormat = "MMM d, yyyy"
+            return "\(dayFormatter.string(from: date)), \(timeStr)"
+        }
     }
 }
 

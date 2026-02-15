@@ -25,6 +25,10 @@ class RideLogger: ObservableObject {
     private var sampleCount: Int = 0
     private var startDistance: Double = 0
     private var totalSpeed: Double = 0
+    private var maxCurrent: Double = 0
+    private var maxPower: Double = 0
+    private var maxPwm: Double = 0
+    private var totalPower: Double = 0
 
     nonisolated init() {}
 
@@ -70,6 +74,10 @@ class RideLogger: ObservableObject {
         sampleCount = 0
         startDistance = 0
         totalSpeed = 0
+        maxCurrent = 0
+        maxPower = 0
+        maxPwm = 0
+        totalPower = 0
         pollCounter = 0
 
         state = .logging(startDate: Date(), filePath: filePath)
@@ -87,6 +95,12 @@ class RideLogger: ObservableObject {
         let duration = endDate.timeIntervalSince(startDate)
         let distance = currentDistance - startDistance
         let avgSpeed = sampleCount > 0 ? totalSpeed / Double(sampleCount) : 0
+
+        // Energy consumption
+        let avgPowerW = sampleCount > 0 ? totalPower / Double(sampleCount) : 0
+        let consumptionWh = duration > 0 ? avgPowerW * duration / 3600.0 : 0
+        let distanceMeters = distance * 1000.0
+        let consumptionWhPerKm = distanceMeters > 0 ? consumptionWh * 1000.0 / distanceMeters : 0
 
         // Get file size
         let fileSize: Int64
@@ -107,7 +121,12 @@ class RideLogger: ObservableObject {
             maxSpeed: maxSpeed,
             avgSpeed: avgSpeed,
             sampleCount: sampleCount,
-            fileSize: fileSize
+            fileSize: fileSize,
+            maxCurrent: maxCurrent,
+            maxPower: maxPower,
+            maxPwm: maxPwm,
+            consumptionWh: consumptionWh,
+            consumptionWhPerKm: consumptionWhPerKm
         )
     }
 
@@ -138,6 +157,11 @@ class RideLogger: ObservableObject {
         }
         maxSpeed = max(maxSpeed, data.speedKmh)
         totalSpeed += data.speedKmh
+        maxCurrent = max(maxCurrent, abs(data.current))
+        let absPower = abs(data.power)
+        maxPower = max(maxPower, absPower)
+        maxPwm = max(maxPwm, data.pwm)
+        totalPower += absPower
         sampleCount += 1
 
         let now = Date()

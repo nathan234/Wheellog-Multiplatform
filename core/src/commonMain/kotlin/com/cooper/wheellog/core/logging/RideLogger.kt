@@ -27,6 +27,10 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
     private var maxSpeedKmh = 0.0
     private var totalSpeedKmh = 0.0
     private var sampleCount = 0
+    private var maxCurrentA = 0.0
+    private var maxPowerW = 0.0
+    private var maxPwmPercent = 0.0
+    private var totalPowerW = 0.0
 
     val isLogging: Boolean get() = isActive
 
@@ -54,6 +58,10 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
         maxSpeedKmh = 0.0
         totalSpeedKmh = 0.0
         sampleCount = 0
+        maxCurrentA = 0.0
+        maxPowerW = 0.0
+        maxPwmPercent = 0.0
+        totalPowerW = 0.0
         isActive = true
         return true
     }
@@ -79,6 +87,15 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
         val speedKmh = state.speedKmh
         if (speedKmh > maxSpeedKmh) maxSpeedKmh = speedKmh
         totalSpeedKmh += speedKmh
+
+        val currentA = kotlin.math.abs(state.currentA)
+        if (currentA > maxCurrentA) maxCurrentA = currentA
+        val powerW = kotlin.math.abs(state.powerW)
+        if (powerW > maxPowerW) maxPowerW = powerW
+        val pwm = state.pwmPercent
+        if (pwm > maxPwmPercent) maxPwmPercent = pwm
+        totalPowerW += powerW
+
         sampleCount++
 
         val dateTime = formatTimestamp(currentTimeMs)
@@ -95,7 +112,7 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
      * @param currentTimeMs Current epoch time in milliseconds.
      * @return [RideMetadata] for the completed ride, or null if not logging.
      */
-    fun stop(currentTimeMs: Long): RideMetadata? {
+    fun stop(currentTimeMs: Long, lastTotalDistance: Long = 0): RideMetadata? {
         if (!isActive) return null
 
         fileWriter.close()
@@ -105,15 +122,32 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
         val durationSec = (endTimeMs - startTimeMs) / 1000L
         val avgSpeed = if (sampleCount > 0) totalSpeedKmh / sampleCount else 0.0
 
+        // Distance: use lastTotalDistance if provided, otherwise compute from tracked start
+        val distanceM = if (lastTotalDistance > 0 && startTotalDistance > 0) {
+            lastTotalDistance - startTotalDistance
+        } else {
+            0L
+        }
+
+        // Energy consumption
+        val avgPowerW = if (sampleCount > 0) totalPowerW / sampleCount else 0.0
+        val consumptionWh = if (durationSec > 0) avgPowerW * durationSec / 3600.0 else 0.0
+        val consumptionWhPerKm = if (distanceM > 0) consumptionWh * 1000.0 / distanceM else 0.0
+
         return RideMetadata(
             fileName = fileName,
             startTimeMillis = startTimeMs,
             endTimeMillis = endTimeMs,
             durationSeconds = durationSec,
-            distanceMeters = 0, // Computed from totalDistance at stop vs start
+            distanceMeters = distanceM,
             maxSpeedKmh = maxSpeedKmh,
             avgSpeedKmh = avgSpeed,
-            sampleCount = sampleCount
+            sampleCount = sampleCount,
+            maxCurrentA = maxCurrentA,
+            maxPowerW = maxPowerW,
+            maxPwmPercent = maxPwmPercent,
+            consumptionWh = consumptionWh,
+            consumptionWhPerKm = consumptionWhPerKm
         )
     }
 }

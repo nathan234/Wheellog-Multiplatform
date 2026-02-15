@@ -11,6 +11,10 @@ import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.DemoDataProvider
 import com.cooper.wheellog.core.service.WheelConnectionManager
+import com.cooper.wheellog.data.TripDataDbEntry
+import com.cooper.wheellog.data.TripDatabase
+import com.cooper.wheellog.data.TripRepository
+import android.content.Context
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,6 +45,7 @@ data class TelemetrySample(
 class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
     val appConfig: AppConfig = AppConfig(application)
+    private val tripRepository: TripRepository
 
     private val demoDataProvider = DemoDataProvider()
 
@@ -100,6 +105,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     val isLightOn: StateFlow<Boolean> = _isLightOn.asStateFlow()
 
     init {
+        val db = TripDatabase.getDataBase(application)
+        tripRepository = TripRepository(db.tripDao())
         startTelemetryBuffering()
         startAlarmMonitoring()
     }
@@ -257,8 +264,29 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private fun stopLogging() {
         logSamplingJob?.cancel()
         logSamplingJob = null
-        rideLogger.stop(System.currentTimeMillis())
+        val state = wheelState.value
+        val metadata = rideLogger.stop(System.currentTimeMillis(), state.totalDistance)
         _isLogging.value = false
+
+        if (metadata != null) {
+            viewModelScope.launch {
+                tripRepository.insertNewData(
+                    TripDataDbEntry(
+                        fileName = metadata.fileName,
+                        start = (metadata.startTimeMillis / 1000).toInt(),
+                        duration = (metadata.durationSeconds / 60).toInt(),
+                        maxSpeed = metadata.maxSpeedKmh.toFloat(),
+                        avgSpeed = metadata.avgSpeedKmh.toFloat(),
+                        maxCurrent = metadata.maxCurrentA.toFloat(),
+                        maxPower = metadata.maxPowerW.toFloat(),
+                        maxPwm = metadata.maxPwmPercent.toFloat(),
+                        distance = metadata.distanceMeters.toInt(),
+                        consumptionTotal = metadata.consumptionWh.toFloat(),
+                        consumptionByKm = metadata.consumptionWhPerKm.toFloat()
+                    )
+                )
+            }
+        }
     }
 
     private var logSamplingJob: Job? = null
@@ -270,6 +298,19 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                     rideLogger.writeSample(state, null, System.currentTimeMillis())
                 }
             }
+        }
+    }
+
+    suspend fun loadTrips(): List<TripDataDbEntry> {
+        return tripRepository.getAllData().sortedByDescending { it.start }
+    }
+
+    fun deleteTrip(trip: TripDataDbEntry, context: Context) {
+        viewModelScope.launch {
+            tripRepository.removeDataById(trip.id.toLong())
+            val ridesDir = File(context.getExternalFilesDir(null), "rides")
+            val csvFile = File(ridesDir, trip.fileName)
+            if (csvFile.exists()) csvFile.delete()
         }
     }
 

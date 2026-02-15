@@ -1,7 +1,10 @@
 package com.cooper.wheellog.compose.screens
 
 import android.content.Intent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,28 +16,49 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
-import com.cooper.wheellog.utils.FileUtil
-import com.cooper.wheellog.views.TripModel
+import com.cooper.wheellog.data.TripDataDbEntry
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+
+private const val KM_TO_MILES = 0.62137119223733
 
 @Composable
 fun RidesScreen(viewModel: WheelViewModel) {
     val context = LocalContext.current
-    val trips = remember { FileUtil.fillTrips(context) }
+    var trips by remember { mutableStateOf<List<TripDataDbEntry>>(emptyList()) }
+    val useMph = viewModel.appConfig.useMph
+
+    LaunchedEffect(Unit) {
+        trips = viewModel.loadTrips()
+    }
 
     Column(
         modifier = Modifier
@@ -49,7 +73,6 @@ fun RidesScreen(viewModel: WheelViewModel) {
         )
 
         if (trips.isEmpty()) {
-            // Empty state
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -78,15 +101,66 @@ fun RidesScreen(viewModel: WheelViewModel) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(trips) { trip ->
-                    RideRow(trip = trip, onShare = {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/csv"
-                            putExtra(Intent.EXTRA_STREAM, trip.uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                items(trips, key = { it.id }) { trip ->
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                trips = trips.filter { it.id != trip.id }
+                                viewModel.deleteTrip(trip, context)
+                                true
+                            } else {
+                                false
+                            }
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share ride"))
-                    })
+                    )
+
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        backgroundContent = {
+                            val color by animateColorAsState(
+                                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart)
+                                    MaterialTheme.colorScheme.errorContainer
+                                else Color.Transparent,
+                                label = "swipe-bg"
+                            )
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(color)
+                                    .padding(horizontal = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        },
+                        enableDismissFromStartToEnd = false
+                    ) {
+                        RideRow(
+                            trip = trip,
+                            useMph = useMph,
+                            onShare = {
+                                val ridesDir = File(context.getExternalFilesDir(null), "rides")
+                                val csvFile = File(ridesDir, trip.fileName)
+                                if (csvFile.exists()) {
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        csvFile
+                                    )
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/csv"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share ride"))
+                                }
+                            }
+                        )
+                    }
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
@@ -96,26 +170,57 @@ fun RidesScreen(viewModel: WheelViewModel) {
 
 @Composable
 private fun RideRow(
-    trip: TripModel,
+    trip: TripDataDbEntry,
+    useMph: Boolean,
     onShare: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
+            // Title: friendly date
             Text(
-                text = trip.title,
+                text = formatFriendlyDate(trip.start.toLong() * 1000),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
+            // Line 1: Duration + Distance
+            val durationStr = formatDuration(trip.duration)
+            val distStr = formatDistance(trip.distance, useMph)
             Text(
-                text = trip.description,
+                text = "$durationStr  |  $distStr",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            // Line 2: Max speed + Avg speed
+            val maxSpeedStr = formatSpeed(trip.maxSpeed.toDouble(), useMph)
+            val avgSpeedStr = formatSpeed(trip.avgSpeed.toDouble(), useMph)
+            Text(
+                text = "$maxSpeedStr max  |  $avgSpeedStr avg",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            // Line 3: Power + Energy (if data exists)
+            if (trip.maxPower > 0 || trip.consumptionByKm > 0) {
+                val parts = mutableListOf<String>()
+                if (trip.maxPower > 0) {
+                    parts.add("${trip.maxPower.toInt()} W max")
+                }
+                if (trip.consumptionByKm > 0) {
+                    val unit = if (useMph) "Wh/mi" else "Wh/km"
+                    val value = if (useMph) trip.consumptionByKm / KM_TO_MILES else trip.consumptionByKm.toDouble()
+                    parts.add("%.1f %s".format(value, unit))
+                }
+                Text(
+                    text = parts.joinToString("  |  "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         IconButton(onClick = onShare) {
             Icon(
@@ -125,4 +230,62 @@ private fun RideRow(
             )
         }
     }
+}
+
+private fun formatDuration(minutes: Int): String {
+    val hours = minutes / 60
+    val mins = minutes % 60
+    return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+}
+
+private fun formatDistance(meters: Int, useMph: Boolean): String {
+    val km = meters / 1000.0
+    return if (useMph) {
+        "%.2f mi".format(km * KM_TO_MILES)
+    } else {
+        "%.2f km".format(km)
+    }
+}
+
+private fun formatSpeed(kmh: Double, useMph: Boolean): String {
+    return if (useMph) {
+        "%.0f mph".format(kmh * KM_TO_MILES)
+    } else {
+        "%.0f km/h".format(kmh)
+    }
+}
+
+private fun formatFriendlyDate(epochMillis: Long): String {
+    if (epochMillis <= 0) return "Unknown date"
+
+    val date = Date(epochMillis)
+    val now = Calendar.getInstance()
+    val then = Calendar.getInstance().apply { time = date }
+
+    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val timeStr = timeFormat.format(date)
+
+    return when {
+        isSameDay(now, then) -> "Today, $timeStr"
+        isYesterday(now, then) -> "Yesterday, $timeStr"
+        now.get(Calendar.YEAR) == then.get(Calendar.YEAR) -> {
+            val dayFormat = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
+            "${dayFormat.format(date)}, $timeStr"
+        }
+        else -> {
+            val dayFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+            "${dayFormat.format(date)}, $timeStr"
+        }
+    }
+}
+
+private fun isSameDay(a: Calendar, b: Calendar): Boolean {
+    return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
+        a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
+}
+
+private fun isYesterday(now: Calendar, then: Calendar): Boolean {
+    val yesterday = now.clone() as Calendar
+    yesterday.add(Calendar.DAY_OF_YEAR, -1)
+    return isSameDay(yesterday, then)
 }

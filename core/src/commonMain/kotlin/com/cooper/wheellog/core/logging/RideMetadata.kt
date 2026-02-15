@@ -11,5 +11,10 @@ data class RideMetadata(
     val distanceMeters: Long,
     val maxSpeedKmh: Double,
     val avgSpeedKmh: Double,
-    val sampleCount: Int
+    val sampleCount: Int,
+    val maxCurrentA: Double = 0.0,
+    val maxPowerW: Double = 0.0,
+    val maxPwmPercent: Double = 0.0,
+    val consumptionWh: Double = 0.0,
+    val consumptionWhPerKm: Double = 0.0
 )

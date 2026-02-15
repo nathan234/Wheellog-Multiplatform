@@ -379,9 +379,16 @@ struct DashboardView: View {
         .navigationDestination(isPresented: $showBms) {
             SmartBmsView()
         }
-        .navigationDestination(item: $selectedMetric) { metricId in
-            MetricDetailView(metricId: metricId)
+        .navigationDestination(isPresented: showMetricBinding) {
+            MetricDetailView(metricId: selectedMetric ?? "speed")
         }
+    }
+
+    private var showMetricBinding: Binding<Bool> {
+        Binding(
+            get: { selectedMetric != nil },
+            set: { if !$0 { selectedMetric = nil } }
+        )
     }
 
     private var buttonLabel: String {

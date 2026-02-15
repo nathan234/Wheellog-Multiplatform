@@ -614,6 +614,17 @@ struct WheelStateWrapper: Equatable {
     let name: String
     let model: String
 
+    var wheelTypeBrand: String {
+        switch wheelType {
+        case "KINGSONG": return "KingSong"
+        case "GOTWAY", "GOTWAY_VIRTUAL": return "Begode"
+        case "NINEBOT", "NINEBOT_Z": return "Ninebot"
+        case "INMOTION", "INMOTION_V2": return "InMotion"
+        case "VETERAN": return "Veteran"
+        default: return ""
+        }
+    }
+
     // Wheel-reported settings
     let inMiles: Bool
 

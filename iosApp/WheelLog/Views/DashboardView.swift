@@ -67,6 +67,16 @@ struct DashboardView: View {
         return "\(speed) km/h"
     }
 
+    private var wheelDisplayName: String {
+        let brand = wheelManager.wheelState.wheelTypeBrand
+        let model = wheelManager.wheelState.model.isEmpty
+            ? wheelManager.wheelState.name
+            : wheelManager.wheelState.model
+        if model.isEmpty { return brand.isEmpty ? "Dashboard" : brand }
+        if brand.isEmpty || model.lowercased().hasPrefix(brand.lowercased()) { return model }
+        return "\(brand) \(model)"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -289,7 +299,7 @@ struct DashboardView: View {
             }
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle("Dashboard")
+        .navigationTitle(wheelDisplayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showChart) {
             TelemetryChartView()

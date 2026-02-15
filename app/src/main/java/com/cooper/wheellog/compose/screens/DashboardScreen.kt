@@ -27,8 +27,11 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +55,7 @@ import java.util.Locale
 
 private const val KM_TO_MILES = 0.62137119223733
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: WheelViewModel,
@@ -71,9 +75,19 @@ fun DashboardScreen(
     val speedUnit = if (useMph) "mph" else "km/h"
     val maxSpeed = if (useMph) 31.0 else 50.0
 
+    val title = wheelDisplayName(wheelState)
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(title) }
+            )
+        }
+    ) { contentPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(contentPadding)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -263,6 +277,7 @@ fun DashboardScreen(
             )
         }
     }
+    } // Scaffold content
 }
 
 @Composable
@@ -318,6 +333,14 @@ private fun ModeBadge(text: String, color: Color) {
 }
 
 // --- Helpers ---
+
+private fun wheelDisplayName(state: WheelState): String {
+    val brand = state.wheelType.displayName
+    val model = state.model.ifEmpty { state.name }
+    if (model.isEmpty()) return brand.ifEmpty { "Dashboard" }
+    if (brand.isEmpty() || model.startsWith(brand, ignoreCase = true)) return model
+    return "$brand $model"
+}
 
 private fun batteryIcon(level: Int) = when {
     level >= 75 -> Icons.Default.BatteryFull

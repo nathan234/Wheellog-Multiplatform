@@ -32,6 +32,16 @@ enum class WheelType {
     /** Virtual Gotway adapter for testing/simulation */
     GOTWAY_VIRTUAL;
 
+    /** Human-readable manufacturer name. */
+    val displayName: String get() = when (this) {
+        KINGSONG -> "KingSong"
+        GOTWAY, GOTWAY_VIRTUAL -> "Begode"
+        NINEBOT, NINEBOT_Z -> "Ninebot"
+        INMOTION, INMOTION_V2 -> "InMotion"
+        VETERAN -> "Veteran"
+        Unknown -> ""
+    }
+
     companion object {
         /**
          * Returns WheelType from string name, case-insensitive.

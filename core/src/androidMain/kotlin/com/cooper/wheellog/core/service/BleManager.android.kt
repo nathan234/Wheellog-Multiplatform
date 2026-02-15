@@ -2,23 +2,28 @@ package com.cooper.wheellog.core.service
 
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.cooper.wheellog.core.ble.DiscoveredService
 import com.cooper.wheellog.core.ble.DiscoveredServices
+import com.cooper.wheellog.core.utils.Lock
+import com.cooper.wheellog.core.utils.Logger
+import com.cooper.wheellog.core.utils.withLock
 import com.welie.blessed.BluetoothCentralManager
+import com.welie.blessed.BluetoothCentralManagerCallback
 import com.welie.blessed.BluetoothPeripheral
 import com.welie.blessed.BluetoothPeripheralCallback
 import com.welie.blessed.GattStatus
+import com.welie.blessed.HciStatus
 import com.welie.blessed.WriteType
+import android.bluetooth.le.ScanResult
 import com.welie.blessed.ConnectionState as BlessedConnectionState
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import kotlin.coroutines.resume
 
@@ -27,26 +32,22 @@ import kotlin.coroutines.resume
  *
  * This manager handles:
  * - BLE scanning for wheel devices
- * - Connection management
+ * - Connection management with continuation-based connect
  * - Service discovery
  * - Characteristic read/write operations
  * - Connection state tracking
+ * - Auto-reconnect on unexpected disconnect
  *
  * ## Usage
  *
- * The manager can be used in two modes:
- *
  * ### Standalone Mode (Recommended for new code)
- * Initialize with a BluetoothCentralManager instance:
  * ```
- * val central = BluetoothCentralManager(context, centralCallback, handler)
  * val bleManager = BleManager()
- * bleManager.initialize(central)
+ * bleManager.initialize(context)
  * bleManager.connect(address)
  * ```
  *
  * ### Bridge Mode (For incremental migration)
- * Set an existing peripheral directly:
  * ```
  * val bleManager = BleManager()
  * bleManager.setPeripheral(existingPeripheral)
@@ -58,8 +59,10 @@ actual class BleManager {
     private var currentPeripheral: BluetoothPeripheral? = null
     private var writeCharacteristic: BluetoothGattCharacteristic? = null
     private var readCharacteristic: BluetoothGattCharacteristic? = null
-    private var connectionResult = Channel<Result<BleConnection>>(1)
-    private var scope = CoroutineScope(Dispatchers.Main)
+
+    // Connection continuation (protected by continuationLock)
+    private var connectionContinuation: CancellableContinuation<Result<BleConnection>>? = null
+    private val continuationLock = Lock()
 
     // Callback for data received from the wheel
     private var onDataReceivedCallback: ((ByteArray) -> Unit)? = null
@@ -67,12 +70,97 @@ actual class BleManager {
     // Callback for services discovered
     private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
 
+    // Scan callback
+    private var scanDeviceFoundCallback: ((BleDevice) -> Unit)? = null
+
+    // Disconnect tracking
+    private var disconnectRequested = false
+
     actual val connectionState: StateFlow<ConnectionState>
         get() = _connectionState.asStateFlow()
 
+    // ==================== Central Manager Callback ====================
+
+    private val centralCallback = object : BluetoothCentralManagerCallback() {
+        override fun onDiscoveredPeripheral(
+            peripheral: BluetoothPeripheral,
+            scanResult: ScanResult
+        ) {
+            scanDeviceFoundCallback?.invoke(
+                BleDevice(
+                    address = peripheral.address,
+                    name = peripheral.name,
+                    rssi = scanResult.rssi
+                )
+            )
+        }
+
+        override fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {
+            Logger.d("BleManager", "onConnectedPeripheral: ${peripheral.address}")
+
+            // Request MTU for extended frames
+            peripheral.requestMtu(BluetoothPeripheral.MAX_MTU)
+
+            // Resume connection continuation
+            continuationLock.withLock {
+                connectionContinuation?.resume(Result.success(BleConnection(peripheral))) {}
+                connectionContinuation = null
+            }
+        }
+
+        override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
+            Logger.w("BleManager", "onConnectionFailed: ${peripheral.address}, status=$status")
+            _connectionState.value = ConnectionState.Failed("Connection failed: $status")
+
+            continuationLock.withLock {
+                connectionContinuation?.resume(
+                    Result.failure(Exception("Connection failed: $status"))
+                ) {}
+                connectionContinuation = null
+            }
+        }
+
+        override fun onDisconnectedPeripheral(peripheral: BluetoothPeripheral, status: HciStatus) {
+            val address = peripheral.address
+            Logger.d("BleManager", "onDisconnectedPeripheral: $address, requested=$disconnectRequested, status=$status")
+
+            writeCharacteristic = null
+            readCharacteristic = null
+
+            if (!disconnectRequested && address.isNotEmpty()) {
+                // Unexpected disconnect — use passive auto-reconnect
+                _connectionState.value = ConnectionState.ConnectionLost(
+                    address = address,
+                    reason = "Disconnected unexpectedly: $status"
+                )
+                Logger.d("BleManager", "Starting auto-reconnect for $address")
+                central?.autoConnectPeripheral(peripheral, peripheralCallback)
+            } else {
+                // User-requested disconnect
+                currentPeripheral = null
+                _connectionState.value = ConnectionState.Disconnected
+            }
+        }
+    }
+
+    // ==================== Initialization ====================
+
     /**
-     * Initialize with a BluetoothCentralManager.
-     * Must be called before connect() in standalone mode.
+     * Initialize with a Context. Creates BluetoothCentralManager internally.
+     * Must be called before connect() or startScan() in standalone mode.
+     */
+    fun initialize(context: Context) {
+        if (central != null) return
+        central = BluetoothCentralManager(
+            context,
+            centralCallback,
+            Handler(Looper.getMainLooper())
+        )
+    }
+
+    /**
+     * Initialize with an existing BluetoothCentralManager (bridge mode).
+     * Used by legacy BluetoothService path.
      */
     fun initialize(centralManager: BluetoothCentralManager) {
         this.central = centralManager
@@ -94,7 +182,6 @@ actual class BleManager {
 
     /**
      * Bridge mode: Set an existing peripheral for use with legacy code.
-     * This allows incremental migration from existing BluetoothService.
      */
     fun setPeripheral(
         peripheral: BluetoothPeripheral,
@@ -118,7 +205,6 @@ actual class BleManager {
 
     /**
      * Get the current peripheral.
-     * Used for advanced operations or migration support.
      */
     fun getPeripheral(): BluetoothPeripheral? = currentPeripheral
 
@@ -132,11 +218,12 @@ actual class BleManager {
      */
     fun getService(uuid: UUID): BluetoothGattService? = currentPeripheral?.getService(uuid)
 
+    // ==================== Peripheral Callback ====================
+
     private val peripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
             _connectionState.value = ConnectionState.DiscoveringServices(peripheral.address)
 
-            // Convert to platform-agnostic DiscoveredServices
             val discoveredServices = peripheral.services.map { service ->
                 DiscoveredService(
                     uuid = service.uuid.toString(),
@@ -167,7 +254,7 @@ actual class BleManager {
             characteristic: BluetoothGattCharacteristic,
             status: GattStatus
         ) {
-            // Write completed - could track for reliability
+            // Write completed
         }
 
         override fun onMtuChanged(
@@ -175,51 +262,58 @@ actual class BleManager {
             mtu: Int,
             status: GattStatus
         ) {
-            // MTU changed - useful for extended frames
+            if (status == GattStatus.SUCCESS) {
+                Logger.d("BleManager", "MTU negotiated: $mtu bytes")
+            }
         }
     }
+
+    // ==================== Connection ====================
 
     actual suspend fun connect(address: String): Result<BleConnection> {
         val manager = central ?: return Result.failure(
             IllegalStateException("BleManager not initialized. Call initialize() first.")
         )
 
+        disconnectRequested = false
         _connectionState.value = ConnectionState.Connecting(address)
 
-        return try {
+        return suspendCancellableCoroutine { continuation ->
+            continuationLock.withLock {
+                connectionContinuation = continuation
+            }
+
             val peripheral = manager.getPeripheral(address)
             currentPeripheral = peripheral
 
             manager.connectPeripheral(peripheral, peripheralCallback)
 
-            // Wait for connection with timeout
-            val connected = withTimeoutOrNull(30000L) {
-                while (peripheral.state != BlessedConnectionState.CONNECTED) {
-                    kotlinx.coroutines.delay(100)
+            continuation.invokeOnCancellation {
+                central?.cancelConnection(peripheral)
+                continuationLock.withLock {
+                    connectionContinuation = null
                 }
-                true
             }
-
-            if (connected != true) {
-                return Result.failure(Exception("Connection timeout after 30 seconds"))
-            }
-
-            // Request MTU for extended frames
-            peripheral.requestMtu(BluetoothPeripheral.MAX_MTU)
-
-            _connectionState.value = ConnectionState.Connected(
-                address = address,
-                wheelName = peripheral.name ?: "Unknown"
-            )
-
-            Result.success(BleConnection(peripheral))
-        } catch (e: Exception) {
-            _connectionState.value = ConnectionState.Failed(e.message ?: "Connection failed")
-            Result.failure(e)
         }
     }
 
+    /**
+     * Start passive auto-reconnect for a previously connected peripheral.
+     * Uses OS-level reconnection that is power-efficient and has no timeout.
+     * The OS will reconnect when the peripheral comes back in range.
+     */
+    fun autoReconnect(address: String) {
+        val manager = central ?: return
+        disconnectRequested = false
+        val peripheral = currentPeripheral ?: manager.getPeripheral(address).also {
+            currentPeripheral = it
+        }
+        _connectionState.value = ConnectionState.Connecting(address)
+        manager.autoConnectPeripheral(peripheral, peripheralCallback)
+    }
+
     actual suspend fun disconnect() {
+        disconnectRequested = true
         currentPeripheral?.let { peripheral ->
             central?.cancelConnection(peripheral)
         }
@@ -229,12 +323,8 @@ actual class BleManager {
         _connectionState.value = ConnectionState.Disconnected
     }
 
-    /**
-     * Write data to the wheel using the configured write characteristic.
-     *
-     * @param data The data to write
-     * @return true if write was successful
-     */
+    // ==================== Write ====================
+
     actual suspend fun write(data: ByteArray): Boolean {
         val peripheral = currentPeripheral ?: return false
         val characteristic = writeCharacteristic ?: return false
@@ -252,11 +342,6 @@ actual class BleManager {
 
     /**
      * Write data with chunking for protocols that need it (e.g., Inmotion V1).
-     *
-     * @param data The data to write
-     * @param chunkSize Maximum chunk size (default 20 bytes)
-     * @param delayMs Delay between chunks in milliseconds
-     * @return true if all writes were successful
      */
     suspend fun writeChunked(data: ByteArray, chunkSize: Int = 20, delayMs: Long = 20): Boolean {
         val peripheral = currentPeripheral ?: return false
@@ -284,32 +369,24 @@ actual class BleManager {
         return true
     }
 
-    /**
-     * Configure the write characteristic for sending commands.
-     */
+    // ==================== Characteristic Configuration ====================
+
     fun setWriteCharacteristic(serviceUuid: String, charUuid: String) {
         val peripheral = currentPeripheral ?: return
         val service = peripheral.getService(UUID.fromString(serviceUuid)) ?: return
         writeCharacteristic = service.getCharacteristic(UUID.fromString(charUuid))
     }
 
-    /**
-     * Configure the read characteristic and enable notifications.
-     */
     fun setReadCharacteristic(serviceUuid: String, charUuid: String) {
         val peripheral = currentPeripheral ?: return
         val service = peripheral.getService(UUID.fromString(serviceUuid)) ?: return
         readCharacteristic = service.getCharacteristic(UUID.fromString(charUuid))
 
-        // Enable notifications
         readCharacteristic?.let { char ->
             peripheral.setNotify(char, true)
         }
     }
 
-    /**
-     * Configure characteristics based on WheelConnectionInfo.
-     */
     fun configureForWheel(
         readServiceUuid: String,
         readCharUuid: String,
@@ -320,19 +397,21 @@ actual class BleManager {
         setWriteCharacteristic(writeServiceUuid, writeCharUuid)
     }
 
+    // ==================== Scanning ====================
+
     actual suspend fun startScan(onDeviceFound: (BleDevice) -> Unit) {
         val manager = central ?: return
-
-        // Note: In a full implementation, we would set up a scan callback
-        // that filters for wheel-related services and calls onDeviceFound
-        // for each discovered device.
-
-        // For now, this is a placeholder that would need integration
-        // with the app layer's scan implementation.
+        scanDeviceFoundCallback = onDeviceFound
+        _connectionState.value = ConnectionState.Scanning
+        manager.scanForPeripherals()
     }
 
     actual suspend fun stopScan() {
         central?.stopScan()
+        scanDeviceFoundCallback = null
+        if (_connectionState.value is ConnectionState.Scanning) {
+            _connectionState.value = ConnectionState.Disconnected
+        }
     }
 }
 

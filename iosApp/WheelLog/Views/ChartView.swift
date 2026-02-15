@@ -8,6 +8,7 @@ struct TelemetryChartView: View {
     @State private var showCurrent = true
     @State private var showPower = false
     @State private var showTemperature = false
+    @State private var selectedSample: TelemetrySample?
 
     var body: some View {
         ScrollView {
@@ -78,6 +79,48 @@ struct TelemetryChartView: View {
                                 .foregroundStyle(.red)
                             }
                         }
+
+                        if let selected = selectedSample {
+                            RuleMark(x: .value("Time", selected.timestamp))
+                                .foregroundStyle(.gray.opacity(0.5))
+                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                .annotation(position: mainChartAnnotationPosition(for: selected), spacing: 8) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        if showSpeed {
+                                            HStack(spacing: 4) {
+                                                Circle().fill(.blue).frame(width: 6, height: 6)
+                                                Text(String(format: "%.1f km/h", selected.speed))
+                                            }
+                                        }
+                                        if showCurrent {
+                                            HStack(spacing: 4) {
+                                                Circle().fill(.orange).frame(width: 6, height: 6)
+                                                Text(String(format: "%.1f A", selected.current))
+                                            }
+                                        }
+                                        if showPower {
+                                            HStack(spacing: 4) {
+                                                Circle().fill(.green).frame(width: 6, height: 6)
+                                                Text(String(format: "%.0f W", selected.power))
+                                            }
+                                        }
+                                        if showTemperature {
+                                            HStack(spacing: 4) {
+                                                Circle().fill(.red).frame(width: 6, height: 6)
+                                                Text(String(format: "%.0f°C", selected.temperature))
+                                            }
+                                        }
+                                        Text(selected.timestamp, format: .dateTime.hour().minute().second())
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color(.systemBackground))
+                                    .cornerRadius(6)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                }
+                        }
                     }
                     .chartXAxis {
                         AxisMarks(values: .stride(by: .second, count: 10)) { _ in
@@ -89,6 +132,26 @@ struct TelemetryChartView: View {
                         AxisMarks { _ in
                             AxisGridLine()
                             AxisValueLabel()
+                        }
+                    }
+                    .chartOverlay { proxy in
+                        GeometryReader { geometry in
+                            Rectangle()
+                                .fill(Color.clear)
+                                .contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture(minimumDistance: 0)
+                                        .onChanged { value in
+                                            let originX = geometry[proxy.plotAreaFrame].origin.x
+                                            let locationX = value.location.x - originX
+                                            if let date: Date = proxy.value(atX: locationX) {
+                                                selectedSample = nearestSample(to: date, in: wheelManager.telemetryBuffer.samples)
+                                            }
+                                        }
+                                        .onEnded { _ in
+                                            selectedSample = nil
+                                        }
+                                )
                         }
                     }
                     .frame(height: 250)
@@ -103,6 +166,32 @@ struct TelemetryChartView: View {
         .navigationTitle("Telemetry Chart")
         .navigationBarTitleDisplayMode(.inline)
     }
+
+    private func mainChartAnnotationPosition(for sample: TelemetrySample) -> AnnotationPosition {
+        guard let first = wheelManager.telemetryBuffer.samples.first?.timestamp,
+              let last = wheelManager.telemetryBuffer.samples.last?.timestamp else { return .top }
+        let range = last.timeIntervalSince(first)
+        guard range > 0 else { return .top }
+        let position = sample.timestamp.timeIntervalSince(first) / range
+        return position > 0.75 ? .topLeading : .topTrailing
+    }
+}
+
+// MARK: - Shared Helpers
+
+private func nearestSample(to date: Date, in samples: [TelemetrySample]) -> TelemetrySample? {
+    samples.min(by: {
+        abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date))
+    })
+}
+
+private func annotationPosition(for sample: TelemetrySample, in samples: [TelemetrySample]) -> AnnotationPosition {
+    guard let first = samples.first?.timestamp,
+          let last = samples.last?.timestamp else { return .top }
+    let range = last.timeIntervalSince(first)
+    guard range > 0 else { return .top }
+    let position = sample.timestamp.timeIntervalSince(first) / range
+    return position > 0.75 ? .topLeading : .topTrailing
 }
 
 // MARK: - Voltage Chart with press-and-hold selection
@@ -134,7 +223,7 @@ struct VoltageChartView: View {
                     RuleMark(x: .value("Time", selected.timestamp))
                         .foregroundStyle(.gray.opacity(0.5))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .annotation(position: annotationPosition(for: selected), spacing: 8) {
+                        .annotation(position: annotationPosition(for: selected, in: samples), spacing: 8) {
                             VStack(spacing: 2) {
                                 Text(String(format: "%.2f V", selected.voltage))
                                     .font(.caption)
@@ -181,7 +270,7 @@ struct VoltageChartView: View {
                                     let originX = geometry[proxy.plotAreaFrame].origin.x
                                     let locationX = value.location.x - originX
                                     if let date: Date = proxy.value(atX: locationX) {
-                                        selectedSample = nearestSample(to: date)
+                                        selectedSample = nearestSample(to: date, in: samples)
                                     }
                                 }
                                 .onEnded { _ in
@@ -193,21 +282,6 @@ struct VoltageChartView: View {
             .frame(height: 200)
             .padding(.horizontal)
         }
-    }
-
-    private func nearestSample(to date: Date) -> TelemetrySample? {
-        samples.min(by: {
-            abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date))
-        })
-    }
-
-    private func annotationPosition(for sample: TelemetrySample) -> AnnotationPosition {
-        guard let first = samples.first?.timestamp,
-              let last = samples.last?.timestamp else { return .top }
-        let range = last.timeIntervalSince(first)
-        guard range > 0 else { return .top }
-        let position = sample.timestamp.timeIntervalSince(first) / range
-        return position > 0.75 ? .topLeading : .topTrailing
     }
 }
 

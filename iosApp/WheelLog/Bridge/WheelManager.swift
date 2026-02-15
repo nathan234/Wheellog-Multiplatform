@@ -213,13 +213,16 @@ class WheelManager: ObservableObject {
         wheelState = newWheelState
 
         // Feed telemetry buffer for chart view
+        let gpsSpeed = max(0, locationManager.currentLocation?.speed ?? 0) * 3.6
         telemetryBuffer.addSampleIfNeeded(
             speedKmh: wheelState.speedKmh,
             voltage: wheelState.voltage,
             current: wheelState.current,
             power: wheelState.power,
             temperature: wheelState.temperature,
-            battery: wheelState.batteryLevel
+            battery: wheelState.batteryLevel,
+            pwmPercent: wheelState.pwmPercent,
+            gpsSpeedKmh: gpsSpeed
         )
 
         // Check alarms
@@ -385,13 +388,16 @@ class WheelManager: ObservableObject {
 
         // Feature 6: Telemetry buffer sampling
         if connectionState.isConnected {
+            let gpsSpeedPoll = max(0, (locationManager.currentLocation?.speed ?? 0)) * 3.6
             telemetryBuffer.addSampleIfNeeded(
                 speedKmh: wheelState.speedKmh,
                 voltage: wheelState.voltage,
                 current: wheelState.current,
                 power: wheelState.power,
                 temperature: wheelState.temperature,
-                battery: wheelState.batteryLevel
+                battery: wheelState.batteryLevel,
+                pwmPercent: wheelState.pwmPercent,
+                gpsSpeedKmh: gpsSpeedPoll
             )
         }
 

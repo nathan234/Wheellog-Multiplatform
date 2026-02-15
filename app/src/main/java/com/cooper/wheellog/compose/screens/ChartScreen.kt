@@ -34,8 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.cooper.wheellog.compose.TelemetrySample
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.compose.components.ToggleChip
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
@@ -147,7 +147,7 @@ fun ChartScreen(
                     if (showTemperature) add(SeriesInfo(
                         color = TEMP_COLOR,
                         values = samples.map {
-                            if (useFahrenheit) it.temperatureC * 9.0 / 5.0 + 32 else it.temperatureC.toDouble()
+                            if (useFahrenheit) it.temperatureC * 9.0 / 5.0 + 32 else it.temperatureC
                         }
                     ))
                 }
@@ -219,11 +219,11 @@ private fun VicoLineChart(
 
     // X-axis formatter: show mm:ss timestamps
     val timeFormat = remember { SimpleDateFormat("mm:ss", Locale.US) }
-    val firstTimestamp = samples.firstOrNull()?.timestamp ?: 0L
+    val firstTimestamp = samples.firstOrNull()?.timestampMs ?: 0L
     val bottomAxisFormatter = remember(firstTimestamp, samples.size) {
         CartesianValueFormatter { _, value, _ ->
             val index = value.toInt().coerceIn(0, samples.lastIndex)
-            timeFormat.format(Date(samples[index].timestamp))
+            timeFormat.format(Date(samples[index].timestampMs))
         }
     }
 

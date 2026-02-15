@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.cooper.wheellog.AppConfig
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.logging.RideLogger
+import com.cooper.wheellog.core.telemetry.TelemetryBuffer
+import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.core.service.BleDevice
 import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
@@ -31,16 +33,6 @@ import kotlinx.coroutines.launch
 enum class AlarmType {
     SPEED_1, SPEED_2, SPEED_3, CURRENT, TEMPERATURE, BATTERY
 }
-
-data class TelemetrySample(
-    val timestamp: Long,
-    val speedKmh: Double,
-    val voltageV: Double,
-    val currentA: Double,
-    val powerW: Double,
-    val temperatureC: Int,
-    val batteryLevel: Int
-)
 
 class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -92,7 +84,14 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeAlarms = MutableStateFlow<Set<AlarmType>>(emptySet())
     val activeAlarms: StateFlow<Set<AlarmType>> = _activeAlarms.asStateFlow()
 
-    // Telemetry buffer for charts
+    // Telemetry buffer for charts (shared KMP)
+    val telemetryBuffer = TelemetryBuffer()
+
+    // GPS speed (m/s from FusedLocation, converted to km/h for display)
+    private val _gpsSpeedKmh = MutableStateFlow(0.0)
+    val gpsSpeedKmh: StateFlow<Double> = _gpsSpeedKmh.asStateFlow()
+
+    // Expose samples as StateFlow for backward compatibility with ChartScreen
     private val _telemetrySamples = MutableStateFlow<List<TelemetrySample>>(emptyList())
     val telemetrySamples: StateFlow<List<TelemetrySample>> = _telemetrySamples.asStateFlow()
 
@@ -151,6 +150,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         demoDataProvider.stop()
         _isDemo.value = false
         _connectionState.value = ConnectionState.Disconnected
+        telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
     }
 
@@ -208,6 +208,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             connectionManager?.disconnect()
         }
+        telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
     }
 
@@ -316,30 +317,32 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Telemetry buffering ---
 
-    private var lastSampleTime = 0L
-
     private fun startTelemetryBuffering() {
         viewModelScope.launch {
             wheelState.collect { state ->
-                val now = System.currentTimeMillis()
-                if (now - lastSampleTime >= 500 && state.speed != 0 || state.voltage != 0) {
-                    lastSampleTime = now
+                if (state.speed != 0 || state.voltage != 0) {
                     val sample = TelemetrySample(
-                        timestamp = now,
+                        timestampMs = System.currentTimeMillis(),
                         speedKmh = state.speedKmh,
                         voltageV = state.voltageV,
                         currentA = state.currentA,
                         powerW = state.powerW,
-                        temperatureC = state.temperatureC,
-                        batteryLevel = state.batteryLevel
+                        temperatureC = state.temperatureC.toDouble(),
+                        batteryPercent = state.batteryLevel.toDouble(),
+                        pwmPercent = state.pwmPercent,
+                        gpsSpeedKmh = _gpsSpeedKmh.value
                     )
-                    val samples = _telemetrySamples.value.toMutableList()
-                    samples.add(sample)
-                    val cutoff = now - 60_000
-                    _telemetrySamples.value = samples.filter { it.timestamp >= cutoff }
+                    if (telemetryBuffer.addSampleIfNeeded(sample)) {
+                        _telemetrySamples.value = telemetryBuffer.samples
+                    }
                 }
             }
         }
+    }
+
+    /** Call from Activity/Service when GPS location updates arrive. */
+    fun updateGpsSpeed(speedMs: Float) {
+        _gpsSpeedKmh.value = speedMs.toDouble() * 3.6
     }
 
     // --- Alarm monitoring ---

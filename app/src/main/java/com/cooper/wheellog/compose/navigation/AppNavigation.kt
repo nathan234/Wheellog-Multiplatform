@@ -24,6 +24,7 @@ import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.SmartBmsScreen
 import com.cooper.wheellog.compose.screens.ChartScreen
 import com.cooper.wheellog.compose.screens.DashboardScreen
+import com.cooper.wheellog.compose.screens.MetricDetailScreen
 import com.cooper.wheellog.compose.screens.RidesScreen
 import com.cooper.wheellog.compose.screens.ScanScreen
 import com.cooper.wheellog.compose.screens.SettingsScreen
@@ -42,8 +43,9 @@ fun AppNavigation(viewModel: WheelViewModel) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Hide bottom bar on chart and BMS screens
+    // Hide bottom bar on chart, BMS, and metric detail screens
     val showBottomBar = currentRoute != "chart" && currentRoute != "bms"
+        && currentRoute?.startsWith("metric/") != true
 
     Scaffold(
         bottomBar = {
@@ -80,7 +82,8 @@ fun AppNavigation(viewModel: WheelViewModel) {
                     DashboardScreen(
                         viewModel = viewModel,
                         onNavigateToChart = { navController.navigate("chart") },
-                        onNavigateToBms = { navController.navigate("bms") }
+                        onNavigateToBms = { navController.navigate("bms") },
+                        onNavigateToMetric = { metricId -> navController.navigate("metric/$metricId") }
                     )
                 } else {
                     ScanScreen(viewModel = viewModel)
@@ -100,6 +103,14 @@ fun AppNavigation(viewModel: WheelViewModel) {
             }
             composable("bms") {
                 SmartBmsScreen(viewModel = viewModel)
+            }
+            composable("metric/{metricId}") { backStackEntry ->
+                val metricId = backStackEntry.arguments?.getString("metricId") ?: "speed"
+                MetricDetailScreen(
+                    viewModel = viewModel,
+                    metricId = metricId,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }

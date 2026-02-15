@@ -1,9 +1,11 @@
 import SwiftUI
+import WheelLogCore
 
 struct DashboardView: View {
     @EnvironmentObject var wheelManager: WheelManager
     @State private var showChart = false
     @State private var showBms = false
+    @State private var selectedMetric: String?
 
     private let kmToMiles = 0.62137119223733
 
@@ -17,13 +19,8 @@ struct DashboardView: View {
         wheelManager.useMph ? "mph" : "km/h"
     }
 
-    private var displayTemperature: String {
-        let tempC = wheelManager.wheelState.temperature
-        if wheelManager.useFahrenheit {
-            let tempF = Double(tempC) * 9.0 / 5.0 + 32
-            return String(format: "%.0f°F", tempF)
-        }
-        return "\(tempC)°C"
+    private var maxSpeed: Double {
+        wheelManager.useMph ? 31.0 : 50.0
     }
 
     private func formatDistance(_ km: Double) -> String {
@@ -77,60 +74,138 @@ struct DashboardView: View {
         return "\(brand) \(model)"
     }
 
+    // MARK: - Tile Helpers
+
+    private func tileColor(metric: MetricType, value: Double) -> Color {
+        let effectiveMax = wheelManager.telemetryBuffer.buffer.effectiveMax(metric: metric)
+        let progress = effectiveMax > 0 ? value / effectiveMax : 0
+        let zone = metric.colorZone(progress: progress)
+        switch zone {
+        case .green: return .green
+        case .orange: return .orange
+        case .red: return .red
+        default: return .gray
+        }
+    }
+
+    private func sparkline(metric: MetricType) -> [Double] {
+        let values = wheelManager.telemetryBuffer.buffer.valuesFor(metric: metric)
+        let arr = values.compactMap { ($0 as? NSNumber)?.doubleValue }
+        return Array(arr.suffix(20))
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Alarm banner (Feature 1)
+                // Alarm banner
                 if !wheelManager.activeAlarms.isEmpty {
                     AlarmBannerView(activeAlarms: wheelManager.activeAlarms)
                 }
 
-                // Speed gauge
-                SpeedGaugeView(
-                    speed: displaySpeed,
-                    maxSpeed: wheelManager.useMph ? 31.0 : 50.0,
-                    unitLabel: speedUnit
-                )
+                // Speed gauge (tappable)
+                Button(action: { selectedMetric = "speed" }) {
+                    SpeedGaugeView(
+                        speed: displaySpeed,
+                        maxSpeed: maxSpeed,
+                        unitLabel: speedUnit
+                    )
                     .frame(height: 250)
                     .padding(.top)
+                }
+                .buttonStyle(.plain)
 
-                // Battery and temperature
-                HStack(spacing: 16) {
-                    StatCard(
-                        title: "Battery",
-                        value: "\(wheelManager.wheelState.batteryLevel)%",
-                        icon: batteryIcon,
-                        color: batteryColor
+                // 2x3 Gauge Tile Grid
+                let columns = [GridItem(.flexible()), GridItem(.flexible())]
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    // Speed tile
+                    let speedVal = displaySpeed
+                    GaugeTileView(
+                        label: "Speed",
+                        value: String(format: "%.1f", speedVal),
+                        unit: speedUnit,
+                        progress: speedVal / maxSpeed,
+                        color: tileColor(metric: .speed, value: wheelManager.wheelState.speedKmh),
+                        sparklineData: sparkline(metric: .speed),
+                        action: { selectedMetric = "speed" }
                     )
 
-                    StatCard(
-                        title: "Temperature",
-                        value: displayTemperature,
-                        icon: "thermometer",
-                        color: temperatureColor
+                    // Battery tile
+                    let batteryVal = Double(wheelManager.wheelState.batteryLevel)
+                    GaugeTileView(
+                        label: "Battery",
+                        value: "\(wheelManager.wheelState.batteryLevel)",
+                        unit: "%",
+                        progress: batteryVal / 100.0,
+                        color: tileColor(metric: .battery, value: batteryVal),
+                        sparklineData: sparkline(metric: .battery),
+                        action: { selectedMetric = "battery" }
+                    )
+
+                    // Power tile
+                    let powerVal = wheelManager.wheelState.power
+                    let powerMax = wheelManager.telemetryBuffer.buffer.effectiveMax(metric: .power)
+                    GaugeTileView(
+                        label: "Power",
+                        value: String(format: "%.0f", powerVal),
+                        unit: "W",
+                        progress: powerMax > 0 ? abs(powerVal) / powerMax : 0,
+                        color: tileColor(metric: .power, value: abs(powerVal)),
+                        sparklineData: sparkline(metric: .power),
+                        action: { selectedMetric = "power" }
+                    )
+
+                    // PWM tile
+                    let pwmVal = wheelManager.wheelState.pwmPercent
+                    GaugeTileView(
+                        label: "PWM",
+                        value: String(format: "%.1f", pwmVal),
+                        unit: "%",
+                        progress: pwmVal / 100.0,
+                        color: tileColor(metric: .pwm, value: pwmVal),
+                        sparklineData: sparkline(metric: .pwm),
+                        action: { selectedMetric = "pwm" }
+                    )
+
+                    // Temperature tile
+                    let tempC = Double(wheelManager.wheelState.temperature)
+                    let tempDisplay = wheelManager.useFahrenheit ? tempC * 9.0 / 5.0 + 32 : tempC
+                    let tempUnit = wheelManager.useFahrenheit ? "\u{00B0}F" : "\u{00B0}C"
+                    GaugeTileView(
+                        label: "Temp",
+                        value: String(format: "%.0f", tempDisplay),
+                        unit: tempUnit,
+                        progress: tempC / 80.0,
+                        color: tileColor(metric: .temperature, value: tempC),
+                        sparklineData: sparkline(metric: .temperature),
+                        action: { selectedMetric = "temperature" }
+                    )
+
+                    // GPS Speed tile
+                    let gpsSpeedRaw = wheelManager.locationManager.currentLocation?.speed ?? 0
+                    let gpsKmh = max(0, gpsSpeedRaw) * 3.6
+                    let gpsDisplay = wheelManager.useMph ? gpsKmh * kmToMiles : gpsKmh
+                    GaugeTileView(
+                        label: "GPS Speed",
+                        value: gpsKmh > 0 ? String(format: "%.1f", gpsDisplay) : "\u{2014}",
+                        unit: speedUnit,
+                        progress: gpsDisplay / maxSpeed,
+                        color: tileColor(metric: .gpsSpeed, value: gpsKmh),
+                        sparklineData: sparkline(metric: .gpsSpeed),
+                        action: { selectedMetric = "gps_speed" }
                     )
                 }
                 .padding(.horizontal)
 
-                // Power stats
+                // Compact stats row
                 VStack(spacing: 12) {
                     StatRow(label: "Voltage", value: String(format: "%.1f V", wheelManager.wheelState.voltage))
                     StatRow(label: "Current", value: String(format: "%.1f A", wheelManager.wheelState.current))
-                    StatRow(label: "Power", value: String(format: "%.0f W", wheelManager.wheelState.power))
-                    StatRow(label: "PWM", value: String(format: "%.1f%%", wheelManager.wheelState.pwmPercent))
-                }
-                .padding()
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(12)
-                .padding(.horizontal)
-
-                // Distance stats
-                VStack(spacing: 12) {
                     StatRow(label: "Trip Distance", value: formatDistance(wheelManager.wheelState.wheelDistanceKm))
                     StatRow(label: "Total Distance", value: formatTotalDistance(wheelManager.wheelState.totalDistanceKm))
                 }
                 .padding()
-                .background(Color(.secondarySystemGroupedBackground))
+                .background(Color(UIColor.secondarySystemGroupedBackground))
                 .cornerRadius(12)
                 .padding(.horizontal)
 
@@ -143,7 +218,7 @@ struct DashboardView: View {
                         StatRow(label: "LED Mode", value: "\(wheelManager.wheelState.ledMode)")
                     }
                     .padding()
-                    .background(Color(.secondarySystemGroupedBackground))
+                    .background(Color(UIColor.secondarySystemGroupedBackground))
                     .cornerRadius(12)
                     .padding(.horizontal)
                 }
@@ -160,7 +235,7 @@ struct DashboardView: View {
                         StatRow(label: "Type", value: wheelManager.wheelState.wheelType)
                     }
                     .padding()
-                    .background(Color(.secondarySystemGroupedBackground))
+                    .background(Color(UIColor.secondarySystemGroupedBackground))
                     .cornerRadius(12)
                     .padding(.horizontal)
                 }
@@ -190,7 +265,7 @@ struct DashboardView: View {
                     .cornerRadius(8)
                 }
 
-                // Controls row: Horn, Light, Record, Chart
+                // Controls row: Horn, Light
                 if !wheelManager.isMockMode && !wheelManager.isTestMode {
                     HStack(spacing: 12) {
                         Button(action: { wheelManager.wheelBeep() }) {
@@ -222,9 +297,8 @@ struct DashboardView: View {
                     .padding(.horizontal)
                 }
 
-                // Record and Chart row
+                // Record, Chart, BMS row
                 HStack(spacing: 12) {
-                    // Record button (Feature 3)
                     if wheelManager.connectionState.isConnected {
                         Button(action: {
                             if wheelManager.isLogging {
@@ -246,7 +320,6 @@ struct DashboardView: View {
                         }
                     }
 
-                    // BMS link
                     Button(action: { showBms = true }) {
                         HStack {
                             Image(systemName: "battery.100")
@@ -260,7 +333,6 @@ struct DashboardView: View {
                         .cornerRadius(12)
                     }
 
-                    // Chart link (Feature 6)
                     Button(action: { showChart = true }) {
                         HStack {
                             Image(systemName: "chart.xyaxis.line")
@@ -298,7 +370,7 @@ struct DashboardView: View {
                 .padding(.bottom, 20)
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Color(UIColor.systemGroupedBackground))
         .navigationTitle(wheelDisplayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showChart) {
@@ -307,29 +379,9 @@ struct DashboardView: View {
         .navigationDestination(isPresented: $showBms) {
             SmartBmsView()
         }
-    }
-
-    private var batteryIcon: String {
-        let level = wheelManager.wheelState.batteryLevel
-        if level >= 75 { return "battery.100" }
-        if level >= 50 { return "battery.75" }
-        if level >= 25 { return "battery.50" }
-        return "battery.25"
-    }
-
-    private var batteryColor: Color {
-        let level = wheelManager.wheelState.batteryLevel
-        if level >= 50 { return .green }
-        if level >= 25 { return .orange }
-        return .red
-    }
-
-    private var temperatureColor: Color {
-        // Thresholds are in °C regardless of display unit
-        let tempC = wheelManager.wheelState.temperature
-        if tempC <= 40 { return .green }
-        if tempC <= 55 { return .orange }
-        return .red
+        .navigationDestination(item: $selectedMetric) { metricId in
+            MetricDetailView(metricId: metricId)
+        }
     }
 
     private var buttonLabel: String {
@@ -345,7 +397,7 @@ struct DashboardView: View {
     }
 }
 
-// MARK: - Alarm Banner (Feature 1)
+// MARK: - Alarm Banner
 
 struct AlarmBannerView: View {
     let activeAlarms: Set<AlarmType>
@@ -411,7 +463,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding()
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(Color(UIColor.secondarySystemGroupedBackground))
         .cornerRadius(12)
     }
 }

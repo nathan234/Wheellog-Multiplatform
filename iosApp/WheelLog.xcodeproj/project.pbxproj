@@ -27,6 +27,8 @@
 		B1000001221F0000000018 /* ChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000008 /* ChartView.swift */; };
 		B1000001221F0000000019 /* RidesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000009 /* RidesView.swift */; };
 		B1000001221F000000001A /* SmartBmsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F000000000A /* SmartBmsView.swift */; };
+		C1000001221F000000001B /* GaugeTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001221F000000000B /* GaugeTileView.swift */; };
+		C1000001221F000000001C /* MetricDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001221F000000000C /* MetricDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +54,8 @@
 		B1000001221F0000000008 /* ChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartView.swift; sourceTree = "<group>"; };
 		B1000001221F0000000009 /* RidesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RidesView.swift; sourceTree = "<group>"; };
 		B1000001221F000000000A /* SmartBmsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartBmsView.swift; sourceTree = "<group>"; };
+		C1000001221F000000000B /* GaugeTileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaugeTileView.swift; sourceTree = "<group>"; };
+		C1000001221F000000000C /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,6 +133,8 @@
 				B1000001221F0000000008 /* ChartView.swift */,
 				B1000001221F0000000009 /* RidesView.swift */,
 				B1000001221F000000000A /* SmartBmsView.swift */,
+				C1000001221F000000000B /* GaugeTileView.swift */,
+				C1000001221F000000000C /* MetricDetailView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -244,6 +250,8 @@
 				B1000001221F0000000018 /* ChartView.swift in Sources */,
 				B1000001221F0000000019 /* RidesView.swift in Sources */,
 				B1000001221F000000001A /* SmartBmsView.swift in Sources */,
+				C1000001221F000000001B /* GaugeTileView.swift in Sources */,
+				C1000001221F000000001C /* MetricDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

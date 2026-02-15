@@ -1,5 +1,6 @@
 package com.cooper.wheellog.compose.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,9 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
-import androidx.compose.material.icons.filled.Battery4Bar
-import androidx.compose.material.icons.filled.Battery2Bar
-import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
@@ -24,7 +22,6 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -47,10 +44,12 @@ import com.cooper.wheellog.compose.AlarmType
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.AlarmBanner
 import com.cooper.wheellog.compose.components.ConnectionBanner
+import com.cooper.wheellog.compose.components.GaugeTile
 import com.cooper.wheellog.compose.components.SpeedGauge
-import com.cooper.wheellog.compose.components.StatCard
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.telemetry.ColorZone
+import com.cooper.wheellog.core.telemetry.MetricType
 import java.util.Locale
 
 private const val KM_TO_MILES = 0.62137119223733
@@ -60,7 +59,8 @@ private const val KM_TO_MILES = 0.62137119223733
 fun DashboardScreen(
     viewModel: WheelViewModel,
     onNavigateToChart: () -> Unit,
-    onNavigateToBms: () -> Unit = {}
+    onNavigateToBms: () -> Unit = {},
+    onNavigateToMetric: (String) -> Unit = {}
 ) {
     val wheelState by viewModel.wheelState.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
@@ -68,6 +68,8 @@ fun DashboardScreen(
     val isDemo by viewModel.isDemo.collectAsState()
     val isLogging by viewModel.isLogging.collectAsState()
     val isLightOn by viewModel.isLightOn.collectAsState()
+    val samples by viewModel.telemetrySamples.collectAsState()
+    val gpsSpeed by viewModel.gpsSpeedKmh.collectAsState()
     val useMph = viewModel.appConfig.useMph
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
@@ -97,7 +99,7 @@ fun DashboardScreen(
         // Alarm banner
         AlarmBanner(activeAlarms = activeAlarms)
 
-        // Speed gauge
+        // Speed gauge (tappable — navigates to speed metric chart)
         SpeedGauge(
             speed = displaySpeed,
             maxSpeed = maxSpeed,
@@ -105,41 +107,132 @@ fun DashboardScreen(
             modifier = Modifier
                 .height(250.dp)
                 .padding(top = 8.dp)
+                .clickable { onNavigateToMetric("speed") }
         )
 
-        // Battery and Temperature cards
+        // 2x3 Gauge Tile Grid
+        val buffer = viewModel.telemetryBuffer
+        val tileModifier = Modifier.weight(1f)
+
+        // Helper to get sparkline data (last 20 points)
+        fun sparkline(metric: MetricType): List<Float> {
+            val vals = buffer.valuesFor(metric)
+            return vals.takeLast(20).map { it.toFloat() }
+        }
+
+        // Helper to get color for a metric value
+        fun tileColor(metric: MetricType, value: Double): Color {
+            val max = buffer.effectiveMax(metric)
+            val progress = if (max > 0) (value / max) else 0.0
+            return when (metric.colorZone(progress)) {
+                ColorZone.GREEN -> Color(0xFF4CAF50)
+                ColorZone.ORANGE -> Color(0xFFFF9800)
+                ColorZone.RED -> Color(0xFFF44336)
+            }
+        }
+
+        // Row 1: Speed, Battery
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StatCard(
-                title = "Battery",
-                value = "${wheelState.batteryLevel}%",
-                icon = batteryIcon(wheelState.batteryLevel),
-                color = batteryColor(wheelState.batteryLevel),
-                modifier = Modifier.weight(1f)
+            val speedVal = if (useMph) wheelState.speedKmh * KM_TO_MILES else wheelState.speedKmh
+            val speedMax = if (useMph) 31.0 else 50.0
+            GaugeTile(
+                label = "Speed",
+                value = String.format(Locale.US, "%.1f", speedVal),
+                unit = speedUnit,
+                progress = (speedVal / speedMax).toFloat(),
+                color = tileColor(MetricType.SPEED, wheelState.speedKmh),
+                sparklineData = sparkline(MetricType.SPEED),
+                onClick = { onNavigateToMetric("speed") },
+                modifier = tileModifier
             )
-            StatCard(
-                title = "Temperature",
-                value = formatTemperature(wheelState.temperatureC, useFahrenheit),
-                icon = Icons.Default.Thermostat,
-                color = temperatureColor(wheelState.temperatureC),
-                modifier = Modifier.weight(1f)
+            val batteryVal = wheelState.batteryLevel.toDouble()
+            GaugeTile(
+                label = "Battery",
+                value = "${wheelState.batteryLevel}",
+                unit = "%",
+                progress = (batteryVal / 100.0).toFloat(),
+                color = tileColor(MetricType.BATTERY, batteryVal),
+                sparklineData = sparkline(MetricType.BATTERY),
+                onClick = { onNavigateToMetric("battery") },
+                modifier = tileModifier
             )
         }
 
-        // Power stats section
+        // Row 2: Power, PWM
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val powerVal = wheelState.powerW
+            val powerMax = buffer.effectiveMax(MetricType.POWER)
+            GaugeTile(
+                label = "Power",
+                value = String.format(Locale.US, "%.0f", powerVal),
+                unit = "W",
+                progress = if (powerMax > 0) (kotlin.math.abs(powerVal) / powerMax).toFloat() else 0f,
+                color = tileColor(MetricType.POWER, kotlin.math.abs(powerVal)),
+                sparklineData = sparkline(MetricType.POWER),
+                onClick = { onNavigateToMetric("power") },
+                modifier = tileModifier
+            )
+            val pwmVal = wheelState.pwmPercent
+            GaugeTile(
+                label = "PWM",
+                value = String.format(Locale.US, "%.1f", pwmVal),
+                unit = "%",
+                progress = (pwmVal / 100.0).toFloat(),
+                color = tileColor(MetricType.PWM, pwmVal),
+                sparklineData = sparkline(MetricType.PWM),
+                onClick = { onNavigateToMetric("pwm") },
+                modifier = tileModifier
+            )
+        }
+
+        // Row 3: Temperature, GPS Speed
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val tempC = wheelState.temperatureC.toDouble()
+            val tempDisplay = if (useFahrenheit) tempC * 9.0 / 5.0 + 32 else tempC
+            val tempUnit = if (useFahrenheit) "\u00B0F" else "\u00B0C"
+            GaugeTile(
+                label = "Temp",
+                value = String.format(Locale.US, "%.0f", tempDisplay),
+                unit = tempUnit,
+                progress = (tempC / 80.0).toFloat(),
+                color = tileColor(MetricType.TEMPERATURE, tempC),
+                sparklineData = sparkline(MetricType.TEMPERATURE),
+                onClick = { onNavigateToMetric("temperature") },
+                modifier = tileModifier
+            )
+            val gpsVal = if (useMph) gpsSpeed * KM_TO_MILES else gpsSpeed
+            val gpsDisplay = if (gpsSpeed > 0) String.format(Locale.US, "%.1f", gpsVal) else "\u2014"
+            GaugeTile(
+                label = "GPS Speed",
+                value = gpsDisplay,
+                unit = speedUnit,
+                progress = (gpsVal / (if (useMph) 31.0 else 50.0)).toFloat(),
+                color = tileColor(MetricType.GPS_SPEED, gpsSpeed),
+                sparklineData = sparkline(MetricType.GPS_SPEED),
+                onClick = { onNavigateToMetric("gps_speed") },
+                modifier = tileModifier
+            )
+        }
+
+        // Compact stats row: Voltage, Current, Trip Dist, Total Dist
         StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
             StatRow(label = "Voltage", value = String.format(Locale.US, "%.1f V", wheelState.voltageV))
             StatRow(label = "Current", value = String.format(Locale.US, "%.1f A", wheelState.currentA))
-            StatRow(label = "Power", value = String.format(Locale.US, "%.0f W", wheelState.powerW))
-            StatRow(label = "PWM", value = String.format(Locale.US, "%.1f%%", wheelState.pwmPercent))
-        }
-
-        // Distance stats
-        StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
             StatRow(label = "Trip Distance", value = formatDistance(wheelState.wheelDistanceKm, useMph))
             StatRow(label = "Total Distance", value = formatTotalDistance(wheelState.totalDistanceKm, useMph))
         }
@@ -211,7 +304,7 @@ fun DashboardScreen(
             }
         }
 
-        // Record and Chart row
+        // Record, Chart, BMS row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -341,33 +434,6 @@ private fun wheelDisplayName(state: WheelState): String {
     if (brand.isEmpty() || model.startsWith(brand, ignoreCase = true)) return model
     return "$brand $model"
 }
-
-private fun batteryIcon(level: Int) = when {
-    level >= 75 -> Icons.Default.BatteryFull
-    level >= 50 -> Icons.Default.Battery4Bar
-    level >= 25 -> Icons.Default.Battery2Bar
-    else -> Icons.Default.BatteryAlert
-}
-
-private fun batteryColor(level: Int) = when {
-    level >= 50 -> Color(0xFF4CAF50)
-    level >= 25 -> Color(0xFFFF9800)
-    else -> Color(0xFFF44336)
-}
-
-private fun temperatureColor(tempC: Int) = when {
-    tempC <= 40 -> Color(0xFF4CAF50)
-    tempC <= 55 -> Color(0xFFFF9800)
-    else -> Color(0xFFF44336)
-}
-
-private fun formatTemperature(tempC: Int, useFahrenheit: Boolean): String =
-    if (useFahrenheit) {
-        val tempF = tempC * 9.0 / 5.0 + 32
-        String.format(Locale.US, "%.0f\u00B0F", tempF)
-    } else {
-        "$tempC\u00B0C"
-    }
 
 private fun formatDistance(km: Double, useMph: Boolean): String =
     if (useMph) String.format(Locale.US, "%.2f mi", km * KM_TO_MILES)

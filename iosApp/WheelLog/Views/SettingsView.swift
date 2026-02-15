@@ -93,24 +93,10 @@ struct SettingsView: View {
                 Toggle("Show Unknown Devices", isOn: $wheelManager.showUnknownDevices)
             }
 
-            // MARK: - Wheel Settings (Feature 5: interactive pedals mode)
+            // MARK: - Wheel Settings
             if wheelManager.connectionState.isConnected {
-                Section {
-                    // Pedals mode — interactive picker when connected
-                    Picker("Pedals Mode", selection: pedalsModeBinding) {
-                        Text("Hard").tag(0)
-                        Text("Medium").tag(1)
-                        Text("Soft").tag(2)
-                    }
-                    .pickerStyle(.segmented)
-
-                    settingsRow("Tilt-Back Speed", value: tiltBackSpeedText)
-                    settingsRow("Light Mode", value: lightModeText)
-                    settingsRow("LED Mode", value: ledModeText)
-                } header: {
-                    Text("Wheel Settings")
-                } footer: {
-                    Text("Pedals mode is sent to the wheel immediately.")
+                Section("Wheel Settings") {
+                    NavigationLink("Wheel Control Panel", destination: WheelSettingsView())
                 }
             }
 
@@ -127,17 +113,6 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-    }
-
-    // MARK: - Pedals Mode Binding (Feature 5)
-
-    private var pedalsModeBinding: Binding<Int> {
-        Binding<Int>(
-            get: { Int(wheelManager.wheelState.pedalsMode) },
-            set: { newMode in
-                wheelManager.setPedalsMode(newMode)
-            }
-        )
     }
 
     // MARK: - Alarm Slider Helper
@@ -168,41 +143,6 @@ struct SettingsView: View {
 
     private func displayTemperature(_ celsius: Double) -> Double {
         wheelManager.useFahrenheit ? celsius * 9.0 / 5.0 + 32 : celsius
-    }
-
-    // MARK: - Wheel Settings Helpers
-
-    private func settingsRow(_ label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            Text(value)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    private var tiltBackSpeedText: String {
-        let speed = wheelManager.wheelState.tiltBackSpeed
-        if speed == 0 { return "Off" }
-        if wheelManager.useMph {
-            return String(format: "%.0f mph", Double(speed) * kmToMiles)
-        }
-        return "\(speed) km/h"
-    }
-
-    private var lightModeText: String {
-        switch wheelManager.wheelState.lightMode {
-        case 0: return "Off"
-        case 1: return "On"
-        case 2: return "Strobe"
-        default: return "Unknown"
-        }
-    }
-
-    private var ledModeText: String {
-        let mode = wheelManager.wheelState.ledMode
-        if mode < 0 { return "Unknown" }
-        return "\(mode)"
     }
 
     private var appVersion: String {

@@ -209,18 +209,21 @@ struct DashboardView: View {
                 .cornerRadius(12)
                 .padding(.horizontal)
 
-                // Wheel settings (only show if settings have been received)
+                // Wheel settings (navigate to full control panel)
                 if wheelManager.wheelState.pedalsMode >= 0 {
-                    VStack(spacing: 12) {
-                        StatRow(label: "Pedals Mode", value: pedalsModeText)
-                        StatRow(label: "Tilt-Back Speed", value: tiltBackSpeedText)
-                        StatRow(label: "Light", value: lightModeText)
-                        StatRow(label: "LED Mode", value: "\(wheelManager.wheelState.ledMode)")
+                    NavigationLink(destination: WheelSettingsView()) {
+                        VStack(spacing: 12) {
+                            StatRow(label: "Pedals Mode", value: pedalsModeText)
+                            StatRow(label: "Tilt-Back Speed", value: tiltBackSpeedText)
+                            StatRow(label: "Light", value: lightModeText)
+                            StatRow(label: "LED Mode", value: "\(wheelManager.wheelState.ledMode)")
+                        }
+                        .padding()
+                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
                     }
-                    .padding()
-                    .background(Color(UIColor.secondarySystemGroupedBackground))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
+                    .buttonStyle(.plain)
                 }
 
                 // Wheel info

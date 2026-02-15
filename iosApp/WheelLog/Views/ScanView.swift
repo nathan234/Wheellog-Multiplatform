@@ -1,4 +1,5 @@
 import SwiftUI
+import WheelLogCore
 
 struct ScanView: View {
     @EnvironmentObject var wheelManager: WheelManager
@@ -122,6 +123,23 @@ struct ScanView: View {
                     .foregroundColor(.white)
                     .cornerRadius(10)
                 }
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                Text("Test Wheel Settings Panel")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    testButton("KingSong", wheelType: .kingsong, color: .blue)
+                    testButton("Begode", wheelType: .gotway, color: .green)
+                    testButton("Veteran", wheelType: .veteran, color: .purple)
+                    testButton("Ninebot Z", wheelType: .ninebotZ, color: .orange)
+                    testButton("InMotion", wheelType: .inmotion, color: .teal)
+                    testButton("InMotion V2", wheelType: .inmotionV2, color: .indigo)
+                }
+                .padding(.horizontal)
             }
             #endif
 
@@ -165,6 +183,21 @@ struct ScanView: View {
     }
 
     #if targetEnvironment(simulator)
+    private func testButton(_ label: String, wheelType: WheelType, color: Color) -> some View {
+        Button(action: {
+            wheelManager.startTestSession(wheelType: wheelType)
+        }) {
+            Text(label)
+                .font(.caption)
+                .fontWeight(.medium)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(color)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+        }
+    }
+
     private func startKmpTest() {
         // Start a test session with Kingsong wheel type
         wheelManager.startTestSession(wheelType: .kingsong)

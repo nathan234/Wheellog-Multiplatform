@@ -4,6 +4,7 @@ struct TelemetrySample: Identifiable {
     let id = UUID()
     let timestamp: Date
     let speed: Double
+    let voltage: Double
     let current: Double
     let power: Double
     let temperature: Double
@@ -21,7 +22,7 @@ class TelemetryBuffer: ObservableObject {
 
     nonisolated init() {}
 
-    func addSampleIfNeeded(speedKmh: Double, current: Double, power: Double, temperature: Int, battery: Int) {
+    func addSampleIfNeeded(speedKmh: Double, voltage: Double, current: Double, power: Double, temperature: Int, battery: Int) {
         let now = Date()
         if let last = lastSampleTime, now.timeIntervalSince(last) < sampleInterval {
             return
@@ -31,6 +32,7 @@ class TelemetryBuffer: ObservableObject {
         let sample = TelemetrySample(
             timestamp: now,
             speed: speedKmh,
+            voltage: voltage,
             current: current,
             power: power,
             temperature: Double(temperature),

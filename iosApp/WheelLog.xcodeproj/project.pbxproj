@@ -16,7 +16,6 @@
 		A1000001221F0000000007 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000017 /* DashboardView.swift */; };
 		A1000001221F0000000008 /* SpeedGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000018 /* SpeedGaugeView.swift */; };
 		A1000001221F0000000009 /* ConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000019 /* ConnectionBanner.swift */; };
-		A1000001221F000000000A /* MockDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F000000001B /* MockDataProvider.swift */; };
 		A1000001221F000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F000000001C /* SettingsView.swift */; };
 		B1000001221F0000000011 /* AlarmManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000001 /* AlarmManager.swift */; };
 		B1000001221F0000000012 /* AutoReconnectManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000002 /* AutoReconnectManager.swift */; };
@@ -40,7 +39,6 @@
 		A1000001221F0000000018 /* SpeedGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedGaugeView.swift; sourceTree = "<group>"; };
 		A1000001221F0000000019 /* ConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionBanner.swift; sourceTree = "<group>"; };
 		A1000001221F000000001A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A1000001221F000000001B /* MockDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockDataProvider.swift; sourceTree = "<group>"; };
 		A1000001221F000000001C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1000001221F0000000100 /* WheelLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WheelLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000001221F0000000001 /* AlarmManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmManager.swift; sourceTree = "<group>"; };
@@ -107,7 +105,6 @@
 			children = (
 				A1000001221F0000000014 /* WheelManager.swift */,
 				A1000001221F0000000015 /* StateFlowObserver.swift */,
-				A1000001221F000000001B /* MockDataProvider.swift */,
 				B1000001221F0000000001 /* AlarmManager.swift */,
 				B1000001221F0000000002 /* AutoReconnectManager.swift */,
 				B1000001221F0000000003 /* BackgroundManager.swift */,
@@ -229,7 +226,6 @@
 				A1000001221F0000000002 /* ContentView.swift in Sources */,
 				A1000001221F0000000004 /* WheelManager.swift in Sources */,
 				A1000001221F0000000005 /* StateFlowObserver.swift in Sources */,
-				A1000001221F000000000A /* MockDataProvider.swift in Sources */,
 				A1000001221F0000000006 /* ScanView.swift in Sources */,
 				A1000001221F0000000007 /* DashboardView.swift in Sources */,
 				A1000001221F0000000008 /* SpeedGaugeView.swift in Sources */,
@@ -376,7 +372,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = VUTS936LBT;
 				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
 				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (
@@ -422,7 +418,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = VUTS936LBT;
 				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
 				"FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]" = (

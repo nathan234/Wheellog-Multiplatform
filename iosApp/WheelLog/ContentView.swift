@@ -19,7 +19,6 @@ struct ContentView: View {
                     }
                 }
             }
-            .id(wheelManager.connectionState.isConnected)
             .tabItem {
                 Label("Devices", systemImage: "antenna.radiowaves.left.and.right")
             }

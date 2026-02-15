@@ -7,6 +7,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+private val demoScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
 /**
  * iOS factory and helpers for WheelConnectionManager.
  * Handles CoroutineScope creation and provides Swift-friendly accessors.
@@ -65,5 +67,23 @@ object WheelConnectionManagerFactory {
         CoroutineScope(Dispatchers.Main).launch {
             manager.setPedalsMode(mode)
         }
+    }
+
+    // MARK: - Demo Data Provider
+
+    fun createDemoProvider(): DemoDataProvider {
+        return DemoDataProvider()
+    }
+
+    fun startDemo(provider: DemoDataProvider) {
+        provider.start(demoScope)
+    }
+
+    fun stopDemo(provider: DemoDataProvider) {
+        provider.stop()
+    }
+
+    fun getDemoState(provider: DemoDataProvider): WheelState {
+        return provider.wheelState.value
     }
 }

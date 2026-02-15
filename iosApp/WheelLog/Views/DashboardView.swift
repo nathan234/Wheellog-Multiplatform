@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var wheelManager: WheelManager
+    @State private var showChart = false
 
     private let kmToMiles = 0.62137119223733
 
@@ -235,7 +236,7 @@ struct DashboardView: View {
                     }
 
                     // Chart link (Feature 6)
-                    NavigationLink(destination: TelemetryChartView()) {
+                    Button(action: { showChart = true }) {
                         HStack {
                             Image(systemName: "chart.xyaxis.line")
                             Text("Chart")
@@ -275,6 +276,9 @@ struct DashboardView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("Dashboard")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $showChart) {
+            TelemetryChartView()
+        }
     }
 
     private var batteryIcon: String {

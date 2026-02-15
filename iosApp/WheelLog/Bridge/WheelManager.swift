@@ -78,9 +78,9 @@ class WheelManager: ObservableObject {
     private var bleManager: BleManager?
     private var connectionManager: WheelConnectionManager?
 
-    // MARK: - Mock Data Provider
+    // MARK: - Demo Data Provider (KMP)
 
-    private let mockDataProvider = MockDataProvider()
+    private let demoProvider = WheelConnectionManagerFactory.shared.createDemoProvider()
 
     // MARK: - Feature Managers
 
@@ -100,6 +100,7 @@ class WheelManager: ObservableObject {
     // MARK: - Polling Timers
 
     private var statePollingTimer: Timer?
+    private var demoPollingTimer: Timer?
 
     // MARK: - Initialization
 
@@ -107,7 +108,6 @@ class WheelManager: ObservableObject {
         // Setup happens in Task
         Task { @MainActor in
             self.setupKmpComponents()
-            self.setupMockProvider()
             self.setupAlarmCallbacks()
             self.startPolling()
             self.backgroundManager.requestNotificationPermission()
@@ -122,7 +122,9 @@ class WheelManager: ObservableObject {
     deinit {
         statePollingTimer?.invalidate()
         statePollingTimer = nil
-        mockDataProvider.stop()
+        demoPollingTimer?.invalidate()
+        demoPollingTimer = nil
+        WheelConnectionManagerFactory.shared.stopDemo(provider: demoProvider)
     }
 
     private func setupKmpComponents() {
@@ -157,14 +159,6 @@ class WheelManager: ObservableObject {
         }
     }
 
-    private func setupMockProvider() {
-        mockDataProvider.onStateUpdate = { [weak self] state in
-            Task { @MainActor in
-                self?.updateFromMock(state)
-            }
-        }
-    }
-
     private func setupAlarmCallbacks() {
         alarmManager.sendWheelBeep = { [weak self] in
             self?.wheelBeep()
@@ -178,29 +172,50 @@ class WheelManager: ObservableObject {
         }
     }
 
-    private func updateFromMock(_ state: WheelStateBridge) {
-        wheelState = WheelStateWrapper(
-            speedKmh: state.speed,
-            voltage: state.voltage,
-            current: state.current,
-            power: state.power,
-            temperature: Int(state.temperature),
-            batteryLevel: Int(state.battery),
-            totalDistanceKm: state.totalDistance,
-            wheelDistanceKm: state.tripDistance,
-            pwmPercent: (state.speed / 50.0) * 100.0,  // Estimated PWM
-            wheelType: "MOCK",
-            name: state.name,
-            model: state.model
-        )
+    // MARK: - Mock Mode
 
-        if state.isConnected {
-            connectionState = .connected(address: "MOCK-DEVICE", wheelName: state.model)
+    func startMockMode() {
+        isMockMode = true
+        connectionState = .connecting(address: "DEMO-DEVICE")
+
+        // Brief delay to simulate connection
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+            WheelConnectionManagerFactory.shared.startDemo(provider: self.demoProvider)
+            self.connectionState = .connected(address: "DEMO-DEVICE", wheelName: "Demo Wheel")
+            self.startDemoPolling()
         }
+    }
+
+    func stopMockMode() {
+        demoPollingTimer?.invalidate()
+        demoPollingTimer = nil
+        WheelConnectionManagerFactory.shared.stopDemo(provider: demoProvider)
+        isMockMode = false
+        connectionState = .disconnected
+        wheelState = WheelStateWrapper()
+        telemetryBuffer.clear()
+    }
+
+    private func startDemoPolling() {
+        demoPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollDemoState()
+            }
+        }
+    }
+
+    private func pollDemoState() {
+        let kmpState = WheelConnectionManagerFactory.shared.getDemoState(provider: demoProvider)
+        let newWheelState = WheelStateWrapper(from: kmpState)
+        guard newWheelState != wheelState else { return }
+
+        wheelState = newWheelState
 
         // Feed telemetry buffer for chart view
         telemetryBuffer.addSampleIfNeeded(
             speedKmh: wheelState.speedKmh,
+            voltage: wheelState.voltage,
             current: wheelState.current,
             power: wheelState.power,
             temperature: wheelState.temperature,
@@ -226,46 +241,6 @@ class WheelManager: ObservableObject {
         )
         alarmManager.checkAlarms(values: values, settings: settings)
         activeAlarms = alarmManager.activeAlarms
-
-        // Write ride log sample
-        if isLogging {
-            let sampleData = RideLogger.SampleData(
-                speedKmh: wheelState.speedKmh,
-                voltage: wheelState.voltage,
-                current: wheelState.current,
-                power: wheelState.power,
-                pwm: wheelState.pwmPercent,
-                batteryLevel: wheelState.batteryLevel,
-                wheelDistanceKm: wheelState.wheelDistanceKm,
-                totalDistanceKm: wheelState.totalDistanceKm,
-                temperature: wheelState.temperature
-            )
-            rideLogger.writeSampleIfThrottled(
-                data: sampleData,
-                location: locationManager.currentLocation,
-                includeGPS: logGPS
-            )
-        }
-    }
-
-    // MARK: - Mock Mode
-
-    func startMockMode() {
-        isMockMode = true
-        connectionState = .connecting(address: "MOCK-DEVICE")
-
-        // Brief delay to simulate connection
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.mockDataProvider.start()
-        }
-    }
-
-    func stopMockMode() {
-        mockDataProvider.stop()
-        isMockMode = false
-        connectionState = .disconnected
-        wheelState = WheelStateWrapper()
-        telemetryBuffer.clear()
     }
 
     // MARK: - Test Data Injection
@@ -329,7 +304,7 @@ class WheelManager: ObservableObject {
     }
 
     private func pollState() {
-        guard !isMockMode else { return }  // Skip polling in mock mode
+        guard !isMockMode else { return }  // Demo mode uses its own polling timer
         guard let cm = connectionManager else { return }
 
         // In test mode, only poll wheel state (not connection state)
@@ -412,6 +387,7 @@ class WheelManager: ObservableObject {
         if connectionState.isConnected {
             telemetryBuffer.addSampleIfNeeded(
                 speedKmh: wheelState.speedKmh,
+                voltage: wheelState.voltage,
                 current: wheelState.current,
                 power: wheelState.power,
                 temperature: wheelState.temperature,

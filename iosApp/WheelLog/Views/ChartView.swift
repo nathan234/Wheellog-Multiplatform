@@ -10,6 +10,24 @@ struct TelemetryChartView: View {
     @State private var showTemperature = false
     @State private var selectedSample: TelemetrySample?
 
+    private let kmToMiles = 0.62137119223733
+
+    private func displaySpeed(_ kmh: Double) -> Double {
+        wheelManager.useMph ? kmh * kmToMiles : kmh
+    }
+
+    private var speedUnit: String {
+        wheelManager.useMph ? "mph" : "km/h"
+    }
+
+    private func displayTemp(_ celsius: Double) -> Double {
+        wheelManager.useFahrenheit ? celsius * 9.0 / 5.0 + 32 : celsius
+    }
+
+    private var tempUnit: String {
+        wheelManager.useFahrenheit ? "°F" : "°C"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -43,7 +61,7 @@ struct TelemetryChartView: View {
                             ForEach(wheelManager.telemetryBuffer.samples) { sample in
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
-                                    y: .value("Speed", sample.speed),
+                                    y: .value("Speed", displaySpeed(sample.speed)),
                                     series: .value("Series", "Speed")
                                 )
                                 .foregroundStyle(.blue)
@@ -73,7 +91,7 @@ struct TelemetryChartView: View {
                             ForEach(wheelManager.telemetryBuffer.samples) { sample in
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
-                                    y: .value("Temp", sample.temperature),
+                                    y: .value("Temp", displayTemp(sample.temperature)),
                                     series: .value("Series", "Temp")
                                 )
                                 .foregroundStyle(.red)
@@ -89,7 +107,7 @@ struct TelemetryChartView: View {
                                         if showSpeed {
                                             HStack(spacing: 4) {
                                                 Circle().fill(.blue).frame(width: 6, height: 6)
-                                                Text(String(format: "%.1f km/h", selected.speed))
+                                                Text(String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit))
                                             }
                                         }
                                         if showCurrent {
@@ -107,7 +125,7 @@ struct TelemetryChartView: View {
                                         if showTemperature {
                                             HStack(spacing: 4) {
                                                 Circle().fill(.red).frame(width: 6, height: 6)
-                                                Text(String(format: "%.0f°C", selected.temperature))
+                                                Text(String(format: "%.0f%@", displayTemp(selected.temperature), tempUnit))
                                             }
                                         }
                                         Text(selected.timestamp, format: .dateTime.hour().minute().second())

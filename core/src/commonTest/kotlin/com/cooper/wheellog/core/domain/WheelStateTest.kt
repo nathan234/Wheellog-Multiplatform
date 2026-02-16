@@ -733,13 +733,13 @@ class WheelStateTest {
     fun `InMotion V2 wheel state`() {
         val state = WheelState(
             wheelType = WheelType.INMOTION_V2,
-            model = "Inmotion V11",
+            model = "InMotion V11",
             version = "Main:1.1.64 Drv:3.4.8 BLE:1.1.13",
             serialNumber = "1480CA122207002B"
         )
 
         assertEquals(WheelType.INMOTION_V2, state.wheelType)
-        assertEquals("Inmotion V11", state.model)
+        assertEquals("InMotion V11", state.model)
     }
 
     @Test

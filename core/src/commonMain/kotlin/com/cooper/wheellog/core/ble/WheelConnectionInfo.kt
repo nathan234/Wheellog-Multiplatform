@@ -51,23 +51,23 @@ data class WheelConnectionInfo(
         /**
          * Create connection info for an InMotion V1 wheel.
          */
-        fun forInmotion(): WheelConnectionInfo = WheelConnectionInfo(
+        fun forInMotion(): WheelConnectionInfo = WheelConnectionInfo(
             wheelType = WheelType.INMOTION,
-            readServiceUuid = BleUuids.Inmotion.READ_SERVICE,
-            readCharacteristicUuid = BleUuids.Inmotion.READ_CHARACTERISTIC,
-            writeServiceUuid = BleUuids.Inmotion.WRITE_SERVICE,
-            writeCharacteristicUuid = BleUuids.Inmotion.WRITE_CHARACTERISTIC
+            readServiceUuid = BleUuids.InMotion.READ_SERVICE,
+            readCharacteristicUuid = BleUuids.InMotion.READ_CHARACTERISTIC,
+            writeServiceUuid = BleUuids.InMotion.WRITE_SERVICE,
+            writeCharacteristicUuid = BleUuids.InMotion.WRITE_CHARACTERISTIC
         )
 
         /**
          * Create connection info for an InMotion V2 wheel.
          */
-        fun forInmotionV2(): WheelConnectionInfo = WheelConnectionInfo(
+        fun forInMotionV2(): WheelConnectionInfo = WheelConnectionInfo(
             wheelType = WheelType.INMOTION_V2,
-            readServiceUuid = BleUuids.InmotionV2.SERVICE,
-            readCharacteristicUuid = BleUuids.InmotionV2.READ_CHARACTERISTIC,
-            writeServiceUuid = BleUuids.InmotionV2.SERVICE,
-            writeCharacteristicUuid = BleUuids.InmotionV2.WRITE_CHARACTERISTIC
+            readServiceUuid = BleUuids.InMotionV2.SERVICE,
+            readCharacteristicUuid = BleUuids.InMotionV2.READ_CHARACTERISTIC,
+            writeServiceUuid = BleUuids.InMotionV2.SERVICE,
+            writeCharacteristicUuid = BleUuids.InMotionV2.WRITE_CHARACTERISTIC
         )
 
         /**
@@ -100,8 +100,8 @@ data class WheelConnectionInfo(
             WheelType.GOTWAY -> forGotway()
             WheelType.GOTWAY_VIRTUAL -> forGotway()
             WheelType.VETERAN -> forVeteran()
-            WheelType.INMOTION -> forInmotion()
-            WheelType.INMOTION_V2 -> forInmotionV2()
+            WheelType.INMOTION -> forInMotion()
+            WheelType.INMOTION_V2 -> forInMotionV2()
             WheelType.NINEBOT -> forNinebot()
             WheelType.NINEBOT_Z -> forNinebotZ()
             WheelType.Unknown -> null

@@ -341,7 +341,7 @@ actual class BleManager {
     }
 
     /**
-     * Write data with chunking for protocols that need it (e.g., Inmotion V1).
+     * Write data with chunking for protocols that need it (e.g., InMotion V1).
      */
     suspend fun writeChunked(data: ByteArray, chunkSize: Int = 20, delayMs: Long = 20): Boolean {
         val peripheral = currentPeripheral ?: return false

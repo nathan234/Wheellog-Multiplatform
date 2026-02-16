@@ -26,7 +26,7 @@ assignees: ''
 <!-- e.g. Realme XS10. Android version: 10 -->
 
 ### EUC model
-<!-- e.g. Inmotion V12 -->
+<!-- e.g. InMotion V12 -->
 
 ### Workaround
 <!-- Did you find any workaround for this issue? This can unblock other people while waiting for this issue to be resolved -->

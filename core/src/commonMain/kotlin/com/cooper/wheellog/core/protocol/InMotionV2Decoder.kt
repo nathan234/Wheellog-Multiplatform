@@ -27,13 +27,13 @@ import kotlin.math.roundToInt
  *
  * This class is thread-safe.
  */
-class InmotionV2Decoder : WheelDecoder {
+class InMotionV2Decoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.INMOTION_V2
     override val keepAliveIntervalMs: Long = 25L
 
     private val stateLock = Lock()
-    private val unpacker = InmotionV2Unpacker()
+    private val unpacker = InMotionV2Unpacker()
     private var model = Model.UNKNOWN
     private var protoVer = 0
     private var serialNumber = ""
@@ -44,18 +44,18 @@ class InmotionV2Decoder : WheelDecoder {
      * InMotion V2 wheel models.
      */
     enum class Model(val id: Int, val displayName: String, val maxSpeed: Int, val cellCount: Int) {
-        V11(61, "Inmotion V11", 60, 20),
-        V11Y(62, "Inmotion V11y", 120, 20),
-        V12HS(71, "Inmotion V12 HS", 70, 24),
-        V12HT(72, "Inmotion V12 HT", 70, 24),
-        V12PRO(73, "Inmotion V12 PRO", 70, 24),
-        V13(81, "Inmotion V13", 120, 30),
-        V13PRO(82, "Inmotion V13 PRO", 120, 30),
-        V14g(91, "Inmotion V14 50GB", 120, 32),
-        V14s(92, "Inmotion V14 50S", 120, 32),
-        V12S(111, "Inmotion V12S", 120, 20),
-        V9(121, "Inmotion V9", 120, 20),
-        UNKNOWN(0, "Inmotion Unknown", 100, 20);
+        V11(61, "InMotion V11", 60, 20),
+        V11Y(62, "InMotion V11y", 120, 20),
+        V12HS(71, "InMotion V12 HS", 70, 24),
+        V12HT(72, "InMotion V12 HT", 70, 24),
+        V12PRO(73, "InMotion V12 PRO", 70, 24),
+        V13(81, "InMotion V13", 120, 30),
+        V13PRO(82, "InMotion V13 PRO", 120, 30),
+        V14g(91, "InMotion V14 50GB", 120, 32),
+        V14s(92, "InMotion V14 50S", 120, 32),
+        V12S(111, "InMotion V12S", 120, 20),
+        V9(121, "InMotion V9", 120, 20),
+        UNKNOWN(0, "InMotion Unknown", 100, 20);
 
         companion object {
             /**
@@ -1033,42 +1033,42 @@ class InmotionV2Decoder : WheelDecoder {
          * Create a message for requesting car type.
          */
         fun getCarTypeMessage(): ByteArray {
-            return InmotionV2Decoder().buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x01))
+            return InMotionV2Decoder().buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x01))
         }
 
         /**
          * Create a message for requesting serial number.
          */
         fun getSerialNumberMessage(): ByteArray {
-            return InmotionV2Decoder().buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x02))
+            return InMotionV2Decoder().buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x02))
         }
 
         /**
          * Create a message for requesting versions.
          */
         fun getVersionsMessage(): ByteArray {
-            return InmotionV2Decoder().buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x06))
+            return InMotionV2Decoder().buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x06))
         }
 
         /**
          * Create a message for requesting current settings.
          */
         fun getCurrentSettingsMessage(): ByteArray {
-            return InmotionV2Decoder().buildMessage(Flag.DEFAULT, Command.SETTINGS, byteArrayOf(0x20))
+            return InMotionV2Decoder().buildMessage(Flag.DEFAULT, Command.SETTINGS, byteArrayOf(0x20))
         }
 
         /**
          * Create a message for requesting real-time data.
          */
         fun getRealTimeDataMessage(): ByteArray {
-            return InmotionV2Decoder().buildMessage(Flag.DEFAULT, Command.REAL_TIME_INFO, byteArrayOf())
+            return InMotionV2Decoder().buildMessage(Flag.DEFAULT, Command.REAL_TIME_INFO, byteArrayOf())
         }
 
         /**
          * Create a message for requesting total stats.
          */
         fun getStatisticsMessage(): ByteArray {
-            return InmotionV2Decoder().buildMessage(Flag.DEFAULT, Command.TOTAL_STATS, byteArrayOf())
+            return InMotionV2Decoder().buildMessage(Flag.DEFAULT, Command.TOTAL_STATS, byteArrayOf())
         }
 
         /**
@@ -1076,7 +1076,7 @@ class InmotionV2Decoder : WheelDecoder {
          */
         fun setLightMessage(on: Boolean): ByteArray {
             val enable: Byte = if (on) 1 else 0
-            return InmotionV2Decoder().buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x50, enable))
+            return InMotionV2Decoder().buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x50, enable))
         }
 
         /**
@@ -1084,14 +1084,14 @@ class InmotionV2Decoder : WheelDecoder {
          */
         fun setLockMessage(locked: Boolean): ByteArray {
             val enable: Byte = if (locked) 1 else 0
-            return InmotionV2Decoder().buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x31, enable))
+            return InMotionV2Decoder().buildMessage(Flag.DEFAULT, Command.CONTROL, byteArrayOf(0x31, enable))
         }
 
         /**
          * Create a message to play a beep.
          */
         fun playBeepMessage(number: Int = 0x18): ByteArray {
-            return InmotionV2Decoder().buildMessage(
+            return InMotionV2Decoder().buildMessage(
                 Flag.DEFAULT,
                 Command.CONTROL,
                 byteArrayOf(0x51, (number and 0xFF).toByte(), 0x01)

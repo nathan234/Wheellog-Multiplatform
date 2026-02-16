@@ -426,49 +426,49 @@ class GotwayDecoderTest {
         assertEquals(62, r2.newState.batteryLevel)
     }
 
-    // ==================== InmotionV2 Model IDs ====================
+    // ==================== InMotionV2 Model IDs ====================
 
     @Test
     fun `inmotionV2 all model IDs resolve correctly`() {
         val expected = mapOf(
-            Pair(6, 1) to "Inmotion V11",
-            Pair(6, 2) to "Inmotion V11y",
-            Pair(7, 1) to "Inmotion V12 HS",
-            Pair(7, 2) to "Inmotion V12 HT",
-            Pair(7, 3) to "Inmotion V12 PRO",
-            Pair(8, 1) to "Inmotion V13",
-            Pair(8, 2) to "Inmotion V13 PRO",
-            Pair(9, 1) to "Inmotion V14 50GB",
-            Pair(9, 2) to "Inmotion V14 50S",
-            Pair(11, 1) to "Inmotion V12S",
-            Pair(12, 1) to "Inmotion V9"
+            Pair(6, 1) to "InMotion V11",
+            Pair(6, 2) to "InMotion V11y",
+            Pair(7, 1) to "InMotion V12 HS",
+            Pair(7, 2) to "InMotion V12 HT",
+            Pair(7, 3) to "InMotion V12 PRO",
+            Pair(8, 1) to "InMotion V13",
+            Pair(8, 2) to "InMotion V13 PRO",
+            Pair(9, 1) to "InMotion V14 50GB",
+            Pair(9, 2) to "InMotion V14 50S",
+            Pair(11, 1) to "InMotion V12S",
+            Pair(12, 1) to "InMotion V9"
         )
 
         for ((ids, name) in expected) {
-            val model = InmotionV2Decoder.Model.findById(ids.first, ids.second)
+            val model = InMotionV2Decoder.Model.findById(ids.first, ids.second)
             assertEquals(name, model.displayName, "Model for series=${ids.first}, type=${ids.second}")
         }
     }
 
     @Test
     fun `inmotionV2 cell counts are correct`() {
-        assertEquals(20, InmotionV2Decoder.Model.V11.cellCount)
-        assertEquals(20, InmotionV2Decoder.Model.V11Y.cellCount)
-        assertEquals(24, InmotionV2Decoder.Model.V12HS.cellCount)
-        assertEquals(24, InmotionV2Decoder.Model.V12HT.cellCount)
-        assertEquals(24, InmotionV2Decoder.Model.V12PRO.cellCount)
-        assertEquals(30, InmotionV2Decoder.Model.V13.cellCount)
-        assertEquals(30, InmotionV2Decoder.Model.V13PRO.cellCount)
-        assertEquals(32, InmotionV2Decoder.Model.V14g.cellCount)
-        assertEquals(32, InmotionV2Decoder.Model.V14s.cellCount)
-        assertEquals(20, InmotionV2Decoder.Model.V12S.cellCount)
-        assertEquals(20, InmotionV2Decoder.Model.V9.cellCount)
+        assertEquals(20, InMotionV2Decoder.Model.V11.cellCount)
+        assertEquals(20, InMotionV2Decoder.Model.V11Y.cellCount)
+        assertEquals(24, InMotionV2Decoder.Model.V12HS.cellCount)
+        assertEquals(24, InMotionV2Decoder.Model.V12HT.cellCount)
+        assertEquals(24, InMotionV2Decoder.Model.V12PRO.cellCount)
+        assertEquals(30, InMotionV2Decoder.Model.V13.cellCount)
+        assertEquals(30, InMotionV2Decoder.Model.V13PRO.cellCount)
+        assertEquals(32, InMotionV2Decoder.Model.V14g.cellCount)
+        assertEquals(32, InMotionV2Decoder.Model.V14s.cellCount)
+        assertEquals(20, InMotionV2Decoder.Model.V12S.cellCount)
+        assertEquals(20, InMotionV2Decoder.Model.V9.cellCount)
     }
 
     @Test
     fun `inmotionV2 unknown series returns UNKNOWN`() {
-        val model = InmotionV2Decoder.Model.findById(99, 1)
-        assertEquals(InmotionV2Decoder.Model.UNKNOWN, model)
+        val model = InMotionV2Decoder.Model.findById(99, 1)
+        assertEquals(InMotionV2Decoder.Model.UNKNOWN, model)
     }
 
     // ==================== Helpers ====================

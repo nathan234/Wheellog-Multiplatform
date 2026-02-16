@@ -14,7 +14,7 @@ package com.cooper.wheellog.core.protocol
  * Escape sequence: 0xA5 is used to escape special bytes (AA, 55, A5)
  * When 0xA5 is encountered, the next byte is taken as literal data.
  */
-class InmotionV2Unpacker {
+class InMotionV2Unpacker {
 
     private enum class State {
         UNKNOWN,

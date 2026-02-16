@@ -14,7 +14,7 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import org.koin.test.KoinTest
 
-class InmotionAdapterTest: KoinTest {
+class InMotionAdapterTest: KoinTest {
 
     private lateinit var adapter: InMotionAdapter
     private lateinit var data: WheelData
@@ -90,7 +90,7 @@ class InmotionAdapterTest: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isFalse()
         assertThat(data.serial).isEqualTo("1271285CBA76001B")
-        assertThat(data.model).isEqualTo("Inmotion V5F")
+        assertThat(data.model).isEqualTo("InMotion V5F")
         assertThat(data.version).isEqualTo("1.3.506")
 /*
         assertThat(data.wheelLight).isFalse()
@@ -170,7 +170,7 @@ class InmotionAdapterTest: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isFalse()
         assertThat(data.serial).isEqualTo("14604A5EBD9B000E")
-        assertThat(data.model).isEqualTo("Inmotion V8F")
+        assertThat(data.model).isEqualTo("InMotion V8F")
         assertThat(data.version).isEqualTo("2.2.21")
 //        assertThat(data.wheelLight).isFalse()
 //        assertThat(data.wheelLed).isTrue()
@@ -255,7 +255,7 @@ class InmotionAdapterTest: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isFalse()
         assertThat(data.serial).isEqualTo("14604A5EBD9B000E")
-        assertThat(data.model).isEqualTo("Inmotion V8F")
+        assertThat(data.model).isEqualTo("InMotion V8F")
         assertThat(data.version).isEqualTo("2.2.21")
 /*        assertThat(data.wheelLight).isFalse()
         assertThat(data.wheelLed).isTrue()
@@ -340,7 +340,7 @@ class InmotionAdapterTest: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isFalse()
         assertThat(data.serial).isEqualTo("1571AA5EBD460106")
-        assertThat(data.model).isEqualTo("Inmotion V8S")
+        assertThat(data.model).isEqualTo("InMotion V8S")
         assertThat(data.version).isEqualTo("102.2.21")
 /*        assertThat(data.wheelLight).isFalse()
         assertThat(data.wheelLed).isTrue()
@@ -394,7 +394,7 @@ class InmotionAdapterTest: KoinTest {
 
         // Assert.
         assertThat(result).isFalse()
-        assertThat(data.model).isEqualTo("Inmotion V8F")
+        assertThat(data.model).isEqualTo("InMotion V8F")
         assertThat(data.version).isEqualTo("2.2.21")
     }
 

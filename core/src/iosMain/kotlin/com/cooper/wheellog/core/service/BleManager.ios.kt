@@ -189,7 +189,7 @@ actual class BleManager {
     }
 
     /**
-     * Write data with chunking for protocols that need it (e.g., Inmotion V1).
+     * Write data with chunking for protocols that need it (e.g., InMotion V1).
      */
     suspend fun writeChunked(data: ByteArray, chunkSize: Int = 20, delayMs: Long = 20): Boolean {
         val peripheral = currentPeripheral ?: return false
@@ -554,12 +554,12 @@ actual class BleConnection(
  * Device Information, Battery, etc.) that add ~50-100ms each to discovery.
  */
 private fun wheelServiceUUIDs(): List<CBUUID> = listOf(
-    // Kingsong, Gotway/Veteran, Ninebot, Inmotion V1 read
+    // Kingsong, Gotway/Veteran, Ninebot, InMotion V1 read
     CBUUID.UUIDWithString(BleUuids.Kingsong.SERVICE),
-    // Inmotion V1 write
-    CBUUID.UUIDWithString(BleUuids.Inmotion.WRITE_SERVICE),
-    // Nordic UART — InmotionV2, NinebotZ
-    CBUUID.UUIDWithString(BleUuids.InmotionV2.SERVICE),
+    // InMotion V1 write
+    CBUUID.UUIDWithString(BleUuids.InMotion.WRITE_SERVICE),
+    // Nordic UART — InMotionV2, NinebotZ
+    CBUUID.UUIDWithString(BleUuids.InMotionV2.SERVICE),
 )
 
 // ==================== UUID Normalization ====================

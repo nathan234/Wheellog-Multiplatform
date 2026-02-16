@@ -44,12 +44,10 @@ Some decoders have a paired `*Unpacker` for low-level frame reassembly; others h
 | VeteranDecoder | — | Framing handled internally |
 | NinebotDecoder | NinebotUnpacker | |
 | NinebotZDecoder | — | Framing handled internally |
-| InmotionDecoder | InmotionUnpacker | |
-| InmotionV2Decoder | InmotionV2Unpacker | |
+| InMotionDecoder | InMotionUnpacker | |
+| InMotionV2Decoder | InMotionV2Unpacker | |
 
 Supporting files: `WheelDecoder.kt` (interface), `DefaultWheelDecoderFactory.kt` (creates decoder by wheel type), `AutoDetectDecoder.kt` (identifies wheel type from raw packets).
-
-**Naming note:** InMotion classes use lowercase-m (`InmotionDecoder`, not `InMotionDecoder`) throughout the codebase, even though the manufacturer's name is "InMotion". Search for `Inmotion` (lowercase m) when looking for these files.
 
 ## Decoder Mode (Android)
 

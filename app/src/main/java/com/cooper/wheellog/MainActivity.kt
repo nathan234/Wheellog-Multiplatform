@@ -402,12 +402,12 @@ class MainActivity : AppCompatActivity() {
                             when (WheelData.getInstance().wheelType) {
                                 WHEEL_TYPE.INMOTION -> {
                                     InMotionAdapter.newInstance()
-                                    InmotionAdapterV2.newInstance()
+                                    InMotionAdapterV2.newInstance()
                                     NinebotZAdapter.newInstance()
                                     NinebotAdapter.newInstance()
                                 }
                                 WHEEL_TYPE.INMOTION_V2 -> {
-                                    InmotionAdapterV2.newInstance()
+                                    InMotionAdapterV2.newInstance()
                                     NinebotZAdapter.newInstance()
                                     NinebotAdapter.newInstance()
                                 }

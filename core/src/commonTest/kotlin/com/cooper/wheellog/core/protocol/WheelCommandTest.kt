@@ -92,11 +92,11 @@ class WheelCommandTest {
         assertTrue(decoder.buildCommand(WheelCommand.Calibrate).isEmpty())
     }
 
-    // ==================== Inmotion V1 ====================
+    // ==================== InMotion V1 ====================
 
     @Test
-    fun `InmotionDecoder beep returns non-empty result`() {
-        val decoder = InmotionDecoder()
+    fun `InMotionDecoder beep returns non-empty result`() {
+        val decoder = InMotionDecoder()
         val commands = decoder.buildCommand(WheelCommand.Beep)
         assertEquals(1, commands.size)
         val cmd = commands[0] as WheelCommand.SendBytes
@@ -104,8 +104,8 @@ class WheelCommandTest {
     }
 
     @Test
-    fun `InmotionDecoder SetLight returns non-empty result`() {
-        val decoder = InmotionDecoder()
+    fun `InMotionDecoder SetLight returns non-empty result`() {
+        val decoder = InMotionDecoder()
         val commandsOn = decoder.buildCommand(WheelCommand.SetLight(true))
         assertEquals(1, commandsOn.size)
         assertTrue((commandsOn[0] as WheelCommand.SendBytes).data.isNotEmpty())
@@ -116,16 +116,16 @@ class WheelCommandTest {
     }
 
     @Test
-    fun `InmotionDecoder unsupported command returns empty list`() {
-        val decoder = InmotionDecoder()
+    fun `InMotionDecoder unsupported command returns empty list`() {
+        val decoder = InMotionDecoder()
         assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
     }
 
-    // ==================== Inmotion V2 ====================
+    // ==================== InMotion V2 ====================
 
     @Test
-    fun `InmotionV2Decoder beep returns non-empty result`() {
-        val decoder = InmotionV2Decoder()
+    fun `InMotionV2Decoder beep returns non-empty result`() {
+        val decoder = InMotionV2Decoder()
         val commands = decoder.buildCommand(WheelCommand.Beep)
         assertEquals(1, commands.size)
         val cmd = commands[0] as WheelCommand.SendBytes
@@ -133,8 +133,8 @@ class WheelCommandTest {
     }
 
     @Test
-    fun `InmotionV2Decoder SetLight returns non-empty result`() {
-        val decoder = InmotionV2Decoder()
+    fun `InMotionV2Decoder SetLight returns non-empty result`() {
+        val decoder = InMotionV2Decoder()
         val commandsOn = decoder.buildCommand(WheelCommand.SetLight(true))
         assertEquals(1, commandsOn.size)
         assertTrue((commandsOn[0] as WheelCommand.SendBytes).data.isNotEmpty())
@@ -145,8 +145,8 @@ class WheelCommandTest {
     }
 
     @Test
-    fun `InmotionV2Decoder unsupported command returns empty list`() {
-        val decoder = InmotionV2Decoder()
+    fun `InMotionV2Decoder unsupported command returns empty list`() {
+        val decoder = InMotionV2Decoder()
         assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
     }
 

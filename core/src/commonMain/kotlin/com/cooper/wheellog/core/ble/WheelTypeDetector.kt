@@ -8,8 +8,8 @@ import com.cooper.wheellog.core.domain.WheelType
  * The detection logic is based on unique service/characteristic combinations
  * that distinguish each manufacturer's protocol:
  *
- * - **Inmotion V1**: Has ffe0/ffe4 (read) AND ffe5/ffe9 (write) - separate services
- * - **Inmotion V2**: Has Nordic UART (6e400001) AND ffe0/ffe4 characteristics
+ * - **InMotion V1**: Has ffe0/ffe4 (read) AND ffe5/ffe9 (write) - separate services
+ * - **InMotion V2**: Has Nordic UART (6e400001) AND ffe0/ffe4 characteristics
  * - **Ninebot Z**: Has Nordic UART (6e400001) only (no ffe0)
  * - **Kingsong**: Has fff0 service OR ffe0/ffe1 with specific characteristics
  * - **Gotway/Veteran**: Has ffe0/ffe1 only (simplest profile)
@@ -73,40 +73,40 @@ class WheelTypeDetector {
         val nameResult = detectFromName(deviceName)
         if (nameResult != null) return nameResult
 
-        // Check for Nordic UART service (used by Inmotion V2 and Ninebot Z)
-        val hasNordicUart = services.hasService(BleUuids.InmotionV2.SERVICE)
+        // Check for Nordic UART service (used by InMotion V2 and Ninebot Z)
+        val hasNordicUart = services.hasService(BleUuids.InMotionV2.SERVICE)
 
         // Check for standard wheel service (ffe0)
         val hasStandardService = services.hasService(BleUuids.Gotway.SERVICE)
 
-        // Check for Inmotion-specific write service (ffe5)
-        val hasInmotionWriteService = services.hasService(BleUuids.Inmotion.WRITE_SERVICE)
+        // Check for InMotion-specific write service (ffe5)
+        val hasInMotionWriteService = services.hasService(BleUuids.InMotion.WRITE_SERVICE)
 
         // Check for specific characteristics
-        val hasInmotionReadChar = services.hasCharacteristic(
-            BleUuids.Inmotion.READ_SERVICE,
-            BleUuids.Inmotion.READ_CHARACTERISTIC
+        val hasInMotionReadChar = services.hasCharacteristic(
+            BleUuids.InMotion.READ_SERVICE,
+            BleUuids.InMotion.READ_CHARACTERISTIC
         )
-        val hasInmotionWriteChar = services.hasCharacteristic(
-            BleUuids.Inmotion.WRITE_SERVICE,
-            BleUuids.Inmotion.WRITE_CHARACTERISTIC
+        val hasInMotionWriteChar = services.hasCharacteristic(
+            BleUuids.InMotion.WRITE_SERVICE,
+            BleUuids.InMotion.WRITE_CHARACTERISTIC
         )
 
         return when {
-            // Inmotion V2: Has Nordic UART AND standard ffe0 with ffe4 characteristic
-            hasNordicUart && hasInmotionReadChar -> {
+            // InMotion V2: Has Nordic UART AND standard ffe0 with ffe4 characteristic
+            hasNordicUart && hasInMotionReadChar -> {
                 DetectionResult.Detected(
                     wheelType = WheelType.INMOTION_V2,
-                    readServiceUuid = BleUuids.InmotionV2.SERVICE,
-                    readCharacteristicUuid = BleUuids.InmotionV2.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.InmotionV2.SERVICE,
-                    writeCharacteristicUuid = BleUuids.InmotionV2.WRITE_CHARACTERISTIC,
+                    readServiceUuid = BleUuids.InMotionV2.SERVICE,
+                    readCharacteristicUuid = BleUuids.InMotionV2.READ_CHARACTERISTIC,
+                    writeServiceUuid = BleUuids.InMotionV2.SERVICE,
+                    writeCharacteristicUuid = BleUuids.InMotionV2.WRITE_CHARACTERISTIC,
                     confidence = Confidence.HIGH
                 )
             }
 
             // Ninebot Z: Has Nordic UART only (no ffe0 with ffe4)
-            hasNordicUart && !hasInmotionReadChar -> {
+            hasNordicUart && !hasInMotionReadChar -> {
                 DetectionResult.Detected(
                     wheelType = WheelType.NINEBOT_Z,
                     readServiceUuid = BleUuids.NinebotZ.SERVICE,
@@ -117,14 +117,14 @@ class WheelTypeDetector {
                 )
             }
 
-            // Inmotion V1: Has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
-            hasInmotionWriteService && hasInmotionWriteChar && hasInmotionReadChar -> {
+            // InMotion V1: Has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
+            hasInMotionWriteService && hasInMotionWriteChar && hasInMotionReadChar -> {
                 DetectionResult.Detected(
                     wheelType = WheelType.INMOTION,
-                    readServiceUuid = BleUuids.Inmotion.READ_SERVICE,
-                    readCharacteristicUuid = BleUuids.Inmotion.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.Inmotion.WRITE_SERVICE,
-                    writeCharacteristicUuid = BleUuids.Inmotion.WRITE_CHARACTERISTIC,
+                    readServiceUuid = BleUuids.InMotion.READ_SERVICE,
+                    readCharacteristicUuid = BleUuids.InMotion.READ_CHARACTERISTIC,
+                    writeServiceUuid = BleUuids.InMotion.WRITE_SERVICE,
+                    writeCharacteristicUuid = BleUuids.InMotion.WRITE_CHARACTERISTIC,
                     confidence = Confidence.HIGH
                 )
             }
@@ -258,17 +258,17 @@ class WheelTypeDetector {
             )
             WheelType.INMOTION -> WheelConnectionInfo(
                 wheelType = WheelType.INMOTION,
-                readServiceUuid = BleUuids.Inmotion.READ_SERVICE,
-                readCharacteristicUuid = BleUuids.Inmotion.READ_CHARACTERISTIC,
-                writeServiceUuid = BleUuids.Inmotion.WRITE_SERVICE,
-                writeCharacteristicUuid = BleUuids.Inmotion.WRITE_CHARACTERISTIC
+                readServiceUuid = BleUuids.InMotion.READ_SERVICE,
+                readCharacteristicUuid = BleUuids.InMotion.READ_CHARACTERISTIC,
+                writeServiceUuid = BleUuids.InMotion.WRITE_SERVICE,
+                writeCharacteristicUuid = BleUuids.InMotion.WRITE_CHARACTERISTIC
             )
             WheelType.INMOTION_V2 -> WheelConnectionInfo(
                 wheelType = WheelType.INMOTION_V2,
-                readServiceUuid = BleUuids.InmotionV2.SERVICE,
-                readCharacteristicUuid = BleUuids.InmotionV2.READ_CHARACTERISTIC,
-                writeServiceUuid = BleUuids.InmotionV2.SERVICE,
-                writeCharacteristicUuid = BleUuids.InmotionV2.WRITE_CHARACTERISTIC
+                readServiceUuid = BleUuids.InMotionV2.SERVICE,
+                readCharacteristicUuid = BleUuids.InMotionV2.READ_CHARACTERISTIC,
+                writeServiceUuid = BleUuids.InMotionV2.SERVICE,
+                writeCharacteristicUuid = BleUuids.InMotionV2.WRITE_CHARACTERISTIC
             )
             WheelType.NINEBOT -> WheelConnectionInfo(
                 wheelType = WheelType.NINEBOT,

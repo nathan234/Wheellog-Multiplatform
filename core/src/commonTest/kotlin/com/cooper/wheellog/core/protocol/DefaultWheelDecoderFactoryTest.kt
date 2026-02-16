@@ -66,20 +66,20 @@ class DefaultWheelDecoderFactoryTest {
     }
 
     @Test
-    fun `factory creates Inmotion V1 decoder`() {
+    fun `factory creates InMotion V1 decoder`() {
         val factory = DefaultWheelDecoderFactory()
         val decoder = factory.createDecoder(WheelType.INMOTION)
         assertNotNull(decoder)
-        assertTrue(decoder is InmotionDecoder)
+        assertTrue(decoder is InMotionDecoder)
         assertEquals(WheelType.INMOTION, decoder.wheelType)
     }
 
     @Test
-    fun `factory creates Inmotion V2 decoder`() {
+    fun `factory creates InMotion V2 decoder`() {
         val factory = DefaultWheelDecoderFactory()
         val decoder = factory.createDecoder(WheelType.INMOTION_V2)
         assertNotNull(decoder)
-        assertTrue(decoder is InmotionV2Decoder)
+        assertTrue(decoder is InMotionV2Decoder)
         assertEquals(WheelType.INMOTION_V2, decoder.wheelType)
     }
 

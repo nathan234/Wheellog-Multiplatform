@@ -17,11 +17,11 @@ class WheelTypeDetectorTest {
 
     private val detector = WheelTypeDetector()
 
-    // ==================== Inmotion V1 Detection ====================
+    // ==================== InMotion V1 Detection ====================
 
     @Test
-    fun `detect Inmotion V1 from unique service combination`() {
-        // Inmotion V1 has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
+    fun `detect InMotion V1 from unique service combination`() {
+        // InMotion V1 has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -40,18 +40,18 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.INMOTION, detected.wheelType)
-        assertEquals(BleUuids.Inmotion.READ_SERVICE, detected.readServiceUuid)
-        assertEquals(BleUuids.Inmotion.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
-        assertEquals(BleUuids.Inmotion.WRITE_SERVICE, detected.writeServiceUuid)
-        assertEquals(BleUuids.Inmotion.WRITE_CHARACTERISTIC, detected.writeCharacteristicUuid)
+        assertEquals(BleUuids.InMotion.READ_SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.InMotion.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+        assertEquals(BleUuids.InMotion.WRITE_SERVICE, detected.writeServiceUuid)
+        assertEquals(BleUuids.InMotion.WRITE_CHARACTERISTIC, detected.writeCharacteristicUuid)
         assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
     }
 
-    // ==================== Inmotion V2 Detection ====================
+    // ==================== InMotion V2 Detection ====================
 
     @Test
-    fun `detect Inmotion V2 with Nordic UART and ffe4 characteristic`() {
-        // Inmotion V2 has Nordic UART AND the ffe0/ffe4 combination
+    fun `detect InMotion V2 with Nordic UART and ffe4 characteristic`() {
+        // InMotion V2 has Nordic UART AND the ffe0/ffe4 combination
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -73,8 +73,8 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Detected)
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.INMOTION_V2, detected.wheelType)
-        assertEquals(BleUuids.InmotionV2.SERVICE, detected.readServiceUuid)
-        assertEquals(BleUuids.InmotionV2.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+        assertEquals(BleUuids.InMotionV2.SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.InMotionV2.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
         assertEquals(WheelTypeDetector.Confidence.HIGH, detected.confidence)
     }
 
@@ -463,25 +463,25 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `getUuidsForType returns correct info for Inmotion V1`() {
+    fun `getUuidsForType returns correct info for InMotion V1`() {
         val info = detector.getUuidsForType(WheelType.INMOTION)
 
         assertNotNull(info)
         assertEquals(WheelType.INMOTION, info.wheelType)
-        assertEquals(BleUuids.Inmotion.READ_SERVICE, info.readServiceUuid)
-        assertEquals(BleUuids.Inmotion.READ_CHARACTERISTIC, info.readCharacteristicUuid)
-        assertEquals(BleUuids.Inmotion.WRITE_SERVICE, info.writeServiceUuid)
-        assertEquals(BleUuids.Inmotion.WRITE_CHARACTERISTIC, info.writeCharacteristicUuid)
+        assertEquals(BleUuids.InMotion.READ_SERVICE, info.readServiceUuid)
+        assertEquals(BleUuids.InMotion.READ_CHARACTERISTIC, info.readCharacteristicUuid)
+        assertEquals(BleUuids.InMotion.WRITE_SERVICE, info.writeServiceUuid)
+        assertEquals(BleUuids.InMotion.WRITE_CHARACTERISTIC, info.writeCharacteristicUuid)
     }
 
     @Test
-    fun `getUuidsForType returns correct info for Inmotion V2`() {
+    fun `getUuidsForType returns correct info for InMotion V2`() {
         val info = detector.getUuidsForType(WheelType.INMOTION_V2)
 
         assertNotNull(info)
         assertEquals(WheelType.INMOTION_V2, info.wheelType)
-        assertEquals(BleUuids.InmotionV2.SERVICE, info.readServiceUuid)
-        assertEquals(BleUuids.InmotionV2.READ_CHARACTERISTIC, info.readCharacteristicUuid)
+        assertEquals(BleUuids.InMotionV2.SERVICE, info.readServiceUuid)
+        assertEquals(BleUuids.InMotionV2.READ_CHARACTERISTIC, info.readCharacteristicUuid)
     }
 
     @Test

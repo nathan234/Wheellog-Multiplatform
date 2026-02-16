@@ -8,15 +8,15 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Comparison tests verifying KMP InmotionDecoder produces identical results
+ * Comparison tests verifying KMP InMotionDecoder produces identical results
  * to the legacy InMotionAdapter using real packet data from legacy tests.
  *
  * These tests use the same hex packet data and expected values from
- * InmotionAdapterTest.kt to ensure byte-for-byte compatibility.
+ * InMotionAdapterTest.kt to ensure byte-for-byte compatibility.
  */
-class InmotionDecoderComparisonTest {
+class InMotionDecoderComparisonTest {
 
-    private val decoder = InmotionDecoder()
+    private val decoder = InMotionDecoder()
     private val defaultState = WheelState()
     private val defaultConfig = DecoderConfig()
 
@@ -32,7 +32,7 @@ class InmotionDecoderComparisonTest {
 
     @Test
     fun `decode V5F full data matches legacy`() {
-        // From InmotionAdapterTest: decode with v5f full data
+        // From InMotionAdapterTest: decode with v5f full data
         // Slow info packets (model/serial/version)
         val slowPackets = listOf(
             "AAAA1401A5550F7C000000B4720020FE0001001B",
@@ -65,7 +65,7 @@ class InmotionDecoderComparisonTest {
 
         // Verify slow info results (model/serial/version)
         assertEquals("1271285CBA76001B", state.serialNumber, "Serial should match legacy")
-        assertEquals("Inmotion V5F", state.model, "Model should match legacy")
+        assertEquals("InMotion V5F", state.model, "Model should match legacy")
         assertEquals("1.3.506", state.version, "Version should match legacy")
 
         // Feed fast info packets
@@ -99,7 +99,7 @@ class InmotionDecoderComparisonTest {
 
     @Test
     fun `decode V8F full data matches legacy`() {
-        // From InmotionAdapterTest: decode with v8f full data
+        // From InMotionAdapterTest: decode with v8f full data
         val slowPackets = listOf(
             "AAAA1401A5550F8500000000000000FE0201000E",
             "009BBD5E4A601400000000000000000000000000",
@@ -131,7 +131,7 @@ class InmotionDecoderComparisonTest {
         }
 
         assertEquals("14604A5EBD9B000E", state.serialNumber, "Serial should match legacy")
-        assertEquals("Inmotion V8F", state.model, "Model should match legacy")
+        assertEquals("InMotion V8F", state.model, "Model should match legacy")
         assertEquals("2.2.21", state.version, "Version should match legacy")
 
         var hasNewData = false
@@ -162,7 +162,7 @@ class InmotionDecoderComparisonTest {
 
     @Test
     fun `decode V8F full data 2 matches legacy`() {
-        // From InmotionAdapterTest: decode with v8f full data 2
+        // From InMotionAdapterTest: decode with v8f full data 2
         // Same slow packets as V8F test above
         val slowPackets = listOf(
             "AAAA1401A5550F8500000000000000FE0201000E",
@@ -195,7 +195,7 @@ class InmotionDecoderComparisonTest {
             if (result != null) state = result.newState
         }
 
-        assertEquals("Inmotion V8F", state.model, "Model should match legacy")
+        assertEquals("InMotion V8F", state.model, "Model should match legacy")
         assertEquals("2.2.21", state.version, "Version should match legacy")
 
         var hasNewData = false
@@ -227,7 +227,7 @@ class InmotionDecoderComparisonTest {
 
     @Test
     fun `decode V8S full data matches legacy`() {
-        // From InmotionAdapterTest: decode with v8s full data
+        // From InMotionAdapterTest: decode with v8s full data
         val slowPackets = listOf(
             "aaaa1401a5550f8500000000000000fe02010006",
             "0146bd5ea5aa7115000000000000000000000000",
@@ -259,7 +259,7 @@ class InmotionDecoderComparisonTest {
         }
 
         assertEquals("1571AA5EBD460106", state.serialNumber, "Serial should match legacy")
-        assertEquals("Inmotion V8S", state.model, "Model should match legacy")
+        assertEquals("InMotion V8S", state.model, "Model should match legacy")
         assertEquals("102.2.21", state.version, "Version should match legacy")
 
         var hasNewData = false
@@ -290,7 +290,7 @@ class InmotionDecoderComparisonTest {
 
     @Test
     fun `decode data with escaped checksum matches legacy`() {
-        // From InmotionAdapterTest: decode data with escaped checksum
+        // From InMotionAdapterTest: decode data with escaped checksum
         // The last byte A555 in the packet is an escaped 0x55 (0xA5 prefix)
         val packets = listOf(
             "aaaa1401a5550f8500000000000000fe02010001",
@@ -313,7 +313,7 @@ class InmotionDecoderComparisonTest {
 
         // Legacy test: only control packets (no telemetry), so result is false
         // but model and version should be extracted
-        assertEquals("Inmotion V8F", state.model, "Model should match legacy")
+        assertEquals("InMotion V8F", state.model, "Model should match legacy")
         assertEquals("2.2.21", state.version, "Version should match legacy")
     }
 }

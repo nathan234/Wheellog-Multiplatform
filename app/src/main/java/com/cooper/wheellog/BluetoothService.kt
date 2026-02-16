@@ -120,12 +120,12 @@ class BluetoothService: Service() {
                     when (WheelData.getInstance().wheelType) {
                         WHEEL_TYPE.INMOTION -> {
                             InMotionAdapter.stopTimer()
-                            InmotionAdapterV2.stopTimer()
+                            InMotionAdapterV2.stopTimer()
                             NinebotZAdapter.getInstance().resetConnection()
                             NinebotAdapter.getInstance().resetConnection()
                         }
                         WHEEL_TYPE.INMOTION_V2 -> {
-                            InmotionAdapterV2.stopTimer()
+                            InMotionAdapterV2.stopTimer()
                             NinebotZAdapter.getInstance().resetConnection()
                             NinebotAdapter.getInstance().resetConnection()
                         }

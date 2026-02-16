@@ -16,9 +16,9 @@ import java.util.Timer;
 import java.util.TimerTask;
 import timber.log.Timber;
 
-public class InmotionAdapterV2 extends BaseAdapter {
+public class InMotionAdapterV2 extends BaseAdapter {
     private final AppConfig appConfig = KoinJavaComponent.get(AppConfig.class);
-    private static InmotionAdapterV2 INSTANCE;
+    private static InMotionAdapterV2 INSTANCE;
     private Timer keepAliveTimer;
     private boolean settingCommandReady = false;
     private boolean requestSettings = false;
@@ -29,7 +29,7 @@ public class InmotionAdapterV2 extends BaseAdapter {
     private byte[] settingCommand;
     private static Model mModel = Model.UNKNOWN;
     private static int protoVer = 0;
-    InmotionUnpackerV2 unpacker = new InmotionUnpackerV2();
+    InMotionUnpackerV2 unpacker = new InMotionUnpackerV2();
 
     @Override
     public boolean decode(byte[] data) {
@@ -43,7 +43,7 @@ public class InmotionAdapterV2 extends BaseAdapter {
                         if (result.command == Message.Command.MainInfo.getValue()) {
                             return result.parseMainData();
                         } else if ((result.command == Message.Command.Diagnistic.getValue()) && turningOff) {
-                            settingCommand = InmotionAdapterV2.Message.wheelOffSecondStage().writeBuffer();
+                            settingCommand = InMotionAdapterV2.Message.wheelOffSecondStage().writeBuffer();
                             turningOff = false;
                             settingCommandReady = true;
                             return false;
@@ -105,18 +105,18 @@ public class InmotionAdapterV2 extends BaseAdapter {
 
 
     public enum Model {
-        V11(61,  "Inmotion V11"),
-        V11Y(62,  "Inmotion V11y"),
-        V12HS(71, "Inmotion V12 HS"),
-        V12HT(72, "Inmotion V12 HT"),
-        V12PRO(73, "Inmotion V12 PRO"),
-        V13(81, "Inmotion V13"),
-        V13PRO(82, "Inmotion V13 PRO"),
-        V14g(91, "Inmotion V14 50GB"),
-        V14s(92, "Inmotion V14 50S"),
-        V12S(111, "Inmotion V12S"),
-        V9(121, "Inmotion V9"),
-        UNKNOWN(0,"Inmotion Unknown");
+        V11(61,  "InMotion V11"),
+        V11Y(62,  "InMotion V11y"),
+        V12HS(71, "InMotion V12 HS"),
+        V12HT(72, "InMotion V12 HT"),
+        V12PRO(73, "InMotion V12 PRO"),
+        V13(81, "InMotion V13"),
+        V13PRO(82, "InMotion V13 PRO"),
+        V14g(91, "InMotion V14 50GB"),
+        V14s(92, "InMotion V14 50S"),
+        V12S(111, "InMotion V12S"),
+        V9(121, "InMotion V9"),
+        UNKNOWN(0,"InMotion Unknown");
 
 
         private final int value;
@@ -191,10 +191,10 @@ public class InmotionAdapterV2 extends BaseAdapter {
         return mModel;
     }
 
-    public static InmotionAdapterV2 getInstance() {
+    public static InMotionAdapterV2 getInstance() {
         if (INSTANCE == null) {
             Timber.i("New instance");
-            INSTANCE = new InmotionAdapterV2();
+            INSTANCE = new InMotionAdapterV2();
         }
         Timber.i("Get instance");
         return INSTANCE;
@@ -252,7 +252,7 @@ public class InmotionAdapterV2 extends BaseAdapter {
 
                     }
                     else  {
-                        if (WheelData.getInstance().bluetoothCmd(InmotionAdapterV2.Message.getRealTimeData().writeBuffer())) {
+                        if (WheelData.getInstance().bluetoothCmd(InMotionAdapterV2.Message.getRealTimeData().writeBuffer())) {
                             Timber.i("Sent realtime data message");
                             stateCon = 5;
                         } else updateStep = 35;
@@ -273,9 +273,9 @@ public class InmotionAdapterV2 extends BaseAdapter {
     @Override
     public void wheelBeep() {
         if (getModel() == Model.V13 || getModel() == Model.V13PRO || getModel() == Model.V14g || getModel() == Model.V14s || getModel() == Model.V11Y) {
-            settingCommand = InmotionAdapterV2.Message.playBeep(0x02).writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.playBeep(0x02).writeBuffer();
         } else {
-            settingCommand = InmotionAdapterV2.Message.playSound(0x18).writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.playSound(0x18).writeBuffer();
         }
         settingCommandReady = true;
     }
@@ -305,152 +305,152 @@ public class InmotionAdapterV2 extends BaseAdapter {
 
     @Override
     public void setLightState(final boolean lightEnable) {
-        settingCommand = InmotionAdapterV2.Message.setLight(lightEnable).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setLight(lightEnable).writeBuffer();
         settingCommandReady = true;
     }
 
 
     public void setAutoLight(final boolean autoLightEnable) {
-        settingCommand = InmotionAdapterV2.Message.setAutoLight(autoLightEnable).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setAutoLight(autoLightEnable).writeBuffer();
         settingCommandReady = true;
     }
 
 
     public void setSoundWave(final boolean soundWave) {
-        settingCommand = InmotionAdapterV2.Message.setSoundWave(soundWave).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setSoundWave(soundWave).writeBuffer();
         settingCommandReady = true;
     }
 
 
     public void setBeamState(final boolean lowBeamEnable, final boolean highBeamEnable) {
-        settingCommand = InmotionAdapterV2.Message.setLightV12(lowBeamEnable, highBeamEnable).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setLightV12(lowBeamEnable, highBeamEnable).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setHandleButtonState(final boolean handleButtonEnable) {
-        settingCommand = InmotionAdapterV2.Message.setHandleButton(handleButtonEnable).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setHandleButton(handleButtonEnable).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setRideMode(final boolean rideMode) {
-        settingCommand = InmotionAdapterV2.Message.setClassicMode(rideMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setClassicMode(rideMode).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setSpeakerVolume(final int speakerVolume) {
-        settingCommand = InmotionAdapterV2.Message.setVolume(speakerVolume).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setVolume(speakerVolume).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setPedalTilt(final int angle) {
-        settingCommand = InmotionAdapterV2.Message.setPedalTilt(angle).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setPedalTilt(angle).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setPedalSensivity(final int sensivity) {
-        settingCommand = InmotionAdapterV2.Message.setPedalSensivity(sensivity).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setPedalSensivity(sensivity).writeBuffer();
         settingCommandReady = true;
     }
 
     public void setStandbyDelay(final int delay) {
-        settingCommand = InmotionAdapterV2.Message.setStanbyDelay(delay).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setStanbyDelay(delay).writeBuffer();
         settingCommandReady = true;
     }
 
 
     public void setSplitModeConf(final int accel, final int breaksens) {
-        settingCommand = InmotionAdapterV2.Message.setSplitAccelBreak(accel, breaksens).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setSplitAccelBreak(accel, breaksens).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void wheelCalibration() {
         if (getInstance().getModel()==Model.V11 && protoVer < 2) {
-            settingCommand = InmotionAdapterV2.Message.wheelCalibration().writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.wheelCalibration().writeBuffer();
         } else {
-            settingCommand = InmotionAdapterV2.Message.wheelCalibrationTurn().writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.wheelCalibrationTurn().writeBuffer();
         }
         settingCommandReady = true;
     }
 
 
     public void wheelCalibrationBalance() {
-        settingCommand = InmotionAdapterV2.Message.wheelCalibrationBalance().writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.wheelCalibrationBalance().writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setLockMode(final boolean lockMode) {
-        settingCommand = InmotionAdapterV2.Message.setLock(lockMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setLock(lockMode).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setTransportMode(final boolean transportMode) {
-        settingCommand = InmotionAdapterV2.Message.setTransportMode(transportMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setTransportMode(transportMode).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setDrl(final boolean drl) {
-        settingCommand = InmotionAdapterV2.Message.setDrl(drl).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setDrl(drl).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setGoHomeMode(final boolean goHomeMode) {
-        settingCommand = InmotionAdapterV2.Message.setGoHome(goHomeMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setGoHome(goHomeMode).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setFancierMode(final boolean fancierMode) {
-        settingCommand = InmotionAdapterV2.Message.setFancierMode(fancierMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setFancierMode(fancierMode).writeBuffer();
         settingCommandReady = true;
     }
 
     public void setSplitMode(final boolean splitMode) {
-        settingCommand = InmotionAdapterV2.Message.setSplitMode(splitMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setSplitMode(splitMode).writeBuffer();
         settingCommandReady = true;
     }
 
     public void setBermAngleMode(final boolean bermAngleMode) {
-        settingCommand = InmotionAdapterV2.Message.setBermAngleMode(bermAngleMode).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setBermAngleMode(bermAngleMode).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setMute(final boolean mute) {
-        settingCommand = InmotionAdapterV2.Message.setMute(mute).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setMute(mute).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setFanQuiet(final boolean fanQuiet) {
-        settingCommand = InmotionAdapterV2.Message.setQuietMode(fanQuiet).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setQuietMode(fanQuiet).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setFan(final boolean fan) {
-        settingCommand = InmotionAdapterV2.Message.setFan(fan).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setFan(fan).writeBuffer();
         settingCommandReady = true;
     }
 
     @Override
     public void setLightBrightness(final int lightBrightness) {
-        settingCommand = InmotionAdapterV2.Message.setLightBrightness(lightBrightness).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setLightBrightness(lightBrightness).writeBuffer();
         settingCommandReady = true;
     }
 
 
     public void setBeamBrightness(final int lowBeamBrightness, final int highBeamBrightness) {
-        settingCommand = InmotionAdapterV2.Message.setLightBrightnessV12(lowBeamBrightness, highBeamBrightness).writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.setLightBrightnessV12(lowBeamBrightness, highBeamBrightness).writeBuffer();
         settingCommandReady = true;
     }
 
@@ -459,9 +459,9 @@ public class InmotionAdapterV2 extends BaseAdapter {
         if (getModel() == Model.V14g || getModel() == Model.V14s || getModel()== Model.V13 ||
                 getModel()== Model.V13PRO || getModel()== Model.V11Y || getModel()== Model.V9
                 || getModel()== Model.V12S) {
-            settingCommand = InmotionAdapterV2.Message.setMaxSpeedV14(maxSpeed, 0).writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.setMaxSpeedV14(maxSpeed, 0).writeBuffer();
         } else {
-            settingCommand = InmotionAdapterV2.Message.setMaxSpeed(maxSpeed).writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.setMaxSpeed(maxSpeed).writeBuffer();
         }
         settingCommandReady = true;
     }
@@ -469,19 +469,19 @@ public class InmotionAdapterV2 extends BaseAdapter {
 
     public void updateAlarmSpeed(final int alarm1Speed, final int alarm2Speed, final int maxSpeed) {
         if (getModel() == Model.V11 || getModel() == Model.V12HS || getModel() == Model.V12HT || getModel() == Model.V12PRO) {
-            settingCommand = InmotionAdapterV2.Message.setAlarmSpeedV12(alarm1Speed, alarm2Speed).writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.setAlarmSpeedV12(alarm1Speed, alarm2Speed).writeBuffer();
         } else if (getModel() == Model.V14g || getModel() == Model.V14s || getModel() == Model.V13 ||
                 getModel() == Model.V13PRO || getModel() == Model.V11Y || getModel() == Model.V9 || getModel()== Model.V12S) {
-            settingCommand = InmotionAdapterV2.Message.setMaxSpeedV14(maxSpeed, alarm1Speed).writeBuffer();
+            settingCommand = InMotionAdapterV2.Message.setMaxSpeedV14(maxSpeed, alarm1Speed).writeBuffer();
         } //else { //  not confirmed that such command exists at all
-            //settingCommand = InmotionAdapterV2.Message.setAlarmSpeed(alarm1Speed).writeBuffer();
+            //settingCommand = InMotionAdapterV2.Message.setAlarmSpeed(alarm1Speed).writeBuffer();
         //}
         settingCommandReady = true;
     }
 
     @Override
     public void powerOff() {
-        settingCommand = InmotionAdapterV2.Message.wheelOffFirstStage().writeBuffer();
+        settingCommand = InMotionAdapterV2.Message.wheelOffFirstStage().writeBuffer();
         turningOff = true;
         settingCommandReady = true;
     }
@@ -2403,7 +2403,7 @@ public class InmotionAdapterV2 extends BaseAdapter {
         }
     }
 	
-    static class InmotionUnpackerV2 {
+    static class InMotionUnpackerV2 {
 
         enum UnpackerState {
             unknown,
@@ -2513,7 +2513,7 @@ public class InmotionAdapterV2 extends BaseAdapter {
             INSTANCE.keepAliveTimer = null;
         }
         Timber.i("New instance");
-        INSTANCE = new InmotionAdapterV2();
+        INSTANCE = new InMotionAdapterV2();
     }
 
     public static synchronized void stopTimer() {

@@ -407,7 +407,7 @@ private fun inmotion(appConfig: AppConfig = koinInject()) {
 
 @Composable
 private fun inmotionV2(appConfig: AppConfig = koinInject()) {
-    val adapter by remember { mutableStateOf(InmotionAdapterV2.getInstance()) }
+    val adapter by remember { mutableStateOf(InMotionAdapterV2.getInstance()) }
     var splitModeEnabled by remember { mutableStateOf(appConfig.splitMode) }
     var speedMultipier = 1.0f
     var speedUnit = R.string.kmh
@@ -416,8 +416,8 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
         speedUnit = R.string.mph
     }
     // models with HighBeam/LowBeam, currently V12 family
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V12HS, InmotionAdapterV2.Model.V12HT,
-            InmotionAdapterV2.Model.V12PRO, InmotionAdapterV2.Model.V12S)){
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V12HS, InMotionAdapterV2.Model.V12HT,
+            InMotionAdapterV2.Model.V12PRO, InMotionAdapterV2.Model.V12S)){
         switchPref(
             name = stringResource(R.string.on_lowbeam_title),
             desc = stringResource(R.string.on_lowbeam_description),
@@ -483,7 +483,7 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
             adapter.setDrl(it)
         }
         // With brightness regulation, only v11 is applicable
-        if (adapter.model == InmotionAdapterV2.Model.V11) {
+        if (adapter.model == InMotionAdapterV2.Model.V11) {
             sliderPref(
                 name = stringResource(R.string.light_brightness_title),
                 desc = stringResource(R.string.light_brightness_description),
@@ -498,8 +498,8 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
         }
     }
     // auto light: V12 family, V13 (only from built-in screen)
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V12HS, InmotionAdapterV2.Model.V12HT,
-            InmotionAdapterV2.Model.V12PRO, InmotionAdapterV2.Model.V13, InmotionAdapterV2.Model.V13PRO)) {
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V12HS, InMotionAdapterV2.Model.V12HT,
+            InMotionAdapterV2.Model.V12PRO, InMotionAdapterV2.Model.V13, InMotionAdapterV2.Model.V13PRO)) {
         switchPref(
             name = stringResource(R.string.autolight_title),
             desc = stringResource(R.string.autolight_description),
@@ -510,7 +510,7 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
         }
     }
     //V11 only, V11y doesn't have Fan and Quiet mode
-    if (adapter.model == InmotionAdapterV2.Model.V11) {
+    if (adapter.model == InMotionAdapterV2.Model.V11) {
         switchPref(
             name = stringResource(R.string.fan_title),
             desc = stringResource(R.string.fan_description),
@@ -528,10 +528,10 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
             adapter.setFanQuiet(it)
         }
     }
-    // Inmotion V13 and V14 don't have handle button (kill-switch)
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V12HS, InmotionAdapterV2.Model.V12HT,
-            InmotionAdapterV2.Model.V12PRO, InmotionAdapterV2.Model.V11, InmotionAdapterV2.Model.V11Y,
-            InmotionAdapterV2.Model.V9, InmotionAdapterV2.Model.V12S)) {
+    // InMotion V13 and V14 don't have handle button (kill-switch)
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V12HS, InMotionAdapterV2.Model.V12HT,
+            InMotionAdapterV2.Model.V12PRO, InMotionAdapterV2.Model.V11, InMotionAdapterV2.Model.V11Y,
+            InMotionAdapterV2.Model.V9, InMotionAdapterV2.Model.V12S)) {
         switchPref(
             name = stringResource(R.string.disable_handle_button_title),
             desc = stringResource(R.string.disable_handle_button_description),
@@ -541,10 +541,10 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
             adapter.setHandleButtonState(it)
         }
     }
-    // Inmotion V11Y and V14 don't have speaker
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V12HS, InmotionAdapterV2.Model.V12HT,
-            InmotionAdapterV2.Model.V12PRO, InmotionAdapterV2.Model.V11, InmotionAdapterV2.Model.V13,
-            InmotionAdapterV2.Model.V13PRO, InmotionAdapterV2.Model.V9, InmotionAdapterV2.Model.V12S)) {
+    // InMotion V11Y and V14 don't have speaker
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V12HS, InMotionAdapterV2.Model.V12HT,
+            InMotionAdapterV2.Model.V12PRO, InMotionAdapterV2.Model.V11, InMotionAdapterV2.Model.V13,
+            InMotionAdapterV2.Model.V13PRO, InMotionAdapterV2.Model.V9, InMotionAdapterV2.Model.V12S)) {
         sliderPref(
             name = stringResource(R.string.speaker_volume_title),
             desc = stringResource(R.string.speaker_volume_description),
@@ -581,10 +581,10 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
     }
     // alarms: two on V12 family, 1 on V14, others don't have
     // temporally check it for V13 and V11y
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V12HS, InmotionAdapterV2.Model.V12HT,
-            InmotionAdapterV2.Model.V12PRO, InmotionAdapterV2.Model.V14s, InmotionAdapterV2.Model.V14g,
-            InmotionAdapterV2.Model.V13, InmotionAdapterV2.Model.V13PRO, InmotionAdapterV2.Model.V11Y,
-            InmotionAdapterV2.Model.V9, InmotionAdapterV2.Model.V12S)) {
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V12HS, InMotionAdapterV2.Model.V12HT,
+            InMotionAdapterV2.Model.V12PRO, InMotionAdapterV2.Model.V14s, InMotionAdapterV2.Model.V14g,
+            InMotionAdapterV2.Model.V13, InMotionAdapterV2.Model.V13PRO, InMotionAdapterV2.Model.V11Y,
+            InMotionAdapterV2.Model.V9, InMotionAdapterV2.Model.V12S)) {
         sliderPref(
             name = stringResource(R.string.wheel_alarm1_title),
             desc = stringResource(R.string.wheel_alarm1_description),
@@ -603,8 +603,8 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
         }
     }
     // two alarms only V12 family
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V12HS, InmotionAdapterV2.Model.V12HT,
-            InmotionAdapterV2.Model.V12PRO)) {
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V12HS, InMotionAdapterV2.Model.V12HT,
+            InMotionAdapterV2.Model.V12PRO)) {
        sliderPref(
             name = stringResource(R.string.wheel_alarm2_title),
             desc = stringResource(R.string.wheel_alarm2_description),
@@ -697,7 +697,7 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
         }
     }
     // Still exist for V11 and V11y, but different name and logic
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V11, InmotionAdapterV2.Model.V11Y)) {
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V11, InMotionAdapterV2.Model.V11Y)) {
         switchPref(
             name = stringResource(R.string.go_home_mode_title),
             desc = stringResource(R.string.go_home_mode_description),
@@ -708,8 +708,8 @@ private fun inmotionV2(appConfig: AppConfig = koinInject()) {
         }
     }
     // V13, V14, V12S applicable
-    if (adapter.model in setOf(InmotionAdapterV2.Model.V14g, InmotionAdapterV2.Model.V14s, InmotionAdapterV2.Model.V13, InmotionAdapterV2.Model.V13PRO,
-            InmotionAdapterV2.Model.V12S)) {
+    if (adapter.model in setOf(InMotionAdapterV2.Model.V14g, InMotionAdapterV2.Model.V14s, InMotionAdapterV2.Model.V13, InMotionAdapterV2.Model.V13PRO,
+            InMotionAdapterV2.Model.V12S)) {
         switchPref(
             name = stringResource(R.string.berm_angle_mode_title),
             desc = stringResource(R.string.berm_angle_mode_description),

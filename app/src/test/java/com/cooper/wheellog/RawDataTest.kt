@@ -82,7 +82,7 @@ class RawDataTest: KoinTest {
     }
 
     @Test
-    fun `Inmotion v5f - decode after connect`() {
+    fun `InMotion v5f - decode after connect`() {
         // Arrange.
         val adapter = InMotionAdapter()
         data.wheelType = Constants.WHEEL_TYPE.INMOTION
@@ -122,7 +122,7 @@ class RawDataTest: KoinTest {
     }
 
     @Test
-    fun `Inmotion - alerts`() {
+    fun `InMotion - alerts`() {
         // Arrange.
         val adapter = InMotionAdapter()
         data.wheelType = Constants.WHEEL_TYPE.INMOTION
@@ -150,7 +150,7 @@ class RawDataTest: KoinTest {
     }
 
     @Test
-    fun `Inmotion v8s - decode after connect`() {
+    fun `InMotion v8s - decode after connect`() {
         // Arrange.
         val adapter = InMotionAdapter()
         data.wheelType = Constants.WHEEL_TYPE.INMOTION
@@ -228,9 +228,9 @@ class RawDataTest: KoinTest {
 
 
     @Test
-    fun `Inmotion v11y`() {
+    fun `InMotion v11y`() {
         // Arrange.
-        val adapter = InmotionAdapterV2()
+        val adapter = InMotionAdapterV2()
         data.wheelType = Constants.WHEEL_TYPE.INMOTION_V2
         val inputStream: InputStream = File("src/test/resources/RAW1.csv").inputStream()
         val startTime = sdf.parse("00:14:24.310")
@@ -253,18 +253,18 @@ class RawDataTest: KoinTest {
         }
 
         // Assert.
-        assertThat(data.model).isEqualTo(InmotionAdapterV2.Model.V11Y.name)
+        assertThat(data.model).isEqualTo(InMotionAdapterV2.Model.V11Y.name)
         assertThat(data.batteryLevel).isEqualTo(96)
 
     }
 
 
     @Test
-    fun `Inmotion v14`() {
+    fun `InMotion v14`() {
         // Arrange.
-        val adapter = InmotionAdapterV2()
+        val adapter = InMotionAdapterV2()
         data.wheelType = Constants.WHEEL_TYPE.INMOTION_V2
-        adapter.model = InmotionAdapterV2.Model.V14
+        adapter.model = InMotionAdapterV2.Model.V14
         val inputStream: InputStream = File("src/test/resources/RAW.csv").inputStream()
         val startTime = sdf.parse("19:40:23.576")
 
@@ -286,7 +286,7 @@ class RawDataTest: KoinTest {
         }
 
         // Assert.
-        assertThat(data.model).isEqualTo(InmotionAdapterV2.Model.V14.name)
+        assertThat(data.model).isEqualTo(InMotionAdapterV2.Model.V14.name)
         assertThat(data.batteryLevel).isEqualTo(96)
 
     }

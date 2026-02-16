@@ -36,7 +36,7 @@ object BleUuids {
 
     // ==================== InMotion V1 ====================
 
-    object Inmotion {
+    object InMotion {
         const val READ_SERVICE = "0000ffe0$BLE_UUID_SUFFIX"
         const val READ_CHARACTERISTIC = "0000ffe4$BLE_UUID_SUFFIX"
         const val WRITE_SERVICE = "0000ffe5$BLE_UUID_SUFFIX"
@@ -46,7 +46,7 @@ object BleUuids {
 
     // ==================== InMotion V2 (Nordic UART) ====================
 
-    object InmotionV2 {
+    object InMotionV2 {
         const val SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
         const val WRITE_CHARACTERISTIC = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
         const val READ_CHARACTERISTIC = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"

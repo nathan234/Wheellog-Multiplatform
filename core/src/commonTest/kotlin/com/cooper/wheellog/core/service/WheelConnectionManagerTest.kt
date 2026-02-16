@@ -451,8 +451,8 @@ class WheelConnectionManagerTest {
     // ==================== Real World Scenarios ====================
 
     @Test
-    fun `simulated Inmotion V2 keep-alive pattern`() = runTest {
-        // Inmotion V2 requires 25ms keep-alive
+    fun `simulated InMotion V2 keep-alive pattern`() = runTest {
+        // InMotion V2 requires 25ms keep-alive
         val timer = KeepAliveTimer(this, UnconfinedTestDispatcher(testScheduler))
         var commandsSent = 0
 
@@ -492,7 +492,7 @@ class WheelConnectionManagerTest {
             "KS-S18", "KS-S22", "KS-16X",      // Kingsong
             "Sherman Max", "Abrams", "Patton",  // Veteran
             "Master", "Nikola+", "MCM5",        // Gotway/Begode
-            "V11", "V12", "V13"                 // Inmotion
+            "V11", "V12", "V13"                 // InMotion
         )
 
         for (name in wheelNames) {

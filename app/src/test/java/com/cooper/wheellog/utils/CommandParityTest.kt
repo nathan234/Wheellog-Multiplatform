@@ -29,14 +29,14 @@ class CommandParityTest {
     private lateinit var gotwayAdapter: GotwayAdapter
     private lateinit var veteranAdapter: VeteranAdapter
     private lateinit var inmotionAdapter: InMotionAdapter
-    private lateinit var inmotionV2Adapter: InmotionAdapterV2
+    private lateinit var inmotionV2Adapter: InMotionAdapterV2
 
     // KMP decoders
     private val kingsongDecoder = KingsongDecoder()
     private val gotwayDecoder = GotwayDecoder()
     private val veteranDecoder = VeteranDecoder()
-    private val inmotionDecoder = InmotionDecoder()
-    private val inmotionV2Decoder = InmotionV2Decoder()
+    private val inmotionDecoder = InMotionDecoder()
+    private val inmotionV2Decoder = InMotionV2Decoder()
 
     @Before
     fun setUp() {
@@ -64,7 +64,7 @@ class CommandParityTest {
         gotwayAdapter = GotwayAdapter()
         veteranAdapter = VeteranAdapter()
         inmotionAdapter = InMotionAdapter()
-        inmotionV2Adapter = InmotionAdapterV2()
+        inmotionV2Adapter = InMotionAdapterV2()
     }
 
     @After
@@ -462,51 +462,51 @@ class CommandParityTest {
     @Test
     fun `InMotionV2 wheelBeep matches KMP`() {
         // Legacy uses playSound(0x18) for newer wheels
-        val legacyBytes = InmotionAdapterV2.Message.playSound(0x18).writeBuffer()
+        val legacyBytes = InMotionAdapterV2.Message.playSound(0x18).writeBuffer()
         val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.Beep))
         assertThat(kmpBytes).isEqualTo(legacyBytes)
     }
 
     @Test
     fun `InMotionV2 setLight matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setLight(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setLight(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetLight(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
 
-        val legacyOff = InmotionAdapterV2.Message.setLight(false).writeBuffer()
+        val legacyOff = InMotionAdapterV2.Message.setLight(false).writeBuffer()
         val kmpOff = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetLight(false)))
         assertThat(kmpOff).isEqualTo(legacyOff)
     }
 
     @Test
     fun `InMotionV2 setLock matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setLock(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setLock(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetLock(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
 
-        val legacyOff = InmotionAdapterV2.Message.setLock(false).writeBuffer()
+        val legacyOff = InMotionAdapterV2.Message.setLock(false).writeBuffer()
         val kmpOff = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetLock(false)))
         assertThat(kmpOff).isEqualTo(legacyOff)
     }
 
     @Test
     fun `InMotionV2 setHandleButton matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setHandleButton(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setHandleButton(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetHandleButton(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
 
-        val legacyOff = InmotionAdapterV2.Message.setHandleButton(false).writeBuffer()
+        val legacyOff = InMotionAdapterV2.Message.setHandleButton(false).writeBuffer()
         val kmpOff = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetHandleButton(false)))
         assertThat(kmpOff).isEqualTo(legacyOff)
     }
 
     @Test
     fun `InMotionV2 setRideMode matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setClassicMode(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setClassicMode(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetRideMode(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
 
-        val legacyOff = InmotionAdapterV2.Message.setClassicMode(false).writeBuffer()
+        val legacyOff = InMotionAdapterV2.Message.setClassicMode(false).writeBuffer()
         val kmpOff = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetRideMode(false)))
         assertThat(kmpOff).isEqualTo(legacyOff)
     }
@@ -514,7 +514,7 @@ class CommandParityTest {
     @Test
     fun `InMotionV2 setSpeakerVolume matches KMP`() {
         for (vol in listOf(0, 5, 50, 100)) {
-            val legacyBytes = InmotionAdapterV2.Message.setVolume(vol).writeBuffer()
+            val legacyBytes = InMotionAdapterV2.Message.setVolume(vol).writeBuffer()
             val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetSpeakerVolume(vol)))
             assertThat(kmpBytes).isEqualTo(legacyBytes)
         }
@@ -522,57 +522,57 @@ class CommandParityTest {
 
     @Test
     fun `InMotionV2 setDrl matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setDrl(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setDrl(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetDrl(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
 
-        val legacyOff = InmotionAdapterV2.Message.setDrl(false).writeBuffer()
+        val legacyOff = InMotionAdapterV2.Message.setDrl(false).writeBuffer()
         val kmpOff = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetDrl(false)))
         assertThat(kmpOff).isEqualTo(legacyOff)
     }
 
     @Test
     fun `InMotionV2 setTransportMode matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setTransportMode(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setTransportMode(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetTransportMode(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
     }
 
     @Test
     fun `InMotionV2 setGoHomeMode matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setGoHome(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setGoHome(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetGoHomeMode(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
     }
 
     @Test
     fun `InMotionV2 setFancierMode matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setFancierMode(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setFancierMode(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetFancierMode(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
     }
 
     @Test
     fun `InMotionV2 setMute matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setMute(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setMute(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetMute(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
 
-        val legacyOff = InmotionAdapterV2.Message.setMute(false).writeBuffer()
+        val legacyOff = InMotionAdapterV2.Message.setMute(false).writeBuffer()
         val kmpOff = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetMute(false)))
         assertThat(kmpOff).isEqualTo(legacyOff)
     }
 
     @Test
     fun `InMotionV2 setFanQuiet matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setQuietMode(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setQuietMode(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetFanQuiet(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
     }
 
     @Test
     fun `InMotionV2 setFan matches KMP`() {
-        val legacyOn = InmotionAdapterV2.Message.setFan(true).writeBuffer()
+        val legacyOn = InMotionAdapterV2.Message.setFan(true).writeBuffer()
         val kmpOn = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetFan(true)))
         assertThat(kmpOn).isEqualTo(legacyOn)
     }
@@ -580,7 +580,7 @@ class CommandParityTest {
     @Test
     fun `InMotionV2 setLightBrightness matches KMP`() {
         for (brightness in listOf(0, 50, 100, 255)) {
-            val legacyBytes = InmotionAdapterV2.Message.setLightBrightness(brightness).writeBuffer()
+            val legacyBytes = InMotionAdapterV2.Message.setLightBrightness(brightness).writeBuffer()
             val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetLightBrightness(brightness)))
             assertThat(kmpBytes).isEqualTo(legacyBytes)
         }
@@ -588,14 +588,14 @@ class CommandParityTest {
 
     @Test
     fun `InMotionV2 powerOff matches KMP`() {
-        val legacyBytes = InmotionAdapterV2.Message.wheelOffFirstStage().writeBuffer()
+        val legacyBytes = InMotionAdapterV2.Message.wheelOffFirstStage().writeBuffer()
         val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.PowerOff))
         assertThat(kmpBytes).isEqualTo(legacyBytes)
     }
 
     @Test
     fun `InMotionV2 wheelCalibration matches KMP`() {
-        val legacyBytes = InmotionAdapterV2.Message.wheelCalibration().writeBuffer()
+        val legacyBytes = InMotionAdapterV2.Message.wheelCalibration().writeBuffer()
         val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.Calibrate))
         assertThat(kmpBytes).isEqualTo(legacyBytes)
     }
@@ -603,7 +603,7 @@ class CommandParityTest {
     @Test
     fun `InMotionV2 setPedalTilt matches KMP`() {
         for (angle in listOf(-30, 0, 15, 50)) {
-            val legacyBytes = InmotionAdapterV2.Message.setPedalTilt(angle).writeBuffer()
+            val legacyBytes = InMotionAdapterV2.Message.setPedalTilt(angle).writeBuffer()
             val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetPedalTilt(angle)))
             assertThat(kmpBytes).isEqualTo(legacyBytes)
         }
@@ -612,7 +612,7 @@ class CommandParityTest {
     @Test
     fun `InMotionV2 setPedalSensitivity matches KMP`() {
         for (sens in listOf(0, 3, 7, 10)) {
-            val legacyBytes = InmotionAdapterV2.Message.setPedalSensivity(sens).writeBuffer()
+            val legacyBytes = InMotionAdapterV2.Message.setPedalSensivity(sens).writeBuffer()
             val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetPedalSensitivity(sens)))
             assertThat(kmpBytes).isEqualTo(legacyBytes)
         }
@@ -621,7 +621,7 @@ class CommandParityTest {
     @Test
     fun `InMotionV2 setMaxSpeed matches KMP`() {
         for (speed in listOf(15, 25, 35, 45)) {
-            val legacyBytes = InmotionAdapterV2.Message.setMaxSpeed(speed).writeBuffer()
+            val legacyBytes = InMotionAdapterV2.Message.setMaxSpeed(speed).writeBuffer()
             val kmpBytes = firstSendBytes(inmotionV2Decoder.buildCommand(WheelCommand.SetMaxSpeed(speed)))
             assertThat(kmpBytes).isEqualTo(legacyBytes)
         }

@@ -10,15 +10,15 @@ import kotlinx.coroutines.flow.asStateFlow
  * Keep-alive timer for maintaining wheel connection.
  *
  * Different wheel protocols require periodic commands to:
- * 1. Request telemetry data (Inmotion, Ninebot)
+ * 1. Request telemetry data (InMotion, Ninebot)
  * 2. Maintain the BLE connection
  * 3. Detect disconnections (no data received timeout)
  *
  * Timer intervals by wheel type:
  * - Gotway/Veteran: N/A (wheel-initiated)
  * - Kingsong: N/A (wheel-initiated)
- * - Inmotion V1: 250ms
- * - Inmotion V2: 25ms
+ * - InMotion V1: 250ms
+ * - InMotion V2: 25ms
  * - Ninebot: 125ms
  * - Ninebot Z: 25ms
  */
@@ -191,7 +191,7 @@ class DataTimeoutTracker(
  * Command scheduler for handling delayed commands.
  *
  * Some protocols require commands to be sent with specific delays
- * (e.g., Inmotion V2 init sequence).
+ * (e.g., InMotion V2 init sequence).
  */
 class CommandScheduler(
     private val scope: CoroutineScope,

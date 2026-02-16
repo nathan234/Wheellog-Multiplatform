@@ -38,8 +38,8 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 | GotwayDecoder | GotwayUnpacker | ✅ | ✅ |
 | VeteranDecoder | (uses Gotway) | ✅ | ✅ |
 | KingsongDecoder | (inline) | ✅ | ✅ |
-| InmotionDecoder | InmotionUnpacker | ✅ | ✅ |
-| InmotionV2Decoder | InmotionV2Unpacker | ✅ | ✅ |
+| InMotionDecoder | InMotionUnpacker | ✅ | ✅ |
+| InMotionV2Decoder | InMotionV2Unpacker | ✅ | ✅ |
 | NinebotDecoder | NinebotUnpacker | ✅ | ✅ |
 | NinebotZDecoder | NinebotZUnpacker | ✅ | ✅ |
 | AutoDetectDecoder | (delegates) | ✅ | ✅ |
@@ -66,7 +66,7 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 ### 3.3 Android BLE Implementation ✅
 - [x] Implement BleManager.android.kt with blessed-android
 - [x] Bridge mode for existing BluetoothService (incremental migration)
-- [x] Characteristic read/write with chunking (20-byte for Inmotion)
+- [x] Characteristic read/write with chunking (20-byte for InMotion)
 - [x] MTU negotiation support
 - [x] WheelConnectionInfo for connection configuration
 - [ ] Integration tests (requires device)
@@ -77,7 +77,7 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 - [x] CBPeripheral handling with delegate callbacks
 - [x] Characteristic discovery and notification subscription
 - [x] ByteArray <-> NSData conversion utilities
-- [x] Chunked write support for Inmotion V1
+- [x] Chunked write support for InMotion V1
 - [ ] Real device testing (requires iOS app scaffold)
 
 ### 3.5 Keep-Alive Timer ✅
@@ -91,8 +91,8 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 |---------|---------------|
 | Gotway/Veteran | N/A (wheel-initiated) |
 | Kingsong | N/A (wheel-initiated) |
-| Inmotion V1 | 250 |
-| Inmotion V2 | 25 |
+| InMotion V1 | 250 |
+| InMotion V2 | 25 |
 | Ninebot | 125 |
 | Ninebot Z | 25 |
 
@@ -173,11 +173,11 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 ### Common (0000xxxx-0000-1000-8000-00805f9b34fb)
 - `ffe0` - Primary service for most wheels
 - `ffe1` - Read/Write characteristic (KS, Gotway, Ninebot)
-- `ffe4` - Inmotion read
-- `ffe5` - Inmotion write service
-- `ffe9` - Inmotion write characteristic
+- `ffe4` - InMotion read
+- `ffe5` - InMotion write service
+- `ffe9` - InMotion write characteristic
 
-### Nordic UART (Inmotion V2, Ninebot Z)
+### Nordic UART (InMotion V2, Ninebot Z)
 - Service: `6e400001-b5a3-f393-e0a9-e50e24dcca9e`
 - Write:   `6e400002-b5a3-f393-e0a9-e50e24dcca9e`
 - Read:    `6e400003-b5a3-f393-e0a9-e50e24dcca9e`
@@ -208,7 +208,7 @@ This document tracks the migration of WheelLog's core functionality to Kotlin Mu
 
 **Recent Commits**:
 - `84e2aac` Add keep-alive timer and complete WheelConnectionManager
-- `0966f78` Add Inmotion and Ninebot decoders to KMP core module
+- `0966f78` Add InMotion and Ninebot decoders to KMP core module
 - `b21ba88` Add decoder verification tests for KMP core module
 - `3c4f1ea` Add Kotlin Multiplatform core module for iOS support
 

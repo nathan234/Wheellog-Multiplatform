@@ -14,8 +14,8 @@ class DefaultWheelDecoderFactory : WheelDecoderFactory {
             WheelType.KINGSONG -> KingsongDecoder()
             WheelType.NINEBOT -> NinebotDecoder()
             WheelType.NINEBOT_Z -> NinebotZDecoder()
-            WheelType.INMOTION -> InmotionDecoder()
-            WheelType.INMOTION_V2 -> InmotionV2Decoder()
+            WheelType.INMOTION -> InMotionDecoder()
+            WheelType.INMOTION_V2 -> InMotionV2Decoder()
             else -> null
         }
     }

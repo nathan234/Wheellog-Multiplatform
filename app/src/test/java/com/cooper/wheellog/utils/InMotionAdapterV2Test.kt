@@ -14,9 +14,9 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import org.koin.test.KoinTest
 
-class InmotionAdapterV2Test: KoinTest {
+class InMotionAdapterV2Test: KoinTest {
 
-    private lateinit var adapter: InmotionAdapterV2
+    private lateinit var adapter: InMotionAdapterV2
     private lateinit var data: WheelData
     private val appConfig = mockkClass(AppConfig::class, relaxed = true)
     private val mockContext = mockk<Context>(relaxed = true)
@@ -31,7 +31,7 @@ class InmotionAdapterV2Test: KoinTest {
                 }
             )
         }
-        adapter = InmotionAdapterV2()
+        adapter = InMotionAdapterV2()
         data = spyk(WheelData())
         mockkStatic(WheelData::class)
         every { WheelData.getInstance() } returns data
@@ -74,7 +74,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result6).isFalse()
         assertThat(result7).isTrue()
         assertThat(data.serial).isEqualTo("1480CA122207002B")
-        assertThat(data.model).isEqualTo("Inmotion V11")
+        assertThat(data.model).isEqualTo("InMotion V11")
         assertThat(data.version).isEqualTo("Main:1.1.64 Drv:3.4.8 BLE:1.1.13")
 
 
@@ -101,7 +101,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode with v11 escape data`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V11)
+        adapter.setModel(InMotionAdapterV2.Model.V11)
         val byteArray1 = "aaaa1431843020a5a50068025207870080009400882c5fc4b000d7001000f4ff2b037c1564190000d9d9492b00000000000000000000a5a5".hexToByteArray() // wheel type
         // Act.
         val result1 = adapter.decode(byteArray1)
@@ -128,7 +128,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode v11 new fw with PWM`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V11)
+        adapter.setModel(InMotionAdapterV2.Model.V11)
         adapter.setProto(1)
         val byteArray1 = "aaaa143384411f8e03a5a506e90bd80242021600122a5acbb000cc002a0000000bfd7c1564190000d4d1ff09490a0000000000000000000010".hexToByteArray() // wheel type
         // Act.
@@ -156,7 +156,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode with v11 escape data2`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V11)
+        adapter.setModel(InMotionAdapterV2.Model.V11)
         adapter.setProto(1)
         val byteArray1 = "aaaa143184a5aa1e8100640b1301650059001504a0234cc0b000ce00180000007c007c1564190000d1d3492b00000000000000000000a5a5".hexToByteArray() // wheel type
         // Act.
@@ -184,7 +184,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode with v11 v1_4_0`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V11)
+        adapter.setModel(InMotionAdapterV2.Model.V11)
         adapter.setProto(2)
         val byteArray1 = "aaaa1445842d1d10000000efff070000000000000000002b0300000000000000008a149612e02e8813641900000000cbb000cccad1000028000000000049140000000000000000000021".hexToByteArray() // wheel type
         // Act.
@@ -212,7 +212,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode version with v11 v1_4_0`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V11)
+        adapter.setModel(InMotionAdapterV2.Model.V11)
         val byteArray1 = "aaaa111d820622000003040300070221000004011a000602230d00010107000001b9".hexToByteArray() // wheel type
         // Act.
         val result1 = adapter.decode(byteArray1)
@@ -224,7 +224,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode version with v12`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V11)
+        adapter.setModel(InMotionAdapterV2.Model.V11)
         val byteArray1 = "aaaa111d820622790002042000060221040005017d000602233700010203000402bb".hexToByteArray() // wheel type
         // Act.
         val result1 = adapter.decode(byteArray1)
@@ -259,7 +259,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result6).isFalse()
         assertThat(result7).isTrue()
         assertThat(data.serial).isEqualTo("A031155130009730")
-        assertThat(data.model).isEqualTo("Inmotion V12 HS")
+        assertThat(data.model).isEqualTo("InMotion V12 HS")
         assertThat(data.version).isEqualTo("Main:1.4.24 Drv:4.2.112 BLE:2.1.36")
 
 
@@ -307,7 +307,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result6).isFalse()
         assertThat(result7).isTrue()
         assertThat(data.serial).isEqualTo("A031155130009730")
-        assertThat(data.model).isEqualTo("Inmotion V12 HS")
+        assertThat(data.model).isEqualTo("InMotion V12 HS")
         assertThat(data.version).isEqualTo("Main:1.4.24 Drv:4.2.112 BLE:2.1.36")
 
 
@@ -333,7 +333,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode with v12 data 3`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V12HS)
+        adapter.setModel(InMotionAdapterV2.Model.V12HS)
         val byteArray1 = "aaaa14438415273500930496014b0535003a0000008d000000fdfe010010271c255046581b581b000000000000ceca00cfd1d0b08d646400000000490000000000000000000000bc".hexToByteArray() // wheel type
         // Act.
         val result1 = adapter.decode(byteArray1)
@@ -361,7 +361,7 @@ class InmotionAdapterV2Test: KoinTest {
     @Test
     fun `decode with v12 data 4`() {
         // Arrange.
-        adapter.setModel(InmotionAdapterV2.Model.V12HS)
+        adapter.setModel(InMotionAdapterV2.Model.V12HS)
         val byteArray1 = "aaaa1443842627090000000000060000000000000000000000b3fd000010271c255046581b581b000000000000ceca00ced0cfb048282800000000490000000000000000000000ef".hexToByteArray() // wheel type
         // Act.
         val result1 = adapter.decode(byteArray1)
@@ -414,7 +414,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isTrue()
         assertThat(data.serial).isEqualTo("A031183150013824")
-        assertThat(data.model).isEqualTo("Inmotion V12 PRO")
+        assertThat(data.model).isEqualTo("InMotion V12 PRO")
         assertThat(data.version).isEqualTo("Main:1.7.16 Drv:6.5.18 BLE:2.1.66")
 
 
@@ -463,7 +463,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result6).isFalse()
         assertThat(result7).isTrue()
         assertThat(data.serial).isEqualTo("A03116B180001046")
-        assertThat(data.model).isEqualTo("Inmotion V13")
+        assertThat(data.model).isEqualTo("InMotion V13")
         assertThat(data.version).isEqualTo("Main:2.0.21 Drv:5.0.58 BLE:2.2.10")
 
 
@@ -512,7 +512,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result6).isFalse()
         assertThat(result7).isTrue()
         assertThat(data.serial).isEqualTo("A03217C0B001122E")
-        assertThat(data.model).isEqualTo("Inmotion V14 50S")
+        assertThat(data.model).isEqualTo("InMotion V14 50S")
         assertThat(data.version).isEqualTo("Main:3.0.40 Drv:5.6.60 BLE:2.0.1")
 
 
@@ -658,7 +658,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isTrue()
         assertThat(data.serial).isEqualTo("A0321810D0010019")
-        assertThat(data.model).isEqualTo("Inmotion V11y")
+        assertThat(data.model).isEqualTo("InMotion V11y")
         assertThat(data.version).isEqualTo("Main:2.5.52 Drv:6.3.8 BLE:1.3.3")
 
 
@@ -710,7 +710,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isTrue()
         assertThat(data.serial).isEqualTo("A1421950A000465F")
-        assertThat(data.model).isEqualTo("Inmotion V9")
+        assertThat(data.model).isEqualTo("InMotion V9")
         assertThat(data.version).isEqualTo("Main:1.8.38 Drv:7.4.40 BLE:1.4.10")
 
 
@@ -761,7 +761,7 @@ class InmotionAdapterV2Test: KoinTest {
         assertThat(result7).isFalse()
         assertThat(result8).isTrue()
         assertThat(data.serial).isEqualTo("A14219407003359C")
-        assertThat(data.model).isEqualTo("Inmotion V12S")
+        assertThat(data.model).isEqualTo("InMotion V12S")
         assertThat(data.version).isEqualTo("Main:1.8.56 Drv:6.17.14 BLE:1.3.42")
 
 
@@ -787,9 +787,9 @@ class InmotionAdapterV2Test: KoinTest {
 
     /*
         @Test
-        fun `Inmotion v12 - decode long trip`() {
+        fun `InMotion v12 - decode long trip`() {
             // Arrange.
-            adapter.setModel(InmotionAdapterV2.Model.V11)
+            adapter.setModel(InMotionAdapterV2.Model.V11)
             val inputStream: InputStream = File("src/test/resources/RAW_2021_11_29_09_14_06.csv").inputStream()
             //val startTime = sdf.parse("09:30:10.000")
             val startTime = sdf.parse("09:00:00.000")

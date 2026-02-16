@@ -25,18 +25,18 @@ class BleUuidsTest {
     }
 
     @Test
-    fun `Inmotion V1 UUIDs are correct`() {
-        assertEquals("0000ffe0-0000-1000-8000-00805f9b34fb", BleUuids.Inmotion.READ_SERVICE)
-        assertEquals("0000ffe4-0000-1000-8000-00805f9b34fb", BleUuids.Inmotion.READ_CHARACTERISTIC)
-        assertEquals("0000ffe5-0000-1000-8000-00805f9b34fb", BleUuids.Inmotion.WRITE_SERVICE)
-        assertEquals("0000ffe9-0000-1000-8000-00805f9b34fb", BleUuids.Inmotion.WRITE_CHARACTERISTIC)
+    fun `InMotion V1 UUIDs are correct`() {
+        assertEquals("0000ffe0-0000-1000-8000-00805f9b34fb", BleUuids.InMotion.READ_SERVICE)
+        assertEquals("0000ffe4-0000-1000-8000-00805f9b34fb", BleUuids.InMotion.READ_CHARACTERISTIC)
+        assertEquals("0000ffe5-0000-1000-8000-00805f9b34fb", BleUuids.InMotion.WRITE_SERVICE)
+        assertEquals("0000ffe9-0000-1000-8000-00805f9b34fb", BleUuids.InMotion.WRITE_CHARACTERISTIC)
     }
 
     @Test
-    fun `Inmotion V2 UUIDs use Nordic UART`() {
-        assertEquals("6e400001-b5a3-f393-e0a9-e50e24dcca9e", BleUuids.InmotionV2.SERVICE)
-        assertEquals("6e400002-b5a3-f393-e0a9-e50e24dcca9e", BleUuids.InmotionV2.WRITE_CHARACTERISTIC)
-        assertEquals("6e400003-b5a3-f393-e0a9-e50e24dcca9e", BleUuids.InmotionV2.READ_CHARACTERISTIC)
+    fun `InMotion V2 UUIDs use Nordic UART`() {
+        assertEquals("6e400001-b5a3-f393-e0a9-e50e24dcca9e", BleUuids.InMotionV2.SERVICE)
+        assertEquals("6e400002-b5a3-f393-e0a9-e50e24dcca9e", BleUuids.InMotionV2.WRITE_CHARACTERISTIC)
+        assertEquals("6e400003-b5a3-f393-e0a9-e50e24dcca9e", BleUuids.InMotionV2.READ_CHARACTERISTIC)
     }
 
     @Test
@@ -47,10 +47,10 @@ class BleUuidsTest {
     }
 
     @Test
-    fun `Inmotion V2 and Ninebot Z share same Nordic UART service`() {
-        assertEquals(BleUuids.InmotionV2.SERVICE, BleUuids.NinebotZ.SERVICE)
-        assertEquals(BleUuids.InmotionV2.READ_CHARACTERISTIC, BleUuids.NinebotZ.READ_CHARACTERISTIC)
-        assertEquals(BleUuids.InmotionV2.WRITE_CHARACTERISTIC, BleUuids.NinebotZ.WRITE_CHARACTERISTIC)
+    fun `InMotion V2 and Ninebot Z share same Nordic UART service`() {
+        assertEquals(BleUuids.InMotionV2.SERVICE, BleUuids.NinebotZ.SERVICE)
+        assertEquals(BleUuids.InMotionV2.READ_CHARACTERISTIC, BleUuids.NinebotZ.READ_CHARACTERISTIC)
+        assertEquals(BleUuids.InMotionV2.WRITE_CHARACTERISTIC, BleUuids.NinebotZ.WRITE_CHARACTERISTIC)
     }
 
     @Test
@@ -76,7 +76,7 @@ class BleUuidsTest {
     fun `client characteristic config descriptor is correct`() {
         assertEquals("00002902-0000-1000-8000-00805f9b34fb", BleUuids.CLIENT_CHARACTERISTIC_CONFIG)
         assertEquals(BleUuids.CLIENT_CHARACTERISTIC_CONFIG, BleUuids.Kingsong.DESCRIPTOR)
-        assertEquals(BleUuids.CLIENT_CHARACTERISTIC_CONFIG, BleUuids.Inmotion.DESCRIPTOR)
+        assertEquals(BleUuids.CLIENT_CHARACTERISTIC_CONFIG, BleUuids.InMotion.DESCRIPTOR)
     }
 }
 
@@ -157,8 +157,8 @@ class CoreBluetoothUuidExpansionTest {
             )
         )
 
-        assertTrue(services.hasService(BleUuids.InmotionV2.SERVICE))
-        assertTrue(services.hasCharacteristic(BleUuids.InmotionV2.SERVICE, BleUuids.InmotionV2.READ_CHARACTERISTIC))
+        assertTrue(services.hasService(BleUuids.InMotionV2.SERVICE))
+        assertTrue(services.hasCharacteristic(BleUuids.InMotionV2.SERVICE, BleUuids.InMotionV2.READ_CHARACTERISTIC))
     }
 
     @Test

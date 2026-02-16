@@ -616,73 +616,73 @@ public class InMotionAdapter extends BaseAdapter {
     public static String getModelString(Model model) {
         switch (model.getValue()) {
             case "0":
-                return "Inmotion R1N";
+                return "InMotion R1N";
             case "1":
-                return "Inmotion R1S";
+                return "InMotion R1S";
             case "2":
-                return "Inmotion R1CF";
+                return "InMotion R1CF";
             case "3":
-                return "Inmotion R1AP";
+                return "InMotion R1AP";
             case "4":
-                return "Inmotion R1EX";
+                return "InMotion R1EX";
             case "5":
-                return "Inmotion R1Sample";
+                return "InMotion R1Sample";
             case "6":
-                return "Inmotion R1T";
+                return "InMotion R1T";
             case "7":
-                return "Inmotion R10";
+                return "InMotion R10";
             case "10":
-                return "Inmotion V3";
+                return "InMotion V3";
             case "11":
-                return "Inmotion V3C";
+                return "InMotion V3C";
             case "12":
-                return "Inmotion V3PRO";
+                return "InMotion V3PRO";
             case "13":
-                return "Inmotion V3S";
+                return "InMotion V3S";
             case "21":
-                return "Inmotion R2N";
+                return "InMotion R2N";
             case "22":
-                return "Inmotion R2S";
+                return "InMotion R2S";
             case "23":
-                return "Inmotion R2Sample";
+                return "InMotion R2Sample";
             case "20":
-                return "Inmotion R2";
+                return "InMotion R2";
             case "24":
-                return "Inmotion R2EX";
+                return "InMotion R2EX";
             case "30":
-                return "Inmotion R0";
+                return "InMotion R0";
             case "60":
-                return "Inmotion L6";
+                return "InMotion L6";
             case "61":
-                return "Inmotion Lively";
+                return "InMotion Lively";
             case "50":
-                return "Inmotion V5";
+                return "InMotion V5";
             case "51":
-                return "Inmotion V5PLUS";
+                return "InMotion V5PLUS";
             case "52":
-                return "Inmotion V5F";
+                return "InMotion V5F";
             case "53":
-                return "Inmotion V5D";
+                return "InMotion V5D";
             case "80":
-                return "Inmotion V8";
+                return "InMotion V8";
             case "85":
                 return "Solowheel Glide 3";
             case "86":
-                return "Inmotion V8F";
+                return "InMotion V8F";
             case "87":
-                return "Inmotion V8S";
+                return "InMotion V8S";
             case "100":
-                return "Inmotion V10S";
+                return "InMotion V10S";
             case "101":
-                return "Inmotion V10SF";
+                return "InMotion V10SF";
             case "140":
-                return "Inmotion V10";
+                return "InMotion V10";
             case "141":
-                return "Inmotion V10F";
+                return "InMotion V10F";
             case "142":
-                return "Inmotion V10T";
+                return "InMotion V10T";
             case "143":
-                return "Inmotion V10FT";
+                return "InMotion V10FT";
             default:
                 return "Unknown";
         }

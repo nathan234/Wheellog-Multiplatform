@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Tests for InmotionV2Decoder using real packet data from legacy InmotionAdapterV2Test.
+ * Tests for InMotionV2Decoder using real packet data from legacy InMotionAdapterV2Test.
  *
  * Covers all supported models:
  * - V11 (series 6, type 1)
@@ -26,9 +26,9 @@ import kotlin.test.assertTrue
  * - V9 (series 12, type 1)
  * - V12S (series 11, type 1)
  */
-class InmotionV2DecoderTest {
+class InMotionV2DecoderTest {
 
-    private val decoder = InmotionV2Decoder()
+    private val decoder = InMotionV2Decoder()
     private val defaultState = WheelState()
     private val defaultConfig = DecoderConfig()
 
@@ -44,75 +44,75 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `Model findById returns V11 for series 6 type 1`() {
-        val model = InmotionV2Decoder.Model.findById(6, 1)
-        assertEquals(InmotionV2Decoder.Model.V11, model)
-        assertEquals("Inmotion V11", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(6, 1)
+        assertEquals(InMotionV2Decoder.Model.V11, model)
+        assertEquals("InMotion V11", model.displayName)
         assertEquals(20, model.cellCount)
     }
 
     @Test
     fun `Model findById returns V11Y for series 6 type 2`() {
-        val model = InmotionV2Decoder.Model.findById(6, 2)
-        assertEquals(InmotionV2Decoder.Model.V11Y, model)
-        assertEquals("Inmotion V11y", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(6, 2)
+        assertEquals(InMotionV2Decoder.Model.V11Y, model)
+        assertEquals("InMotion V11y", model.displayName)
     }
 
     @Test
     fun `Model findById returns V12HS for series 7 type 1`() {
-        val model = InmotionV2Decoder.Model.findById(7, 1)
-        assertEquals(InmotionV2Decoder.Model.V12HS, model)
-        assertEquals("Inmotion V12 HS", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(7, 1)
+        assertEquals(InMotionV2Decoder.Model.V12HS, model)
+        assertEquals("InMotion V12 HS", model.displayName)
         assertEquals(24, model.cellCount)
     }
 
     @Test
     fun `Model findById returns V12PRO for series 7 type 3`() {
-        val model = InmotionV2Decoder.Model.findById(7, 3)
-        assertEquals(InmotionV2Decoder.Model.V12PRO, model)
-        assertEquals("Inmotion V12 PRO", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(7, 3)
+        assertEquals(InMotionV2Decoder.Model.V12PRO, model)
+        assertEquals("InMotion V12 PRO", model.displayName)
     }
 
     @Test
     fun `Model findById returns V13 for series 8 type 1`() {
-        val model = InmotionV2Decoder.Model.findById(8, 1)
-        assertEquals(InmotionV2Decoder.Model.V13, model)
-        assertEquals("Inmotion V13", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(8, 1)
+        assertEquals(InMotionV2Decoder.Model.V13, model)
+        assertEquals("InMotion V13", model.displayName)
         assertEquals(30, model.cellCount)
     }
 
     @Test
     fun `Model findById returns V14s for series 9 type 2`() {
-        val model = InmotionV2Decoder.Model.findById(9, 2)
-        assertEquals(InmotionV2Decoder.Model.V14s, model)
-        assertEquals("Inmotion V14 50S", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(9, 2)
+        assertEquals(InMotionV2Decoder.Model.V14s, model)
+        assertEquals("InMotion V14 50S", model.displayName)
         assertEquals(32, model.cellCount)
     }
 
     @Test
     fun `Model findById returns V9 for series 12 type 1`() {
-        val model = InmotionV2Decoder.Model.findById(12, 1)
-        assertEquals(InmotionV2Decoder.Model.V9, model)
-        assertEquals("Inmotion V9", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(12, 1)
+        assertEquals(InMotionV2Decoder.Model.V9, model)
+        assertEquals("InMotion V9", model.displayName)
     }
 
     @Test
     fun `Model findById returns V12S for series 11 type 1`() {
-        val model = InmotionV2Decoder.Model.findById(11, 1)
-        assertEquals(InmotionV2Decoder.Model.V12S, model)
-        assertEquals("Inmotion V12S", model.displayName)
+        val model = InMotionV2Decoder.Model.findById(11, 1)
+        assertEquals(InMotionV2Decoder.Model.V12S, model)
+        assertEquals("InMotion V12S", model.displayName)
     }
 
     @Test
     fun `Model findById returns UNKNOWN for invalid id`() {
-        val model = InmotionV2Decoder.Model.findById(99, 99)
-        assertEquals(InmotionV2Decoder.Model.UNKNOWN, model)
+        val model = InMotionV2Decoder.Model.findById(99, 99)
+        assertEquals(InMotionV2Decoder.Model.UNKNOWN, model)
     }
 
     // ==================== V11 Full Data Test ====================
 
     @Test
     fun `decode V11 full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v11 full data
+        // From InMotionAdapterV2Test: decode with v11 full data
         val wheelType = "AAAA110882010206010201009C".hexToByteArray()
         val serialNumber = "AAAA11178202313438304341313232323037303032420000000000FD".hexToByteArray()
         val versions = "AAAA111D820622080004030F000602214000010110000602230D00010107000001F3".hexToByteArray()
@@ -133,7 +133,7 @@ class InmotionV2DecoderTest {
         }
 
         // Verify model detection
-        assertEquals("Inmotion V11", state.model)
+        assertEquals("InMotion V11", state.model)
         assertEquals(WheelType.INMOTION_V2, state.wheelType)
 
         // Verify serial number
@@ -161,7 +161,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V11 with escape bytes handles 0xA5 correctly`() {
-        // From InmotionAdapterV2Test: decode with v11 escape data
+        // From InMotionAdapterV2Test: decode with v11 escape data
         // Must first establish the model before parsing real-time data
         val wheelType = "AAAA110882010206010201009C".hexToByteArray()
 
@@ -198,7 +198,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V12HS full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v12 full data
+        // From InMotionAdapterV2Test: decode with v12 full data
         val wheelType = "aaaa110882010207010103009c".hexToByteArray()
         val serialNumber = "aaaa11178202413033313135353133303030393733300000000000fb".hexToByteArray()
         val versions = "aaaa111d820622700002042000060221180004017d000602232400010203000402bc".hexToByteArray()
@@ -217,7 +217,7 @@ class InmotionV2DecoderTest {
         }
 
         // Verify model
-        assertEquals("Inmotion V12 HS", state.model)
+        assertEquals("InMotion V12 HS", state.model)
         assertEquals("A031155130009730", state.serialNumber)
         assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", state.version)
 
@@ -232,7 +232,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V12HS moving data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v12 full data 2 (moving)
+        // From InMotionAdapterV2Test: decode with v12 full data 2 (moving)
         val wheelType = "aaaa110882010207010103009c".hexToByteArray()
         val realTimeData = "aaaa144384ae24600479135909c61536085a0b00003f000000eb003700a5aa21b61f50463b1b581b000000000000ddd900dfe5e4b0f9646400000000490800000000000000000000dd".hexToByteArray()
 
@@ -262,7 +262,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V12PRO full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v12 pro full data
+        // From InMotionAdapterV2Test: decode with v12 pro full data
         val wheelType = "aaaa110882010207030101009c".hexToByteArray()
         val serialNumber = "aaaa11178202413033313138333135303031333832340000000000f7".hexToByteArray()
         val versions = "aaaa111d820622120005060300080221100007016b00080223420001020000050281".hexToByteArray()
@@ -278,7 +278,7 @@ class InmotionV2DecoderTest {
             }
         }
 
-        assertEquals("Inmotion V12 PRO", state.model)
+        assertEquals("InMotion V12 PRO", state.model)
         assertEquals("A031183150013824", state.serialNumber)
         assertEquals("Main:1.7.16 Drv:6.5.18 BLE:2.1.66", state.version)
 
@@ -295,7 +295,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V13 full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v13 full data 1
+        // From InMotionAdapterV2Test: decode with v13 full data 1
         val wheelType = "aaaa1108820102080101010091".hexToByteArray()
         val serialNumber = "aaaa111782024130333131364231383030303130343600000000008a".hexToByteArray()
         val versions = "aaaa112f8206223a000005030008022115000002cf000802230a0002020000050224070001010200010125070001010200010172".hexToByteArray()
@@ -311,7 +311,7 @@ class InmotionV2DecoderTest {
             }
         }
 
-        assertEquals("Inmotion V13", state.model)
+        assertEquals("InMotion V13", state.model)
         assertEquals("A03116B180001046", state.serialNumber)
         assertEquals("Main:2.0.21 Drv:5.0.58 BLE:2.2.10", state.version)
 
@@ -329,7 +329,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V14s full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v14 full data 1
+        // From InMotionAdapterV2Test: decode with v14 full data 1
         val wheelType = "aaaa1108820102090201010093".hexToByteArray()
         val serialNumber = "aaaa1117820241303332313743304230303131323245000000000084".hexToByteArray()
         val versions = "aaaa11418206223c00060503000802212800000301000902230100000208000201240200000501000204260200000501000204250200000501000204270200000501000204eb".hexToByteArray()
@@ -345,7 +345,7 @@ class InmotionV2DecoderTest {
             }
         }
 
-        assertEquals("Inmotion V14 50S", state.model)
+        assertEquals("InMotion V14 50S", state.model)
         assertEquals("A03217C0B001122E", state.serialNumber)
         assertEquals("Main:3.0.40 Drv:5.6.60 BLE:2.0.1", state.version)
 
@@ -362,7 +362,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V11Y full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v11y full data 1
+        // From InMotionAdapterV2Test: decode with v11y full data 1
         val wheelType = "aaaa110882010206020101009c".hexToByteArray()
         val serialNumber = "aaaa1117820241303332313831304430303130303139000000000083".hexToByteArray()
         val versions = "aaaa112f8206220800030603000802213400050201000902230300030108000201240d00010101000101250d00010101000101ac".hexToByteArray()
@@ -378,7 +378,7 @@ class InmotionV2DecoderTest {
             }
         }
 
-        assertEquals("Inmotion V11y", state.model)
+        assertEquals("InMotion V11y", state.model)
         assertEquals("A0321810D0010019", state.serialNumber)
         assertEquals("Main:2.5.52 Drv:6.3.8 BLE:1.3.3", state.version)
 
@@ -395,7 +395,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V9 full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v9 full data 1
+        // From InMotionAdapterV2Test: decode with v9 full data 1
         val wheelType = "aaaa11088201020c0101010095".hexToByteArray()
         val serialNumber = "aaaa11178202413134323139353041303030343635460000000000fd".hexToByteArray()
         val versions = "aaaa11388206222800040719000802212600080101000902230a0004010a0002012401000102010001012501000102010001012f0500050101000000b8".hexToByteArray()
@@ -411,7 +411,7 @@ class InmotionV2DecoderTest {
             }
         }
 
-        assertEquals("Inmotion V9", state.model)
+        assertEquals("InMotion V9", state.model)
         assertEquals("A1421950A000465F", state.serialNumber)
         assertEquals("Main:1.8.38 Drv:7.4.40 BLE:1.4.10", state.version)
 
@@ -428,7 +428,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `decode V12S full data matches legacy expected values`() {
-        // From InmotionAdapterV2Test: decode with v12s full data 1
+        // From InMotionAdapterV2Test: decode with v12s full data 1
         val wheelType = "aaaa11088201020b0101010092".hexToByteArray()
         val serialNumber = "aaaa1117820241313432313934303730303333353943000000000084".hexToByteArray()
         val versions = "aaaa11418206220e0011060300080221380008016b000802232a0003010a0002012400000301040000002508000101040000002e18000001000000012f050005010100000087".hexToByteArray()
@@ -444,7 +444,7 @@ class InmotionV2DecoderTest {
             }
         }
 
-        assertEquals("Inmotion V12S", state.model)
+        assertEquals("InMotion V12S", state.model)
         assertEquals("A14219407003359C", state.serialNumber)
         assertEquals("Main:1.8.56 Drv:6.17.14 BLE:1.3.42", state.version)
 
@@ -500,26 +500,26 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `INITIAL flag 0x11 is recognized`() {
-        assertEquals(0x11, InmotionV2Decoder.Flag.INITIAL)
+        assertEquals(0x11, InMotionV2Decoder.Flag.INITIAL)
     }
 
     @Test
     fun `DEFAULT flag 0x14 is recognized`() {
-        assertEquals(0x14, InmotionV2Decoder.Flag.DEFAULT)
+        assertEquals(0x14, InMotionV2Decoder.Flag.DEFAULT)
     }
 
     // ==================== Command Tests ====================
 
     @Test
     fun `Command constants have correct values`() {
-        assertEquals(0x01, InmotionV2Decoder.Command.MAIN_VERSION)
-        assertEquals(0x02, InmotionV2Decoder.Command.MAIN_INFO)
-        assertEquals(0x03, InmotionV2Decoder.Command.DIAGNOSTIC)
-        assertEquals(0x04, InmotionV2Decoder.Command.REAL_TIME_INFO)
-        assertEquals(0x05, InmotionV2Decoder.Command.BATTERY_REAL_TIME_INFO)
-        assertEquals(0x11, InmotionV2Decoder.Command.TOTAL_STATS)
-        assertEquals(0x20, InmotionV2Decoder.Command.SETTINGS)
-        assertEquals(0x60, InmotionV2Decoder.Command.CONTROL)
+        assertEquals(0x01, InMotionV2Decoder.Command.MAIN_VERSION)
+        assertEquals(0x02, InMotionV2Decoder.Command.MAIN_INFO)
+        assertEquals(0x03, InMotionV2Decoder.Command.DIAGNOSTIC)
+        assertEquals(0x04, InMotionV2Decoder.Command.REAL_TIME_INFO)
+        assertEquals(0x05, InMotionV2Decoder.Command.BATTERY_REAL_TIME_INFO)
+        assertEquals(0x11, InMotionV2Decoder.Command.TOTAL_STATS)
+        assertEquals(0x20, InMotionV2Decoder.Command.SETTINGS)
+        assertEquals(0x60, InMotionV2Decoder.Command.CONTROL)
     }
 
     // ==================== Reset Test ====================
@@ -563,7 +563,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `getCarTypeMessage returns valid message`() {
-        val message = InmotionV2Decoder.getCarTypeMessage()
+        val message = InMotionV2Decoder.getCarTypeMessage()
         assertTrue(message.isNotEmpty())
         assertEquals(0xAA.toByte(), message[0])
         assertEquals(0xAA.toByte(), message[1])
@@ -571,7 +571,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `getSerialNumberMessage returns valid message`() {
-        val message = InmotionV2Decoder.getSerialNumberMessage()
+        val message = InMotionV2Decoder.getSerialNumberMessage()
         assertTrue(message.isNotEmpty())
         assertEquals(0xAA.toByte(), message[0])
         assertEquals(0xAA.toByte(), message[1])
@@ -579,14 +579,14 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `getVersionsMessage returns valid message`() {
-        val message = InmotionV2Decoder.getVersionsMessage()
+        val message = InMotionV2Decoder.getVersionsMessage()
         assertTrue(message.isNotEmpty())
     }
 
     @Test
     fun `setLightMessage builds correct command`() {
-        val lightOn = InmotionV2Decoder.setLightMessage(true)
-        val lightOff = InmotionV2Decoder.setLightMessage(false)
+        val lightOn = InMotionV2Decoder.setLightMessage(true)
+        val lightOff = InMotionV2Decoder.setLightMessage(false)
 
         assertTrue(lightOn.isNotEmpty())
         assertTrue(lightOff.isNotEmpty())
@@ -595,8 +595,8 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `setLockMessage builds correct command`() {
-        val locked = InmotionV2Decoder.setLockMessage(true)
-        val unlocked = InmotionV2Decoder.setLockMessage(false)
+        val locked = InMotionV2Decoder.setLockMessage(true)
+        val unlocked = InMotionV2Decoder.setLockMessage(false)
 
         assertTrue(locked.isNotEmpty())
         assertTrue(unlocked.isNotEmpty())
@@ -604,7 +604,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `playBeepMessage builds correct command`() {
-        val beep = InmotionV2Decoder.playBeepMessage()
+        val beep = InMotionV2Decoder.playBeepMessage()
         assertTrue(beep.isNotEmpty())
     }
 
@@ -630,7 +630,7 @@ class InmotionV2DecoderTest {
 
     @Test
     fun `V11 v1_4_0 protocol version 2 is detected`() {
-        // From InmotionAdapterV2Test: decode version with v11 v1_4_0
+        // From InMotionAdapterV2Test: decode version with v11 v1_4_0
         val versions = "aaaa111d820622000003040300070221000004011a000602230d00010107000001b9".hexToByteArray()
 
         decoder.reset()

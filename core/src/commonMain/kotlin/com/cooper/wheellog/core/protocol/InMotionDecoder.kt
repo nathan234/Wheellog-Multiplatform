@@ -23,12 +23,12 @@ import kotlin.math.roundToInt
  *
  * This class is thread-safe.
  */
-class InmotionDecoder : WheelDecoder {
+class InMotionDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.INMOTION
 
     private val stateLock = Lock()
-    private val unpacker = InmotionUnpacker()
+    private val unpacker = InMotionUnpacker()
     private var model = Model.UNKNOWN
     private var isReady = false
     private var needSlowData = true
@@ -1023,40 +1023,40 @@ class InmotionDecoder : WheelDecoder {
          */
         fun getModelString(model: Model): String {
             return when (model.id) {
-                "0" -> "Inmotion R1N"
-                "1" -> "Inmotion R1S"
-                "2" -> "Inmotion R1CF"
-                "3" -> "Inmotion R1AP"
-                "4" -> "Inmotion R1EX"
-                "5" -> "Inmotion R1Sample"
-                "6" -> "Inmotion R1T"
-                "7" -> "Inmotion R10"
-                "10" -> "Inmotion V3"
-                "11" -> "Inmotion V3C"
-                "12" -> "Inmotion V3PRO"
-                "13" -> "Inmotion V3S"
-                "21" -> "Inmotion R2N"
-                "22" -> "Inmotion R2S"
-                "23" -> "Inmotion R2Sample"
-                "20" -> "Inmotion R2"
-                "24" -> "Inmotion R2EX"
-                "30" -> "Inmotion R0"
-                "60" -> "Inmotion L6"
-                "61" -> "Inmotion Lively"
-                "50" -> "Inmotion V5"
-                "51" -> "Inmotion V5PLUS"
-                "52" -> "Inmotion V5F"
-                "53" -> "Inmotion V5D"
-                "80" -> "Inmotion V8"
+                "0" -> "InMotion R1N"
+                "1" -> "InMotion R1S"
+                "2" -> "InMotion R1CF"
+                "3" -> "InMotion R1AP"
+                "4" -> "InMotion R1EX"
+                "5" -> "InMotion R1Sample"
+                "6" -> "InMotion R1T"
+                "7" -> "InMotion R10"
+                "10" -> "InMotion V3"
+                "11" -> "InMotion V3C"
+                "12" -> "InMotion V3PRO"
+                "13" -> "InMotion V3S"
+                "21" -> "InMotion R2N"
+                "22" -> "InMotion R2S"
+                "23" -> "InMotion R2Sample"
+                "20" -> "InMotion R2"
+                "24" -> "InMotion R2EX"
+                "30" -> "InMotion R0"
+                "60" -> "InMotion L6"
+                "61" -> "InMotion Lively"
+                "50" -> "InMotion V5"
+                "51" -> "InMotion V5PLUS"
+                "52" -> "InMotion V5F"
+                "53" -> "InMotion V5D"
+                "80" -> "InMotion V8"
                 "85" -> "Solowheel Glide 3"
-                "86" -> "Inmotion V8F"
-                "87" -> "Inmotion V8S"
-                "100" -> "Inmotion V10S"
-                "101" -> "Inmotion V10SF"
-                "140" -> "Inmotion V10"
-                "141" -> "Inmotion V10F"
-                "142" -> "Inmotion V10T"
-                "143" -> "Inmotion V10FT"
+                "86" -> "InMotion V8F"
+                "87" -> "InMotion V8S"
+                "100" -> "InMotion V10S"
+                "101" -> "InMotion V10SF"
+                "140" -> "InMotion V10"
+                "141" -> "InMotion V10F"
+                "142" -> "InMotion V10T"
+                "143" -> "InMotion V10FT"
                 else -> "Unknown"
             }
         }

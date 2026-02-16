@@ -13,6 +13,7 @@ import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.DemoDataProvider
 import com.cooper.wheellog.core.service.WheelConnectionManager
+import com.cooper.wheellog.core.ui.SettingsCommandId
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.data.TripDatabase
 import com.cooper.wheellog.data.TripRepository
@@ -231,6 +232,12 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun setPedalsMode(mode: Int) {
         viewModelScope.launch {
             connectionManager?.setPedalsMode(mode)
+        }
+    }
+
+    fun executeWheelCommand(commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
+        viewModelScope.launch {
+            connectionManager?.executeCommand(commandId, intValue, boolValue)
         }
     }
 

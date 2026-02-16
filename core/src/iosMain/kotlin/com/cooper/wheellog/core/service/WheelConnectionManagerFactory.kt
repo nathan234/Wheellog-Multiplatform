@@ -5,6 +5,7 @@ import com.cooper.wheellog.core.alarm.AlarmConfig
 import com.cooper.wheellog.core.alarm.AlarmResult
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.protocol.DefaultWheelDecoderFactory
+import com.cooper.wheellog.core.ui.SettingsCommandId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -293,6 +294,14 @@ object WheelConnectionManagerFactory {
     fun sendSetMilesMode(manager: WheelConnectionManager, enabled: Boolean) {
         CoroutineScope(Dispatchers.Main).launch {
             manager.setMilesMode(enabled)
+        }
+    }
+
+    // MARK: - Generic Command Dispatch
+
+    fun executeCommand(manager: WheelConnectionManager, commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
+        CoroutineScope(Dispatchers.Main).launch {
+            manager.executeCommand(commandId, intValue, boolValue)
         }
     }
 

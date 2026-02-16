@@ -27,6 +27,7 @@ import com.cooper.wheellog.compose.screens.DashboardScreen
 import com.cooper.wheellog.compose.screens.MetricDetailScreen
 import com.cooper.wheellog.compose.screens.RidesScreen
 import com.cooper.wheellog.compose.screens.ScanScreen
+import com.cooper.wheellog.compose.screens.WheelSettingsScreen
 import com.cooper.wheellog.compose.screens.SettingsScreen
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
@@ -43,8 +44,9 @@ fun AppNavigation(viewModel: WheelViewModel) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Hide bottom bar on chart, BMS, and metric detail screens
+    // Hide bottom bar on chart, BMS, metric detail, and wheel settings screens
     val showBottomBar = currentRoute != "chart" && currentRoute != "bms"
+        && currentRoute != "wheel_settings"
         && currentRoute?.startsWith("metric/") != true
 
     Scaffold(
@@ -83,7 +85,8 @@ fun AppNavigation(viewModel: WheelViewModel) {
                         viewModel = viewModel,
                         onNavigateToChart = { navController.navigate("chart") },
                         onNavigateToBms = { navController.navigate("bms") },
-                        onNavigateToMetric = { metricId -> navController.navigate("metric/$metricId") }
+                        onNavigateToMetric = { metricId -> navController.navigate("metric/$metricId") },
+                        onNavigateToWheelSettings = { navController.navigate("wheel_settings") }
                     )
                 } else {
                     ScanScreen(viewModel = viewModel)
@@ -109,6 +112,12 @@ fun AppNavigation(viewModel: WheelViewModel) {
                 MetricDetailScreen(
                     viewModel = viewModel,
                     metricId = metricId,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("wheel_settings") {
+                WheelSettingsScreen(
+                    viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
             }

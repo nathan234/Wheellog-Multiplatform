@@ -47,8 +47,13 @@ iOS always uses KMP decoders (no legacy option).
 | Purpose | Path |
 |---------|------|
 | KMP decoders | `core/src/commonMain/.../protocol/*.kt` |
+| KMP shared utils | `core/src/commonMain/.../util/{ByteUtils,StringUtil,DisplayUtils}.kt` |
+| KMP domain types | `core/src/commonMain/.../domain/{WheelState,WheelType}.kt` |
 | Android bridge | `app/src/main/.../kmp/KmpWheelBridge.kt` |
 | Decoder mode enum | `app/src/main/.../kmp/DecoderMode.kt` |
+| Compose screens | `app/src/main/.../compose/screens/*.kt` |
+| Compose components | `app/src/main/.../compose/components/*.kt` |
+| Compose ViewModel | `app/src/main/.../compose/WheelViewModel.kt` |
 | iOS BLE manager | `core/src/iosMain/.../service/BleManager.ios.kt` |
 | iOS Swift bridge | `iosApp/WheelLog/Bridge/WheelManager.swift` |
 | iOS views | `iosApp/WheelLog/Views/*.swift` |
@@ -67,7 +72,19 @@ iOS always uses KMP decoders (no legacy option).
 
 # Compile Android app
 ./gradlew :app:compileDebugKotlin
+
+# Build iOS app (simulator)
+xcodebuild -project iosApp/WheelLog.xcodeproj -scheme WheelLog \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
 ```
+
+## KMP-to-Swift Conventions
+
+- KMP `object` singletons are accessed as `.shared` in Swift
+  (e.g., `DisplayUtils.shared.formatSpeed(...)`, `ByteUtils.shared.kmToMiles(...)`)
+- KMP `enum` values are lowercase in Swift (e.g., `WheelType.kingsong`)
+- KMP `Int` parameters become `Int32` in Swift; cast with `Int32(value)`
+- KMP `WheelState` properties are accessed directly (e.g., `kmpState.displayName`)
 
 ## iOS Testing on Simulator
 
@@ -75,6 +92,19 @@ BLE is not available on iOS Simulator. Use the test mode instead:
 1. Run app on simulator
 2. Tap "Test KMP Decoder" button
 3. Verifies decoder with real Kingsong packets (12% battery, 13°C)
+
+## Testing Philosophy
+
+Follow a **test-first** approach for all KMP shared code:
+
+1. **Write tests before implementation** — define expected behavior in `core/src/commonTest/` first
+2. **Run tests to confirm they fail** — validates the test is meaningful
+3. **Implement the code** — make tests pass
+4. **Verify all tests pass** before moving to platform integration
+
+For plans and PRs, tests should appear as the first implementation step, not an afterthought. Every new KMP module (`core/src/commonMain/`) should have a corresponding test file (`core/src/commonTest/`).
+
+Platform-specific code (Compose UI, SwiftUI views) is verified via build compilation + manual testing.
 
 ## Branch
 

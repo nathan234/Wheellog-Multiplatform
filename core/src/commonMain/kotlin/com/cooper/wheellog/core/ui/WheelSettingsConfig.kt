@@ -1,0 +1,186 @@
+package com.cooper.wheellog.core.ui
+
+import com.cooper.wheellog.core.domain.WheelType
+
+/**
+ * Shared configuration defining which settings controls appear for each wheel type.
+ * Both Android and iOS render their settings screens from this configuration.
+ */
+object WheelSettingsConfig {
+
+    fun sections(wheelType: WheelType): List<SettingsSection> = when (wheelType) {
+        WheelType.KINGSONG -> kingsongSections()
+        WheelType.GOTWAY, WheelType.GOTWAY_VIRTUAL -> gotwaySections()
+        WheelType.VETERAN -> veteranSections()
+        WheelType.NINEBOT_Z -> ninebotZSections()
+        WheelType.INMOTION -> inmotionSections()
+        WheelType.INMOTION_V2 -> inmotionV2Sections()
+        else -> emptyList()
+    }
+
+    private fun kingsongSections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Picker("Light Mode", listOf("Off", "On", "Auto"), SettingsCommandId.LIGHT_MODE),
+            ControlSpec.Picker("LED Mode", (0..7).map { "$it" }, SettingsCommandId.LED_MODE),
+            ControlSpec.Picker("Strobe Mode", (0..3).map { "$it" }, SettingsCommandId.STROBE_MODE)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            calibrateButton(),
+            powerOffButton()
+        ))
+    )
+
+    private fun gotwaySections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Picker("Light Mode", listOf("Off", "On", "Strobe"), SettingsCommandId.LIGHT_MODE),
+            ControlSpec.Picker("LED Mode", (0..9).map { "$it" }, SettingsCommandId.LED_MODE)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE),
+            ControlSpec.Segmented("Roll Angle", listOf("Low", "Medium", "High"), SettingsCommandId.ROLL_ANGLE_MODE)
+        )),
+        SettingsSection("Speed", listOf(
+            ControlSpec.Slider("Max Speed", 0, 99, "km/h", 30, SettingsCommandId.MAX_SPEED)
+        )),
+        SettingsSection("Audio", listOf(
+            ControlSpec.Slider("Beeper Volume", 1, 9, "", 5, SettingsCommandId.BEEPER_VOLUME)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            calibrateButton()
+        ))
+    )
+
+    private fun veteranSections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Toggle("Headlight", SettingsCommandId.LIGHT_MODE)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            resetTripButton()
+        ))
+    )
+
+    private fun ninebotZSections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Toggle("Headlight", SettingsCommandId.LIGHT_MODE),
+            ControlSpec.Toggle("DRL", SettingsCommandId.DRL),
+            ControlSpec.Toggle("Tail Light", SettingsCommandId.TAIL_LIGHT),
+            ControlSpec.Picker("LED Mode", listOf("Off") + (1..7).map { "Type $it" }, SettingsCommandId.LED_MODE)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Toggle("Handle Button", SettingsCommandId.HANDLE_BUTTON),
+            ControlSpec.Toggle("Brake Assistant", SettingsCommandId.BRAKE_ASSIST),
+            ControlSpec.Slider("Pedal Sensitivity", 0, 4, "", 0, SettingsCommandId.PEDAL_SENSITIVITY)
+        )),
+        SettingsSection("Audio", listOf(
+            ControlSpec.Slider("Speaker Volume", 0, 127, "", 50, SettingsCommandId.SPEAKER_VOLUME)
+        )),
+        SettingsSection("Wheel Alarms", listOf(
+            ControlSpec.Toggle("Alarm 1", SettingsCommandId.ALARM_ENABLED_1),
+            ControlSpec.Slider("Alarm 1 Speed", 0, 60, "km/h", 30, SettingsCommandId.ALARM_SPEED_1,
+                visibleWhen = SettingsCommandId.ALARM_ENABLED_1),
+            ControlSpec.Toggle("Alarm 2", SettingsCommandId.ALARM_ENABLED_2),
+            ControlSpec.Slider("Alarm 2 Speed", 0, 60, "km/h", 35, SettingsCommandId.ALARM_SPEED_2,
+                visibleWhen = SettingsCommandId.ALARM_ENABLED_2),
+            ControlSpec.Toggle("Alarm 3", SettingsCommandId.ALARM_ENABLED_3),
+            ControlSpec.Slider("Alarm 3 Speed", 0, 60, "km/h", 40, SettingsCommandId.ALARM_SPEED_3,
+                visibleWhen = SettingsCommandId.ALARM_ENABLED_3)
+        )),
+        SettingsSection("Speed Limit", listOf(
+            ControlSpec.Toggle("Limited Mode", SettingsCommandId.LIMITED_MODE),
+            ControlSpec.Slider("Limited Speed", 0, 65, "km/h", 25, SettingsCommandId.LIMITED_SPEED,
+                visibleWhen = SettingsCommandId.LIMITED_MODE)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            lockToggle(),
+            calibrateButton()
+        ))
+    )
+
+    private fun inmotionSections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Toggle("Headlight", SettingsCommandId.LIGHT_MODE),
+            ControlSpec.Toggle("LEDs", SettingsCommandId.LED)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Toggle("Handle Button", SettingsCommandId.HANDLE_BUTTON),
+            ControlSpec.Toggle("Ride Mode", SettingsCommandId.RIDE_MODE),
+            ControlSpec.Slider("Max Speed", 3, 60, "km/h", 30, SettingsCommandId.MAX_SPEED),
+            ControlSpec.Slider("Pedal Tilt", -8, 8, "\u00B0", 0, SettingsCommandId.PEDAL_TILT),
+            ControlSpec.Slider("Pedal Sensitivity", 4, 100, "%", 50, SettingsCommandId.PEDAL_SENSITIVITY)
+        )),
+        SettingsSection("Audio", listOf(
+            ControlSpec.Slider("Speaker Volume", 0, 100, "", 50, SettingsCommandId.SPEAKER_VOLUME)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            calibrateButton(),
+            powerOffButton()
+        ))
+    )
+
+    private fun inmotionV2Sections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Toggle("Headlight", SettingsCommandId.LIGHT_MODE),
+            ControlSpec.Toggle("DRL", SettingsCommandId.DRL),
+            ControlSpec.Slider("Brightness", 0, 100, "%", 50, SettingsCommandId.LIGHT_BRIGHTNESS)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Toggle("Handle Button", SettingsCommandId.HANDLE_BUTTON),
+            ControlSpec.Toggle("Ride Mode", SettingsCommandId.RIDE_MODE),
+            ControlSpec.Toggle("Go Home Mode", SettingsCommandId.GO_HOME_MODE),
+            ControlSpec.Toggle("Fancier Mode", SettingsCommandId.FANCIER_MODE),
+            ControlSpec.Toggle("Transport Mode", SettingsCommandId.TRANSPORT_MODE),
+            ControlSpec.Slider("Max Speed", 3, 60, "km/h", 30, SettingsCommandId.MAX_SPEED),
+            ControlSpec.Slider("Pedal Tilt", -10, 10, "\u00B0", 0, SettingsCommandId.PEDAL_TILT),
+            ControlSpec.Slider("Pedal Sensitivity", 0, 100, "%", 50, SettingsCommandId.PEDAL_SENSITIVITY)
+        )),
+        SettingsSection("Thermal", listOf(
+            ControlSpec.Toggle("Fan", SettingsCommandId.FAN),
+            ControlSpec.Toggle("Fan Quiet Mode", SettingsCommandId.FAN_QUIET)
+        )),
+        SettingsSection("Audio", listOf(
+            ControlSpec.Slider("Speaker Volume", 0, 100, "", 50, SettingsCommandId.SPEAKER_VOLUME),
+            ControlSpec.Toggle("Mute", SettingsCommandId.MUTE)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            lockToggle(),
+            calibrateButton(),
+            powerOffButton()
+        ))
+    )
+
+    // Shared dangerous action definitions
+
+    private fun calibrateButton() = ControlSpec.DangerousButton(
+        label = "Calibrate Wheel",
+        confirmTitle = "Calibrate Wheel",
+        confirmMessage = "Place the wheel upright on a flat surface before calibrating. The wheel must be stationary.",
+        commandId = SettingsCommandId.CALIBRATE
+    )
+
+    private fun powerOffButton() = ControlSpec.DangerousButton(
+        label = "Power Off",
+        confirmTitle = "Power Off",
+        confirmMessage = "Are you sure you want to power off the wheel?",
+        commandId = SettingsCommandId.POWER_OFF
+    )
+
+    private fun resetTripButton() = ControlSpec.DangerousButton(
+        label = "Reset Trip",
+        confirmTitle = "Reset Trip",
+        confirmMessage = "This will reset the trip distance counter to zero.",
+        commandId = SettingsCommandId.RESET_TRIP
+    )
+
+    private fun lockToggle() = ControlSpec.DangerousToggle(
+        label = "Lock Wheel",
+        confirmTitle = "Lock Wheel",
+        confirmMessage = "Locking the wheel will prevent it from riding. Unlock via this app.",
+        commandId = SettingsCommandId.LOCK
+    )
+}

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -60,7 +61,8 @@ fun DashboardScreen(
     viewModel: WheelViewModel,
     onNavigateToChart: () -> Unit,
     onNavigateToBms: () -> Unit = {},
-    onNavigateToMetric: (String) -> Unit = {}
+    onNavigateToMetric: (String) -> Unit = {},
+    onNavigateToWheelSettings: () -> Unit = {}
 ) {
     val wheelState by viewModel.wheelState.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
@@ -300,6 +302,16 @@ fun DashboardScreen(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text("Light")
+                }
+                Button(
+                    onClick = onNavigateToWheelSettings,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF607D8B)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Settings")
                 }
             }
         }

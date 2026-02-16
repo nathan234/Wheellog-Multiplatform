@@ -704,6 +704,18 @@ class WheelManager: ObservableObject {
         WheelConnectionManagerFactory.shared.sendResetTrip(manager: cm)
     }
 
+    // MARK: - Generic Command Dispatch
+
+    func executeCommand(_ commandId: SettingsCommandId, intValue: Int32 = 0, boolValue: Bool = false) {
+        guard let cm = connectionManager else { return }
+        WheelConnectionManagerFactory.shared.executeCommand(
+            manager: cm,
+            commandId: commandId,
+            intValue: intValue,
+            boolValue: boolValue
+        )
+    }
+
     func setMilesMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
         WheelConnectionManagerFactory.shared.sendSetMilesMode(manager: cm, enabled: enabled)

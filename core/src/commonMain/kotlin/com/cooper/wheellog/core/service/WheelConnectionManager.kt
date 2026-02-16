@@ -9,6 +9,7 @@ import com.cooper.wheellog.core.protocol.DecoderConfig
 import com.cooper.wheellog.core.protocol.WheelCommand
 import com.cooper.wheellog.core.protocol.WheelDecoder
 import com.cooper.wheellog.core.protocol.WheelDecoderFactory
+import com.cooper.wheellog.core.ui.SettingsCommandId
 import com.cooper.wheellog.core.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -334,6 +335,50 @@ class WheelConnectionManager(
     suspend fun requestBmsData(bmsNum: Int, dataType: Int) { sendCommand(WheelCommand.RequestBmsData(bmsNum, dataType)) }
     suspend fun setKingsongAlarms(a1: Int, a2: Int, a3: Int, max: Int) { sendCommand(WheelCommand.SetKingsongAlarms(a1, a2, a3, max)) }
     suspend fun requestAlarmSettings() { sendCommand(WheelCommand.RequestAlarmSettings) }
+
+    /**
+     * Execute a settings command by ID.
+     * Used by the shared WheelSettingsConfig to dispatch UI actions.
+     */
+    suspend fun executeCommand(commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
+        when (commandId) {
+            SettingsCommandId.LIGHT_MODE -> setLightMode(intValue)
+            SettingsCommandId.LED -> setLed(boolValue)
+            SettingsCommandId.LED_MODE -> setLedMode(intValue)
+            SettingsCommandId.STROBE_MODE -> setStrobeMode(intValue)
+            SettingsCommandId.TAIL_LIGHT -> setTailLight(boolValue)
+            SettingsCommandId.DRL -> setDrl(boolValue)
+            SettingsCommandId.LIGHT_BRIGHTNESS -> setLightBrightness(intValue)
+            SettingsCommandId.PEDALS_MODE -> setPedalsMode(intValue)
+            SettingsCommandId.ROLL_ANGLE_MODE -> setRollAngleMode(intValue)
+            SettingsCommandId.HANDLE_BUTTON -> setHandleButton(boolValue)
+            SettingsCommandId.BRAKE_ASSIST -> setBrakeAssist(boolValue)
+            SettingsCommandId.RIDE_MODE -> setRideMode(boolValue)
+            SettingsCommandId.GO_HOME_MODE -> setGoHomeMode(boolValue)
+            SettingsCommandId.FANCIER_MODE -> setFancierMode(boolValue)
+            SettingsCommandId.TRANSPORT_MODE -> setTransportMode(boolValue)
+            SettingsCommandId.PEDAL_TILT -> setPedalTilt(intValue)
+            SettingsCommandId.PEDAL_SENSITIVITY -> setPedalSensitivity(intValue)
+            SettingsCommandId.MAX_SPEED -> setMaxSpeed(intValue)
+            SettingsCommandId.LIMITED_MODE -> setLimitedMode(boolValue)
+            SettingsCommandId.LIMITED_SPEED -> setLimitedSpeed(intValue)
+            SettingsCommandId.ALARM_ENABLED_1 -> setAlarmEnabled(boolValue, 1)
+            SettingsCommandId.ALARM_ENABLED_2 -> setAlarmEnabled(boolValue, 2)
+            SettingsCommandId.ALARM_ENABLED_3 -> setAlarmEnabled(boolValue, 3)
+            SettingsCommandId.ALARM_SPEED_1 -> setAlarmSpeed(intValue, 1)
+            SettingsCommandId.ALARM_SPEED_2 -> setAlarmSpeed(intValue, 2)
+            SettingsCommandId.ALARM_SPEED_3 -> setAlarmSpeed(intValue, 3)
+            SettingsCommandId.SPEAKER_VOLUME -> setSpeakerVolume(intValue)
+            SettingsCommandId.BEEPER_VOLUME -> setBeeperVolume(intValue)
+            SettingsCommandId.MUTE -> setMute(boolValue)
+            SettingsCommandId.FAN -> setFan(boolValue)
+            SettingsCommandId.FAN_QUIET -> setFanQuiet(boolValue)
+            SettingsCommandId.CALIBRATE -> calibrate()
+            SettingsCommandId.POWER_OFF -> powerOff()
+            SettingsCommandId.LOCK -> setLock(boolValue)
+            SettingsCommandId.RESET_TRIP -> resetTrip()
+        }
+    }
 
     // ==================== Private Methods ====================
 

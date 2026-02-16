@@ -1,682 +1,246 @@
 import SwiftUI
+import WheelLogCore
 
 struct WheelSettingsView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
-    // Confirmation alerts
-    @State private var showCalibrateAlert = false
-    @State private var showPowerOffAlert = false
-    @State private var showResetTripAlert = false
-    @State private var showLockAlert = false
+    // Local state for write-only toggles and sliders
+    @State private var toggleStates: [String: Bool] = [:]
+    @State private var sliderValues: [String: Double] = [:]
+
+    // Confirmation alert
+    @State private var pendingAction: ControlSpec? = nil
+    @State private var showConfirmation = false
 
     var body: some View {
+        let kmpWheelType = WheelType.companion.fromString(name: wheelManager.wheelState.wheelType)
+        let sections = WheelSettingsConfig.shared.sections(wheelType: kmpWheelType)
+
         Form {
-            switch wheelManager.wheelState.wheelType {
-            case "KINGSONG":
-                kingsongSection
-            case "GOTWAY", "GOTWAY_VIRTUAL":
-                gotwaySection
-            case "VETERAN":
-                veteranSection
-            case "NINEBOT_Z":
-                ninebotZSection
-            case "INMOTION":
-                inmotionSection
-            case "INMOTION_V2":
-                inmotionV2Section
-            default:
+            if sections.isEmpty {
                 Section {
                     Text("Connect to a wheel to see its settings.")
                         .foregroundColor(.secondary)
+                }
+            } else {
+                ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+                    Section(section.title) {
+                        ForEach(Array(section.controls.enumerated()), id: \.offset) { _, control in
+                            renderControl(control)
+                        }
+                    }
                 }
             }
         }
         .navigationTitle("Wheel Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Calibrate Wheel", isPresented: $showCalibrateAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Calibrate", role: .destructive) { wheelManager.calibrate() }
-        } message: {
-            Text("Place the wheel upright on a flat surface before calibrating. The wheel must be stationary.")
-        }
-        .alert("Power Off", isPresented: $showPowerOffAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Power Off", role: .destructive) { wheelManager.powerOff() }
-        } message: {
-            Text("Are you sure you want to power off the wheel?")
-        }
-        .alert("Reset Trip", isPresented: $showResetTripAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Reset", role: .destructive) { wheelManager.resetTrip() }
-        } message: {
-            Text("This will reset the trip distance counter to zero.")
-        }
-        .alert("Lock Wheel", isPresented: $showLockAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Lock", role: .destructive) { wheelManager.setLock(true) }
-        } message: {
-            Text("Locking the wheel will prevent it from riding. Unlock via this app.")
+        .alert(
+            confirmationTitle,
+            isPresented: $showConfirmation,
+            presenting: pendingAction
+        ) { action in
+            Button("Cancel", role: .cancel) { pendingAction = nil }
+            Button("Confirm", role: .destructive) {
+                executeAction(action)
+                pendingAction = nil
+            }
+        } message: { action in
+            Text(confirmationMessage(for: action))
         }
     }
 
-    // MARK: - KingSong
+    // MARK: - Control Rendering
 
     @ViewBuilder
-    private var kingsongSection: some View {
-        Section("Lighting") {
-            Picker("Light Mode", selection: lightModeBinding) {
-                Text("Off").tag(0)
-                Text("On").tag(1)
-                Text("Auto").tag(2)
-            }
-
-            Picker("LED Mode", selection: ledModeBinding) {
-                ForEach(0..<8, id: \.self) { i in
-                    Text("\(i)").tag(i)
-                }
-            }
-
-            Picker("Strobe Mode", selection: strobeModeBinding) {
-                ForEach(0..<4, id: \.self) { i in
-                    Text("\(i)").tag(i)
-                }
-            }
+    private func renderControl(_ control: ControlSpec) -> some View {
+        // Note: Without SKIE, sealed class exhaustiveness is not enforced by Swift.
+        // If a new ControlSpec subclass is added in KMP, add a case here.
+        if let toggle = control as? ControlSpec.Toggle {
+            renderToggle(toggle)
+        } else if let segmented = control as? ControlSpec.Segmented {
+            renderSegmented(segmented)
+        } else if let picker = control as? ControlSpec.Picker {
+            renderPicker(picker)
+        } else if let slider = control as? ControlSpec.Slider {
+            renderSlider(slider)
+        } else if let button = control as? ControlSpec.DangerousButton {
+            renderDangerousButton(button)
+        } else if let toggle = control as? ControlSpec.DangerousToggle {
+            renderDangerousToggle(toggle)
+        } else {
+            Text("Unsupported control type")
+                .foregroundColor(.red)
         }
+    }
 
-        Section("Ride") {
-            Picker("Pedals Mode", selection: pedalsModeBinding) {
-                Text("Hard").tag(0)
-                Text("Medium").tag(1)
-                Text("Soft").tag(2)
+    @ViewBuilder
+    private func renderToggle(_ control: ControlSpec.Toggle) -> some View {
+        let key = control.commandId.name
+        let readback = readBool(control.commandId)
+        Toggle(control.label, isOn: Binding(
+            get: { toggleStates[key] ?? readback ?? false },
+            set: { newValue in
+                toggleStates[key] = newValue
+                executeCommand(control.commandId, boolValue: newValue)
+            }
+        ))
+    }
+
+    @ViewBuilder
+    private func renderSegmented(_ control: ControlSpec.Segmented) -> some View {
+        let readback = readInt(control.commandId)
+        let key = control.commandId.name
+
+        VStack(alignment: .leading) {
+            Picker(control.label, selection: Binding(
+                get: { Int(sliderValues[key] ?? Double(readback ?? 0)) },
+                set: { newValue in
+                    sliderValues[key] = Double(newValue)
+                    executeCommand(control.commandId, intValue: Int32(newValue))
+                }
+            )) {
+                ForEach(Array(control.options.enumerated()), id: \.offset) { index, label in
+                    Text(label).tag(index)
+                }
             }
             .pickerStyle(.segmented)
         }
+    }
 
-        Section("Dangerous Actions") {
-            Button("Calibrate Wheel") { showCalibrateAlert = true }
-                .foregroundColor(.red)
-            Button("Power Off") { showPowerOffAlert = true }
-                .foregroundColor(.red)
+    @ViewBuilder
+    private func renderPicker(_ control: ControlSpec.Picker) -> some View {
+        let readback = readInt(control.commandId)
+        let key = control.commandId.name
+
+        Picker(control.label, selection: Binding(
+            get: {
+                let val = Int(sliderValues[key] ?? Double(readback ?? 0))
+                return min(val, control.options.count - 1)
+            },
+            set: { newValue in
+                sliderValues[key] = Double(newValue)
+                executeCommand(control.commandId, intValue: Int32(newValue))
+            }
+        )) {
+            ForEach(Array(control.options.enumerated()), id: \.offset) { index, label in
+                Text(label).tag(index)
+            }
         }
     }
 
-    // MARK: - Gotway / Begode
+    @ViewBuilder
+    private func renderSlider(_ control: ControlSpec.Slider) -> some View {
+        // Check visibility gating
+        if let gate = control.visibleWhen {
+            let gateKey = gate.name
+            let gateOn = toggleStates[gateKey] ?? readBool(gate) ?? false
+            if gateOn {
+                sliderContent(control)
+            }
+        } else {
+            sliderContent(control)
+        }
+    }
 
     @ViewBuilder
-    private var gotwaySection: some View {
-        Section("Lighting") {
-            Picker("Light Mode", selection: lightModeBinding) {
-                Text("Off").tag(0)
-                Text("On").tag(1)
-                Text("Strobe").tag(2)
-            }
+    private func sliderContent(_ control: ControlSpec.Slider) -> some View {
+        let key = control.commandId.name
+        let defaultVal = Double(control.defaultValue)
 
-            Picker("LED Mode", selection: ledModeBinding) {
-                ForEach(0..<10, id: \.self) { i in
-                    Text("\(i)").tag(i)
+        SliderRow(
+            label: control.label,
+            value: Binding(
+                get: { sliderValues[key] ?? defaultVal },
+                set: { newValue in
+                    sliderValues[key] = newValue
+                    executeCommand(control.commandId, intValue: Int32(newValue))
                 }
-            }
-        }
-
-        Section("Ride") {
-            Picker("Pedals Mode", selection: pedalsModeBinding) {
-                Text("Hard").tag(0)
-                Text("Medium").tag(1)
-                Text("Soft").tag(2)
-            }
-            .pickerStyle(.segmented)
-
-            Picker("Roll Angle", selection: rollAngleModeBinding) {
-                Text("Low").tag(0)
-                Text("Medium").tag(1)
-                Text("High").tag(2)
-            }
-            .pickerStyle(.segmented)
-        }
-
-        Section("Speed") {
-            SliderRow(label: "Max Speed", value: maxSpeedBinding, range: 0...99, unit: "km/h")
-        }
-
-        Section("Audio") {
-            SliderRow(label: "Beeper Volume", value: beeperVolumeBinding, range: 1...9, unit: "")
-        }
-
-        Section("Dangerous Actions") {
-            Button("Calibrate Wheel") { showCalibrateAlert = true }
-                .foregroundColor(.red)
-        }
+            ),
+            range: Double(control.min)...Double(control.max),
+            unit: control.unit
+        )
     }
-
-    // MARK: - Veteran
 
     @ViewBuilder
-    private var veteranSection: some View {
-        Section("Lighting") {
-            Toggle("Headlight", isOn: lightToggleBinding)
+    private func renderDangerousButton(_ control: ControlSpec.DangerousButton) -> some View {
+        Button(control.label) {
+            pendingAction = control
+            showConfirmation = true
         }
-
-        Section("Ride") {
-            Picker("Pedals Mode", selection: pedalsModeBinding) {
-                Text("Hard").tag(0)
-                Text("Medium").tag(1)
-                Text("Soft").tag(2)
-            }
-            .pickerStyle(.segmented)
-        }
-
-        Section("Dangerous Actions") {
-            Button("Reset Trip") { showResetTripAlert = true }
-                .foregroundColor(.red)
-        }
+        .foregroundColor(.red)
     }
-
-    // MARK: - Ninebot Z
 
     @ViewBuilder
-    private var ninebotZSection: some View {
-        Section("Lighting") {
-            Toggle("Headlight", isOn: lightToggleBinding)
-            Toggle("DRL", isOn: drlBinding)
-            Toggle("Tail Light", isOn: tailLightBinding)
-
-            Picker("LED Mode", selection: ledModeBinding) {
-                Text("Off").tag(0)
-                ForEach(1..<8, id: \.self) { i in
-                    Text("Type \(i)").tag(i)
-                }
-            }
-        }
-
-        Section("Ride") {
-            Toggle("Handle Button", isOn: handleButtonBinding)
-            Toggle("Brake Assistant", isOn: brakeAssistBinding)
-
-            SliderRow(label: "Pedal Sensitivity", value: pedalSensitivityBinding, range: 0...4, unit: "")
-        }
-
-        Section("Audio") {
-            SliderRow(label: "Speaker Volume", value: speakerVolumeBinding, range: 0...127, unit: "")
-        }
-
-        Section("Wheel Alarms") {
-            Toggle("Alarm 1", isOn: alarm1EnabledBinding)
-            if alarm1EnabledBinding.wrappedValue {
-                SliderRow(label: "Alarm 1 Speed", value: alarm1SpeedBinding, range: 0...60, unit: "km/h")
-            }
-
-            Toggle("Alarm 2", isOn: alarm2EnabledBinding)
-            if alarm2EnabledBinding.wrappedValue {
-                SliderRow(label: "Alarm 2 Speed", value: alarm2SpeedBinding, range: 0...60, unit: "km/h")
-            }
-
-            Toggle("Alarm 3", isOn: alarm3EnabledBinding)
-            if alarm3EnabledBinding.wrappedValue {
-                SliderRow(label: "Alarm 3 Speed", value: alarm3SpeedBinding, range: 0...60, unit: "km/h")
-            }
-        }
-
-        Section("Speed Limit") {
-            Toggle("Limited Mode", isOn: limitedModeBinding)
-            if limitedModeBinding.wrappedValue {
-                SliderRow(label: "Limited Speed", value: limitedSpeedBinding, range: 0...65, unit: "km/h")
-            }
-        }
-
-        Section("Dangerous Actions") {
-            Toggle("Lock Wheel", isOn: lockBinding)
-            Button("Calibrate Wheel") { showCalibrateAlert = true }
-                .foregroundColor(.red)
-        }
-    }
-
-    // MARK: - InMotion V1
-
-    @ViewBuilder
-    private var inmotionSection: some View {
-        Section("Lighting") {
-            Toggle("Headlight", isOn: lightToggleBinding)
-            Toggle("LEDs", isOn: ledToggleBinding)
-        }
-
-        Section("Ride") {
-            Toggle("Handle Button", isOn: handleButtonBinding)
-            Toggle("Ride Mode", isOn: rideModeBinding)
-
-            SliderRow(label: "Max Speed", value: maxSpeedBinding, range: 3...60, unit: "km/h")
-            SliderRow(label: "Pedal Tilt", value: pedalTiltBinding, range: -8...8, unit: "\u{00B0}")
-            SliderRow(label: "Pedal Sensitivity", value: pedalSensitivityBinding, range: 4...100, unit: "%")
-        }
-
-        Section("Audio") {
-            SliderRow(label: "Speaker Volume", value: speakerVolumeBinding, range: 0...100, unit: "")
-        }
-
-        Section("Dangerous Actions") {
-            Button("Calibrate Wheel") { showCalibrateAlert = true }
-                .foregroundColor(.red)
-            Button("Power Off") { showPowerOffAlert = true }
-                .foregroundColor(.red)
-        }
-    }
-
-    // MARK: - InMotion V2
-
-    @ViewBuilder
-    private var inmotionV2Section: some View {
-        Section("Lighting") {
-            Toggle("Headlight", isOn: lightToggleBinding)
-            Toggle("DRL", isOn: drlBinding)
-
-            SliderRow(label: "Brightness", value: lightBrightnessBinding, range: 0...100, unit: "%")
-        }
-
-        Section("Ride") {
-            Toggle("Handle Button", isOn: handleButtonBinding)
-            Toggle("Ride Mode", isOn: rideModeBinding)
-            Toggle("Go Home Mode", isOn: goHomeModeBinding)
-            Toggle("Fancier Mode", isOn: fancierModeBinding)
-            Toggle("Transport Mode", isOn: transportModeBinding)
-
-            SliderRow(label: "Max Speed", value: maxSpeedBinding, range: 3...60, unit: "km/h")
-            SliderRow(label: "Pedal Tilt", value: pedalTiltBinding, range: -10...10, unit: "\u{00B0}")
-            SliderRow(label: "Pedal Sensitivity", value: pedalSensitivityBinding, range: 0...100, unit: "%")
-        }
-
-        Section("Thermal") {
-            Toggle("Fan", isOn: fanBinding)
-            Toggle("Fan Quiet Mode", isOn: fanQuietBinding)
-        }
-
-        Section("Audio") {
-            SliderRow(label: "Speaker Volume", value: speakerVolumeBinding, range: 0...100, unit: "")
-            Toggle("Mute", isOn: muteBinding)
-        }
-
-        Section("Dangerous Actions") {
-            Toggle("Lock Wheel", isOn: lockBinding)
-            Button("Calibrate Wheel") { showCalibrateAlert = true }
-                .foregroundColor(.red)
-            Button("Power Off") { showPowerOffAlert = true }
-                .foregroundColor(.red)
-        }
-    }
-
-    // MARK: - Bindings
-
-    // Pedals mode (all brands)
-    private var pedalsModeBinding: Binding<Int> {
-        Binding(
-            get: { Int(wheelManager.wheelState.pedalsMode) },
-            set: { wheelManager.setPedalsMode($0) }
-        )
-    }
-
-    // Light mode picker (Kingsong, Gotway)
-    private var lightModeBinding: Binding<Int> {
-        Binding(
-            get: { Int(wheelManager.wheelState.lightMode) },
-            set: { wheelManager.setLightMode($0) }
-        )
-    }
-
-    // Light on/off toggle (Veteran, NinebotZ, InMotion)
-    private var lightToggleBinding: Binding<Bool> {
-        Binding(
-            get: { wheelManager.wheelState.lightMode > 0 },
-            set: { _ in wheelManager.toggleLight() }
-        )
-    }
-
-    // LED mode picker
-    private var ledModeBinding: Binding<Int> {
-        Binding(
-            get: { max(0, Int(wheelManager.wheelState.ledMode)) },
-            set: { wheelManager.setLedMode($0) }
-        )
-    }
-
-    // LED on/off toggle (InMotion V1)
-    private var ledToggleBinding: Binding<Bool> {
-        Binding(
-            get: { wheelManager.wheelState.ledMode > 0 },
-            set: { wheelManager.setLed($0) }
-        )
-    }
-
-    // Strobe mode (Kingsong)
-    @State private var strobeMode: Int = 0
-    private var strobeModeBinding: Binding<Int> {
-        Binding(
-            get: { strobeMode },
-            set: { newValue in
-                strobeMode = newValue
-                wheelManager.setStrobeMode(newValue)
-            }
-        )
-    }
-
-    // Roll angle (Gotway)
-    @State private var rollAngleMode: Int = 0
-    private var rollAngleModeBinding: Binding<Int> {
-        Binding(
-            get: { rollAngleMode },
-            set: { newValue in
-                rollAngleMode = newValue
-                wheelManager.setRollAngleMode(newValue)
-            }
-        )
-    }
-
-    // Max speed slider
-    @State private var maxSpeed: Double = 30
-    private var maxSpeedBinding: Binding<Double> {
-        Binding(
-            get: { maxSpeed },
-            set: { newValue in
-                maxSpeed = newValue
-                wheelManager.setMaxSpeed(Int(newValue))
-            }
-        )
-    }
-
-    // Beeper volume (Gotway)
-    @State private var beeperVolume: Double = 5
-    private var beeperVolumeBinding: Binding<Double> {
-        Binding(
-            get: { beeperVolume },
-            set: { newValue in
-                beeperVolume = newValue
-                wheelManager.setBeeperVolume(Int(newValue))
-            }
-        )
-    }
-
-    // DRL toggle (NinebotZ, InMotion V2)
-    @State private var drlEnabled: Bool = false
-    private var drlBinding: Binding<Bool> {
-        Binding(
-            get: { drlEnabled },
-            set: { newValue in
-                drlEnabled = newValue
-                wheelManager.setDrl(newValue)
-            }
-        )
-    }
-
-    // Tail light toggle (NinebotZ)
-    @State private var tailLightEnabled: Bool = false
-    private var tailLightBinding: Binding<Bool> {
-        Binding(
-            get: { tailLightEnabled },
-            set: { newValue in
-                tailLightEnabled = newValue
-                wheelManager.setTailLight(newValue)
-            }
-        )
-    }
-
-    // Handle button toggle
-    @State private var handleButtonEnabled: Bool = false
-    private var handleButtonBinding: Binding<Bool> {
-        Binding(
-            get: { handleButtonEnabled },
-            set: { newValue in
-                handleButtonEnabled = newValue
-                wheelManager.setHandleButton(newValue)
-            }
-        )
-    }
-
-    // Brake assist toggle (NinebotZ)
-    @State private var brakeAssistEnabled: Bool = false
-    private var brakeAssistBinding: Binding<Bool> {
-        Binding(
-            get: { brakeAssistEnabled },
-            set: { newValue in
-                brakeAssistEnabled = newValue
-                wheelManager.setBrakeAssist(newValue)
-            }
-        )
-    }
-
-    // Pedal sensitivity slider
-    @State private var pedalSensitivity: Double = 0
-    private var pedalSensitivityBinding: Binding<Double> {
-        Binding(
-            get: { pedalSensitivity },
-            set: { newValue in
-                pedalSensitivity = newValue
-                wheelManager.setPedalSensitivity(Int(newValue))
-            }
-        )
-    }
-
-    // Speaker volume slider
-    @State private var speakerVolume: Double = 50
-    private var speakerVolumeBinding: Binding<Double> {
-        Binding(
-            get: { speakerVolume },
-            set: { newValue in
-                speakerVolume = newValue
-                wheelManager.setSpeakerVolume(Int(newValue))
-            }
-        )
-    }
-
-    // Alarm enabled toggles (NinebotZ)
-    @State private var alarm1Enabled: Bool = false
-    private var alarm1EnabledBinding: Binding<Bool> {
-        Binding(
-            get: { alarm1Enabled },
-            set: { newValue in
-                alarm1Enabled = newValue
-                wheelManager.setAlarmEnabled(newValue, num: 1)
-            }
-        )
-    }
-
-    @State private var alarm2Enabled: Bool = false
-    private var alarm2EnabledBinding: Binding<Bool> {
-        Binding(
-            get: { alarm2Enabled },
-            set: { newValue in
-                alarm2Enabled = newValue
-                wheelManager.setAlarmEnabled(newValue, num: 2)
-            }
-        )
-    }
-
-    @State private var alarm3Enabled: Bool = false
-    private var alarm3EnabledBinding: Binding<Bool> {
-        Binding(
-            get: { alarm3Enabled },
-            set: { newValue in
-                alarm3Enabled = newValue
-                wheelManager.setAlarmEnabled(newValue, num: 3)
-            }
-        )
-    }
-
-    // Alarm speed sliders (NinebotZ)
-    @State private var alarm1Speed: Double = 30
-    private var alarm1SpeedBinding: Binding<Double> {
-        Binding(
-            get: { alarm1Speed },
-            set: { newValue in
-                alarm1Speed = newValue
-                wheelManager.setAlarmSpeed(Int(newValue), num: 1)
-            }
-        )
-    }
-
-    @State private var alarm2Speed: Double = 35
-    private var alarm2SpeedBinding: Binding<Double> {
-        Binding(
-            get: { alarm2Speed },
-            set: { newValue in
-                alarm2Speed = newValue
-                wheelManager.setAlarmSpeed(Int(newValue), num: 2)
-            }
-        )
-    }
-
-    @State private var alarm3Speed: Double = 40
-    private var alarm3SpeedBinding: Binding<Double> {
-        Binding(
-            get: { alarm3Speed },
-            set: { newValue in
-                alarm3Speed = newValue
-                wheelManager.setAlarmSpeed(Int(newValue), num: 3)
-            }
-        )
-    }
-
-    // Limited mode (NinebotZ)
-    @State private var limitedModeEnabled: Bool = false
-    private var limitedModeBinding: Binding<Bool> {
-        Binding(
-            get: { limitedModeEnabled },
-            set: { newValue in
-                limitedModeEnabled = newValue
-                wheelManager.setLimitedMode(newValue)
-            }
-        )
-    }
-
-    @State private var limitedSpeed: Double = 25
-    private var limitedSpeedBinding: Binding<Double> {
-        Binding(
-            get: { limitedSpeed },
-            set: { newValue in
-                limitedSpeed = newValue
-                wheelManager.setLimitedSpeed(Int(newValue))
-            }
-        )
-    }
-
-    // Lock toggle (NinebotZ, InMotion V2)
-    @State private var lockEnabled: Bool = false
-    private var lockBinding: Binding<Bool> {
-        Binding(
-            get: { lockEnabled },
+    private func renderDangerousToggle(_ control: ControlSpec.DangerousToggle) -> some View {
+        let key = control.commandId.name
+        Toggle(control.label, isOn: Binding(
+            get: { toggleStates[key] ?? false },
             set: { newValue in
                 if newValue {
-                    showLockAlert = true
+                    pendingAction = control
+                    showConfirmation = true
                 } else {
-                    lockEnabled = false
-                    wheelManager.setLock(false)
+                    toggleStates[key] = false
+                    executeCommand(control.commandId, boolValue: false)
                 }
             }
-        )
+        ))
     }
 
-    // Pedal tilt (InMotion)
-    @State private var pedalTilt: Double = 0
-    private var pedalTiltBinding: Binding<Double> {
-        Binding(
-            get: { pedalTilt },
-            set: { newValue in
-                pedalTilt = newValue
-                wheelManager.setPedalTilt(Int(newValue))
-            }
-        )
+    // MARK: - Command Dispatch
+
+    private func executeCommand(_ commandId: SettingsCommandId, intValue: Int32 = 0, boolValue: Bool = false) {
+        wheelManager.executeCommand(commandId, intValue: intValue, boolValue: boolValue)
     }
 
-    // Ride mode (InMotion)
-    @State private var rideModeEnabled: Bool = false
-    private var rideModeBinding: Binding<Bool> {
-        Binding(
-            get: { rideModeEnabled },
-            set: { newValue in
-                rideModeEnabled = newValue
-                wheelManager.setRideMode(newValue)
-            }
-        )
+    private func executeAction(_ action: ControlSpec) {
+        if let button = action as? ControlSpec.DangerousButton {
+            executeCommand(button.commandId)
+        } else if let toggle = action as? ControlSpec.DangerousToggle {
+            toggleStates[toggle.commandId.name] = true
+            executeCommand(toggle.commandId, boolValue: true)
+        }
     }
 
-    // Light brightness (InMotion V2)
-    @State private var lightBrightness: Double = 50
-    private var lightBrightnessBinding: Binding<Double> {
-        Binding(
-            get: { lightBrightness },
-            set: { newValue in
-                lightBrightness = newValue
-                wheelManager.setLightBrightness(Int(newValue))
-            }
-        )
+    // MARK: - State Readback
+
+    private func readInt(_ commandId: SettingsCommandId) -> Int? {
+        let state = wheelManager.wheelState
+        switch commandId {
+        case .pedalsMode: return state.pedalsMode >= 0 ? Int(state.pedalsMode) : nil
+        case .lightMode: return state.lightMode >= 0 ? Int(state.lightMode) : nil
+        case .ledMode: return state.ledMode >= 0 ? Int(state.ledMode) : nil
+        default: return nil
+        }
     }
 
-    // Go Home mode (InMotion V2)
-    @State private var goHomeModeEnabled: Bool = false
-    private var goHomeModeBinding: Binding<Bool> {
-        Binding(
-            get: { goHomeModeEnabled },
-            set: { newValue in
-                goHomeModeEnabled = newValue
-                wheelManager.setGoHomeMode(newValue)
-            }
-        )
+    private func readBool(_ commandId: SettingsCommandId) -> Bool? {
+        let state = wheelManager.wheelState
+        switch commandId {
+        case .led: return state.ledMode >= 0 ? state.ledMode > 0 : nil
+        case .lightMode: return state.lightMode >= 0 ? state.lightMode > 0 : nil
+        default: return nil
+        }
     }
 
-    // Fancier mode (InMotion V2)
-    @State private var fancierModeEnabled: Bool = false
-    private var fancierModeBinding: Binding<Bool> {
-        Binding(
-            get: { fancierModeEnabled },
-            set: { newValue in
-                fancierModeEnabled = newValue
-                wheelManager.setFancierMode(newValue)
-            }
-        )
+    // MARK: - Confirmation Helpers
+
+    private var confirmationTitle: String {
+        if let button = pendingAction as? ControlSpec.DangerousButton {
+            return button.confirmTitle
+        } else if let toggle = pendingAction as? ControlSpec.DangerousToggle {
+            return toggle.confirmTitle
+        }
+        return ""
     }
 
-    // Transport mode (InMotion V2)
-    @State private var transportModeEnabled: Bool = false
-    private var transportModeBinding: Binding<Bool> {
-        Binding(
-            get: { transportModeEnabled },
-            set: { newValue in
-                transportModeEnabled = newValue
-                wheelManager.setTransportMode(newValue)
-            }
-        )
-    }
-
-    // Fan (InMotion V2)
-    @State private var fanEnabled: Bool = false
-    private var fanBinding: Binding<Bool> {
-        Binding(
-            get: { fanEnabled },
-            set: { newValue in
-                fanEnabled = newValue
-                wheelManager.setFan(newValue)
-            }
-        )
-    }
-
-    // Fan quiet (InMotion V2)
-    @State private var fanQuietEnabled: Bool = false
-    private var fanQuietBinding: Binding<Bool> {
-        Binding(
-            get: { fanQuietEnabled },
-            set: { newValue in
-                fanQuietEnabled = newValue
-                wheelManager.setFanQuiet(newValue)
-            }
-        )
-    }
-
-    // Mute (InMotion V2)
-    @State private var muteEnabled: Bool = false
-    private var muteBinding: Binding<Bool> {
-        Binding(
-            get: { muteEnabled },
-            set: { newValue in
-                muteEnabled = newValue
-                wheelManager.setMute(newValue)
-            }
-        )
+    private func confirmationMessage(for action: ControlSpec) -> String {
+        if let button = action as? ControlSpec.DangerousButton {
+            return button.confirmMessage
+        } else if let toggle = action as? ControlSpec.DangerousToggle {
+            return toggle.confirmMessage
+        }
+        return ""
     }
 }
 

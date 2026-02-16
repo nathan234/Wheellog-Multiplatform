@@ -40,7 +40,83 @@ Maintains BLE connection, alarms, and ride logging when the app is backgrounded.
 <!-- | ![Dashboard](screenshots/dashboard.png) | ![Chart](screenshots/chart.png) | ![Settings](screenshots/settings.png) | -->
 <!-- |---|---|---| -->
 
+## Installation
+
+### Android
+Build from source: clone the repo and run `./gradlew :app:assembleDebug`, then install the APK from `app/build/outputs/apk/debug/`.
+
+### iOS
+Build from source with Xcode 15+. Open `iosApp/WheelLog.xcodeproj`, select your device/simulator, and build. Requires the KMP framework to be built first (see [Building](#building) below).
+
 ## Architecture
+
+```mermaid
+graph TB
+    subgraph HW["EUC Hardware"]
+        WHEEL["BLE Radio"]
+    end
+
+    subgraph KMP["KMP Shared Core · core/src/commonMain/"]
+        direction TB
+        DECODERS["Protocol Decoders<br/>Kingsong · Gotway · Veteran<br/>Ninebot · NinebotZ<br/>InMotion · InMotionV2"]
+        WCM["WheelConnectionManager"]
+        STATE["WheelState · ConnectionState<br/>WheelCommand · WheelType"]
+        CONFIG["WheelSettingsConfig<br/>AlarmChecker · TelemetryBuffer"]
+        UTILS["DisplayUtils · ByteUtils<br/>RideLogger · BleUuids"]
+    end
+
+    subgraph PLAT["Platform Implementations · expect/actual"]
+        direction LR
+        BLE_A["BleManager.android<br/>(Blessed)"]
+        BLE_I["BleManager.ios<br/>(CoreBluetooth)"]
+        LOCK_A["Lock · Logger<br/>FileWriter"]
+        LOCK_I["Lock · Logger<br/>FileWriter"]
+    end
+
+    subgraph ANDROID["Android · app/"]
+        direction TB
+        BRIDGE_A["KmpWheelBridge<br/>BluetoothService"]
+        VM["WheelViewModel<br/>collects StateFlow"]
+        COMPOSE["Jetpack Compose<br/>Dashboard · Scan · Chart<br/>Rides · Settings · WheelSettings"]
+    end
+
+    subgraph IOS["iOS · iosApp/"]
+        direction TB
+        FACTORY["WheelConnectionManagerFactory<br/>Swift-friendly API"]
+        WM["WheelManager.swift<br/>polls StateFlow → @Published"]
+        SWIFTUI["SwiftUI<br/>Dashboard · Scan · Chart<br/>Rides · Settings · WheelSettings"]
+    end
+
+    subgraph WEAR["WearOS · wearos/"]
+        WEARUI["Wearable DataClient<br/>receives from phone"]
+    end
+
+    WHEEL <-->|"BLE packets"| BLE_A
+    WHEEL <-->|"BLE packets"| BLE_I
+    BLE_A --> WCM
+    BLE_I --> WCM
+    WCM --> DECODERS
+    DECODERS --> STATE
+    WCM --> STATE
+    STATE --> CONFIG
+
+    BLE_A -.-> LOCK_A
+    BLE_I -.-> LOCK_I
+
+    STATE -->|"StateFlow"| BRIDGE_A
+    BRIDGE_A --> VM
+    VM --> COMPOSE
+    CONFIG --> COMPOSE
+
+    STATE -->|"StateFlow"| FACTORY
+    FACTORY --> WM
+    WM --> SWIFTUI
+    CONFIG --> SWIFTUI
+
+    BRIDGE_A -.->|"DataClient"| WEARUI
+```
+
+### Directory Structure
 
 ```
 Wheellog.Android/
@@ -51,11 +127,6 @@ Wheellog.Android/
 │       ├── androidMain/     # Android BLE implementation
 │       └── iosMain/         # iOS CoreBluetooth implementation + Swift bridge factory
 ├── app/                     # Android app (Jetpack Compose)
-│   └── src/main/.../compose/
-│       ├── screens/         # DashboardScreen, WheelSettingsScreen, ChartScreen, etc.
-│       ├── components/      # GaugeTile, SpeedGauge, AlarmBanner, etc.
-│       ├── navigation/      # AppNavigation (bottom tabs + detail routes)
-│       └── WheelViewModel.kt
 ├── iosApp/                  # iOS SwiftUI app
 │   └── WheelLog/
 │       ├── Bridge/          # WheelManager (Swift-to-KMP wrapper)

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.core.service.ConnectionState
+import com.cooper.wheellog.core.util.DisplayUtils
 
 @Composable
 fun ScanScreen(viewModel: WheelViewModel) {
@@ -323,7 +324,7 @@ private fun DeviceRow(
             Column(horizontalAlignment = Alignment.End) {
                 SignalStrengthBars(rssi = device.rssi)
                 Text(
-                    text = rssiDescription(device.rssi),
+                    text = DisplayUtils.signalDescription(device.rssi),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -334,12 +335,7 @@ private fun DeviceRow(
 
 @Composable
 private fun SignalStrengthBars(rssi: Int) {
-    val bars = when {
-        rssi >= -50 -> 4
-        rssi >= -60 -> 3
-        rssi >= -70 -> 2
-        else -> 1
-    }
+    val bars = DisplayUtils.signalBars(rssi)
     Row(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.Bottom
@@ -359,9 +355,3 @@ private fun SignalStrengthBars(rssi: Int) {
     }
 }
 
-private fun rssiDescription(rssi: Int): String = when {
-    rssi >= -50 -> "Excellent"
-    rssi >= -60 -> "Good"
-    rssi >= -70 -> "Fair"
-    else -> "Weak"
-}

@@ -50,9 +50,9 @@ import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.telemetry.ColorZone
 import com.cooper.wheellog.core.telemetry.MetricType
+import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.util.DisplayUtils
 import java.util.Locale
-
-private const val KM_TO_MILES = 0.62137119223733
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,11 +73,11 @@ fun DashboardScreen(
     val useMph = viewModel.appConfig.useMph
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
-    val displaySpeed = if (useMph) wheelState.speedKmh * KM_TO_MILES else wheelState.speedKmh
-    val speedUnit = if (useMph) "mph" else "km/h"
+    val displaySpeed = if (useMph) ByteUtils.kmToMiles(wheelState.speedKmh) else wheelState.speedKmh
+    val speedUnit = DisplayUtils.speedUnit(useMph)
     val maxSpeed = if (useMph) 31.0 else 50.0
 
-    val title = wheelDisplayName(wheelState)
+    val title = wheelState.displayName
 
     Scaffold(
         topBar = {
@@ -138,7 +138,7 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val speedVal = if (useMph) wheelState.speedKmh * KM_TO_MILES else wheelState.speedKmh
+            val speedVal = if (useMph) ByteUtils.kmToMiles(wheelState.speedKmh) else wheelState.speedKmh
             val speedMax = if (useMph) 31.0 else 50.0
             GaugeTile(
                 label = "Speed",
@@ -203,8 +203,8 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val tempC = wheelState.temperatureC.toDouble()
-            val tempDisplay = if (useFahrenheit) tempC * 9.0 / 5.0 + 32 else tempC
-            val tempUnit = if (useFahrenheit) "\u00B0F" else "\u00B0C"
+            val tempDisplay = if (useFahrenheit) ByteUtils.celsiusToFahrenheit(tempC) else tempC
+            val tempUnit = DisplayUtils.temperatureUnit(useFahrenheit)
             GaugeTile(
                 label = "Temp",
                 value = String.format(Locale.US, "%.0f", tempDisplay),
@@ -215,7 +215,7 @@ fun DashboardScreen(
                 onClick = { onNavigateToMetric("temperature") },
                 modifier = tileModifier
             )
-            val gpsVal = if (useMph) gpsSpeed * KM_TO_MILES else gpsSpeed
+            val gpsVal = if (useMph) ByteUtils.kmToMiles(gpsSpeed) else gpsSpeed
             val gpsDisplay = if (gpsSpeed > 0) String.format(Locale.US, "%.1f", gpsVal) else "\u2014"
             GaugeTile(
                 label = "GPS Speed",
@@ -233,16 +233,16 @@ fun DashboardScreen(
         StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
             StatRow(label = "Voltage", value = String.format(Locale.US, "%.1f V", wheelState.voltageV))
             StatRow(label = "Current", value = String.format(Locale.US, "%.1f A", wheelState.currentA))
-            StatRow(label = "Trip Distance", value = formatDistance(wheelState.wheelDistanceKm, useMph))
-            StatRow(label = "Total Distance", value = formatTotalDistance(wheelState.totalDistanceKm, useMph))
+            StatRow(label = "Trip Distance", value = DisplayUtils.formatDistance(wheelState.wheelDistanceKm, useMph))
+            StatRow(label = "Total Distance", value = DisplayUtils.formatDistance(wheelState.totalDistanceKm, useMph, decimals = 1))
         }
 
         // Wheel settings (only when received)
         if (wheelState.pedalsMode >= 0) {
             StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
-                StatRow(label = "Pedals Mode", value = pedalsModeText(wheelState.pedalsMode))
-                StatRow(label = "Tilt-Back Speed", value = tiltBackSpeedText(wheelState.tiltBackSpeed, useMph))
-                StatRow(label = "Light", value = lightModeText(wheelState.lightMode))
+                StatRow(label = "Pedals Mode", value = DisplayUtils.pedalsModeText(wheelState.pedalsMode))
+                StatRow(label = "Tilt-Back Speed", value = DisplayUtils.tiltBackSpeedText(wheelState.tiltBackSpeed, useMph))
+                StatRow(label = "Light", value = DisplayUtils.lightModeText(wheelState.lightMode))
                 StatRow(label = "LED Mode", value = "${wheelState.ledMode}")
             }
         }
@@ -425,40 +425,3 @@ private fun ModeBadge(text: String, color: Color) {
     }
 }
 
-// --- Helpers ---
-
-private fun wheelDisplayName(state: WheelState): String {
-    val brand = state.wheelType.displayName
-    val model = state.model.ifEmpty { state.name }
-    if (model.isEmpty()) return brand.ifEmpty { "Dashboard" }
-    if (brand.isEmpty() || model.startsWith(brand, ignoreCase = true)) return model
-    return "$brand $model"
-}
-
-private fun formatDistance(km: Double, useMph: Boolean): String =
-    if (useMph) String.format(Locale.US, "%.2f mi", km * KM_TO_MILES)
-    else String.format(Locale.US, "%.2f km", km)
-
-private fun formatTotalDistance(km: Double, useMph: Boolean): String =
-    if (useMph) String.format(Locale.US, "%.1f mi", km * KM_TO_MILES)
-    else String.format(Locale.US, "%.1f km", km)
-
-private fun pedalsModeText(mode: Int): String = when (mode) {
-    0 -> "Hard"
-    1 -> "Medium"
-    2 -> "Soft"
-    else -> "Unknown"
-}
-
-private fun tiltBackSpeedText(speed: Int, useMph: Boolean): String {
-    if (speed == 0) return "Off"
-    return if (useMph) String.format(Locale.US, "%.0f mph", speed * KM_TO_MILES)
-    else "$speed km/h"
-}
-
-private fun lightModeText(mode: Int): String = when (mode) {
-    0 -> "Off"
-    1 -> "On"
-    2 -> "Strobe"
-    else -> "Unknown"
-}

@@ -7,71 +7,18 @@ struct DashboardView: View {
     @State private var showBms = false
     @State private var selectedMetric: String?
 
-    private let kmToMiles = 0.62137119223733
-
     private var displaySpeed: Double {
         wheelManager.useMph
-            ? wheelManager.wheelState.speedKmh * kmToMiles
+            ? ByteUtils.shared.kmToMiles(km: wheelManager.wheelState.speedKmh)
             : wheelManager.wheelState.speedKmh
     }
 
     private var speedUnit: String {
-        wheelManager.useMph ? "mph" : "km/h"
+        DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
     }
 
     private var maxSpeed: Double {
         wheelManager.useMph ? 31.0 : 50.0
-    }
-
-    private func formatDistance(_ km: Double) -> String {
-        if wheelManager.useMph {
-            return String(format: "%.2f mi", km * kmToMiles)
-        }
-        return String(format: "%.2f km", km)
-    }
-
-    private func formatTotalDistance(_ km: Double) -> String {
-        if wheelManager.useMph {
-            return String(format: "%.1f mi", km * kmToMiles)
-        }
-        return String(format: "%.1f km", km)
-    }
-
-    private var pedalsModeText: String {
-        switch wheelManager.wheelState.pedalsMode {
-        case 0: return "Hard"
-        case 1: return "Medium"
-        case 2: return "Soft"
-        default: return "Unknown"
-        }
-    }
-
-    private var lightModeText: String {
-        switch wheelManager.wheelState.lightMode {
-        case 0: return "Off"
-        case 1: return "On"
-        case 2: return "Strobe"
-        default: return "Unknown"
-        }
-    }
-
-    private var tiltBackSpeedText: String {
-        let speed = wheelManager.wheelState.tiltBackSpeed
-        if speed == 0 { return "Off" }
-        if wheelManager.useMph {
-            return String(format: "%.0f mph", Double(speed) * kmToMiles)
-        }
-        return "\(speed) km/h"
-    }
-
-    private var wheelDisplayName: String {
-        let brand = wheelManager.wheelState.wheelTypeBrand
-        let model = wheelManager.wheelState.model.isEmpty
-            ? wheelManager.wheelState.name
-            : wheelManager.wheelState.model
-        if model.isEmpty { return brand.isEmpty ? "Dashboard" : brand }
-        if brand.isEmpty || model.lowercased().hasPrefix(brand.lowercased()) { return model }
-        return "\(brand) \(model)"
     }
 
     // MARK: - Tile Helpers
@@ -169,8 +116,8 @@ struct DashboardView: View {
 
                     // Temperature tile
                     let tempC = Double(wheelManager.wheelState.temperature)
-                    let tempDisplay = wheelManager.useFahrenheit ? tempC * 9.0 / 5.0 + 32 : tempC
-                    let tempUnit = wheelManager.useFahrenheit ? "\u{00B0}F" : "\u{00B0}C"
+                    let tempDisplay = wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: tempC) : tempC
+                    let tempUnit = DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
                     GaugeTileView(
                         label: "Temp",
                         value: String(format: "%.0f", tempDisplay),
@@ -184,7 +131,7 @@ struct DashboardView: View {
                     // GPS Speed tile
                     let gpsSpeedRaw = wheelManager.locationManager.currentLocation?.speed ?? 0
                     let gpsKmh = max(0, gpsSpeedRaw) * 3.6
-                    let gpsDisplay = wheelManager.useMph ? gpsKmh * kmToMiles : gpsKmh
+                    let gpsDisplay = wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: gpsKmh) : gpsKmh
                     GaugeTileView(
                         label: "GPS Speed",
                         value: gpsKmh > 0 ? String(format: "%.1f", gpsDisplay) : "\u{2014}",
@@ -201,8 +148,8 @@ struct DashboardView: View {
                 VStack(spacing: 12) {
                     StatRow(label: "Voltage", value: String(format: "%.1f V", wheelManager.wheelState.voltage))
                     StatRow(label: "Current", value: String(format: "%.1f A", wheelManager.wheelState.current))
-                    StatRow(label: "Trip Distance", value: formatDistance(wheelManager.wheelState.wheelDistanceKm))
-                    StatRow(label: "Total Distance", value: formatTotalDistance(wheelManager.wheelState.totalDistanceKm))
+                    StatRow(label: "Trip Distance", value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.wheelDistanceKm, useMph: wheelManager.useMph, decimals: 2))
+                    StatRow(label: "Total Distance", value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.totalDistanceKm, useMph: wheelManager.useMph, decimals: 1))
                 }
                 .padding()
                 .background(Color(UIColor.secondarySystemGroupedBackground))
@@ -213,9 +160,9 @@ struct DashboardView: View {
                 if wheelManager.wheelState.pedalsMode >= 0 {
                     NavigationLink(destination: WheelSettingsView()) {
                         VStack(spacing: 12) {
-                            StatRow(label: "Pedals Mode", value: pedalsModeText)
-                            StatRow(label: "Tilt-Back Speed", value: tiltBackSpeedText)
-                            StatRow(label: "Light", value: lightModeText)
+                            StatRow(label: "Pedals Mode", value: DisplayUtils.shared.pedalsModeText(mode: wheelManager.wheelState.pedalsMode))
+                            StatRow(label: "Tilt-Back Speed", value: DisplayUtils.shared.tiltBackSpeedText(speed: wheelManager.wheelState.tiltBackSpeed, useMph: wheelManager.useMph))
+                            StatRow(label: "Light", value: DisplayUtils.shared.lightModeText(mode: wheelManager.wheelState.lightMode))
                             StatRow(label: "LED Mode", value: "\(wheelManager.wheelState.ledMode)")
                         }
                         .padding()
@@ -374,7 +321,7 @@ struct DashboardView: View {
             }
         }
         .background(Color(UIColor.systemGroupedBackground))
-        .navigationTitle(wheelDisplayName)
+        .navigationTitle(wheelManager.wheelState.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showChart) {
             TelemetryChartView()

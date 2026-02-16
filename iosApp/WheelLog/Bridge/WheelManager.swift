@@ -856,16 +856,8 @@ struct WheelStateWrapper: Equatable {
     let name: String
     let model: String
 
-    var wheelTypeBrand: String {
-        switch wheelType {
-        case "KINGSONG": return "KingSong"
-        case "GOTWAY", "GOTWAY_VIRTUAL": return "Begode"
-        case "NINEBOT", "NINEBOT_Z": return "Ninebot"
-        case "INMOTION", "INMOTION_V2": return "InMotion"
-        case "VETERAN": return "Veteran"
-        default: return ""
-        }
-    }
+    // Wheel display name (computed from KMP DisplayUtils)
+    let displayName: String
 
     // Wheel-reported settings
     let inMiles: Bool
@@ -893,6 +885,7 @@ struct WheelStateWrapper: Equatable {
         wheelType = "Unknown"
         name = ""
         model = ""
+        displayName = "Dashboard"
         inMiles = false
         pedalsMode = -1
         tiltBackSpeed = 0
@@ -915,6 +908,7 @@ struct WheelStateWrapper: Equatable {
         wheelType: String,
         name: String,
         model: String,
+        displayName: String = "Dashboard",
         inMiles: Bool = false,
         pedalsMode: Int32 = -1,
         tiltBackSpeed: Int32 = 0,
@@ -935,6 +929,7 @@ struct WheelStateWrapper: Equatable {
         self.wheelType = wheelType
         self.name = name
         self.model = model
+        self.displayName = displayName
         self.inMiles = inMiles
         self.pedalsMode = pedalsMode
         self.tiltBackSpeed = tiltBackSpeed
@@ -957,6 +952,7 @@ struct WheelStateWrapper: Equatable {
         wheelType = kmpState.wheelType.name
         name = kmpState.name
         model = kmpState.model
+        displayName = kmpState.displayName
         inMiles = kmpState.inMiles
         pedalsMode = kmpState.pedalsMode
         tiltBackSpeed = kmpState.tiltBackSpeed
@@ -1116,10 +1112,7 @@ struct DiscoveredDevice: Identifiable, Equatable {
     }
 
     var rssiDescription: String {
-        if rssi >= -50 { return "Excellent" }
-        if rssi >= -60 { return "Good" }
-        if rssi >= -70 { return "Fair" }
-        return "Weak"
+        DisplayUtils.shared.signalDescription(rssi: Int32(rssi))
     }
 }
 

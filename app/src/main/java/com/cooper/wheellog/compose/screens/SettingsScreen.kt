@@ -40,9 +40,9 @@ import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.kmp.DecoderMode
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.AppConstants
+import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.util.DisplayUtils
 import java.util.Locale
-
-private const val KM_TO_MILES = 0.62137119223733
 
 @Composable
 fun SettingsScreen(viewModel: WheelViewModel) {
@@ -198,18 +198,13 @@ fun SettingsScreen(viewModel: WheelViewModel) {
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                val tiltBackSpeed = wheelState.tiltBackSpeed
                 StatRow(
                     label = "Tilt-Back Speed",
-                    value = if (tiltBackSpeed == 0) "Off"
-                    else if (useMph) String.format(Locale.US, "%.0f mph", tiltBackSpeed * KM_TO_MILES)
-                    else "$tiltBackSpeed km/h"
+                    value = DisplayUtils.tiltBackSpeedText(wheelState.tiltBackSpeed, useMph)
                 )
                 StatRow(
                     label = "Light Mode",
-                    value = when (wheelState.lightMode) {
-                        0 -> "Off"; 1 -> "On"; 2 -> "Strobe"; else -> "Unknown"
-                    }
+                    value = DisplayUtils.lightModeText(wheelState.lightMode)
                 )
                 StatRow(
                     label = "LED Mode",
@@ -344,7 +339,7 @@ private fun AlarmSlider(
 }
 
 private fun displaySpeed(kmh: Int, useMph: Boolean): Int =
-    if (useMph) (kmh * KM_TO_MILES).toInt() else kmh
+    if (useMph) ByteUtils.kmToMiles(kmh.toDouble()).toInt() else kmh
 
 private fun displayTemperature(celsius: Int, useFahrenheit: Boolean): Int =
-    if (useFahrenheit) (celsius * 9.0 / 5.0 + 32).toInt() else celsius
+    if (useFahrenheit) ByteUtils.celsiusToFahrenheit(celsius.toDouble()).toInt() else celsius

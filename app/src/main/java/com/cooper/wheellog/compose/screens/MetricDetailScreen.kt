@@ -46,11 +46,10 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
+import com.cooper.wheellog.core.util.ByteUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private const val KM_TO_MILES = 0.62137119223733
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,9 +80,9 @@ fun MetricDetailScreen(
         val raw = metric.extractValue(sample)
         when (metric) {
             MetricType.SPEED, MetricType.GPS_SPEED ->
-                if (useMph) raw * KM_TO_MILES else raw
+                if (useMph) ByteUtils.kmToMiles(raw) else raw
             MetricType.TEMPERATURE ->
-                if (useFahrenheit) raw * 9.0 / 5.0 + 32 else raw
+                if (useFahrenheit) ByteUtils.celsiusToFahrenheit(raw) else raw
             else -> raw
         }
     }
@@ -94,9 +93,9 @@ fun MetricDetailScreen(
     // Apply unit conversion to stats
     fun convertStat(v: Double): Double = when (metric) {
         MetricType.SPEED, MetricType.GPS_SPEED ->
-            if (useMph) v * KM_TO_MILES else v
+            if (useMph) ByteUtils.kmToMiles(v) else v
         MetricType.TEMPERATURE ->
-            if (useFahrenheit) v * 9.0 / 5.0 + 32 else v
+            if (useFahrenheit) ByteUtils.celsiusToFahrenheit(v) else v
         else -> v
     }
 

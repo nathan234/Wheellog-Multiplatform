@@ -8,15 +8,20 @@ enum AlarmDisplayType: String, CaseIterable, Hashable {
     case speed1, speed2, speed3, current, temperature, pwm, battery, wheel
 
     var displayName: String {
+        guard let kmpType = kmpAlarmType else { return rawValue }
+        return kmpType.displayName
+    }
+
+    private var kmpAlarmType: AlarmType? {
         switch self {
-        case .speed1: return "Speed 1"
-        case .speed2: return "Speed 2"
-        case .speed3: return "Speed 3"
-        case .current: return "Current"
-        case .temperature: return "Temp"
-        case .pwm: return "PWM"
-        case .battery: return "Battery"
-        case .wheel: return "Wheel"
+        case .speed1: return .speed1
+        case .speed2: return .speed2
+        case .speed3: return .speed3
+        case .current: return .current
+        case .temperature: return .temperature
+        case .pwm: return .pwm
+        case .battery: return .battery
+        case .wheel: return .wheel
         }
     }
 

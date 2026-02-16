@@ -1,9 +1,8 @@
 import SwiftUI
+import WheelLogCore
 
 struct RidesView: View {
     @EnvironmentObject var wheelManager: WheelManager
-
-    private let kmToMiles = 0.62137119223733
 
     var body: some View {
         Group {
@@ -64,12 +63,12 @@ struct RidesView: View {
                     .font(.headline)
 
                 // Line 1: Duration + Distance
-                Text("\(formatDuration(ride.duration))  |  \(formatDistance(ride.distance))")
+                Text("\(formatDuration(ride.duration))  |  \(DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
                 // Line 2: Max speed + Avg speed
-                Text("\(formatSpeed(ride.maxSpeed)) max  |  \(formatSpeed(ride.avgSpeed)) avg")
+                Text("\(DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0)) max  |  \(DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0)) avg")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -100,7 +99,7 @@ struct RidesView: View {
         }
         if ride.consumptionWhPerKm > 0 {
             if wheelManager.useMph {
-                let whPerMi = ride.consumptionWhPerKm / kmToMiles
+                let whPerMi = ride.consumptionWhPerKm / ByteUtils.shared.KM_TO_MILES_MULTIPLIER
                 parts.append(String(format: "%.1f Wh/mi", whPerMi))
             } else {
                 parts.append(String(format: "%.1f Wh/km", ride.consumptionWhPerKm))
@@ -129,19 +128,6 @@ struct RidesView: View {
         return String(format: "%d:%02d", minutes, secs)
     }
 
-    private func formatDistance(_ km: Double) -> String {
-        if wheelManager.useMph {
-            return String(format: "%.2f mi", km * kmToMiles)
-        }
-        return String(format: "%.2f km", km)
-    }
-
-    private func formatSpeed(_ kmh: Double) -> String {
-        if wheelManager.useMph {
-            return String(format: "%.0f mph", kmh * kmToMiles)
-        }
-        return String(format: "%.0f km/h", kmh)
-    }
 
     private func friendlyDate(_ date: Date) -> String {
         let calendar = Calendar.current

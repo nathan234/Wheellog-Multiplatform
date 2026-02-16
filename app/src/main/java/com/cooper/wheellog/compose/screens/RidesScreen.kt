@@ -42,13 +42,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.data.TripDataDbEntry
+import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.util.DisplayUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
-private const val KM_TO_MILES = 0.62137119223733
 
 @Composable
 fun RidesScreen(viewModel: WheelViewModel) {
@@ -189,16 +189,16 @@ private fun RideRow(
                 fontWeight = FontWeight.Medium
             )
             // Line 1: Duration + Distance
-            val durationStr = formatDuration(trip.duration)
-            val distStr = formatDistance(trip.distance, useMph)
+            val durationStr = DisplayUtils.formatDurationShort(trip.duration)
+            val distStr = DisplayUtils.formatDistance(trip.distance / 1000.0, useMph)
             Text(
                 text = "$durationStr  |  $distStr",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             // Line 2: Max speed + Avg speed
-            val maxSpeedStr = formatSpeed(trip.maxSpeed.toDouble(), useMph)
-            val avgSpeedStr = formatSpeed(trip.avgSpeed.toDouble(), useMph)
+            val maxSpeedStr = DisplayUtils.formatSpeed(trip.maxSpeed.toDouble(), useMph)
+            val avgSpeedStr = DisplayUtils.formatSpeed(trip.avgSpeed.toDouble(), useMph)
             Text(
                 text = "$maxSpeedStr max  |  $avgSpeedStr avg",
                 style = MaterialTheme.typography.bodySmall,
@@ -212,7 +212,7 @@ private fun RideRow(
                 }
                 if (trip.consumptionByKm > 0) {
                     val unit = if (useMph) "Wh/mi" else "Wh/km"
-                    val value = if (useMph) trip.consumptionByKm / KM_TO_MILES else trip.consumptionByKm.toDouble()
+                    val value = if (useMph) trip.consumptionByKm / ByteUtils.KM_TO_MILES_MULTIPLIER else trip.consumptionByKm.toDouble()
                     parts.add("%.1f %s".format(value, unit))
                 }
                 Text(
@@ -232,28 +232,6 @@ private fun RideRow(
     }
 }
 
-private fun formatDuration(minutes: Int): String {
-    val hours = minutes / 60
-    val mins = minutes % 60
-    return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
-}
-
-private fun formatDistance(meters: Int, useMph: Boolean): String {
-    val km = meters / 1000.0
-    return if (useMph) {
-        "%.2f mi".format(km * KM_TO_MILES)
-    } else {
-        "%.2f km".format(km)
-    }
-}
-
-private fun formatSpeed(kmh: Double, useMph: Boolean): String {
-    return if (useMph) {
-        "%.0f mph".format(kmh * KM_TO_MILES)
-    } else {
-        "%.0f km/h".format(kmh)
-    }
-}
 
 private fun formatFriendlyDate(epochMillis: Long): String {
     if (epochMillis <= 0) return "Unknown date"

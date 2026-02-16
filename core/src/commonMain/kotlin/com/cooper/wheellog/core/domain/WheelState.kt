@@ -123,6 +123,15 @@ data class WheelState(
     /** Output as percentage */
     val outputPercent: Int get() = output / 100
 
+    /** Human-readable display name combining brand, model, and name */
+    val displayName: String get() {
+        val brand = wheelType.displayName
+        val label = model.ifEmpty { name }
+        if (label.isEmpty()) return brand.ifEmpty { "Dashboard" }
+        if (brand.isEmpty() || label.startsWith(brand, ignoreCase = true)) return label
+        return "$brand $label"
+    }
+
     companion object {
         const val KM_TO_MILES = 0.62137119223733
     }

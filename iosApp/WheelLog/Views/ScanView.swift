@@ -329,10 +329,7 @@ struct DeviceRow: View {
     }
 
     private var signalBars: Int {
-        if device.rssi >= -50 { return 4 }
-        if device.rssi >= -60 { return 3 }
-        if device.rssi >= -70 { return 2 }
-        return 1
+        Int(DisplayUtils.shared.signalBars(rssi: Int32(device.rssi)))
     }
 }
 

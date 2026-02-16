@@ -9,6 +9,14 @@ struct ScanView: View {
         !wheelManager.discoveredDevices.isEmpty
     }
 
+    private var connectingAddress: String? {
+        wheelManager.connectionState.connectingAddress
+    }
+
+    private var failedAddress: String? {
+        wheelManager.connectionState.failedAddress
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -20,15 +28,17 @@ struct ScanView: View {
             }
             .padding()
 
-            // Scan button — always visible
-            scanButton
-                .onChange(of: wheelManager.isScanning) { scanning in
-                    if scanning {
-                        scanPulse = true
-                    } else {
-                        scanPulse = false
+            // Hide scan button while connecting
+            if connectingAddress == nil {
+                scanButton
+                    .onChange(of: wheelManager.isScanning) { scanning in
+                        if scanning {
+                            scanPulse = true
+                        } else {
+                            scanPulse = false
+                        }
                     }
-                }
+            }
 
             if hasDevices {
                 deviceList
@@ -152,11 +162,23 @@ struct ScanView: View {
         List {
             Section {
                 ForEach(wheelManager.discoveredDevices) { device in
-                    DeviceRow(device: device)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
+                    let isThisConnecting = connectingAddress == device.address
+                    let isThisFailed = failedAddress == device.address
+                    let isDisabled = connectingAddress != nil && !isThisConnecting
+                    DeviceRow(
+                        device: device,
+                        isConnecting: isThisConnecting,
+                        isFailed: isThisFailed,
+                        statusText: isThisConnecting ? wheelManager.connectionState.statusText : nil,
+                        isDisabled: isDisabled,
+                        onCancel: isThisConnecting ? cancelConnection : nil
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if !isDisabled && !isThisConnecting {
                             connectToDevice(device)
                         }
+                    }
                 }
             } header: {
                 Text("Available Devices")
@@ -180,6 +202,10 @@ struct ScanView: View {
     private func connectToDevice(_ device: DiscoveredDevice) {
         wheelManager.stopScan()
         wheelManager.connect(address: device.address)
+    }
+
+    private func cancelConnection() {
+        wheelManager.disconnect()
     }
 
     #if targetEnvironment(simulator)
@@ -225,6 +251,11 @@ struct ScanView: View {
 
 struct DeviceRow: View {
     let device: DiscoveredDevice
+    var isConnecting: Bool = false
+    var isFailed: Bool = false
+    var statusText: String? = nil
+    var isDisabled: Bool = false
+    var onCancel: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -235,18 +266,51 @@ struct DeviceRow: View {
                 Text(device.address)
                     .font(.caption)
                     .foregroundColor(.secondary)
+                if let statusText = statusText {
+                    Text(statusText)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(isFailed ? .red : .blue)
+                        .padding(.top, 2)
+                }
+                if isFailed {
+                    Text("Connection failed")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.red)
+                        .padding(.top, 2)
+                }
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 4) {
-                signalStrengthIcon
-                Text(device.rssiDescription)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            if isConnecting {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .tint(.blue)
+                    if let onCancel = onCancel {
+                        Button("Cancel", action: onCancel)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.red)
+                    }
+                }
+            } else if !isDisabled {
+                VStack(alignment: .trailing, spacing: 4) {
+                    signalStrengthIcon
+                    Text(device.rssiDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(.vertical, 4)
+        .opacity(isDisabled ? 0.4 : 1.0)
+        .listRowBackground(
+            isConnecting ? Color.blue.opacity(0.06) :
+            isFailed ? Color.red.opacity(0.06) :
+            nil
+        )
     }
 
     private var signalStrengthIcon: some View {

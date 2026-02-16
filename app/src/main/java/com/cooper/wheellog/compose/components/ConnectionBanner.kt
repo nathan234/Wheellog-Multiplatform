@@ -41,12 +41,11 @@ fun ConnectionBanner(
         exit = slideOutVertically() + fadeOut(),
         modifier = modifier
     ) {
-        val (color, text) = when (connectionState) {
-            is ConnectionState.Connecting -> Color(0xFF2196F3) to "Connecting..."
-            is ConnectionState.DiscoveringServices -> Color(0xFF2196F3) to "Discovering services..."
-            is ConnectionState.ConnectionLost -> Color(0xFFFF9800) to "Connection lost: ${connectionState.reason}"
-            is ConnectionState.Failed -> Color(0xFFF44336) to "Failed: ${connectionState.error}"
-            else -> Color.Gray to ""
+        val color = when (connectionState) {
+            is ConnectionState.Connecting, is ConnectionState.DiscoveringServices -> Color(0xFF2196F3)
+            is ConnectionState.ConnectionLost -> Color(0xFFFF9800)
+            is ConnectionState.Failed -> Color(0xFFF44336)
+            else -> Color.Gray
         }
 
         Row(
@@ -67,7 +66,7 @@ fun ConnectionBanner(
                 Spacer(Modifier.width(8.dp))
             }
             Text(
-                text = text,
+                text = connectionState.statusText,
                 color = Color.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium

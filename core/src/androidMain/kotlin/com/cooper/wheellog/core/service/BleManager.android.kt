@@ -110,7 +110,7 @@ actual class BleManager {
 
         override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
             Logger.w("BleManager", "onConnectionFailed: ${peripheral.address}, status=$status")
-            _connectionState.value = ConnectionState.Failed("Connection failed: $status")
+            _connectionState.value = ConnectionState.Failed(error = "Connection failed: $status", address = peripheral.address)
 
             continuationLock.withLock {
                 connectionContinuation?.resume(

@@ -37,7 +37,7 @@ sealed class ConnectionState {
     /**
      * Connection failed with an error.
      */
-    data class Failed(val error: String) : ConnectionState()
+    data class Failed(val error: String, val address: String? = null) : ConnectionState()
 
     val isConnected: Boolean
         get() = this is Connected
@@ -47,4 +47,25 @@ sealed class ConnectionState {
 
     val isDisconnected: Boolean
         get() = this is Disconnected || this is Failed || this is ConnectionLost
+
+    val connectingAddress: String?
+        get() = when (this) {
+            is Connecting -> address
+            is DiscoveringServices -> address
+            else -> null
+        }
+
+    val failedAddress: String?
+        get() = (this as? Failed)?.address
+
+    val statusText: String
+        get() = when (this) {
+            is Disconnected -> "Disconnected"
+            is Scanning -> "Scanning..."
+            is Connecting -> "Connecting..."
+            is DiscoveringServices -> "Discovering services..."
+            is Connected -> "Connected to $wheelName"
+            is ConnectionLost -> "Connection lost: $reason"
+            is Failed -> "Failed: $error"
+        }
 }

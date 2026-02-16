@@ -78,7 +78,7 @@ fun AppNavigation(viewModel: WheelViewModel) {
         ) {
             composable(Screen.Devices.route) {
                 val connectionState by viewModel.connectionState.collectAsState()
-                if (connectionState.isConnected || connectionState.isConnecting) {
+                if (connectionState.isConnected) {
                     DashboardScreen(
                         viewModel = viewModel,
                         onNavigateToChart = { navController.navigate("chart") },

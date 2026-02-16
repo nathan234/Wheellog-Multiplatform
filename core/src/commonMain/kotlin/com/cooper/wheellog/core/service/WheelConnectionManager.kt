@@ -111,11 +111,12 @@ class WheelConnectionManager(
 
             } else {
                 _connectionState.value = ConnectionState.Failed(
-                    connection.exceptionOrNull()?.message ?: "Unknown error"
+                    error = connection.exceptionOrNull()?.message ?: "Unknown error",
+                    address = address
                 )
             }
         } catch (e: Exception) {
-            _connectionState.value = ConnectionState.Failed(e.message ?: "Connection failed")
+            _connectionState.value = ConnectionState.Failed(error = e.message ?: "Connection failed", address = address)
         }
     }
 
@@ -242,7 +243,8 @@ class WheelConnectionManager(
             is WheelTypeDetector.DetectionResult.Unknown -> {
                 Logger.w("WheelConnectionManager", "Unknown wheel: ${result.reason}")
                 _connectionState.value = ConnectionState.Failed(
-                    "Unknown wheel type: ${result.reason}"
+                    error = "Unknown wheel type: ${result.reason}",
+                    address = getCurrentAddress()
                 )
             }
         }

@@ -801,7 +801,7 @@ class WheelManager: ObservableObject {
         connectionManager.connect(address: address, wheelType: nil) { error in
             if let error = error {
                 Task { @MainActor in
-                    self.connectionState = .failed(error: error.localizedDescription)
+                    self.connectionState = .failed(address: address, error: error.localizedDescription)
                 }
             }
             // Connection state will be updated through polling
@@ -1028,7 +1028,7 @@ enum ConnectionStateWrapper: Equatable {
     case discoveringServices(address: String)
     case connected(address: String, wheelName: String)
     case connectionLost(address: String, reason: String)
-    case failed(error: String)
+    case failed(address: String?, error: String)
 
     var isConnected: Bool {
         if case .connected = self { return true }
@@ -1053,22 +1053,29 @@ enum ConnectionStateWrapper: Equatable {
         }
     }
 
+    var connectingAddress: String? {
+        switch self {
+        case .connecting(let address), .discoveringServices(let address):
+            return address
+        default:
+            return nil
+        }
+    }
+
+    var failedAddress: String? {
+        if case .failed(let address, _) = self { return address }
+        return nil
+    }
+
     var statusText: String {
         switch self {
-        case .disconnected:
-            return "Disconnected"
-        case .scanning:
-            return "Scanning..."
-        case .connecting:
-            return "Connecting..."
-        case .discoveringServices:
-            return "Discovering services..."
-        case .connected(_, let name):
-            return "Connected to \(name)"
-        case .connectionLost(_, let reason):
-            return "Connection lost: \(reason)"
-        case .failed(let error):
-            return "Failed: \(error)"
+        case .disconnected: return "Disconnected"
+        case .scanning: return "Scanning..."
+        case .connecting: return "Connecting..."
+        case .discoveringServices: return "Discovering services..."
+        case .connected(_, let name): return "Connected to \(name)"
+        case .connectionLost(_, let reason): return "Connection lost: \(reason)"
+        case .failed(_, let error): return "Failed: \(error)"
         }
     }
 
@@ -1087,7 +1094,7 @@ enum ConnectionStateWrapper: Equatable {
         case let lost as ConnectionState.ConnectionLost:
             self = .connectionLost(address: lost.address, reason: lost.reason)
         case let failed as ConnectionState.Failed:
-            self = .failed(error: failed.error)
+            self = .failed(address: failed.address, error: failed.error)
         default:
             self = .disconnected
         }

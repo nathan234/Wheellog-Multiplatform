@@ -30,15 +30,18 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -47,12 +50,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.service.ConnectionState
 
 @Composable
 fun ScanScreen(viewModel: WheelViewModel) {
     val isScanning by viewModel.isScanning.collectAsState()
     val devices by viewModel.discoveredDevices.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsState()
     val hasDevices = devices.isNotEmpty()
+    val connectingAddress = connectionState.connectingAddress
+    val failedAddress = connectionState.failedAddress
 
     Column(
         modifier = Modifier
@@ -67,14 +74,16 @@ fun ScanScreen(viewModel: WheelViewModel) {
             modifier = Modifier.padding(16.dp)
         )
 
-        // Scan button
-        ScanButton(
-            isScanning = isScanning,
-            hasDevices = hasDevices,
-            onToggleScan = {
-                if (isScanning) viewModel.stopScan() else viewModel.startScan()
-            }
-        )
+        // Hide scan button while connecting
+        if (connectingAddress == null) {
+            ScanButton(
+                isScanning = isScanning,
+                hasDevices = hasDevices,
+                onToggleScan = {
+                    if (isScanning) viewModel.stopScan() else viewModel.startScan()
+                }
+            )
+        }
 
         if (hasDevices) {
             // Device list
@@ -90,9 +99,18 @@ fun ScanScreen(viewModel: WheelViewModel) {
                     )
                 }
                 items(devices, key = { it.address }) { device ->
+                    val isThisConnecting = connectingAddress == device.address
+                    val isThisFailed = failedAddress == device.address
                     DeviceRow(
                         device = device,
-                        onClick = { viewModel.connect(device.address) }
+                        isConnecting = isThisConnecting,
+                        isFailed = isThisFailed,
+                        statusText = if (isThisConnecting) connectionState.statusText else null,
+                        isDisabled = connectingAddress != null && !isThisConnecting,
+                        onClick = { viewModel.connect(device.address) },
+                        onCancel = if (isThisConnecting) {
+                            { viewModel.disconnect() }
+                        } else null
                     )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 }
@@ -228,12 +246,28 @@ private fun ScanButton(
 @Composable
 private fun DeviceRow(
     device: WheelViewModel.DiscoveredDevice,
-    onClick: () -> Unit
+    isConnecting: Boolean = false,
+    isFailed: Boolean = false,
+    statusText: String? = null,
+    isDisabled: Boolean = false,
+    onClick: () -> Unit,
+    onCancel: (() -> Unit)? = null
 ) {
+    val rowBackground = when {
+        isConnecting -> Color(0xFF2196F3).copy(alpha = 0.08f)
+        isFailed -> Color(0xFFF44336).copy(alpha = 0.08f)
+        else -> Color.Transparent
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .background(rowBackground)
+            .then(
+                if (isDisabled) Modifier.alpha(0.4f)
+                else Modifier
+            )
+            .clickable(enabled = !isDisabled && !isConnecting, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -248,15 +282,52 @@ private fun DeviceRow(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (statusText != null) {
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isFailed) Color(0xFFF44336) else Color(0xFF2196F3),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+            if (isFailed) {
+                Text(
+                    text = "Connection failed",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFF44336),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         }
 
-        Column(horizontalAlignment = Alignment.End) {
-            SignalStrengthBars(rssi = device.rssi)
-            Text(
-                text = rssiDescription(device.rssi),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+        if (isConnecting) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color(0xFF2196F3),
+                    strokeWidth = 2.dp
+                )
+                if (onCancel != null) {
+                    Spacer(Modifier.width(8.dp))
+                    TextButton(
+                        onClick = onCancel,
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+                    ) {
+                        Text("Cancel", fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        } else if (!isDisabled) {
+            Column(horizontalAlignment = Alignment.End) {
+                SignalStrengthBars(rssi = device.rssi)
+                Text(
+                    text = rssiDescription(device.rssi),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

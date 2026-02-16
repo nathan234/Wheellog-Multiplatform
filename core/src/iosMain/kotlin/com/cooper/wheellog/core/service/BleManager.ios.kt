@@ -294,7 +294,7 @@ actual class BleManager {
 
     internal fun onConnectionFailed(peripheral: CBPeripheral, error: NSError?) {
         val errorMessage = error?.localizedDescription ?: "Connection failed"
-        _connectionState.value = ConnectionState.Failed(errorMessage)
+        _connectionState.value = ConnectionState.Failed(error = errorMessage, address = peripheral.identifier.UUIDString)
 
         continuationLock.withLock {
             connectionContinuation?.resume(Result.failure(Exception(errorMessage))) {}
@@ -322,7 +322,8 @@ actual class BleManager {
     internal fun onServicesDiscovered(peripheral: CBPeripheral, error: NSError?) {
         if (error != null) {
             _connectionState.value = ConnectionState.Failed(
-                error.localizedDescription ?: "Service discovery failed"
+                error = error.localizedDescription ?: "Service discovery failed",
+                address = peripheral.identifier.UUIDString
             )
             return
         }

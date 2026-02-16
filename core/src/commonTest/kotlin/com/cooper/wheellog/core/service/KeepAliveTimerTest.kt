@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -236,5 +237,48 @@ class ConnectionStateTest {
         assertTrue(ConnectionState.ConnectionLost("addr", "reason").isDisconnected)
         assertFalse(ConnectionState.Connected("addr", "name").isDisconnected)
         assertFalse(ConnectionState.Connecting("addr").isDisconnected)
+    }
+
+    @Test
+    fun `connectingAddress returns address for Connecting and DiscoveringServices`() {
+        assertEquals("AA:BB:CC:DD:EE:FF", ConnectionState.Connecting("AA:BB:CC:DD:EE:FF").connectingAddress)
+        assertEquals("11:22:33:44:55:66", ConnectionState.DiscoveringServices("11:22:33:44:55:66").connectingAddress)
+    }
+
+    @Test
+    fun `connectingAddress returns null for non-connecting states`() {
+        assertNull(ConnectionState.Disconnected.connectingAddress)
+        assertNull(ConnectionState.Scanning.connectingAddress)
+        assertNull(ConnectionState.Connected("addr", "name").connectingAddress)
+        assertNull(ConnectionState.ConnectionLost("addr", "reason").connectingAddress)
+        assertNull(ConnectionState.Failed("error").connectingAddress)
+    }
+
+    @Test
+    fun `failedAddress returns address from Failed state`() {
+        assertEquals("AA:BB:CC", ConnectionState.Failed("error", "AA:BB:CC").failedAddress)
+    }
+
+    @Test
+    fun `failedAddress returns null when Failed has no address`() {
+        assertNull(ConnectionState.Failed("error").failedAddress)
+    }
+
+    @Test
+    fun `failedAddress returns null for non-Failed states`() {
+        assertNull(ConnectionState.Disconnected.failedAddress)
+        assertNull(ConnectionState.Connecting("addr").failedAddress)
+        assertNull(ConnectionState.Connected("addr", "name").failedAddress)
+    }
+
+    @Test
+    fun `statusText returns correct text for each state`() {
+        assertEquals("Disconnected", ConnectionState.Disconnected.statusText)
+        assertEquals("Scanning...", ConnectionState.Scanning.statusText)
+        assertEquals("Connecting...", ConnectionState.Connecting("addr").statusText)
+        assertEquals("Discovering services...", ConnectionState.DiscoveringServices("addr").statusText)
+        assertEquals("Connected to KS-S18", ConnectionState.Connected("addr", "KS-S18").statusText)
+        assertEquals("Connection lost: timeout", ConnectionState.ConnectionLost("addr", "timeout").statusText)
+        assertEquals("Failed: GATT error 133", ConnectionState.Failed("GATT error 133").statusText)
     }
 }

@@ -3,7 +3,7 @@ package com.cooper.wheellog.core.protocol
 import com.cooper.wheellog.core.domain.SmartBms
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
-import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.utils.Lock
 import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs

@@ -1,4 +1,4 @@
-package com.cooper.wheellog.core.util
+package com.cooper.wheellog.core.utils
 
 import com.cooper.wheellog.core.domain.WheelType
 

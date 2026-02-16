@@ -1,4 +1,6 @@
-package com.cooper.wheellog.core.util
+package com.cooper.wheellog.core.utils
+
+import kotlin.math.round
 
 /**
  * Utility functions for byte array manipulation and unit conversion.
@@ -264,7 +266,7 @@ object ByteUtils {
      */
     fun formatDecimal(value: Double, decimals: Int = 2): String {
         val multiplier = pow10(decimals)
-        val rounded = kotlin.math.round(value * multiplier) / multiplier
+        val rounded = round(value * multiplier) / multiplier
         val parts = rounded.toString().split(".")
         val intPart = parts[0]
         val decPart = if (parts.size > 1) parts[1] else ""

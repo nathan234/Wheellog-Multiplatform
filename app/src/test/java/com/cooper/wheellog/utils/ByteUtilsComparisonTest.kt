@@ -1,6 +1,6 @@
 package com.cooper.wheellog.utils
 
-import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.ByteUtils
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 

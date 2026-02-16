@@ -46,7 +46,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
-import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.ByteUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

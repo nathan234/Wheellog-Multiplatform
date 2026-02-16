@@ -1,4 +1,4 @@
-package com.cooper.wheellog.core.util
+package com.cooper.wheellog.core.utils
 
 import kotlin.math.roundToInt
 

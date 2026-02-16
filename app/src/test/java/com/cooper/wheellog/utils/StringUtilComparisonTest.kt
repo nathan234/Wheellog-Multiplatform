@@ -1,6 +1,6 @@
 package com.cooper.wheellog.utils
 
-import com.cooper.wheellog.core.util.StringUtil as KmpStringUtil
+import com.cooper.wheellog.core.utils.StringUtil as KmpStringUtil
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 

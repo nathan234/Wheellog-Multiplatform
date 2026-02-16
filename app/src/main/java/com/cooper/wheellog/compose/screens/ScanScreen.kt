@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
@@ -50,8 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cooper.wheellog.compose.WheelViewModel
-import com.cooper.wheellog.core.service.ConnectionState
-import com.cooper.wheellog.core.util.DisplayUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 
 @Composable
 fun ScanScreen(viewModel: WheelViewModel) {

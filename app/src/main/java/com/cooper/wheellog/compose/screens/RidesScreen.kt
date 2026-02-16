@@ -42,8 +42,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.data.TripDataDbEntry
-import com.cooper.wheellog.core.util.ByteUtils
-import com.cooper.wheellog.core.util.DisplayUtils
+import com.cooper.wheellog.core.utils.ByteUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Calendar

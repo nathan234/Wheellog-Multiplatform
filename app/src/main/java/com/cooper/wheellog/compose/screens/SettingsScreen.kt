@@ -30,19 +30,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import com.cooper.wheellog.BuildConfig
 import com.cooper.wheellog.compose.WheelViewModel
-import com.cooper.wheellog.kmp.DecoderMode
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.AppConstants
-import com.cooper.wheellog.core.util.ByteUtils
-import com.cooper.wheellog.core.util.DisplayUtils
-import java.util.Locale
+import com.cooper.wheellog.core.utils.ByteUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 
 @Composable
 fun SettingsScreen(viewModel: WheelViewModel) {

@@ -41,18 +41,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cooper.wheellog.compose.AlarmType
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.AlarmBanner
 import com.cooper.wheellog.compose.components.ConnectionBanner
 import com.cooper.wheellog.compose.components.GaugeTile
 import com.cooper.wheellog.compose.components.SpeedGauge
 import com.cooper.wheellog.compose.components.StatRow
-import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.telemetry.ColorZone
 import com.cooper.wheellog.core.telemetry.MetricType
-import com.cooper.wheellog.core.util.ByteUtils
-import com.cooper.wheellog.core.util.DisplayUtils
+import com.cooper.wheellog.core.utils.ByteUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)

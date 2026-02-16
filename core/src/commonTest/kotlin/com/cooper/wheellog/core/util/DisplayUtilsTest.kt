@@ -3,6 +3,7 @@ package com.cooper.wheellog.core.util
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
+import com.cooper.wheellog.core.utils.DisplayUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

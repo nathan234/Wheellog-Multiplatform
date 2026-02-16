@@ -1,7 +1,7 @@
 package com.cooper.wheellog.core.protocol
 
 import com.cooper.wheellog.core.domain.WheelState
-import com.cooper.wheellog.core.util.ByteUtils
+import com.cooper.wheellog.core.utils.ByteUtils
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals

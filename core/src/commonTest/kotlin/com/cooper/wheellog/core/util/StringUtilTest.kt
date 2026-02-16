@@ -1,5 +1,6 @@
 package com.cooper.wheellog.core.util
 
+import com.cooper.wheellog.core.utils.StringUtil
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

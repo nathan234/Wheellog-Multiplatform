@@ -18,8 +18,7 @@ Wheellog.Android/
 │       ├── service/         # WheelConnectionManager, KeepAliveTimer
 │       ├── telemetry/       # TelemetryBuffer
 │       ├── ui/              # WheelSettingsConfig, ControlSpec
-│       ├── util/            # ByteUtils, DisplayUtils, StringUtil
-│       └── utils/           # Lock, Logger, EnergyCalculator
+│       └── utils/           # ByteUtils, DisplayUtils, StringUtil, Lock, Logger, EnergyCalculator
 ├── app/                     # Android app (Jetpack Compose)
 ├── shared/                  # Android-only library shared between app and wearos
 │                            #   (WearPage, SmartDouble, Constants)
@@ -31,8 +30,6 @@ Wheellog.Android/
 └── wearos/                  # WearOS companion app (does NOT use KMP core;
                              #   receives data from phone via DataClient)
 ```
-
-**Known issue:** `util/` and `utils/` are two separate packages. `util` has data-formatting helpers; `utils` has platform-abstracted infrastructure (Lock, Logger). These should eventually be consolidated.
 
 ## KMP Decoder Architecture
 
@@ -77,8 +74,7 @@ iOS always uses KMP decoders (no legacy option).
 | Settings config | `core/src/commonMain/.../ui/{WheelSettingsConfig,ControlSpec}.kt` |
 | Alarm logic | `core/src/commonMain/.../alarm/AlarmChecker.kt` |
 | BLE UUIDs & detection | `core/src/commonMain/.../ble/{BleUuids,WheelTypeDetector}.kt` |
-| Formatting utils | `core/src/commonMain/.../util/{ByteUtils,DisplayUtils,StringUtil}.kt` |
-| Platform abstractions | `core/src/commonMain/.../utils/{Lock,Logger}.kt` |
+| Utils (formatting, platform) | `core/src/commonMain/.../utils/{ByteUtils,DisplayUtils,StringUtil,Lock,Logger}.kt` |
 | Telemetry buffer | `core/src/commonMain/.../telemetry/TelemetryBuffer.kt` |
 | **Platform Implementations** | |
 | Android BLE | `core/src/androidMain/.../service/BleManager.android.kt` |

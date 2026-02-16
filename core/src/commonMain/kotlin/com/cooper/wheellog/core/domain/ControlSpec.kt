@@ -1,6 +1,4 @@
-package com.cooper.wheellog.core.ui
-
-import com.cooper.wheellog.core.domain.WheelState
+package com.cooper.wheellog.core.domain
 
 /**
  * Identifies which command to execute on the wheel.

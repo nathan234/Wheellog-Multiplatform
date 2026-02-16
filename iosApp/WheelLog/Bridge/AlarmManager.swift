@@ -75,7 +75,7 @@ class AlarmManager: ObservableObject {
     private let notificationFeedback = UINotificationFeedbackGenerator()
 
     nonisolated init() {
-        kmpChecker = WheelConnectionManagerFactory.shared.createAlarmChecker()
+        kmpChecker = WheelConnectionManagerHelper.shared.createAlarmChecker()
     }
 
     // MARK: - KMP Alarm Check
@@ -89,7 +89,7 @@ class AlarmManager: ObservableObject {
         }
 
         let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
-        let result = WheelConnectionManagerFactory.shared.checkAlarms(
+        let result = WheelConnectionManagerHelper.shared.checkAlarms(
             checker: kmpChecker,
             state: state,
             config: config,
@@ -100,7 +100,7 @@ class AlarmManager: ObservableObject {
     }
 
     func reset() {
-        WheelConnectionManagerFactory.shared.resetAlarmChecker(checker: kmpChecker)
+        WheelConnectionManagerHelper.shared.resetAlarmChecker(checker: kmpChecker)
         activeAlarms = []
     }
 

@@ -4,6 +4,10 @@
 
 WheelLog is an Android/iOS app for electric unicycle telemetry. The codebase is undergoing a Kotlin Multiplatform (KMP) migration to share protocol decoders between platforms.
 
+## Development Policy
+
+**Do not modify legacy Android code.** All new work targets the KMP `core/` module and the new Compose UI in `app/`. The legacy Java adapters (`app/.../utils/*Adapter*.java`), `WheelData.java`, and related files are frozen — they will be removed once the KMP migration is complete, not incrementally refactored. The goal is to eventually separate the new Compose app entirely from the old Android app.
+
 ## Project Structure
 
 ```
@@ -12,12 +16,11 @@ Wheellog.Android/
 │   └── src/commonMain/.../core/
 │       ├── alarm/           # AlarmChecker
 │       ├── ble/             # BleUuids, WheelTypeDetector, WheelConnectionInfo
-│       ├── domain/          # WheelState, WheelType, SmartBms, AppConstants
+│       ├── domain/          # WheelState, WheelType, SmartBms, AppConstants, WheelSettingsConfig, ControlSpec
 │       ├── logging/         # RideLogger
 │       ├── protocol/        # All decoders + unpackers (see Decoder Architecture below)
 │       ├── service/         # WheelConnectionManager, KeepAliveTimer
 │       ├── telemetry/       # TelemetryBuffer
-│       ├── ui/              # WheelSettingsConfig, ControlSpec
 │       └── utils/           # ByteUtils, DisplayUtils, StringUtil, Lock, Logger, EnergyCalculator
 ├── app/                     # Android app (Jetpack Compose)
 ├── shared/                  # Android-only library shared between app and wearos
@@ -69,7 +72,7 @@ iOS always uses KMP decoders (no legacy option).
 | Protocol decoders | `core/src/commonMain/.../protocol/*.kt` |
 | Connection manager | `core/src/commonMain/.../service/WheelConnectionManager.kt` |
 | Wheel state & types | `core/src/commonMain/.../domain/{WheelState,WheelType,SmartBms}.kt` |
-| Settings config | `core/src/commonMain/.../ui/{WheelSettingsConfig,ControlSpec}.kt` |
+| Settings config | `core/src/commonMain/.../domain/{WheelSettingsConfig,ControlSpec}.kt` |
 | Alarm logic | `core/src/commonMain/.../alarm/AlarmChecker.kt` |
 | BLE UUIDs & detection | `core/src/commonMain/.../ble/{BleUuids,WheelTypeDetector}.kt` |
 | Utils (formatting, platform) | `core/src/commonMain/.../utils/{ByteUtils,DisplayUtils,StringUtil,Lock,Logger}.kt` |
@@ -77,7 +80,7 @@ iOS always uses KMP decoders (no legacy option).
 | **Platform Implementations** | |
 | Android BLE | `core/src/androidMain/.../service/BleManager.android.kt` |
 | iOS BLE | `core/src/iosMain/.../service/BleManager.ios.kt` |
-| iOS Swift bridge factory | `core/src/iosMain/.../service/WheelConnectionManagerFactory.kt` |
+| iOS Swift bridge helper | `core/src/iosMain/.../service/WheelConnectionManagerHelper.kt` |
 | Lock (Android/iOS) | `core/src/{androidMain,iosMain}/.../utils/Lock.{android,ios}.kt` |
 | Logger (Android/iOS) | `core/src/{androidMain,iosMain}/.../utils/Logger.{android,ios}.kt` |
 | **Android App** | |
@@ -100,7 +103,7 @@ iOS always uses KMP decoders (no legacy option).
 
 ## iOS Bridge Architecture
 
-`WheelConnectionManagerFactory.kt` (in iosMain) provides Swift-friendly wrappers around the KMP `WheelConnectionManager`. Despite the name, it's a facade/adapter, not a factory — it exposes convenience methods that Swift can call without dealing with Kotlin coroutines directly.
+`WheelConnectionManagerHelper.kt` (in iosMain) provides Swift-friendly wrappers around the KMP `WheelConnectionManager`. It exposes convenience methods that Swift can call without dealing with Kotlin coroutines directly.
 
 On the Swift side, `WheelManager.swift` is the main orchestrator. It owns the KMP manager instance and coordinates the other Bridge files. `StateFlowObserver` polls KMP StateFlows on a timer and publishes changes to SwiftUI via `@Published` properties.
 

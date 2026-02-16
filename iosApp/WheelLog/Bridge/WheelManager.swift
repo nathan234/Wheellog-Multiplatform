@@ -130,7 +130,7 @@ class WheelManager: ObservableObject {
 
     // MARK: - Demo Data Provider (KMP)
 
-    private let demoProvider = WheelConnectionManagerFactory.shared.createDemoProvider()
+    private let demoProvider = WheelConnectionManagerHelper.shared.createDemoProvider()
 
     // MARK: - Feature Managers
 
@@ -174,7 +174,7 @@ class WheelManager: ObservableObject {
         statePollingTimer = nil
         demoPollingTimer?.invalidate()
         demoPollingTimer = nil
-        WheelConnectionManagerFactory.shared.stopDemo(provider: demoProvider)
+        WheelConnectionManagerHelper.shared.stopDemo(provider: demoProvider)
     }
 
     private func setupKmpComponents() {
@@ -184,7 +184,7 @@ class WheelManager: ObservableObject {
 
         // Create WheelConnectionManager using iOS factory
         guard let ble = bleManager else { return }
-        connectionManager = WheelConnectionManagerFactory.shared.create(bleManager: ble)
+        connectionManager = WheelConnectionManagerHelper.shared.create(bleManager: ble)
 
         // Wire BLE data to connection manager
         bleManager?.setDataReceivedCallback { [weak self] data in
@@ -231,7 +231,7 @@ class WheelManager: ObservableObject {
         // Brief delay to simulate connection
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             guard let self = self else { return }
-            WheelConnectionManagerFactory.shared.startDemo(provider: self.demoProvider)
+            WheelConnectionManagerHelper.shared.startDemo(provider: self.demoProvider)
             self.connectionState = .connected(address: "DEMO-DEVICE", wheelName: "Demo Wheel")
             self.startDemoPolling()
         }
@@ -240,7 +240,7 @@ class WheelManager: ObservableObject {
     func stopMockMode() {
         demoPollingTimer?.invalidate()
         demoPollingTimer = nil
-        WheelConnectionManagerFactory.shared.stopDemo(provider: demoProvider)
+        WheelConnectionManagerHelper.shared.stopDemo(provider: demoProvider)
         isMockMode = false
         connectionState = .disconnected
         wheelState = WheelStateWrapper()
@@ -256,7 +256,7 @@ class WheelManager: ObservableObject {
     }
 
     private func pollDemoState() {
-        let kmpState = WheelConnectionManagerFactory.shared.getDemoState(provider: demoProvider)
+        let kmpState = WheelConnectionManagerHelper.shared.getDemoState(provider: demoProvider)
         let newWheelState = WheelStateWrapper(from: kmpState)
         guard newWheelState != wheelState else { return }
 
@@ -276,7 +276,7 @@ class WheelManager: ObservableObject {
         )
 
         // Check alarms via KMP
-        let kmpAlarmState = WheelConnectionManagerFactory.shared.getDemoState(provider: demoProvider)
+        let kmpAlarmState = WheelConnectionManagerHelper.shared.getDemoState(provider: demoProvider)
         let alarmConfig = buildAlarmConfig()
         alarmManager.checkAlarms(state: kmpAlarmState, config: alarmConfig, enabled: alarmsEnabled, action: alarmAction)
         activeAlarms = alarmManager.activeAlarms
@@ -348,7 +348,7 @@ class WheelManager: ObservableObject {
 
         // In test mode, only poll wheel state (not connection state)
         if isTestMode {
-            let kmpWheelState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
+            let kmpWheelState = WheelConnectionManagerHelper.shared.getWheelState(manager: cm)
             let newWheelState = WheelStateWrapper(from: kmpWheelState)
             if newWheelState != wheelState {
                 syncUnitsFromWheel(newWheelState)
@@ -358,7 +358,7 @@ class WheelManager: ObservableObject {
         }
 
         // Poll connection state using iOS helper
-        let kmpConnectionState = WheelConnectionManagerFactory.shared.getConnectionState(manager: cm)
+        let kmpConnectionState = WheelConnectionManagerHelper.shared.getConnectionState(manager: cm)
         let newState = ConnectionStateWrapper(from: kmpConnectionState)
         if newState != connectionState {
             handleConnectionStateChange(from: connectionState, to: newState)
@@ -366,7 +366,7 @@ class WheelManager: ObservableObject {
         }
 
         // Poll wheel state using iOS helper
-        let kmpWheelState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
+        let kmpWheelState = WheelConnectionManagerHelper.shared.getWheelState(manager: cm)
         let newWheelState = WheelStateWrapper(from: kmpWheelState)
         if newWheelState != wheelState {
             syncUnitsFromWheel(newWheelState)
@@ -382,7 +382,7 @@ class WheelManager: ObservableObject {
 
         // Feature 1: Check alarms when connected via KMP
         if connectionState.isConnected {
-            let kmpAlarmState = WheelConnectionManagerFactory.shared.getWheelState(manager: cm)
+            let kmpAlarmState = WheelConnectionManagerHelper.shared.getWheelState(manager: cm)
             let alarmConfig = buildAlarmConfig()
             alarmManager.checkAlarms(state: kmpAlarmState, config: alarmConfig, enabled: alarmsEnabled, action: alarmAction)
             activeAlarms = alarmManager.activeAlarms
@@ -430,7 +430,7 @@ class WheelManager: ObservableObject {
     // MARK: - Alarm Config Builder
 
     private func buildAlarmConfig() -> AlarmConfig {
-        return WheelConnectionManagerFactory.shared.createAlarmConfig(
+        return WheelConnectionManagerHelper.shared.createAlarmConfig(
             pwmBasedAlarms: pwmBasedAlarms,
             alarmFactor1: Int32(alarmFactor1),
             alarmFactor2: Int32(alarmFactor2),
@@ -506,209 +506,209 @@ class WheelManager: ObservableObject {
 
     func wheelBeep() {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendBeep(manager: cm)
+        WheelConnectionManagerHelper.shared.sendBeep(manager: cm)
     }
 
     func toggleLight() {
         guard let cm = connectionManager else { return }
         isLightOn.toggle()
-        WheelConnectionManagerFactory.shared.sendToggleLight(manager: cm, enabled: isLightOn)
+        WheelConnectionManagerHelper.shared.sendToggleLight(manager: cm, enabled: isLightOn)
     }
 
     func setPedalsMode(_ mode: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetPedalsMode(manager: cm, mode: Int32(mode))
+        WheelConnectionManagerHelper.shared.sendSetPedalsMode(manager: cm, mode: Int32(mode))
     }
 
     // MARK: - Lighting Commands
 
     func setLightMode(_ mode: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLightMode(manager: cm, mode: Int32(mode))
+        WheelConnectionManagerHelper.shared.sendSetLightMode(manager: cm, mode: Int32(mode))
     }
 
     func setLed(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLed(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetLed(manager: cm, enabled: enabled)
     }
 
     func setLedMode(_ mode: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLedMode(manager: cm, mode: Int32(mode))
+        WheelConnectionManagerHelper.shared.sendSetLedMode(manager: cm, mode: Int32(mode))
     }
 
     func setStrobeMode(_ mode: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetStrobeMode(manager: cm, mode: Int32(mode))
+        WheelConnectionManagerHelper.shared.sendSetStrobeMode(manager: cm, mode: Int32(mode))
     }
 
     func setTailLight(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetTailLight(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetTailLight(manager: cm, enabled: enabled)
     }
 
     func setDrl(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetDrl(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetDrl(manager: cm, enabled: enabled)
     }
 
     func setLedColor(_ value: Int, ledNum: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLedColor(manager: cm, value: Int32(value), ledNum: Int32(ledNum))
+        WheelConnectionManagerHelper.shared.sendSetLedColor(manager: cm, value: Int32(value), ledNum: Int32(ledNum))
     }
 
     func setLightBrightness(_ value: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLightBrightness(manager: cm, value: Int32(value))
+        WheelConnectionManagerHelper.shared.sendSetLightBrightness(manager: cm, value: Int32(value))
     }
 
     // MARK: - Speed & Alarm Commands
 
     func setMaxSpeed(_ speed: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetMaxSpeed(manager: cm, speed: Int32(speed))
+        WheelConnectionManagerHelper.shared.sendSetMaxSpeed(manager: cm, speed: Int32(speed))
     }
 
     func setAlarmSpeed(_ speed: Int, num: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetAlarmSpeed(manager: cm, speed: Int32(speed), num: Int32(num))
+        WheelConnectionManagerHelper.shared.sendSetAlarmSpeed(manager: cm, speed: Int32(speed), num: Int32(num))
     }
 
     func setAlarmEnabled(_ enabled: Bool, num: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetAlarmEnabled(manager: cm, enabled: enabled, num: Int32(num))
+        WheelConnectionManagerHelper.shared.sendSetAlarmEnabled(manager: cm, enabled: enabled, num: Int32(num))
     }
 
     func setLimitedMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLimitedMode(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetLimitedMode(manager: cm, enabled: enabled)
     }
 
     func setLimitedSpeed(_ speed: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLimitedSpeed(manager: cm, speed: Int32(speed))
+        WheelConnectionManagerHelper.shared.sendSetLimitedSpeed(manager: cm, speed: Int32(speed))
     }
 
     func setAlarmMode(_ mode: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetAlarmMode(manager: cm, mode: Int32(mode))
+        WheelConnectionManagerHelper.shared.sendSetAlarmMode(manager: cm, mode: Int32(mode))
     }
 
     func setKingsongAlarms(a1: Int, a2: Int, a3: Int, max: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetKingsongAlarms(manager: cm, a1: Int32(a1), a2: Int32(a2), a3: Int32(a3), max: Int32(max))
+        WheelConnectionManagerHelper.shared.sendSetKingsongAlarms(manager: cm, a1: Int32(a1), a2: Int32(a2), a3: Int32(a3), max: Int32(max))
     }
 
     func requestAlarmSettings() {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendRequestAlarmSettings(manager: cm)
+        WheelConnectionManagerHelper.shared.sendRequestAlarmSettings(manager: cm)
     }
 
     // MARK: - Ride Mode Commands
 
     func setHandleButton(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetHandleButton(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetHandleButton(manager: cm, enabled: enabled)
     }
 
     func setBrakeAssist(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetBrakeAssist(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetBrakeAssist(manager: cm, enabled: enabled)
     }
 
     func setTransportMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetTransportMode(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetTransportMode(manager: cm, enabled: enabled)
     }
 
     func setRideMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetRideMode(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetRideMode(manager: cm, enabled: enabled)
     }
 
     func setGoHomeMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetGoHomeMode(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetGoHomeMode(manager: cm, enabled: enabled)
     }
 
     func setFancierMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetFancierMode(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetFancierMode(manager: cm, enabled: enabled)
     }
 
     func setRollAngleMode(_ mode: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetRollAngleMode(manager: cm, mode: Int32(mode))
+        WheelConnectionManagerHelper.shared.sendSetRollAngleMode(manager: cm, mode: Int32(mode))
     }
 
     // MARK: - Audio Commands
 
     func setMute(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetMute(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetMute(manager: cm, enabled: enabled)
     }
 
     func setSpeakerVolume(_ volume: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetSpeakerVolume(manager: cm, volume: Int32(volume))
+        WheelConnectionManagerHelper.shared.sendSetSpeakerVolume(manager: cm, volume: Int32(volume))
     }
 
     func setBeeperVolume(_ volume: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetBeeperVolume(manager: cm, volume: Int32(volume))
+        WheelConnectionManagerHelper.shared.sendSetBeeperVolume(manager: cm, volume: Int32(volume))
     }
 
     // MARK: - Thermal Commands
 
     func setFanQuiet(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetFanQuiet(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetFanQuiet(manager: cm, enabled: enabled)
     }
 
     func setFan(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetFan(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetFan(manager: cm, enabled: enabled)
     }
 
     // MARK: - Pedal Tuning Commands
 
     func setPedalTilt(_ angle: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetPedalTilt(manager: cm, angle: Int32(angle))
+        WheelConnectionManagerHelper.shared.sendSetPedalTilt(manager: cm, angle: Int32(angle))
     }
 
     func setPedalSensitivity(_ sensitivity: Int) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetPedalSensitivity(manager: cm, sensitivity: Int32(sensitivity))
+        WheelConnectionManagerHelper.shared.sendSetPedalSensitivity(manager: cm, sensitivity: Int32(sensitivity))
     }
 
     // MARK: - System Commands
 
     func calibrate() {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendCalibrate(manager: cm)
+        WheelConnectionManagerHelper.shared.sendCalibrate(manager: cm)
     }
 
     func powerOff() {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendPowerOff(manager: cm)
+        WheelConnectionManagerHelper.shared.sendPowerOff(manager: cm)
     }
 
     func setLock(_ locked: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetLock(manager: cm, locked: locked)
+        WheelConnectionManagerHelper.shared.sendSetLock(manager: cm, locked: locked)
     }
 
     func resetTrip() {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendResetTrip(manager: cm)
+        WheelConnectionManagerHelper.shared.sendResetTrip(manager: cm)
     }
 
     // MARK: - Generic Command Dispatch
 
     func executeCommand(_ commandId: SettingsCommandId, intValue: Int32 = 0, boolValue: Bool = false) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.executeCommand(
+        WheelConnectionManagerHelper.shared.executeCommand(
             manager: cm,
             commandId: commandId,
             intValue: intValue,
@@ -718,7 +718,7 @@ class WheelManager: ObservableObject {
 
     func setMilesMode(_ enabled: Bool) {
         guard let cm = connectionManager else { return }
-        WheelConnectionManagerFactory.shared.sendSetMilesMode(manager: cm, enabled: enabled)
+        WheelConnectionManagerHelper.shared.sendSetMilesMode(manager: cm, enabled: enabled)
     }
 
     // MARK: - Ride Logging (Feature 3)

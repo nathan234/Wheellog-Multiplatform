@@ -51,10 +51,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.core.domain.WheelState
-import com.cooper.wheellog.core.ui.ControlSpec
-import com.cooper.wheellog.core.ui.SettingsCommandId
-import com.cooper.wheellog.core.ui.SettingsSection
-import com.cooper.wheellog.core.ui.WheelSettingsConfig
+import com.cooper.wheellog.core.domain.ControlSpec
+import com.cooper.wheellog.core.domain.SettingsCommandId
+import com.cooper.wheellog.core.domain.SettingsSection
+import com.cooper.wheellog.core.domain.WheelSettingsConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

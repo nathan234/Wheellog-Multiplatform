@@ -5,7 +5,7 @@ import com.cooper.wheellog.core.alarm.AlarmConfig
 import com.cooper.wheellog.core.alarm.AlarmResult
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.protocol.DefaultWheelDecoderFactory
-import com.cooper.wheellog.core.ui.SettingsCommandId
+import com.cooper.wheellog.core.domain.SettingsCommandId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,10 +14,10 @@ import kotlinx.coroutines.launch
 private val demoScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
 /**
- * iOS factory and helpers for WheelConnectionManager.
+ * iOS helper for WheelConnectionManager.
  * Handles CoroutineScope creation and provides Swift-friendly accessors.
  */
-object WheelConnectionManagerFactory {
+object WheelConnectionManagerHelper {
 
     /**
      * Create a WheelConnectionManager with default configuration.

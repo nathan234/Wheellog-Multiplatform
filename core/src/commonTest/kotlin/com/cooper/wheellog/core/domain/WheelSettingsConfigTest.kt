@@ -1,7 +1,5 @@
-package com.cooper.wheellog.core.ui
+package com.cooper.wheellog.core.domain
 
-import com.cooper.wheellog.core.domain.WheelState
-import com.cooper.wheellog.core.domain.WheelType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

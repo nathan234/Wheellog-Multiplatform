@@ -82,7 +82,7 @@ graph TB
 
     subgraph IOS["iOS · iosApp/"]
         direction TB
-        FACTORY["WheelConnectionManagerFactory<br/>Swift-friendly API"]
+        FACTORY["WheelConnectionManagerHelper<br/>Swift-friendly API"]
         WM["WheelManager.swift<br/>polls StateFlow → @Published"]
         SWIFTUI["SwiftUI<br/>Dashboard · Scan · Chart<br/>Rides · Settings · WheelSettings"]
     end
@@ -125,7 +125,7 @@ Wheellog.Android/
 │       ├── commonMain/      # Protocol decoders, wheel state, settings config, connection manager
 │       ├── commonTest/      # 580+ unit tests for all shared code
 │       ├── androidMain/     # Android BLE implementation
-│       └── iosMain/         # iOS CoreBluetooth implementation + Swift bridge factory
+│       └── iosMain/         # iOS CoreBluetooth implementation + Swift bridge helper
 ├── app/                     # Android app (Jetpack Compose)
 ├── iosApp/                  # iOS SwiftUI app
 │   └── WheelLog/
@@ -237,7 +237,7 @@ Run with `./gradlew :core:testDebugUnitTest`. Tests should **fail** first (class
 
 #### 4. Wire Up iOS
 
-- **Bridge**: If the KMP code needs a Swift-callable wrapper, add it to `WheelConnectionManagerFactory.kt` (iOS-side) and `WheelManager.swift`
+- **Bridge**: If the KMP code needs a Swift-callable wrapper, add it to `WheelConnectionManagerHelper.kt` (iOS-side) and `WheelManager.swift`
 - **View**: Create a SwiftUI view in `iosApp/WheelLog/Views/`
 - **Xcode**: Add the new `.swift` file to the Xcode project (`WheelLog.xcodeproj`)
 
@@ -263,7 +263,7 @@ The `WheelConnectionManager` exposes ~42 suspend commands. To add a new command:
 2. Implement encoding in the relevant decoder's `buildCommand()`
 3. Add a suspend method to `WheelConnectionManager`
 4. Add a case to `executeCommand()` dispatch (maps `SettingsCommandId` to method)
-5. Add iOS bridge wrapper in `WheelConnectionManagerFactory.kt`
+5. Add iOS bridge wrapper in `WheelConnectionManagerHelper.kt`
 6. Add Swift-side method in `WheelManager.swift`
 
 ### iOS Testing on Simulator

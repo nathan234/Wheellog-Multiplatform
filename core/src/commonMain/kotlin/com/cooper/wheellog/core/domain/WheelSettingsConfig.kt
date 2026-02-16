@@ -1,6 +1,4 @@
-package com.cooper.wheellog.core.ui
-
-import com.cooper.wheellog.core.domain.WheelType
+package com.cooper.wheellog.core.domain
 
 /**
  * Shared configuration defining which settings controls appear for each wheel type.

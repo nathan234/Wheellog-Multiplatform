@@ -9,7 +9,7 @@ import com.cooper.wheellog.core.protocol.DecoderConfig
 import com.cooper.wheellog.core.protocol.WheelCommand
 import com.cooper.wheellog.core.protocol.WheelDecoder
 import com.cooper.wheellog.core.protocol.WheelDecoderFactory
-import com.cooper.wheellog.core.ui.SettingsCommandId
+import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

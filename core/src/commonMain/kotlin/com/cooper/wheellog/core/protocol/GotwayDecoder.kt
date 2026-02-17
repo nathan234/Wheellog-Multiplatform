@@ -230,7 +230,7 @@ class GotwayDecoder : WheelDecoder {
             output = if (!truePWM) hwPwm else currentState.output,
             calculatedPwm = if (!truePWM) calculatedPwm else currentState.calculatedPwm,
             wheelType = WheelType.GOTWAY,
-            model = model.ifEmpty { fwProt.ifEmpty { "Begode" } }
+            model = model.ifEmpty { currentState.model }
         )
 
         val hasNewData = !((trueVoltage) || trueCurrent || bmsCurrent) || isAlexovikFW

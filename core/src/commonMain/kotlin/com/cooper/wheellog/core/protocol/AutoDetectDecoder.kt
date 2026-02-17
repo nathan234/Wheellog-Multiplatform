@@ -47,7 +47,7 @@ class AutoDetectDecoder : WheelDecoder {
                         DecodedData(
                             newState = it.newState.copy(
                                 wheelType = WheelType.VETERAN,
-                                model = it.newState.model.ifEmpty { "Veteran" }
+                                model = it.newState.model
                             ),
                             commands = it.commands,
                             hasNewData = it.hasNewData,
@@ -66,7 +66,7 @@ class AutoDetectDecoder : WheelDecoder {
                         DecodedData(
                             newState = it.newState.copy(
                                 wheelType = WheelType.GOTWAY,
-                                model = it.newState.model.ifEmpty { "Begode" }
+                                model = it.newState.model
                             ),
                             commands = it.commands,
                             hasNewData = it.hasNewData,

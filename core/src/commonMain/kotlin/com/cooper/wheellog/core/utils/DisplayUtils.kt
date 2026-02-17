@@ -67,9 +67,9 @@ object DisplayUtils {
 
     // --- Wheel identity ---
 
-    fun wheelDisplayName(wheelType: WheelType, model: String, name: String): String {
+    fun wheelDisplayName(wheelType: WheelType, model: String, name: String, btName: String = ""): String {
         val brand = wheelType.displayName
-        val label = model.ifEmpty { name }
+        val label = model.ifEmpty { name }.ifEmpty { btName }
         if (label.isEmpty()) return brand.ifEmpty { "Dashboard" }
         if (brand.isEmpty() || label.startsWith(brand, ignoreCase = true)) return label
         return "$brand $label"

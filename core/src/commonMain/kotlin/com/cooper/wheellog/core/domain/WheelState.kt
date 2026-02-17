@@ -126,7 +126,7 @@ data class WheelState(
     /** Human-readable display name combining brand, model, and name */
     val displayName: String get() {
         val brand = wheelType.displayName
-        val label = model.ifEmpty { name }
+        val label = model.ifEmpty { name }.ifEmpty { btName }
         if (label.isEmpty()) return brand.ifEmpty { "Dashboard" }
         if (brand.isEmpty() || label.startsWith(brand, ignoreCase = true)) return label
         return "$brand $label"

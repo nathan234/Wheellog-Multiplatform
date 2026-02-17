@@ -202,7 +202,7 @@ class WheelConnectionManager(
             Logger.d("WheelConnectionManager", "Decoder ready, transitioning to Connected")
             _connectionState.value = ConnectionState.Connected(
                 address = address,
-                wheelName = result.newState.name.ifEmpty { result.newState.model }
+                wheelName = result.newState.displayName
             )
 
             // Start keep-alive timer now that we're fully connected
@@ -221,6 +221,10 @@ class WheelConnectionManager(
      */
     fun onServicesDiscovered(services: DiscoveredServices, deviceName: String?) {
         Logger.d("WheelConnectionManager", "onServicesDiscovered: deviceName=$deviceName, services=${services.serviceUuids()}")
+        if (!deviceName.isNullOrBlank()) {
+            _wheelState.value = _wheelState.value.copy(btName = deviceName)
+        }
+
         val result = wheelTypeDetector.detect(services, deviceName)
         Logger.d("WheelConnectionManager", "Detection result: $result")
 

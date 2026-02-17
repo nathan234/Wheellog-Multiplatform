@@ -166,6 +166,22 @@ class DisplayUtilsTest {
         )
     }
 
+    @Test
+    fun `wheelDisplayName falls back to btName`() {
+        assertEquals(
+            "Begode GW-12345",
+            DisplayUtils.wheelDisplayName(WheelType.GOTWAY, "", "", "GW-12345")
+        )
+    }
+
+    @Test
+    fun `wheelDisplayName prefers model over btName`() {
+        assertEquals(
+            "Begode MCM5",
+            DisplayUtils.wheelDisplayName(WheelType.GOTWAY, "MCM5", "", "GW-12345")
+        )
+    }
+
     // ==================== RSSI ====================
 
     @Test
@@ -216,6 +232,24 @@ class DisplayUtilsTest {
     fun `WheelState displayName brand only`() {
         val state = WheelState(wheelType = WheelType.VETERAN)
         assertEquals("Veteran", state.displayName)
+    }
+
+    @Test
+    fun `WheelState displayName falls back to btName`() {
+        val state = WheelState(wheelType = WheelType.GOTWAY, btName = "GW-12345")
+        assertEquals("Begode GW-12345", state.displayName)
+    }
+
+    @Test
+    fun `WheelState displayName prefers model over btName`() {
+        val state = WheelState(wheelType = WheelType.GOTWAY, model = "MCM5", btName = "GW-12345")
+        assertEquals("Begode MCM5", state.displayName)
+    }
+
+    @Test
+    fun `WheelState displayName brand only when btName also empty`() {
+        val state = WheelState(wheelType = WheelType.GOTWAY)
+        assertEquals("Begode", state.displayName)
     }
 
     // ==================== AlarmType.displayName ====================

@@ -471,6 +471,74 @@ class GotwayDecoderTest {
         assertEquals(InMotionV2Decoder.Model.UNKNOWN, model)
     }
 
+    // ==================== Gotway Model Field ====================
+
+    @Test
+    fun `live data frame does not set model when NAME not received`() {
+        val freshDecoder = GotwayDecoder()
+        // Send firmware response "GW1.23" to make decoder ready
+        val fwData = "GW1.23".encodeToByteArray()
+        freshDecoder.decode(fwData, WheelState(), config)
+
+        // Send a live data frame
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val liveFrame = header +
+            shortToBytesBE(6000) + // voltage
+            shortToBytesBE(0) + // speed
+            byteArrayOf(0, 0) +
+            shortToBytesBE(0) + // distance
+            shortToBytesBE(0) + // phaseCurrent
+            shortToBytesBE(99) + // temperature
+            byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals("", result.newState.model, "model should remain empty before NAME response")
+    }
+
+    @Test
+    fun `NAME response sets model correctly`() {
+        val freshDecoder = GotwayDecoder()
+        val nameData = "NAME MCM5".encodeToByteArray()
+        val result = freshDecoder.decode(nameData, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals("MCM5", result.newState.model)
+    }
+
+    @Test
+    fun `model persists across subsequent frames after NAME`() {
+        val freshDecoder = GotwayDecoder()
+
+        // 1) Firmware response
+        val fwData = "GW1.23".encodeToByteArray()
+        var state = WheelState()
+        val r1 = freshDecoder.decode(fwData, state, config)
+        if (r1 != null) state = r1.newState
+
+        // 2) NAME response
+        val nameData = "NAME MCM5".encodeToByteArray()
+        val r2 = freshDecoder.decode(nameData, state, config)
+        assertNotNull(r2)
+        state = r2.newState
+        assertEquals("MCM5", state.model)
+
+        // 3) Live data frame — model should persist
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val liveFrame = header +
+            shortToBytesBE(6000) +
+            shortToBytesBE(0) +
+            byteArrayOf(0, 0) +
+            shortToBytesBE(0) +
+            shortToBytesBE(0) +
+            shortToBytesBE(99) +
+            byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+        val r3 = freshDecoder.decode(liveFrame, state, config)
+
+        assertNotNull(r3)
+        assertEquals("MCM5", r3.newState.model, "model should persist after NAME response")
+    }
+
     // ==================== Helpers ====================
 
     private fun decodeNormalData(voltage: Short = 6000, config: DecoderConfig = this.config): DecodedData? {

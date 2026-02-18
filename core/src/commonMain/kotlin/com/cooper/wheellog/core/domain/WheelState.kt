@@ -73,6 +73,21 @@ data class WheelState(
     val lightMode: Int = -1,        // 0=Off, 1=On, 2=Strobe
     val ledMode: Int = -1,          // 0-9 LED pattern
 
+    // InMotionV2 settings reported via BLE
+    val maxSpeed: Int = -1,         // km/h (-1=unknown)
+    val pedalTilt: Int = -1,        // 1/10 degree (-1=unknown)
+    val pedalSensitivity: Int = -1, // raw 0-100 (-1=unknown)
+    val rideMode: Boolean = false,  // false=classic, true=offroad
+    val fancierMode: Boolean = false,
+    val speakerVolume: Int = -1,    // 0-100 (-1=unknown)
+    val mute: Boolean = false,
+    val handleButton: Boolean = false,
+    val drl: Boolean = false,
+    val lightBrightness: Int = -1,  // 0-100 (-1=unknown)
+    val transportMode: Boolean = false,
+    val goHomeMode: Boolean = false,
+    val fanQuiet: Boolean = false,
+
     // Error tracking
     val error: String = "",
     val alert: String = "",

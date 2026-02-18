@@ -150,6 +150,8 @@ class InMotionV2DecoderTest {
         // currentLimit = 65.00, speedLimit = 55.00
         // torque = 44.26, angle = 3.3, roll = -0.44
 
+        assertEquals(2401, state.speed, "Raw speed should be 2401 (24.01 km/h in 1/100 units)")
+        assertEquals(24.01, state.speedKmh, 0.01, "Speed should be 24.01 km/h")
         assertEquals(7910, state.voltage, "Voltage should be 7910 (79.10V)")
         assertEquals(79.10, state.voltageV, 0.01, "Voltage should be 79.10V")
         assertEquals(2700, state.temperature, "Temperature should be 2700 (27.0C)")
@@ -190,6 +192,8 @@ class InMotionV2DecoderTest {
         // torque = 18.74, voltageDouble = 82.40, currentDouble = 1.65
         // wheelDistanceDouble = 1.48, batteryLevel = 95
 
+        assertEquals(616, finalState.speed, "Raw speed should be 616 (6.16 km/h in 1/100 units)")
+        assertEquals(6.16, finalState.speedKmh, 0.01, "Speed should be 6.16 km/h")
         assertEquals(8240, finalState.voltage, "Voltage should be 8240 (82.40V)")
         assertEquals(82.40, finalState.voltageV, 0.01, "Voltage should be 82.40V")
     }
@@ -225,6 +229,8 @@ class InMotionV2DecoderTest {
         // speedDouble = 0.0, temperature = 29, temperature2 = 30
         // voltageDouble = 99.33, totalDistance = 205790
 
+        assertEquals(0, state.speed, "Raw speed should be 0")
+        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
         assertEquals(9933, state.voltage, "Voltage should be 9933 (99.33V)")
         assertEquals(99.33, state.voltageV, 0.01, "Voltage should be 99.33V")
         assertEquals(205790, state.totalDistance.toInt(), "Total distance should be 205790m")
@@ -253,6 +259,8 @@ class InMotionV2DecoderTest {
         // voltageDouble = 93.90, currentDouble = 11.20
         // motorPower = 2906.0, batteryLevel = 86
 
+        assertEquals(4985, finalState.speed, "Raw speed should be 4985 (49.85 km/h in 1/100 units)")
+        assertEquals(49.85, finalState.speedKmh, 0.01, "Speed should be 49.85 km/h")
         assertEquals(9390, finalState.voltage, "Voltage should be 9390 (93.90V)")
         assertEquals(93.90, finalState.voltageV, 0.01, "Voltage should be 93.90V")
         assertEquals(86, finalState.batteryLevel, "Battery should be 86%")
@@ -286,6 +294,8 @@ class InMotionV2DecoderTest {
         // speedDouble = 0.0, temperature = 24, temperature2 = 24
         // voltageDouble = 99.11, batteryLevel = 98
 
+        assertEquals(0, state.speed, "Raw speed should be 0")
+        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
         assertEquals(9911, state.voltage, "Voltage should be 9911 (99.11V)")
         assertEquals(99.11, state.voltageV, 0.01, "Voltage should be 99.11V")
         assertEquals(98, state.batteryLevel, "Battery should be 98%")
@@ -320,6 +330,8 @@ class InMotionV2DecoderTest {
         // voltageDouble = 120.41, motorPower = 1712.0
         // batteryLevel = 97
 
+        assertEquals(13623, state.speed, "Raw speed should be 13623 (136.23 km/h in 1/100 units)")
+        assertEquals(136.23, state.speedKmh, 0.01, "Speed should be 136.23 km/h")
         assertEquals(12041, state.voltage, "Voltage should be 12041 (120.41V)")
         assertEquals(120.41, state.voltageV, 0.01, "Voltage should be 120.41V")
         assertEquals(97, state.batteryLevel, "Battery should be 97%")
@@ -353,6 +365,8 @@ class InMotionV2DecoderTest {
         // speedDouble = 20.92, temperature = 29, temperature2 = 31
         // voltageDouble = 131.80, batteryLevel = 99
 
+        assertEquals(2092, state.speed, "Raw speed should be 2092 (20.92 km/h in 1/100 units)")
+        assertEquals(20.92, state.speedKmh, 0.01, "Speed should be 20.92 km/h")
         assertEquals(13180, state.voltage, "Voltage should be 13180 (131.80V)")
         assertEquals(131.80, state.voltageV, 0.01, "Voltage should be 131.80V")
         assertEquals(99, state.batteryLevel, "Battery should be 99%")
@@ -386,6 +400,8 @@ class InMotionV2DecoderTest {
         // speedDouble = 1.35, temperature = 28, temperature2 = 21
         // voltageDouble = 78.28, batteryLevel = 81
 
+        assertEquals(135, state.speed, "Raw speed should be 135 (1.35 km/h in 1/100 units)")
+        assertEquals(1.35, state.speedKmh, 0.01, "Speed should be 1.35 km/h")
         assertEquals(7828, state.voltage, "Voltage should be 7828 (78.28V)")
         assertEquals(78.28, state.voltageV, 0.01, "Voltage should be 78.28V")
         assertEquals(81, state.batteryLevel, "Battery should be 81%")
@@ -419,6 +435,8 @@ class InMotionV2DecoderTest {
         // speedDouble = 0.0, temperature = 29, temperature2 = 25
         // voltageDouble = 77.42, batteryLevel = 58
 
+        assertEquals(0, state.speed, "Raw speed should be 0")
+        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
         assertEquals(7742, state.voltage, "Voltage should be 7742 (77.42V)")
         assertEquals(77.42, state.voltageV, 0.01, "Voltage should be 77.42V")
         assertEquals(58, state.batteryLevel, "Battery should be 58%")
@@ -452,6 +470,8 @@ class InMotionV2DecoderTest {
         // speedDouble = 0.0, temperature = 29, temperature2 = 30
         // voltageDouble = 83.73, batteryLevel = 100
 
+        assertEquals(0, state.speed, "Raw speed should be 0")
+        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
         assertEquals(8373, state.voltage, "Voltage should be 8373 (83.73V)")
         assertEquals(83.73, state.voltageV, 0.01, "Voltage should be 83.73V")
         assertEquals(100, state.batteryLevel, "Battery should be 100%")
@@ -639,5 +659,295 @@ class InMotionV2DecoderTest {
         // Should parse version correctly
         // Main:1.4.0 means protocol version 2 for V11
         // version string should indicate this is 1.4.x or higher
+    }
+
+    // ==================== Settings Parsing Tests ====================
+
+    /**
+     * Build a valid InMotionV2 settings frame from a data payload.
+     * Handles escape encoding for 0xA5 and 0xAA bytes.
+     */
+    private fun buildSettingsFrame(payload: ByteArray): ByteArray {
+        val flags = 0x14
+        val len = payload.size + 1  // +1 for command byte
+        val command = 0xA0  // SETTINGS (0x20) with response bit set
+
+        // Build inner bytes: flags, len, command, payload
+        val inner = byteArrayOf(flags.toByte(), len.toByte(), command.toByte()) + payload
+
+        // Checksum = XOR of all inner bytes
+        var check = 0
+        for (b in inner) {
+            check = (check xor (b.toInt() and 0xFF)) and 0xFF
+        }
+
+        // Build output with header and escape sequences
+        val output = mutableListOf<Byte>()
+        output.add(0xAA.toByte())
+        output.add(0xAA.toByte())
+        for (b in inner) {
+            val v = b.toInt() and 0xFF
+            if (v == 0xA5 || v == 0xAA) {
+                output.add(0xA5.toByte())
+            }
+            output.add(b)
+        }
+        if (check == 0xA5 || check == 0xAA) {
+            output.add(0xA5.toByte())
+        }
+        output.add(check.toByte())
+
+        return output.toByteArray()
+    }
+
+    @Test
+    fun `V11 settings parsing extracts all fields correctly`() {
+        // Existing V11 settings packet from the full data test
+        val wheelType = "AAAA110882010206010201009C".hexToByteArray()
+        val settings = "AAAA141AA0207C15C800106464140000000058020000006400001500100010".hexToByteArray()
+
+        decoder.reset()
+        var state = defaultState
+
+        val r1 = decoder.decode(wheelType, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        val r2 = decoder.decode(settings, state, defaultConfig)
+        assertNotNull(r2, "Settings should be parsed")
+        state = r2!!.newState
+
+        // Verify parsed settings
+        // data[1..2] = 7C 15 → LE short = 0x157C = 5500 → /100 = 55
+        assertEquals(55, state.maxSpeed, "Max speed should be 55 km/h")
+        // data[3..4] = C8 00 → LE signed short = 0x00C8 = 200
+        assertEquals(200, state.pedalTilt, "Pedal tilt should be 200 (20.0 degrees)")
+        // data[5] = 0x10: low nibble = 0 (driveMode=false), high nibble = 1 (fancier=true)
+        assertFalse(state.rideMode, "Ride mode should be false (classic)")
+        assertTrue(state.fancierMode, "Fancier mode should be true")
+        // classSens (data[7]=100) used since fancier high nibble != 0
+        assertEquals(100, state.pedalSensitivity, "Pedal sensitivity should be 100")
+        // data[8] = 0x14 = 20
+        assertEquals(20, state.speakerVolume, "Speaker volume should be 20")
+        // data[18] = 0x64 = 100
+        assertEquals(100, state.lightBrightness, "Light brightness should be 100")
+        // data[21] = 0x15 = 0b00010101: bits 0-1=1 (audioState=1 → mute=false)
+        assertFalse(state.mute, "Mute should be false")
+        // bits 2-3=1 (decorState=1 → drl=true)
+        assertTrue(state.drl, "DRL should be true")
+        // bits 4-5=1 (liftedState=1 → handleButton=(1==0)=false)
+        assertFalse(state.handleButton, "Handle button should be false")
+        // data[22] = 0x00: bits 4-5=0 → transport=false
+        assertFalse(state.transportMode, "Transport mode should be false")
+        // data[23] = 0x10 = 0b00010000: bits 2-3=0 → goHome=false, bits 4-5=1 → fanQuiet=true
+        assertFalse(state.goHomeMode, "Go home mode should be false")
+        assertTrue(state.fanQuiet, "Fan quiet should be true")
+    }
+
+    @Test
+    fun `V13 settings parsing extracts all fields correctly`() {
+        val wheelType = "aaaa1108820102080101010091".hexToByteArray()
+
+        // Build V13 settings payload (36 bytes, i=1)
+        val payload = ByteArray(36)
+        payload[0] = 0x20  // command echo
+        // data[1..2] = maxSpeed: 70 km/h → 7000 = 0x1B58 LE
+        payload[1] = 0x58
+        payload[2] = 0x1B
+        // data[9..10] = pedalTilt: -10 → 0xFFF6 LE
+        payload[9] = 0xF6.toByte()
+        payload[10] = 0xFF.toByte()
+        // data[11] = mode: bit 0=offroad(1), bit 4=fancier(1)
+        payload[11] = 0x11
+        // data[12] = comfSens=50, data[13] = classSens=80
+        payload[12] = 50
+        payload[13] = 80
+        // data[31] = bit 0=1 (not mute → mute=false), bit 2=1 (drl=true)
+        payload[31] = 0x05
+        // data[32] = bit 4=1 (transport=true)
+        payload[32] = 0x10
+
+        val settingsFrame = buildSettingsFrame(payload)
+
+        decoder.reset()
+        var state = defaultState
+
+        val r1 = decoder.decode(wheelType, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        assertNotNull(r2, "V13 settings should be parsed")
+        state = r2!!.newState
+
+        assertEquals(70, state.maxSpeed, "Max speed should be 70 km/h")
+        assertEquals(-10, state.pedalTilt, "Pedal tilt should be -10")
+        assertTrue(state.rideMode, "Ride mode should be true (offroad)")
+        assertTrue(state.fancierMode, "Fancier mode should be true")
+        assertEquals(80, state.pedalSensitivity, "Sensitivity should be 80 (classSens since offroad)")
+        assertFalse(state.mute, "Mute should be false")
+        assertTrue(state.drl, "DRL should be true")
+        assertTrue(state.transportMode, "Transport mode should be true")
+        // V13 does not parse handleButton or goHomeMode
+        assertFalse(state.handleButton, "Handle button should be default false for V13")
+        assertFalse(state.goHomeMode, "Go home mode should be default false for V13")
+    }
+
+    @Test
+    fun `V11Y settings parsing extracts handleButton and goHome`() {
+        val wheelType = "aaaa110882010206020101009c".hexToByteArray()
+
+        // Build V11Y settings payload (36 bytes, i=1)
+        val payload = ByteArray(36)
+        payload[0] = 0x20  // command echo
+        // maxSpeed: 60 km/h → 6000 = 0x1770 LE
+        payload[1] = 0x70
+        payload[2] = 0x17
+        // pedalTilt: 5 → 0x0005 LE
+        payload[9] = 0x05
+        payload[10] = 0x00
+        // mode: bit 0=offroad(0), bit 4=fancier(0) → classic, no fancier
+        payload[11] = 0x00
+        // comfSens=40, classSens=70
+        payload[12] = 40
+        payload[13] = 70
+        // data[31]: bit 0=0 (mute=true), bit 2=0 (drl=false), bit 4=0 (handleButton=true, inverted)
+        payload[31] = 0x00
+        // data[32]: bit 4=0 (transport=false)
+        payload[32] = 0x00
+        // data[33]: bit 2=1 (goHome=true)
+        payload[33] = 0x04
+
+        val settingsFrame = buildSettingsFrame(payload)
+
+        decoder.reset()
+        var state = defaultState
+
+        val r1 = decoder.decode(wheelType, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        assertNotNull(r2, "V11Y settings should be parsed")
+        state = r2!!.newState
+
+        assertEquals(60, state.maxSpeed, "Max speed should be 60 km/h")
+        assertEquals(5, state.pedalTilt, "Pedal tilt should be 5")
+        assertFalse(state.rideMode, "Ride mode should be false (classic)")
+        assertFalse(state.fancierMode, "Fancier mode should be false")
+        assertEquals(40, state.pedalSensitivity, "Sensitivity should be 40 (comfSens since classic)")
+        assertTrue(state.mute, "Mute should be true (bit 0=0)")
+        assertFalse(state.drl, "DRL should be false")
+        assertTrue(state.handleButton, "Handle button should be true (bit 4=0, inverted)")
+        assertFalse(state.transportMode, "Transport mode should be false")
+        assertTrue(state.goHomeMode, "Go home mode should be true")
+    }
+
+    @Test
+    fun `V12 settings parsing extracts all fields correctly`() {
+        val wheelType = "aaaa110882010207010103009c".hexToByteArray()
+
+        // Build V12 settings payload (42 bytes, absolute offsets)
+        val payload = ByteArray(42)
+        payload[0] = 0x20  // command echo
+        // data[9..10] = maxSpeed: 50 km/h → 5000 = 0x1388 LE
+        payload[9] = 0x88.toByte()
+        payload[10] = 0x13
+        // data[15..16] = pedalTilt: 15 → 0x000F LE
+        payload[15] = 0x0F
+        payload[16] = 0x00
+        // data[19] = mode: bit 0=classicMode(0), bit 4=fancier(1) → 0x10
+        payload[19] = 0x10
+        // data[20] = comfSens=60, data[21] = classSens=90
+        payload[20] = 60
+        payload[21] = 90
+        // data[22] = volume=80
+        payload[22] = 80
+        // data[39] = bit 0=0 (mute=true), bit 2=0 (handleButton=true), bit 6=1 (transport=true)
+        payload[39] = 0x40
+
+        val settingsFrame = buildSettingsFrame(payload)
+
+        decoder.reset()
+        var state = defaultState
+
+        val r1 = decoder.decode(wheelType, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        assertNotNull(r2, "V12 settings should be parsed")
+        state = r2!!.newState
+
+        assertEquals(50, state.maxSpeed, "Max speed should be 50 km/h")
+        assertEquals(15, state.pedalTilt, "Pedal tilt should be 15")
+        assertFalse(state.rideMode, "Ride mode should be false (classicMode=0)")
+        assertTrue(state.fancierMode, "Fancier mode should be true")
+        assertEquals(60, state.pedalSensitivity, "Sensitivity should be 60 (comfSens since classic)")
+        assertEquals(80, state.speakerVolume, "Volume should be 80")
+        assertTrue(state.mute, "Mute should be true (bit 0=0)")
+        assertTrue(state.handleButton, "Handle button should be true (bit 2=0, inverted)")
+        assertTrue(state.transportMode, "Transport mode should be true")
+    }
+
+    @Test
+    fun `V9 settings parsing matches V11Y layout`() {
+        // V9 uses the same extended layout as V11Y
+        val wheelType = "aaaa11088201020c0101010095".hexToByteArray()
+
+        val payload = ByteArray(36)
+        payload[0] = 0x20
+        // maxSpeed: 35 km/h → 3500 = 0x0DAC LE
+        payload[1] = 0x0C.toByte()  // using 3500 = 0xDAC, low byte=0xAC... 0xAC is OK, not 0xA5
+        // Actually 3500 = 0x0DAC. Low byte = 0xAC. That's fine.
+        // But let me use a simpler value: 45 km/h → 4500 = 0x1194
+        payload[1] = 0x94.toByte()
+        payload[2] = 0x11
+        // pedalTilt: 0
+        payload[9] = 0x00
+        payload[10] = 0x00
+        // offroad=true, fancier=false → 0x01
+        payload[11] = 0x01
+        // comfSens=30, classSens=60
+        payload[12] = 30
+        payload[13] = 60
+        // data[31]: bit 0=1 (not mute), bit 2=1 (drl), bit 4=1 (handleBtn disabled) → 0x15
+        payload[31] = 0x15
+        // data[32]: bit 4=1 (transport) → 0x10
+        payload[32] = 0x10
+        // data[33]: bit 2=0 (goHome=false)
+        payload[33] = 0x00
+
+        val settingsFrame = buildSettingsFrame(payload)
+
+        decoder.reset()
+        var state = defaultState
+
+        val r1 = decoder.decode(wheelType, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        assertNotNull(r2, "V9 settings should be parsed")
+        state = r2!!.newState
+
+        assertEquals(45, state.maxSpeed, "Max speed should be 45 km/h")
+        assertEquals(0, state.pedalTilt, "Pedal tilt should be 0")
+        assertTrue(state.rideMode, "Ride mode should be true (offroad)")
+        assertFalse(state.fancierMode, "Fancier mode should be false")
+        assertEquals(60, state.pedalSensitivity, "Sensitivity should be 60 (classSens since offroad)")
+        assertFalse(state.mute, "Mute should be false (bit 0=1)")
+        assertTrue(state.drl, "DRL should be true")
+        assertFalse(state.handleButton, "Handle button should be false (bit 4=1, inverted)")
+        assertTrue(state.transportMode, "Transport mode should be true")
+        assertFalse(state.goHomeMode, "Go home mode should be false")
+    }
+
+    @Test
+    fun `settings not parsed before model is detected`() {
+        // Send settings without establishing model first
+        val settings = "AAAA141AA0207C15C800106464140000000058020000006400001500100010".hexToByteArray()
+
+        decoder.reset()
+        val result = decoder.decode(settings, defaultState, defaultConfig)
+
+        // Without model detection, settings should not be parsed (model=UNKNOWN → else branch → null)
+        assertTrue(result == null || result.newState.maxSpeed == -1,
+            "Settings should not be parsed without model detection")
     }
 }

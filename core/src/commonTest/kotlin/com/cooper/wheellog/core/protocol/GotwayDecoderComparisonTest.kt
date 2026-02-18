@@ -154,9 +154,12 @@ class GotwayDecoderComparisonTest {
         assertTrue(decodedCount >= 2, "Should have decoded data in multiple packets")
 
         // Verify key values match legacy expectations
-        // Note: speed is stored as raw value, not km/h * 100
         val expectedVoltage = 12010  // 120.10V * 100
         assertEquals(expectedVoltage, state.voltage, "Voltage should be 12010 (raw)")
+
+        // Unit-contract: raw speed (1/100 km/h) matches speedKmh * 100
+        assertEquals(state.speed, (state.speedKmh * 100).roundToInt(),
+            "Raw speed should be consistent with speedKmh (1/100 km/h units)")
     }
 
     // ==================== Signed Value Handling ====================

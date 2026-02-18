@@ -714,32 +714,192 @@ class InMotionV2Decoder : WheelDecoder {
     // ==================== Settings Parsing ====================
 
     private fun parseSettingsV11(data: ByteArray, currentState: WheelState): ProcessResult? {
-        // Settings don't modify WheelState, they would update app config
-        return null
-    }
+        // V11 unique layout: offsets relative to data[1]
+        val i = 1
+        if (data.size < i + 23) return null
 
-    private fun parseSettingsV11y(data: ByteArray, currentState: WheelState): ProcessResult? {
-        return null
+        val speedLim = ByteUtils.shortFromBytesLE(data, i) / 100
+        val pedalTilt = ByteUtils.signedShortFromBytesLE(data, i + 2)
+        val driveMode = (data[i + 4].toInt() and 0x0F) != 0  // low nibble
+        val rideModeRaw = (data[i + 4].toInt() and 0xFF) shr 4  // high nibble
+        val fancier = rideModeRaw != 0
+        val comfSens = data[i + 5].toInt() and 0xFF
+        val classSens = data[i + 6].toInt() and 0xFF
+        val sensitivity = if (rideModeRaw != 0) classSens else comfSens
+        val volume = data[i + 7].toInt() and 0xFF
+        val lightBr = if (data.size > i + 17) data[i + 17].toInt() and 0xFF else -1
+
+        // Bit-packed flags at data[i+20]
+        val flags20 = if (data.size > i + 20) data[i + 20].toInt() and 0xFF else 0
+        val audioState = flags20 and 0x03           // bits 0-1
+        val decorState = (flags20 shr 2) and 0x03   // bits 2-3 → DRL
+        val liftedState = (flags20 shr 4) and 0x03  // bits 4-5 → handle button (inverted)
+
+        // Bit-packed flags at data[i+21]
+        val flags21 = if (data.size > i + 21) data[i + 21].toInt() and 0xFF else 0
+        val transpMode = ((flags21 shr 4) and 0x03) != 0  // bits 4-5
+
+        // Bit-packed flags at data[i+22]
+        val flags22 = if (data.size > i + 22) data[i + 22].toInt() and 0xFF else 0
+        val lowBat = ((flags22 shr 2) and 0x03) != 0      // bits 2-3 → goHome
+        val fanQuietMode = ((flags22 shr 4) and 0x03) != 0 // bits 4-5
+
+        return ProcessResult(
+            state = currentState.copy(
+                maxSpeed = speedLim,
+                pedalTilt = pedalTilt,
+                pedalSensitivity = sensitivity,
+                rideMode = driveMode,
+                fancierMode = fancier,
+                speakerVolume = volume,
+                mute = audioState == 0,
+                handleButton = liftedState == 0,
+                drl = decorState != 0,
+                lightBrightness = lightBr,
+                transportMode = transpMode,
+                goHomeMode = lowBat,
+                fanQuiet = fanQuietMode
+            ),
+            hasNewData = false
+        )
     }
 
     private fun parseSettingsV12(data: ByteArray, currentState: WheelState): ProcessResult? {
-        return null
+        // V12 uses absolute offsets (not i-relative)
+        if (data.size < 42) return null
+
+        val speedLim = ByteUtils.shortFromBytesLE(data, 9) / 100
+        val pedalTilt = ByteUtils.signedShortFromBytesLE(data, 15)
+        val classicMode = (data[19].toInt() and 0x01) != 0
+        val fancier = ((data[19].toInt() shr 4) and 0x01) != 0
+        val comfSens = data[20].toInt() and 0xFF
+        val classSens = data[21].toInt() and 0xFF
+        val sensitivity = if (classicMode) classSens else comfSens
+        val volume = data[22].toInt() and 0xFF
+
+        // Bit-packed flags at data[39]
+        val flags39 = data[39].toInt() and 0xFF
+        val muteFlag = (flags39 and 0x01) == 0        // bit 0, inverted
+        val handleBtn = ((flags39 shr 2) and 0x01) == 0  // bit 2, inverted
+        val transpMode = ((flags39 shr 6) and 0x01) != 0 // bit 6
+
+        return ProcessResult(
+            state = currentState.copy(
+                maxSpeed = speedLim,
+                pedalTilt = pedalTilt,
+                pedalSensitivity = sensitivity,
+                rideMode = classicMode,
+                fancierMode = fancier,
+                speakerVolume = volume,
+                mute = muteFlag,
+                handleButton = handleBtn,
+                transportMode = transpMode
+            ),
+            hasNewData = false
+        )
+    }
+
+    /**
+     * Parse settings for V13/V14 layout (shared).
+     */
+    private fun parseSettingsV13V14(data: ByteArray, currentState: WheelState): ProcessResult? {
+        val i = 1
+        if (data.size < i + 35) return null
+
+        val speedLim = ByteUtils.shortFromBytesLE(data, i) / 100
+        val pedalTilt = ByteUtils.signedShortFromBytesLE(data, i + 8)
+        val offroad = (data[i + 10].toInt() and 0x01) != 0
+        val fancier = ((data[i + 10].toInt() shr 4) and 0x01) != 0
+        val comfSens = data[i + 11].toInt() and 0xFF
+        val classSens = data[i + 12].toInt() and 0xFF
+        val sensitivity = if (offroad) classSens else comfSens
+
+        // Bit-packed flags at data[i+30]
+        val flags30 = data[i + 30].toInt() and 0xFF
+        val muteFlag = (flags30 and 0x01) == 0          // bit 0, inverted
+        val drlFlag = ((flags30 shr 2) and 0x01) != 0   // bit 2
+
+        // data[i+31]
+        val transpMode = ((data[i + 31].toInt() shr 4) and 0x01) != 0  // bit 4
+
+        return ProcessResult(
+            state = currentState.copy(
+                maxSpeed = speedLim,
+                pedalTilt = pedalTilt,
+                pedalSensitivity = sensitivity,
+                rideMode = offroad,
+                fancierMode = fancier,
+                mute = muteFlag,
+                drl = drlFlag,
+                transportMode = transpMode
+            ),
+            hasNewData = false
+        )
     }
 
     private fun parseSettingsV13(data: ByteArray, currentState: WheelState): ProcessResult? {
-        return null
+        return parseSettingsV13V14(data, currentState)
     }
 
     private fun parseSettingsV14(data: ByteArray, currentState: WheelState): ProcessResult? {
-        return null
+        return parseSettingsV13V14(data, currentState)
+    }
+
+    /**
+     * Parse settings for V11Y/V9/V12S layout (shared).
+     * Same as V13/V14 plus handleButton, goHome.
+     */
+    private fun parseSettingsExtended(data: ByteArray, currentState: WheelState): ProcessResult? {
+        val i = 1
+        if (data.size < i + 35) return null
+
+        val speedLim = ByteUtils.shortFromBytesLE(data, i) / 100
+        val pedalTilt = ByteUtils.signedShortFromBytesLE(data, i + 8)
+        val offroad = (data[i + 10].toInt() and 0x01) != 0
+        val fancier = ((data[i + 10].toInt() shr 4) and 0x01) != 0
+        val comfSens = data[i + 11].toInt() and 0xFF
+        val classSens = data[i + 12].toInt() and 0xFF
+        val sensitivity = if (offroad) classSens else comfSens
+
+        // Bit-packed flags at data[i+30]
+        val flags30 = data[i + 30].toInt() and 0xFF
+        val muteFlag = (flags30 and 0x01) == 0           // bit 0, inverted
+        val drlFlag = ((flags30 shr 2) and 0x01) != 0    // bit 2
+        val handleBtn = ((flags30 shr 4) and 0x01) == 0  // bit 4, inverted
+
+        // data[i+31]
+        val transpMode = ((data[i + 31].toInt() shr 4) and 0x01) != 0  // bit 4
+
+        // data[i+32]
+        val goHome = ((data[i + 32].toInt() shr 2) and 0x01) != 0  // bit 2
+
+        return ProcessResult(
+            state = currentState.copy(
+                maxSpeed = speedLim,
+                pedalTilt = pedalTilt,
+                pedalSensitivity = sensitivity,
+                rideMode = offroad,
+                fancierMode = fancier,
+                mute = muteFlag,
+                drl = drlFlag,
+                handleButton = handleBtn,
+                transportMode = transpMode,
+                goHomeMode = goHome
+            ),
+            hasNewData = false
+        )
+    }
+
+    private fun parseSettingsV11y(data: ByteArray, currentState: WheelState): ProcessResult? {
+        return parseSettingsExtended(data, currentState)
     }
 
     private fun parseSettingsV9(data: ByteArray, currentState: WheelState): ProcessResult? {
-        return null
+        return parseSettingsExtended(data, currentState)
     }
 
     private fun parseSettingsV12S(data: ByteArray, currentState: WheelState): ProcessResult? {
-        return null
+        return parseSettingsExtended(data, currentState)
     }
 
     // ==================== Helper Functions ====================

@@ -29,12 +29,25 @@ enum class SettingsCommandId {
         LIGHT_MODE -> state.lightMode.takeIf { it >= 0 }
         LED_MODE -> state.ledMode.takeIf { it >= 0 }
         ROLL_ANGLE_MODE -> state.rollAngle.takeIf { it >= 0 }
+        MAX_SPEED -> state.maxSpeed.takeIf { it >= 0 }
+        PEDAL_TILT -> state.pedalTilt.takeIf { it >= 0 }
+        PEDAL_SENSITIVITY -> state.pedalSensitivity.takeIf { it >= 0 }
+        SPEAKER_VOLUME -> state.speakerVolume.takeIf { it >= 0 }
+        LIGHT_BRIGHTNESS -> state.lightBrightness.takeIf { it >= 0 }
         else -> null
     }
 
     /** Read current bool value from WheelState, or null if no readback. */
     fun readBool(state: WheelState): Boolean? = when (this) {
         LED -> state.ledMode.takeIf { it >= 0 }?.let { it > 0 }
+        RIDE_MODE -> state.rideMode
+        FANCIER_MODE -> state.fancierMode
+        MUTE -> state.mute
+        HANDLE_BUTTON -> state.handleButton
+        DRL -> state.drl
+        TRANSPORT_MODE -> state.transportMode
+        GO_HOME_MODE -> state.goHomeMode
+        FAN_QUIET -> state.fanQuiet
         else -> null
     }
 }

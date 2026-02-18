@@ -83,6 +83,7 @@ class InMotionDecoderComparisonTest {
 
         // Verify telemetry matches legacy expected values
         // KMP rounds (3.83) vs legacy truncates (3.82); rounding is more correct
+        assertEquals(383, state.speed, "Raw speed should be 383 (3.83 km/h in 1/100 units)")
         assertEquals(3.83, state.speedKmh, 0.01, "Speed should be 3.83 km/h")
         assertEquals(26, state.temperatureC, "Temperature should be 26°C")
         assertEquals(0, state.imuTemp, "IMU temp should be 0")
@@ -145,6 +146,7 @@ class InMotionDecoderComparisonTest {
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
+        assertEquals(137, state.speed, "Raw speed should be 137 (1.37 km/h in 1/100 units)")
         assertEquals(1.37, state.speedKmh, 0.01, "Speed should be 1.37 km/h")
         assertEquals(27, state.temperatureC, "Temperature should be 27°C")
         assertEquals(36, state.imuTemp, "IMU temp should be 36")
@@ -210,6 +212,7 @@ class InMotionDecoderComparisonTest {
         assertTrue(hasNewData, "Should have new telemetry data")
 
         // KMP rounds (0.67) vs legacy truncates (0.66); rounding is more correct
+        assertEquals(67, state.speed, "Raw speed should be 67 (0.67 km/h in 1/100 units)")
         assertEquals(0.67, state.speedKmh, 0.01, "Speed should be 0.67 km/h")
         assertEquals(28, state.temperatureC, "Temperature should be 28°C")
         assertEquals(36, state.imuTemp, "IMU temp should be 36")
@@ -273,6 +276,7 @@ class InMotionDecoderComparisonTest {
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
+        assertEquals(0, state.speed, "Raw speed should be 0")
         assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
         assertEquals(30, state.temperatureC, "Temperature should be 30°C")
         assertEquals(-110, state.imuTemp, "IMU temp should be -110")

@@ -3,6 +3,7 @@ package com.cooper.wheellog.compose
 import android.app.Application
 import android.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
+import com.cooper.wheellog.core.domain.WheelProfile
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.service.AutoConnectManager
 import com.cooper.wheellog.core.service.BleManager
@@ -200,5 +201,78 @@ class WheelViewModelAutoConnectTest {
         advanceUntilIdle()
 
         assertThat(viewModel.reconnectState.value).isEqualTo(AutoConnectManager.ReconnectState.Idle)
+    }
+
+    // --- Startup scan (scan-then-auto-connect) ---
+
+    @Test
+    fun `startupScan does nothing when lastMac is empty`() = runTest(testDispatcher) {
+        setLastMac("")
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        viewModel.startupScan()
+        advanceUntilIdle()
+
+        assertThat(viewModel.isScanning.value).isFalse()
+        coVerify(exactly = 0) { mockBle.startScan(any()) }
+    }
+
+    @Test
+    fun `startupScan starts scanning when lastMac is set`() = runTest(testDispatcher) {
+        setLastMac("AA:BB:CC:DD:EE:FF")
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        viewModel.startupScan()
+        advanceUntilIdle()
+
+        assertThat(viewModel.isScanning.value).isTrue()
+        coVerify { mockBle.startScan(any()) }
+    }
+
+    // --- Wheel profile persistence ---
+
+    @Test
+    fun `auto-save profile on connection`() = runTest(testDispatcher) {
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        // Simulate connection
+        mockConnectionState.value = ConnectionState.Connected("AA:BB:CC:DD:EE:FF", "Test Wheel")
+        advanceUntilIdle()
+
+        assertThat(viewModel.savedAddresses.value).contains("AA:BB:CC:DD:EE:FF")
+    }
+
+    @Test
+    fun `forgetProfile removes address from saved set`() = runTest(testDispatcher) {
+        // Pre-save a profile
+        viewModel.profileStore.saveProfile(
+            WheelProfile("AA:BB:CC:DD:EE:FF", "My Wheel", "KINGSONG", 1000L)
+        )
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        assertThat(viewModel.savedAddresses.value).contains("AA:BB:CC:DD:EE:FF")
+
+        viewModel.forgetProfile("AA:BB:CC:DD:EE:FF")
+        assertThat(viewModel.savedAddresses.value).doesNotContain("AA:BB:CC:DD:EE:FF")
+    }
+
+    @Test
+    fun `disconnect does not remove saved profile`() = runTest(testDispatcher) {
+        // Pre-save a profile
+        viewModel.profileStore.saveProfile(
+            WheelProfile("AA:BB:CC:DD:EE:FF", "My Wheel", "KINGSONG", 1000L)
+        )
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        viewModel.disconnect()
+        advanceUntilIdle()
+
+        // Profile should still be saved
+        assertThat(viewModel.savedAddresses.value).contains("AA:BB:CC:DD:EE:FF")
     }
 }

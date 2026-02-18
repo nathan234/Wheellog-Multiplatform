@@ -131,6 +131,45 @@ class WheelManager: ObservableObject {
     }
     @Published private(set) var isLogging: Bool = false
 
+    // MARK: - Saved Wheel Profiles
+
+    private static let savedAddressesKey = "WheelLogSavedAddresses"
+    private static let profileNameSuffix = "_profile_name"
+    private static let wheelTypeSuffix = "_wheel_type_name"
+    private static let lastConnectedSuffix = "_last_connected"
+
+    @Published private(set) var savedAddresses: Set<String> = {
+        let arr = UserDefaults.standard.stringArray(forKey: WheelManager.savedAddressesKey) ?? []
+        return Set(arr)
+    }()
+
+    func getSavedDisplayName(address: String) -> String? {
+        let name = UserDefaults.standard.string(forKey: address + Self.profileNameSuffix)
+        return (name?.isEmpty ?? true) ? nil : name
+    }
+
+    func saveProfile(address: String, displayName: String, wheelTypeName: String) {
+        var addresses = savedAddresses
+        addresses.insert(address)
+        UserDefaults.standard.set(Array(addresses), forKey: Self.savedAddressesKey)
+        if !displayName.isEmpty {
+            UserDefaults.standard.set(displayName, forKey: address + Self.profileNameSuffix)
+        }
+        UserDefaults.standard.set(wheelTypeName, forKey: address + Self.wheelTypeSuffix)
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: address + Self.lastConnectedSuffix)
+        savedAddresses = addresses
+    }
+
+    func forgetProfile(address: String) {
+        var addresses = savedAddresses
+        addresses.remove(address)
+        UserDefaults.standard.set(Array(addresses), forKey: Self.savedAddressesKey)
+        UserDefaults.standard.removeObject(forKey: address + Self.wheelTypeSuffix)
+        UserDefaults.standard.removeObject(forKey: address + Self.lastConnectedSuffix)
+        // Keep profile_name — may be reused if wheel reconnects
+        savedAddresses = addresses
+    }
+
     // MARK: - KMP Components
 
     private var bleManager: BleManager?
@@ -170,9 +209,7 @@ class WheelManager: ObservableObject {
             self.startPolling()
             self.backgroundManager.requestNotificationPermission()
 
-            if self.autoReconnect {
-                self.attemptStartupAutoConnect()
-            }
+            self.startupScan()
 
             // Auto-enable mock mode on simulator
             #if targetEnvironment(simulator)
@@ -181,17 +218,21 @@ class WheelManager: ObservableObject {
         }
     }
 
-    private func attemptStartupAutoConnect() {
+    private var startupScanTarget: String?
+
+    private func startupScan() {
         guard let storedUUID = UserDefaults.standard.string(forKey: "WheelLogLastPeripheralUUID"),
               !storedUUID.isEmpty else {
             return
         }
-        guard let acm = autoConnectManager else { return }
+        guard bleManager != nil else { return }
+
+        startupScanTarget = storedUUID
 
         // CBCentralManager needs time to reach poweredOn on cold launch
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            WheelConnectionManagerHelper.shared.attemptStartupConnect(manager: acm, address: storedUUID, timeoutMs: 10_000)
+            self.startScan()
         }
     }
 
@@ -506,6 +547,10 @@ class WheelManager: ObservableObject {
             lastConnectedAddress = address
             // Auto-connect flags are cleared automatically by the shared AutoConnectManager
             // via its connection state observer
+
+            // Auto-save wheel profile
+            let displayName = wheelState.displayName == "Dashboard" ? "" : wheelState.displayName
+            saveProfile(address: address, displayName: displayName, wheelTypeName: wheelState.wheelType)
 
             // Auto-start logging if enabled
             if autoStartLogging && !isLogging {
@@ -846,6 +891,13 @@ class WheelManager: ObservableObject {
 
         // Sort by RSSI (strongest first)
         discoveredDevices.sort { $0.rssi > $1.rssi }
+
+        // Auto-connect if this is the startup scan target
+        if let target = startupScanTarget, discovered.address == target {
+            startupScanTarget = nil
+            stopScan()
+            connect(address: discovered.address)
+        }
     }
 
     // MARK: - Connection

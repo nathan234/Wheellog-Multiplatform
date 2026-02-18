@@ -33,9 +33,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -83,9 +87,14 @@ fun ScanScreen(viewModel: WheelViewModel) {
     val isScanning by viewModel.isScanning.collectAsState()
     val devices by viewModel.discoveredDevices.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
+    val savedAddresses by viewModel.savedAddresses.collectAsState()
     val hasDevices = devices.isNotEmpty()
     val connectingAddress = connectionState.connectingAddress
     val failedAddress = connectionState.failedAddress
+
+    // Partition devices into saved ("My Wheels") and new
+    val myWheels = devices.filter { it.address in savedAddresses }
+    val newDevices = devices.filter { it.address !in savedAddresses }
 
     Column(
         modifier = Modifier
@@ -112,34 +121,72 @@ fun ScanScreen(viewModel: WheelViewModel) {
         }
 
         if (hasDevices) {
-            // Device list
+            // Device list with My Wheels / New Devices sections
             LazyColumn(
                 modifier = Modifier.fillMaxSize()
             ) {
-                item {
-                    Text(
-                        text = "Available Devices",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                // "My Wheels" section — only shown if any saved devices are advertising
+                if (myWheels.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "My Wheels",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                    items(myWheels, key = { "saved_${it.address}" }) { device ->
+                        val isThisConnecting = connectingAddress == device.address
+                        val isThisFailed = failedAddress == device.address
+                        val savedName = viewModel.getSavedDisplayName(device.address)
+                        SwipeToDismissDeviceRow(
+                            onDismiss = { viewModel.forgetProfile(device.address) }
+                        ) {
+                            DeviceRow(
+                                device = device,
+                                displayNameOverride = savedName,
+                                isConnecting = isThisConnecting,
+                                isFailed = isThisFailed,
+                                statusText = if (isThisConnecting) connectionState.statusText else null,
+                                isDisabled = connectingAddress != null && !isThisConnecting,
+                                onClick = { viewModel.connect(device.address) },
+                                onCancel = if (isThisConnecting) {
+                                    { viewModel.disconnect() }
+                                } else null
+                            )
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
                 }
-                items(devices, key = { it.address }) { device ->
-                    val isThisConnecting = connectingAddress == device.address
-                    val isThisFailed = failedAddress == device.address
-                    DeviceRow(
-                        device = device,
-                        isConnecting = isThisConnecting,
-                        isFailed = isThisFailed,
-                        statusText = if (isThisConnecting) connectionState.statusText else null,
-                        isDisabled = connectingAddress != null && !isThisConnecting,
-                        onClick = { viewModel.connect(device.address) },
-                        onCancel = if (isThisConnecting) {
-                            { viewModel.disconnect() }
-                        } else null
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+
+                // "New Devices" section
+                if (newDevices.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "New Devices",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                    items(newDevices, key = { "new_${it.address}" }) { device ->
+                        val isThisConnecting = connectingAddress == device.address
+                        val isThisFailed = failedAddress == device.address
+                        DeviceRow(
+                            device = device,
+                            isConnecting = isThisConnecting,
+                            isFailed = isThisFailed,
+                            statusText = if (isThisConnecting) connectionState.statusText else null,
+                            isDisabled = connectingAddress != null && !isThisConnecting,
+                            onClick = { viewModel.connect(device.address) },
+                            onCancel = if (isThisConnecting) {
+                                { viewModel.disconnect() }
+                            } else null
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                    }
                 }
+
                 if (isScanning) {
                     item {
                         Text(
@@ -270,8 +317,47 @@ private fun ScanButton(
 }
 
 @Composable
+private fun SwipeToDismissDeviceRow(
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState()
+
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            onDismiss()
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF44336))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    text = "Forget",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    ) {
+        Box(modifier = Modifier.background(MaterialTheme.colorScheme.background)) {
+            content()
+        }
+    }
+}
+
+@Composable
 private fun DeviceRow(
     device: WheelViewModel.DiscoveredDevice,
+    displayNameOverride: String? = null,
     isConnecting: Boolean = false,
     isFailed: Boolean = false,
     statusText: String? = null,
@@ -299,7 +385,8 @@ private fun DeviceRow(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = device.name.ifEmpty { "Unknown Device" },
+                text = displayNameOverride?.ifEmpty { null }
+                    ?: device.name.ifEmpty { "Unknown Device" },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )

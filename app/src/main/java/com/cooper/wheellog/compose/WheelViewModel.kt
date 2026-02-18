@@ -15,10 +15,12 @@ import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.DemoDataProvider
 import com.cooper.wheellog.core.service.WheelConnectionManager
 import com.cooper.wheellog.core.domain.SettingsCommandId
+import com.cooper.wheellog.core.domain.WheelProfile
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.data.TripDatabase
 import com.cooper.wheellog.data.TripRepository
 import android.content.Context
+import androidx.preference.PreferenceManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -111,6 +113,13 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLightOn = MutableStateFlow(false)
     val isLightOn: StateFlow<Boolean> = _isLightOn.asStateFlow()
 
+    // Saved wheel profiles
+    val profileStore = WheelProfileStore(
+        PreferenceManager.getDefaultSharedPreferences(application)
+    )
+    private val _savedAddresses = MutableStateFlow(profileStore.getSavedAddresses())
+    val savedAddresses: StateFlow<Set<String>> = _savedAddresses.asStateFlow()
+
     init {
         val db = TripDatabase.getDataBase(application)
         tripRepository = TripRepository(db.tripDao())
@@ -139,6 +148,10 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             cm.connectionState.collect { state ->
                 if (!_isDemo.value) {
                     _connectionState.value = state
+                }
+                // Auto-save profile when connected
+                if (state is ConnectionState.Connected) {
+                    autoSaveProfile(state.address)
                 }
                 // Start reconnect-after-loss when connection drops
                 if (state is ConnectionState.ConnectionLost && appConfig.useReconnect) {
@@ -244,6 +257,65 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         val acm = autoConnectManager ?: return
 
         acm.attemptStartupConnect(lastMac)
+    }
+
+    // --- Startup scan (replaces blind auto-connect) ---
+
+    private var startupScanJob: Job? = null
+
+    fun startupScan() {
+        val lastMac = appConfig.lastMac
+        if (lastMac.isEmpty()) return
+        val ble = bleManager ?: return
+
+        _isScanning.value = true
+        _discoveredDevices.value = emptyList()
+        viewModelScope.launch {
+            ble.startScan { device ->
+                addDiscoveredDevice(device)
+            }
+        }
+
+        // Watch for the last-connected wheel to appear in scan results
+        startupScanJob = viewModelScope.launch {
+            _discoveredDevices.collect { devices ->
+                if (devices.any { it.address == lastMac }) {
+                    startupScanJob?.cancel()
+                    startupScanJob = null
+                    connect(lastMac)
+                }
+            }
+        }
+    }
+
+    // --- Saved wheel profiles ---
+
+    fun getSavedDisplayName(address: String): String? {
+        return profileStore.getDisplayName(address)
+    }
+
+    fun forgetProfile(address: String) {
+        profileStore.deleteProfile(address)
+        _savedAddresses.value = profileStore.getSavedAddresses()
+    }
+
+    private fun autoSaveProfile(address: String) {
+        val state = _realWheelState.value
+        val displayName = state.displayName.let {
+            if (it == "Dashboard" || it.isEmpty()) {
+                // Fall back to existing profile name or BLE name
+                profileStore.getDisplayName(address) ?: ""
+            } else it
+        }
+        profileStore.saveProfile(
+            WheelProfile(
+                address = address,
+                displayName = displayName,
+                wheelTypeName = state.wheelType.name,
+                lastConnectedMs = System.currentTimeMillis()
+            )
+        )
+        _savedAddresses.value = profileStore.getSavedAddresses()
     }
 
     // --- Wheel commands ---

@@ -177,33 +177,79 @@ struct ScanView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var myWheels: [DiscoveredDevice] {
+        wheelManager.discoveredDevices.filter { wheelManager.savedAddresses.contains($0.address) }
+    }
+
+    private var newDevices: [DiscoveredDevice] {
+        wheelManager.discoveredDevices.filter { !wheelManager.savedAddresses.contains($0.address) }
+    }
+
     private var deviceList: some View {
         List {
-            Section {
-                ForEach(wheelManager.discoveredDevices) { device in
-                    let isThisConnecting = connectingAddress == device.address
-                    let isThisFailed = failedAddress == device.address
-                    let isDisabled = connectingAddress != nil && !isThisConnecting
-                    DeviceRow(
-                        device: device,
-                        isConnecting: isThisConnecting,
-                        isFailed: isThisFailed,
-                        statusText: isThisConnecting ? wheelManager.connectionState.statusText : nil,
-                        isDisabled: isDisabled,
-                        onCancel: isThisConnecting ? cancelConnection : nil
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if !isDisabled && !isThisConnecting {
-                            connectToDevice(device)
+            // "My Wheels" section — only shown if saved devices are advertising
+            if !myWheels.isEmpty {
+                Section {
+                    ForEach(myWheels) { device in
+                        let isThisConnecting = connectingAddress == device.address
+                        let isThisFailed = failedAddress == device.address
+                        let isDisabled = connectingAddress != nil && !isThisConnecting
+                        let savedName = wheelManager.getSavedDisplayName(address: device.address)
+                        DeviceRow(
+                            device: device,
+                            displayNameOverride: savedName,
+                            isConnecting: isThisConnecting,
+                            isFailed: isThisFailed,
+                            statusText: isThisConnecting ? wheelManager.connectionState.statusText : nil,
+                            isDisabled: isDisabled,
+                            onCancel: isThisConnecting ? cancelConnection : nil
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if !isDisabled && !isThisConnecting {
+                                connectToDevice(device)
+                            }
                         }
                     }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            let device = myWheels[index]
+                            wheelManager.forgetProfile(address: device.address)
+                        }
+                    }
+                } header: {
+                    Text("My Wheels")
                 }
-            } header: {
-                Text("Available Devices")
-            } footer: {
-                if wheelManager.isScanning {
-                    Text("Scanning for devices...")
+            }
+
+            // "New Devices" section
+            if !newDevices.isEmpty {
+                Section {
+                    ForEach(newDevices) { device in
+                        let isThisConnecting = connectingAddress == device.address
+                        let isThisFailed = failedAddress == device.address
+                        let isDisabled = connectingAddress != nil && !isThisConnecting
+                        DeviceRow(
+                            device: device,
+                            isConnecting: isThisConnecting,
+                            isFailed: isThisFailed,
+                            statusText: isThisConnecting ? wheelManager.connectionState.statusText : nil,
+                            isDisabled: isDisabled,
+                            onCancel: isThisConnecting ? cancelConnection : nil
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if !isDisabled && !isThisConnecting {
+                                connectToDevice(device)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("New Devices")
+                } footer: {
+                    if wheelManager.isScanning {
+                        Text("Scanning for devices...")
+                    }
                 }
             }
         }
@@ -270,16 +316,24 @@ struct ScanView: View {
 
 struct DeviceRow: View {
     let device: DiscoveredDevice
+    var displayNameOverride: String? = nil
     var isConnecting: Bool = false
     var isFailed: Bool = false
     var statusText: String? = nil
     var isDisabled: Bool = false
     var onCancel: (() -> Void)? = nil
 
+    private var displayName: String {
+        if let override = displayNameOverride, !override.isEmpty {
+            return override
+        }
+        return device.name
+    }
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(device.name)
+                Text(displayName)
                     .font(.body)
                     .fontWeight(.medium)
                 Text(device.address)

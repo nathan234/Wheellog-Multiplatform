@@ -23,6 +23,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -100,6 +101,11 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLogging = MutableStateFlow(false)
     val isLogging: StateFlow<Boolean> = _isLogging.asStateFlow()
 
+    // Auto-connect state
+    private val _isAutoConnecting = MutableStateFlow(false)
+    val isAutoConnecting: StateFlow<Boolean> = _isAutoConnecting.asStateFlow()
+    private var autoConnectJob: Job? = null
+
     // Light state
     private val _isLightOn = MutableStateFlow(false)
     val isLightOn: StateFlow<Boolean> = _isLightOn.asStateFlow()
@@ -124,6 +130,11 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             cm.connectionState.collect { state ->
                 if (!_isDemo.value) {
                     _connectionState.value = state
+                }
+                if (state.isConnected || state is ConnectionState.Failed) {
+                    _isAutoConnecting.value = false
+                    autoConnectJob?.cancel()
+                    autoConnectJob = null
                 }
             }
         }
@@ -194,6 +205,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun connect(address: String) {
         val cm = connectionManager ?: return
         _isScanning.value = false
+        appConfig.lastMac = address
         viewModelScope.launch {
             bleManager?.stopScan()
             cm.connect(address)
@@ -205,12 +217,32 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             stopDemo()
             return
         }
+        appConfig.lastMac = ""
+        _isAutoConnecting.value = false
+        autoConnectJob?.cancel()
+        autoConnectJob = null
         if (rideLogger.isLogging) stopLogging()
         viewModelScope.launch {
             connectionManager?.disconnect()
         }
         telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
+    }
+
+    fun attemptStartupAutoConnect() {
+        val lastMac = appConfig.lastMac
+        if (lastMac.isEmpty()) return
+        if (!appConfig.useReconnect) return
+        val cm = connectionManager ?: return
+
+        _isAutoConnecting.value = true
+        autoConnectJob = viewModelScope.launch {
+            cm.connect(lastMac)
+            delay(10_000)
+            if (_isAutoConnecting.value) {
+                _isAutoConnecting.value = false
+            }
+        }
     }
 
     // --- Wheel commands ---

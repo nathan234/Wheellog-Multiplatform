@@ -26,6 +26,7 @@ import com.cooper.wheellog.compose.screens.ChartScreen
 import com.cooper.wheellog.compose.screens.DashboardScreen
 import com.cooper.wheellog.compose.screens.MetricDetailScreen
 import com.cooper.wheellog.compose.screens.RidesScreen
+import com.cooper.wheellog.compose.screens.AutoConnectScreen
 import com.cooper.wheellog.compose.screens.ScanScreen
 import com.cooper.wheellog.compose.screens.WheelSettingsScreen
 import com.cooper.wheellog.compose.screens.SettingsScreen
@@ -80,6 +81,7 @@ fun AppNavigation(viewModel: WheelViewModel) {
         ) {
             composable(Screen.Devices.route) {
                 val connectionState by viewModel.connectionState.collectAsState()
+                val isAutoConnecting by viewModel.isAutoConnecting.collectAsState()
                 if (connectionState.isConnected) {
                     DashboardScreen(
                         viewModel = viewModel,
@@ -88,6 +90,8 @@ fun AppNavigation(viewModel: WheelViewModel) {
                         onNavigateToMetric = { metricId -> navController.navigate("metric/$metricId") },
                         onNavigateToWheelSettings = { navController.navigate("wheel_settings") }
                     )
+                } else if (isAutoConnecting) {
+                    AutoConnectScreen(onCancel = { viewModel.disconnect() })
                 } else {
                     ScanScreen(viewModel = viewModel)
                 }

@@ -18,35 +18,54 @@ struct ScanView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("WheelLog")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+        if wheelManager.isAutoConnecting {
+            VStack(spacing: 16) {
+                Spacer()
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text("Reconnecting...")
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                Button("Cancel") {
+                    wheelManager.disconnect()
+                }
+                .foregroundColor(.red)
+                .padding(.top, 8)
                 Spacer()
             }
-            .padding()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(.systemGroupedBackground))
+        } else {
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    Text("WheelLog")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
+                .padding()
 
-            // Hide scan button while connecting
-            if connectingAddress == nil {
-                scanButton
-                    .onChange(of: wheelManager.isScanning) { scanning in
-                        if scanning {
-                            scanPulse = true
-                        } else {
-                            scanPulse = false
+                // Hide scan button while connecting
+                if connectingAddress == nil {
+                    scanButton
+                        .onChange(of: wheelManager.isScanning) { scanning in
+                            if scanning {
+                                scanPulse = true
+                            } else {
+                                scanPulse = false
+                            }
                         }
-                    }
-            }
+                }
 
-            if hasDevices {
-                deviceList
-            } else {
-                emptyState
+                if hasDevices {
+                    deviceList
+                } else {
+                    emptyState
+                }
             }
+            .background(Color(.systemGroupedBackground))
         }
-        .background(Color(.systemGroupedBackground))
     }
 
     private var scanButton: some View {

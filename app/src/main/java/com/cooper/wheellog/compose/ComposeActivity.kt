@@ -27,6 +27,7 @@ class ComposeActivity : ComponentActivity() {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             val binder = service as WheelService.LocalBinder
             viewModel.attachService(binder.service.connectionManager, binder.service.bleManager)
+            viewModel.attemptStartupAutoConnect()
         }
 
         override fun onServiceDisconnected(name: ComponentName) {

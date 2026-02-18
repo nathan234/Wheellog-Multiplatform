@@ -146,6 +146,21 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             }
         }
 
+        // Connection section
+        SettingsSection(title = "Connection") {
+            SettingsToggle(
+                label = "Auto Reconnect",
+                checked = appConfig.useReconnect,
+                onCheckedChange = { appConfig.useReconnect = it }
+            )
+            Text(
+                "Automatically reconnect to the last wheel on startup.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
         // Logging section
         SettingsSection(title = "Logging") {
             SettingsToggle(

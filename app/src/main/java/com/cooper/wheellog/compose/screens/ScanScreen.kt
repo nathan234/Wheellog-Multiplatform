@@ -52,6 +52,33 @@ import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.core.utils.DisplayUtils
 
 @Composable
+fun AutoConnectScreen(onCancel: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            color = MaterialTheme.colorScheme.primary,
+            strokeWidth = 4.dp
+        )
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "Reconnecting...",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(16.dp))
+        TextButton(onClick = onCancel) {
+            Text("Cancel", color = Color(0xFFF44336), fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
 fun ScanScreen(viewModel: WheelViewModel) {
     val isScanning by viewModel.isScanning.collectAsState()
     val devices by viewModel.discoveredDevices.collectAsState()

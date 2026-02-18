@@ -114,6 +114,9 @@ class WheelManager: ObservableObject {
     // Auto-reconnect state (Feature 2)
     @Published private(set) var reconnectState: AutoReconnectManager.ReconnectState = .idle
 
+    // Startup auto-connect state
+    @Published private(set) var isAutoConnecting: Bool = false
+
     // Logging settings (Feature 3)
     @Published var autoStartLogging: Bool = UserDefaults.standard.bool(forKey: "auto_start_logging") {
         didSet { UserDefaults.standard.set(autoStartLogging, forKey: "auto_start_logging") }
@@ -162,10 +165,36 @@ class WheelManager: ObservableObject {
             self.startPolling()
             self.backgroundManager.requestNotificationPermission()
 
+            if self.autoReconnect {
+                self.attemptStartupAutoConnect()
+            }
+
             // Auto-enable mock mode on simulator
             #if targetEnvironment(simulator)
             self.isMockMode = true
             #endif
+        }
+    }
+
+    private func attemptStartupAutoConnect() {
+        guard let storedUUID = UserDefaults.standard.string(forKey: "WheelLogLastPeripheralUUID"),
+              !storedUUID.isEmpty else {
+            return
+        }
+
+        isAutoConnecting = true
+
+        // CBCentralManager needs time to reach poweredOn on cold launch
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            guard self.isAutoConnecting else { return }
+            self.connect(address: storedUUID)
+
+            // Timeout after 10 seconds
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            if self.isAutoConnecting {
+                self.isAutoConnecting = false
+            }
         }
     }
 
@@ -458,6 +487,7 @@ class WheelManager: ObservableObject {
         // Track connected address
         if case .connected(let address, _) = newState {
             lastConnectedAddress = address
+            isAutoConnecting = false
             reconnectManager.onConnectionEstablished()
 
             // Auto-start logging if enabled
@@ -481,6 +511,11 @@ class WheelManager: ObservableObject {
             }
 
             telemetryBuffer.clear()
+        }
+
+        // Handle failed state
+        if case .failed = newState {
+            isAutoConnecting = false
         }
 
         // Also handle explicit disconnected state
@@ -823,8 +858,10 @@ class WheelManager: ObservableObject {
     func disconnect() {
         guard let connectionManager = connectionManager else { return }
 
-        // Explicit disconnect — stop reconnection
+        // Explicit disconnect — stop reconnection and clear saved address
+        isAutoConnecting = false
         reconnectManager.stop()
+        UserDefaults.standard.removeObject(forKey: "WheelLogLastPeripheralUUID")
 
         // Stop logging
         if isLogging {

@@ -18,7 +18,6 @@
 		A1000001221F0000000009 /* ConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F0000000019 /* ConnectionBanner.swift */; };
 		A1000001221F000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000001221F000000001C /* SettingsView.swift */; };
 		B1000001221F0000000011 /* AlarmManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000001 /* AlarmManager.swift */; };
-		B1000001221F0000000012 /* AutoReconnectManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000002 /* AutoReconnectManager.swift */; };
 		B1000001221F0000000013 /* BackgroundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000003 /* BackgroundManager.swift */; };
 		B1000001221F0000000014 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000004 /* LocationManager.swift */; };
 		B1000001221F0000000015 /* RideLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000001221F0000000005 /* RideLogger.swift */; };
@@ -46,7 +45,6 @@
 		A1000001221F000000001C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1000001221F0000000100 /* WheelLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WheelLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B1000001221F0000000001 /* AlarmManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmManager.swift; sourceTree = "<group>"; };
-		B1000001221F0000000002 /* AutoReconnectManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoReconnectManager.swift; sourceTree = "<group>"; };
 		B1000001221F0000000003 /* BackgroundManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundManager.swift; sourceTree = "<group>"; };
 		B1000001221F0000000004 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		B1000001221F0000000005 /* RideLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideLogger.swift; sourceTree = "<group>"; };
@@ -114,7 +112,6 @@
 				A1000001221F0000000014 /* WheelManager.swift */,
 				A1000001221F0000000015 /* StateFlowObserver.swift */,
 				B1000001221F0000000001 /* AlarmManager.swift */,
-				B1000001221F0000000002 /* AutoReconnectManager.swift */,
 				B1000001221F0000000003 /* BackgroundManager.swift */,
 				B1000001221F0000000004 /* LocationManager.swift */,
 				B1000001221F0000000005 /* RideLogger.swift */,
@@ -244,7 +241,6 @@
 				A1000001221F0000000009 /* ConnectionBanner.swift in Sources */,
 				A1000001221F000000000B /* SettingsView.swift in Sources */,
 				B1000001221F0000000011 /* AlarmManager.swift in Sources */,
-				B1000001221F0000000012 /* AutoReconnectManager.swift in Sources */,
 				B1000001221F0000000013 /* BackgroundManager.swift in Sources */,
 				B1000001221F0000000014 /* LocationManager.swift in Sources */,
 				B1000001221F0000000015 /* RideLogger.swift in Sources */,

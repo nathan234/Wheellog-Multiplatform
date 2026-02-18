@@ -111,10 +111,15 @@ class WheelManager: ObservableObject {
         didSet { UserDefaults.standard.set(showUnknownDevices, forKey: "show_unknown_devices") }
     }
 
-    // Auto-reconnect state (Feature 2)
-    @Published private(set) var reconnectState: AutoReconnectManager.ReconnectState = .idle
+    // Auto-reconnect state (Feature 2) — from shared KMP AutoConnectManager
+    enum ReconnectDisplayState: Equatable {
+        case idle
+        case waiting(attempt: Int, nextRetryMs: Int64)
+        case attempting(attempt: Int)
+    }
+    @Published private(set) var reconnectState: ReconnectDisplayState = .idle
 
-    // Startup auto-connect state
+    // Startup auto-connect state — from shared KMP AutoConnectManager
     @Published private(set) var isAutoConnecting: Bool = false
 
     // Logging settings (Feature 3)
@@ -138,7 +143,7 @@ class WheelManager: ObservableObject {
     // MARK: - Feature Managers
 
     let alarmManager = AlarmManager()
-    let reconnectManager = AutoReconnectManager()
+    private var autoConnectManager: AutoConnectManager?
     let rideLogger = RideLogger()
     let rideStore = RideStore()
     let locationManager = LocationManager()
@@ -181,20 +186,12 @@ class WheelManager: ObservableObject {
               !storedUUID.isEmpty else {
             return
         }
-
-        isAutoConnecting = true
+        guard let acm = autoConnectManager else { return }
 
         // CBCentralManager needs time to reach poweredOn on cold launch
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            guard self.isAutoConnecting else { return }
-            self.connect(address: storedUUID)
-
-            // Timeout after 10 seconds
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            if self.isAutoConnecting {
-                self.isAutoConnecting = false
-            }
+            WheelConnectionManagerHelper.shared.attemptStartupConnect(manager: acm, address: storedUUID, timeoutMs: 10_000)
         }
     }
 
@@ -219,6 +216,9 @@ class WheelManager: ObservableObject {
         bleManager?.setDataReceivedCallback { [weak self] data in
             self?.connectionManager?.onDataReceived(data: data)
         }
+
+        // Create shared auto-connect manager
+        autoConnectManager = WheelConnectionManagerHelper.shared.createAutoConnectManager(manager: connectionManager!)
 
         // Wire service discovery to connection manager
         bleManager?.setServicesDiscoveredCallback { [weak self] services, deviceName in
@@ -452,8 +452,25 @@ class WheelManager: ObservableObject {
             )
         }
 
-        // Feature 2: Update reconnect state
-        reconnectState = reconnectManager.state
+        // Feature 2: Update reconnect state + auto-connect from shared KMP manager
+        if let acm = autoConnectManager {
+            let helper = WheelConnectionManagerHelper.shared
+            isAutoConnecting = helper.getIsAutoConnecting(manager: acm)
+
+            let kmpReconnectState = helper.getReconnectState(manager: acm)
+            if helper.isReconnectIdle(state: kmpReconnectState) {
+                reconnectState = .idle
+            } else if helper.isReconnectWaiting(state: kmpReconnectState) {
+                reconnectState = .waiting(
+                    attempt: Int(helper.reconnectAttemptNumber(state: kmpReconnectState)),
+                    nextRetryMs: helper.reconnectNextRetryMs(state: kmpReconnectState)
+                )
+            } else if helper.isReconnectAttempting(state: kmpReconnectState) {
+                reconnectState = .attempting(
+                    attempt: Int(helper.reconnectAttemptNumber(state: kmpReconnectState))
+                )
+            }
+        }
     }
 
     // MARK: - Alarm Config Builder
@@ -487,8 +504,8 @@ class WheelManager: ObservableObject {
         // Track connected address
         if case .connected(let address, _) = newState {
             lastConnectedAddress = address
-            isAutoConnecting = false
-            reconnectManager.onConnectionEstablished()
+            // Auto-connect flags are cleared automatically by the shared AutoConnectManager
+            // via its connection state observer
 
             // Auto-start logging if enabled
             if autoStartLogging && !isLogging {
@@ -496,12 +513,11 @@ class WheelManager: ObservableObject {
             }
         }
 
-        // Detect connection lost → start auto-reconnect
+        // Detect connection lost → start auto-reconnect via shared manager
         if case .connectionLost(let address, _) = newState {
             if autoReconnect {
-                reconnectManager.startReconnecting(address: address) { [weak self] addr in
-                    guard let self = self else { return }
-                    self.connect(address: addr)
+                if let acm = autoConnectManager {
+                    WheelConnectionManagerHelper.shared.startReconnecting(manager: acm, address: address)
                 }
             }
 
@@ -511,11 +527,6 @@ class WheelManager: ObservableObject {
             }
 
             telemetryBuffer.clear()
-        }
-
-        // Handle failed state
-        if case .failed = newState {
-            isAutoConnecting = false
         }
 
         // Also handle explicit disconnected state
@@ -855,12 +866,19 @@ class WheelManager: ObservableObject {
         }
     }
 
+    func stopReconnecting() {
+        if let acm = autoConnectManager {
+            WheelConnectionManagerHelper.shared.stopAutoConnect(manager: acm)
+        }
+    }
+
     func disconnect() {
         guard let connectionManager = connectionManager else { return }
 
         // Explicit disconnect — stop reconnection and clear saved address
-        isAutoConnecting = false
-        reconnectManager.stop()
+        if let acm = autoConnectManager {
+            WheelConnectionManagerHelper.shared.stopAutoConnect(manager: acm)
+        }
         UserDefaults.standard.removeObject(forKey: "WheelLogLastPeripheralUUID")
 
         // Stop logging

@@ -8,6 +8,7 @@ import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.logging.RideLogger
 import com.cooper.wheellog.core.telemetry.TelemetryBuffer
 import com.cooper.wheellog.core.telemetry.TelemetrySample
+import com.cooper.wheellog.core.service.AutoConnectManager
 import com.cooper.wheellog.core.service.BleDevice
 import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
@@ -23,7 +24,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -101,10 +101,11 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLogging = MutableStateFlow(false)
     val isLogging: StateFlow<Boolean> = _isLogging.asStateFlow()
 
-    // Auto-connect state
-    private val _isAutoConnecting = MutableStateFlow(false)
-    val isAutoConnecting: StateFlow<Boolean> = _isAutoConnecting.asStateFlow()
-    private var autoConnectJob: Job? = null
+    // Auto-connect manager (created when service is attached)
+    private var autoConnectManager: AutoConnectManager? = null
+    val isAutoConnecting: StateFlow<Boolean> get() = autoConnectManager?.isAutoConnecting ?: MutableStateFlow(false)
+    val reconnectState: StateFlow<AutoConnectManager.ReconnectState>
+        get() = autoConnectManager?.reconnectState ?: MutableStateFlow(AutoConnectManager.ReconnectState.Idle)
 
     // Light state
     private val _isLightOn = MutableStateFlow(false)
@@ -123,6 +124,14 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         connectionManager = cm
         bleManager = ble
 
+        // Create shared auto-connect manager
+        autoConnectManager?.destroy()
+        autoConnectManager = AutoConnectManager(
+            connectionState = cm.connectionState,
+            connect = { address -> cm.connect(address) },
+            scope = viewModelScope
+        )
+
         stateCollectionJob = viewModelScope.launch {
             cm.wheelState.collect { _realWheelState.value = it }
         }
@@ -131,10 +140,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                 if (!_isDemo.value) {
                     _connectionState.value = state
                 }
-                if (state.isConnected || state is ConnectionState.Failed) {
-                    _isAutoConnecting.value = false
-                    autoConnectJob?.cancel()
-                    autoConnectJob = null
+                // Start reconnect-after-loss when connection drops
+                if (state is ConnectionState.ConnectionLost && appConfig.useReconnect) {
+                    autoConnectManager?.startReconnecting(state.address)
                 }
             }
         }
@@ -145,6 +153,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         connectionCollectionJob?.cancel()
         stateCollectionJob = null
         connectionCollectionJob = null
+        autoConnectManager?.destroy()
+        autoConnectManager = null
         connectionManager = null
         bleManager = null
     }
@@ -218,9 +228,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         appConfig.lastMac = ""
-        _isAutoConnecting.value = false
-        autoConnectJob?.cancel()
-        autoConnectJob = null
+        autoConnectManager?.stop()
         if (rideLogger.isLogging) stopLogging()
         viewModelScope.launch {
             connectionManager?.disconnect()
@@ -233,16 +241,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         val lastMac = appConfig.lastMac
         if (lastMac.isEmpty()) return
         if (!appConfig.useReconnect) return
-        val cm = connectionManager ?: return
+        val acm = autoConnectManager ?: return
 
-        _isAutoConnecting.value = true
-        autoConnectJob = viewModelScope.launch {
-            cm.connect(lastMac)
-            delay(10_000)
-            if (_isAutoConnecting.value) {
-                _isAutoConnecting.value = false
-            }
-        }
+        acm.attemptStartupConnect(lastMac)
     }
 
     // --- Wheel commands ---

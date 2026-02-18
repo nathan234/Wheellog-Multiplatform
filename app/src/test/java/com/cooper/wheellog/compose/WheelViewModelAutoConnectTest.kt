@@ -4,6 +4,7 @@ import android.app.Application
 import android.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
 import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.service.AutoConnectManager
 import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.WheelConnectionManager
@@ -28,6 +29,11 @@ import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+/**
+ * Integration tests verifying WheelViewModel wires correctly to the shared
+ * AutoConnectManager. Detailed state machine tests are in
+ * core/commonTest/AutoConnectManagerTest.kt.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -86,7 +92,7 @@ class WheelViewModelAutoConnectTest {
             .commit()
     }
 
-    // --- attemptStartupAutoConnect early returns ---
+    // --- ViewModel guards (these stay as integration tests) ---
 
     @Test
     fun `attemptStartupAutoConnect does nothing when lastMac is empty`() = runTest(testDispatcher) {
@@ -96,7 +102,6 @@ class WheelViewModelAutoConnectTest {
         advanceUntilIdle()
 
         viewModel.attemptStartupAutoConnect()
-        // Flag is set synchronously before coroutine launch — should stay false
         assertThat(viewModel.isAutoConnecting.value).isFalse()
         coVerify(exactly = 0) { mockCm.connect(any(), any()) }
     }
@@ -123,97 +128,24 @@ class WheelViewModelAutoConnectTest {
         assertThat(viewModel.isAutoConnecting.value).isFalse()
     }
 
-    // --- Successful auto-connect ---
+    // --- Wiring verification: delegates to shared manager ---
 
     @Test
-    fun `attemptStartupAutoConnect sets flag and calls connect`() = runTest(testDispatcher) {
+    fun `attemptStartupAutoConnect delegates to shared manager`() = runTest(testDispatcher) {
         setUseReconnect(true)
         setLastMac("AA:BB:CC:DD:EE:FF")
         viewModel.attachService(mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.attemptStartupAutoConnect()
-        // Flag set synchronously before coroutine launch
         assertThat(viewModel.isAutoConnecting.value).isTrue()
 
-        // Advance enough to run cm.connect() but not the 10s timeout
         advanceTimeBy(100)
         coVerify { mockCm.connect("AA:BB:CC:DD:EE:FF", null) }
-        assertThat(viewModel.isAutoConnecting.value).isTrue()
     }
 
     @Test
-    fun `auto-connect flag clears on timeout after 10 seconds`() = runTest(testDispatcher) {
-        setUseReconnect(true)
-        setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
-        advanceUntilIdle()
-
-        viewModel.attemptStartupAutoConnect()
-        assertThat(viewModel.isAutoConnecting.value).isTrue()
-
-        // Just before timeout — still true
-        advanceTimeBy(9_999)
-        assertThat(viewModel.isAutoConnecting.value).isTrue()
-
-        // After timeout — cleared
-        advanceTimeBy(2)
-        advanceUntilIdle()
-        assertThat(viewModel.isAutoConnecting.value).isFalse()
-    }
-
-    // --- Connection state clears auto-connect flag ---
-
-    @Test
-    fun `auto-connect flag clears on Connected state`() = runTest(testDispatcher) {
-        setUseReconnect(true)
-        setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
-        advanceUntilIdle()
-
-        viewModel.attemptStartupAutoConnect()
-        assertThat(viewModel.isAutoConnecting.value).isTrue()
-        advanceTimeBy(100)
-
-        mockConnectionState.value = ConnectionState.Connected("AA:BB:CC:DD:EE:FF", "TestWheel")
-        advanceUntilIdle()
-        assertThat(viewModel.isAutoConnecting.value).isFalse()
-    }
-
-    @Test
-    fun `auto-connect flag clears on Failed state`() = runTest(testDispatcher) {
-        setUseReconnect(true)
-        setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
-        advanceUntilIdle()
-
-        viewModel.attemptStartupAutoConnect()
-        assertThat(viewModel.isAutoConnecting.value).isTrue()
-        advanceTimeBy(100)
-
-        mockConnectionState.value = ConnectionState.Failed("timeout")
-        advanceUntilIdle()
-        assertThat(viewModel.isAutoConnecting.value).isFalse()
-    }
-
-    // --- connect() persists lastMac ---
-
-    @Test
-    fun `connect persists MAC address`() = runTest(testDispatcher) {
-        setLastMac("")
-        viewModel.attachService(mockCm, mockBle)
-        advanceUntilIdle()
-
-        viewModel.connect("11:22:33:44:55:66")
-        advanceUntilIdle()
-
-        assertThat(getLastMac()).isEqualTo("11:22:33:44:55:66")
-    }
-
-    // --- disconnect() clears state ---
-
-    @Test
-    fun `disconnect clears lastMac and auto-connect flag`() = runTest(testDispatcher) {
+    fun `disconnect stops auto-connect and clears lastMac`() = runTest(testDispatcher) {
         setUseReconnect(true)
         setLastMac("AA:BB:CC:DD:EE:FF")
         viewModel.attachService(mockCm, mockBle)
@@ -227,5 +159,46 @@ class WheelViewModelAutoConnectTest {
 
         assertThat(viewModel.isAutoConnecting.value).isFalse()
         assertThat(getLastMac()).isEmpty()
+    }
+
+    @Test
+    fun `connect persists MAC address`() = runTest(testDispatcher) {
+        setLastMac("")
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        viewModel.connect("11:22:33:44:55:66")
+        advanceUntilIdle()
+
+        assertThat(getLastMac()).isEqualTo("11:22:33:44:55:66")
+    }
+
+    // --- Reconnect-after-loss wiring ---
+
+    @Test
+    fun `ConnectionLost triggers reconnect when autoReconnect enabled`() = runTest(testDispatcher) {
+        setUseReconnect(true)
+        setLastMac("AA:BB:CC:DD:EE:FF")
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        // Simulate connection lost
+        mockConnectionState.value = ConnectionState.ConnectionLost("AA:BB:CC:DD:EE:FF", "timeout")
+        advanceUntilIdle()
+
+        assertThat(viewModel.reconnectState.value).isNotEqualTo(AutoConnectManager.ReconnectState.Idle)
+    }
+
+    @Test
+    fun `ConnectionLost does not trigger reconnect when autoReconnect disabled`() = runTest(testDispatcher) {
+        setUseReconnect(false)
+        setLastMac("AA:BB:CC:DD:EE:FF")
+        viewModel.attachService(mockCm, mockBle)
+        advanceUntilIdle()
+
+        mockConnectionState.value = ConnectionState.ConnectionLost("AA:BB:CC:DD:EE:FF", "timeout")
+        advanceUntilIdle()
+
+        assertThat(viewModel.reconnectState.value).isEqualTo(AutoConnectManager.ReconnectState.Idle)
     }
 }

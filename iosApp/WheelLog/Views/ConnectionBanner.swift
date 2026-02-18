@@ -15,7 +15,7 @@ struct ConnectionBanner: View {
                 // Cancel button for reconnection (Feature 2)
                 if isReconnecting {
                     Button("Cancel") {
-                        wheelManager.reconnectManager.stop()
+                        wheelManager.stopReconnecting()
                     }
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -49,8 +49,8 @@ struct ConnectionBanner: View {
     private var bannerText: String {
         // Feature 2: Show reconnect info when reconnecting
         switch wheelManager.reconnectState {
-        case .waiting(let attempt, let nextRetryDate):
-            let seconds = max(0, Int(nextRetryDate.timeIntervalSinceNow))
+        case .waiting(let attempt, let nextRetryMs):
+            let seconds = max(0, Int(nextRetryMs / 1000))
             return "Reconnecting in \(seconds)s... (attempt \(attempt))"
         case .attempting(let attempt):
             return "Reconnecting... (attempt \(attempt))"

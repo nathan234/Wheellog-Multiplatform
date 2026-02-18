@@ -305,6 +305,86 @@ object WheelConnectionManagerHelper {
         }
     }
 
+    // MARK: - Auto-Connect Manager
+
+    /**
+     * Create an AutoConnectManager wired to the given WheelConnectionManager.
+     * The connect lambda and scope are set up internally — Swift never touches them.
+     */
+    fun createAutoConnectManager(manager: WheelConnectionManager): AutoConnectManager {
+        val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+        return AutoConnectManager(
+            connectionState = manager.connectionState,
+            connect = { address -> manager.connect(address) },
+            scope = scope,
+            dispatcher = Dispatchers.Main
+        )
+    }
+
+    /**
+     * Swift-friendly wrapper: attempt startup connect with default timeout.
+     */
+    fun attemptStartupConnect(manager: AutoConnectManager, address: String, timeoutMs: Long = 10_000) {
+        manager.attemptStartupConnect(address, timeoutMs)
+    }
+
+    /**
+     * Swift-friendly wrapper: start reconnecting with default backoff.
+     * Kotlin default parameters don't export to Swift.
+     */
+    fun startReconnecting(manager: AutoConnectManager, address: String) {
+        manager.startReconnecting(address)
+    }
+
+    /**
+     * Swift-friendly wrapper: stop all auto-connect activity.
+     */
+    fun stopAutoConnect(manager: AutoConnectManager) {
+        manager.stop()
+    }
+
+    /**
+     * Swift-friendly wrapper: destroy and clean up.
+     */
+    fun destroyAutoConnect(manager: AutoConnectManager) {
+        manager.destroy()
+    }
+
+    fun getIsAutoConnecting(manager: AutoConnectManager): Boolean {
+        return manager.isAutoConnecting.value
+    }
+
+    fun getReconnectState(manager: AutoConnectManager): AutoConnectManager.ReconnectState {
+        return manager.reconnectState.value
+    }
+
+    fun isReconnectIdle(state: AutoConnectManager.ReconnectState): Boolean {
+        return state is AutoConnectManager.ReconnectState.Idle
+    }
+
+    fun isReconnectWaiting(state: AutoConnectManager.ReconnectState): Boolean {
+        return state is AutoConnectManager.ReconnectState.Waiting
+    }
+
+    fun isReconnectAttempting(state: AutoConnectManager.ReconnectState): Boolean {
+        return state is AutoConnectManager.ReconnectState.Attempting
+    }
+
+    fun reconnectAttemptNumber(state: AutoConnectManager.ReconnectState): Int {
+        return when (state) {
+            is AutoConnectManager.ReconnectState.Waiting -> state.attempt
+            is AutoConnectManager.ReconnectState.Attempting -> state.attempt
+            else -> 0
+        }
+    }
+
+    fun reconnectNextRetryMs(state: AutoConnectManager.ReconnectState): Long {
+        return when (state) {
+            is AutoConnectManager.ReconnectState.Waiting -> state.nextRetryMs
+            else -> 0
+        }
+    }
+
     // MARK: - Demo Data Provider
 
     fun createDemoProvider(): DemoDataProvider {

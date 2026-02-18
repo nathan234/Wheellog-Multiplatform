@@ -109,13 +109,11 @@ data class WheelState(
     /** Secondary temperature in °C */
     val temperature2C: Int get() = temperature2 / 100
 
-    /** Total distance in km (converts from miles when wheel reports in miles) */
-    val totalDistanceKm: Double get() =
-        if (inMiles) totalDistance / 1000.0 / KM_TO_MILES else totalDistance / 1000.0
+    /** Total distance in km */
+    val totalDistanceKm: Double get() = totalDistance / 1000.0
 
-    /** Wheel distance in km (converts from miles when wheel reports in miles) */
-    val wheelDistanceKm: Double get() =
-        if (inMiles) wheelDistance / 1000.0 / KM_TO_MILES else wheelDistance / 1000.0
+    /** Wheel distance in km */
+    val wheelDistanceKm: Double get() = wheelDistance / 1000.0
 
     /** PWM as percentage (0-100) */
     val pwmPercent: Double get() = calculatedPwm * 100.0

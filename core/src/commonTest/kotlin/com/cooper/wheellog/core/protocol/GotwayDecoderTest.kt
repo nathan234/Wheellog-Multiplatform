@@ -2,10 +2,13 @@ package com.cooper.wheellog.core.protocol
 
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
+import com.cooper.wheellog.core.utils.ByteUtils
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -539,7 +542,215 @@ class GotwayDecoderTest {
         assertEquals("MCM5", r3.newState.model, "model should persist after NAME response")
     }
 
+    // ==================== Miles Normalization ====================
+    // When the wheel is configured for miles (inMiles=true), the decoder must
+    // convert speed and distance values to metric before storing in WheelState.
+    // This prevents double-conversion when the display layer converts km→miles.
+
+    @Test
+    fun `speed is normalized to kmh when wheel reports in miles`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // First, send frame 0x04 with inMiles=true to set the flag
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+        assertTrue(state.inMiles, "inMiles should be set after settings frame")
+
+        // Now send live data with speed=2800 (28.00 mph from the wheel's perspective)
+        // The decoder should convert: 2800 / 0.621 ≈ 4508 (45.08 km/h in 1/100 units)
+        val rawSpeedMph = 778  // raw value that * 3.6 = 2801 ≈ 28 mph
+        val liveFrame = buildLiveDataFrame(speed = rawSpeedMph)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+        state = r2.newState
+
+        // 778 * 3.6 = 2800.8, rounded to 2801 (this is in 1/100 mph)
+        // After normalization: 2801 / 0.62137 ≈ 4508 (1/100 km/h)
+        val expectedKmh = (2801 / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToInt()
+        assertEquals(expectedKmh, state.speed)
+        // Verify the display value: ~45 km/h ≈ 28 mph
+        assertEquals(28.0, state.speedMph, 0.5)
+    }
+
+    @Test
+    fun `speed is not normalized when wheel reports in km`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Frame 0x04 with inMiles=false
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = false)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+        assertFalse(state.inMiles)
+
+        // Live data with speed raw=778 → 778 * 3.6 = 2800.8 → 2801 (1/100 km/h)
+        val liveFrame = buildLiveDataFrame(speed = 778)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+        state = r2.newState
+
+        // Should NOT normalize — 2801 stays as 1/100 km/h
+        assertEquals(2801, state.speed)
+        assertEquals(28.01, state.speedKmh, 0.01)
+    }
+
+    @Test
+    fun `wheelDistance is normalized when wheel reports in miles`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Set inMiles=true
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // Wheel reports distance=1000 (in miles-based units)
+        val liveFrame = buildLiveDataFrame(distance = 1000)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+
+        // 1000 / 0.62137 ≈ 1610 (metric units)
+        val expectedDistance = (1000 / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToInt().toLong()
+        assertEquals(expectedDistance, r2.newState.wheelDistance)
+    }
+
+    @Test
+    fun `totalDistance is normalized when wheel reports in miles`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Frame 0x04 with inMiles=true and totalDistance=5000000 (5000 miles)
+        val settingsFrame = buildSettingsFrame(totalDistance = 5_000_000, inMiles = true)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+
+        // 5000000 / 0.62137 ≈ 8047008 (metric)
+        val expectedDistance = (5_000_000 / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToLong()
+        assertEquals(expectedDistance, r1.newState.totalDistance)
+    }
+
+    @Test
+    fun `totalDistance is not normalized when wheel reports in km`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val settingsFrame = buildSettingsFrame(totalDistance = 5_000_000, inMiles = false)
+        val result = freshDecoder.decode(settingsFrame, WheelState(), config)
+        assertNotNull(result)
+
+        // Should stay as-is
+        assertEquals(5_000_000L, result.newState.totalDistance)
+    }
+
+    @Test
+    fun `speed not normalized before settings frame arrives`() {
+        // Before the first frame 0x04, inMiles defaults to false.
+        // Speed should be treated as km/h (no conversion).
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val liveFrame = buildLiveDataFrame(speed = 778)
+        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        assertNotNull(result)
+
+        // Default inMiles=false, so 778 * 3.6 = 2801, no normalization
+        assertFalse(result.newState.inMiles)
+        assertEquals(2801, result.newState.speed)
+    }
+
+    @Test
+    fun `full roundtrip - mph wheel speed displays correctly`() {
+        // Simulates the real-world scenario: Begode Blitz in miles mode
+        // Wheel display shows 28 mph, app should also show 28 mph
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        var state = WheelState()
+
+        // 1) Settings frame sets inMiles=true
+        val settingsFrame = buildSettingsFrame(totalDistance = 1_000_000, inMiles = true)
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // 2) Live data: wheel reports ~28 mph
+        // Raw speed value 778 → 778 * 3.6 = 2800.8 → 2801 (1/100 mph from wheel)
+        val liveFrame = buildLiveDataFrame(speed = 778)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+        state = r2.newState
+
+        // 3) Display layer: speedMph should be ~28 mph (not 17.4 mph)
+        assertEquals(28.0, state.speedMph, 0.5)
+        // And speedKmh should be ~45 km/h
+        assertEquals(45.0, state.speedKmh, 1.0)
+    }
+
     // ==================== Helpers ====================
+
+    /**
+     * Send a firmware response to put the decoder in Begode mode.
+     */
+    private fun initDecoder(decoder: GotwayDecoder) {
+        val fwData = "GW1.23".encodeToByteArray()
+        decoder.decode(fwData, WheelState(), config)
+    }
+
+    /**
+     * Build a frame 0x00 (live data) with the given speed and distance.
+     * Speed is a raw signed short value that gets multiplied by 3.6 in the decoder.
+     */
+    private fun buildLiveDataFrame(
+        voltage: Int = 6000,
+        speed: Int = 0,
+        distance: Int = 0
+    ): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        return header +
+            shortToBytesBE(voltage) +
+            shortToBytesBE(speed) +
+            byteArrayOf(0, 0) +
+            shortToBytesBE(distance) +
+            shortToBytesBE(0) + // phaseCurrent
+            shortToBytesBE(99) + // temperature
+            byteArrayOf(0, 0, 0, 0, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+    }
+
+    /**
+     * Build a frame 0x04 (settings/total distance) with given parameters.
+     * The inMiles flag is bit 0 of the settings short at offset 6.
+     */
+    private fun buildSettingsFrame(
+        totalDistance: Long = 0,
+        inMiles: Boolean = false
+    ): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        // totalDistance as 4 bytes BE at offset 2
+        val dist = byteArrayOf(
+            ((totalDistance shr 24) and 0xFF).toByte(),
+            ((totalDistance shr 16) and 0xFF).toByte(),
+            ((totalDistance shr 8) and 0xFF).toByte(),
+            (totalDistance and 0xFF).toByte()
+        )
+        // Settings short at offset 6: bit 0 = inMiles
+        val settings = if (inMiles) 1 else 0
+        return header +
+            dist +
+            shortToBytesBE(settings) + // settings (offset 6-7)
+            shortToBytesBE(0) +         // powerOffTime (offset 8-9)
+            shortToBytesBE(0) +         // tiltBackSpeed (offset 10-11)
+            byteArrayOf(0, 0, 0, 0) +   // bytes 12-15
+            byteArrayOf(0, 0, 0x04, 0x18, 0x5A, 0x5A, 0x5A, 0x5A) // frameType=0x04 at byte 18
+    }
 
     private fun decodeNormalData(voltage: Short = 6000, config: DecoderConfig = this.config): DecodedData? {
         val freshDecoder = GotwayDecoder()

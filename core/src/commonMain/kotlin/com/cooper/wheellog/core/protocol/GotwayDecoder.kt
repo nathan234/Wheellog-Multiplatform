@@ -8,6 +8,7 @@ import com.cooper.wheellog.core.utils.Lock
 import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * Gotway/Begode protocol decoder.
@@ -206,6 +207,12 @@ class GotwayDecoder : WheelDecoder {
             distance = (distance * RATIO_GW).roundToInt().toLong()
         }
 
+        // Normalize to metric when wheel reports in miles
+        if (currentState.inMiles) {
+            speed = (speed / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToInt()
+            distance = (distance / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToLong()
+        }
+
         // Scale voltage based on wheel configuration
         voltage = scaleVoltage(voltage, config).roundToInt()
 
@@ -347,6 +354,12 @@ class GotwayDecoder : WheelDecoder {
                 news = alertLine
             }
 
+            // Normalize to metric when wheel reports in miles
+            val isMiles = inMiles == 1
+            if (isMiles) {
+                totalDistance = (totalDistance / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToLong()
+            }
+
             return FrameResult(
                 state = currentState.copy(
                     totalDistance = totalDistance,
@@ -358,7 +371,7 @@ class GotwayDecoder : WheelDecoder {
                     ledMode = ledMode,
                     wheelAlarm = wheelAlarm,
                     alert = alertLine,
-                    inMiles = inMiles == 1
+                    inMiles = isMiles
                 ),
                 hasNewData = false,
                 news = news

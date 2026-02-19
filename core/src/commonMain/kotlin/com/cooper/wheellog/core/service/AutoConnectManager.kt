@@ -113,13 +113,15 @@ class AutoConnectManager(
 
         stopReconnect()
 
-        reconnectJob = scope.launch(dispatcher) {
-            var attempt = 0
-            while (isActive) {
-                attempt++
-                val delayMs = backoffMs[minOf(attempt - 1, backoffMs.size - 1)]
-                _reconnectState.value = ReconnectState.Waiting(attempt, delayMs)
+        // Set initial state synchronously so callers can observe it immediately,
+        // matching how attemptStartupConnect sets isAutoConnecting before launch.
+        val firstDelay = backoffMs[0]
+        _reconnectState.value = ReconnectState.Waiting(1, firstDelay)
 
+        reconnectJob = scope.launch(dispatcher) {
+            var attempt = 1
+            var delayMs = firstDelay
+            while (isActive) {
                 delay(delayMs)
                 if (!isActive) break
 
@@ -135,6 +137,10 @@ class AutoConnectManager(
 
                 // Wait a bit to see if connection succeeds (observer will stop us)
                 delay(RECONNECT_SETTLE_MS)
+
+                attempt++
+                delayMs = backoffMs[minOf(attempt - 1, backoffMs.size - 1)]
+                _reconnectState.value = ReconnectState.Waiting(attempt, delayMs)
             }
         }
     }

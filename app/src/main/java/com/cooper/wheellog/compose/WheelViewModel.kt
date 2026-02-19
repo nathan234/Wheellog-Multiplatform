@@ -141,6 +141,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             scope = viewModelScope
         )
 
+        // Refresh saved addresses (profiles may have been added before attach)
+        _savedAddresses.value = profileStore.getSavedAddresses()
+
         stateCollectionJob = viewModelScope.launch {
             cm.wheelState.collect { _realWheelState.value = it }
         }

@@ -8,6 +8,40 @@ struct MetricDetailView: View {
 
     private let kmToMiles = 0.62137119223733
 
+    private var chartSamples: [TelemetrySample] {
+        if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
+            return wheelManager.telemetryBuffer.samples
+        } else {
+            return wheelManager.telemetryHistory.samples
+        }
+    }
+
+    private var axisStride: Calendar.Component {
+        switch wheelManager.telemetryHistory.timeRange {
+        case .fiveMinutes: return .second
+        case .oneHour: return .minute
+        case .twentyFourHours: return .hour
+        default: return .second
+        }
+    }
+
+    private var axisStrideCount: Int {
+        switch wheelManager.telemetryHistory.timeRange {
+        case .fiveMinutes: return 10
+        case .oneHour: return 5
+        case .twentyFourHours: return 2
+        default: return 10
+        }
+    }
+
+    private var axisFormat: Date.FormatStyle {
+        if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
+            return .dateTime.minute().second()
+        } else {
+            return .dateTime.hour().minute()
+        }
+    }
+
     private var metric: MetricType {
         MetricType.entries.first { $0.name.lowercased() == metricId.lowercased() } ?? .speed
     }
@@ -39,10 +73,22 @@ struct MetricDetailView: View {
     }
 
     var body: some View {
-        let samples = wheelManager.telemetryBuffer.samples
+        let samples = chartSamples
 
         ScrollView {
             VStack(spacing: 16) {
+                // Time range picker
+                Picker("Range", selection: Binding(
+                    get: { wheelManager.telemetryHistory.timeRange },
+                    set: { wheelManager.telemetryHistory.setTimeRange($0) }
+                )) {
+                    Text("5m").tag(ChartTimeRange.fiveMinutes)
+                    Text("1h").tag(ChartTimeRange.oneHour)
+                    Text("24h").tag(ChartTimeRange.twentyFourHours)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
                 // Current value
                 let currentRaw = samples.last.map { metric.extractValue(sample: $0) } ?? 0
                 let currentValue = convertValue(currentRaw)
@@ -71,9 +117,9 @@ struct MetricDetailView: View {
                         }
                     }
                     .chartXAxis {
-                        AxisMarks(values: .stride(by: .second, count: 10)) { _ in
+                        AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
                             AxisGridLine()
-                            AxisValueLabel(format: .dateTime.minute().second())
+                            AxisValueLabel(format: axisFormat)
                         }
                     }
                     .chartYAxis {
@@ -86,8 +132,14 @@ struct MetricDetailView: View {
                     .padding(.horizontal)
                 }
 
-                // Stats
-                let stats = wheelManager.telemetryBuffer.buffer.statsFor(metric: metric)
+                // Stats — use buffer for 5m, history for longer ranges
+                let stats: MetricStats = {
+                    if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
+                        return wheelManager.telemetryBuffer.buffer.statsFor(metric: metric)
+                    } else {
+                        return wheelManager.telemetryHistory.statsForRange(metric: metric)
+                    }
+                }()
                 HStack(spacing: 0) {
                     StatBlock(label: "Min", value: formatValue(convertValue(stats.min)), unit: displayUnit)
                     Divider().frame(height: 40)

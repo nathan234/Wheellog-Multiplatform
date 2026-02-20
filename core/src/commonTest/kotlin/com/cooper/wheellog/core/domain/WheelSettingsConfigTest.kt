@@ -126,6 +126,19 @@ class WheelSettingsConfigTest {
     }
 
     @Test
+    fun `Gotway Ride section has Cutout Angle slider 45-90`() {
+        val ride = WheelSettingsConfig.sections(WheelType.GOTWAY)[1]
+        assertEquals(3, ride.controls.size)
+        val cutout = ride.controls[2] as ControlSpec.Slider
+        assertEquals("Cutout Angle", cutout.label)
+        assertEquals(45, cutout.min)
+        assertEquals(90, cutout.max)
+        assertEquals("\u00B0", cutout.unit)
+        assertEquals(70, cutout.defaultValue)
+        assertEquals(SettingsCommandId.CUTOUT_ANGLE, cutout.commandId)
+    }
+
+    @Test
     fun `Gotway has Max Speed slider 0-99 in Speed section`() {
         val speed = WheelSettingsConfig.sections(WheelType.GOTWAY)[2]
         assertEquals(1, speed.controls.size)
@@ -315,6 +328,18 @@ class WheelSettingsConfigTest {
     fun `readInt returns rollAngle from WheelState`() {
         val state = WheelState(rollAngle = 2)
         assertEquals(2, SettingsCommandId.ROLL_ANGLE_MODE.readInt(state))
+    }
+
+    @Test
+    fun `readInt returns cutoutAngle from WheelState`() {
+        val state = WheelState(cutoutAngle = 75)
+        assertEquals(75, SettingsCommandId.CUTOUT_ANGLE.readInt(state))
+    }
+
+    @Test
+    fun `readInt returns null for cutoutAngle when unknown`() {
+        val state = WheelState(cutoutAngle = -1)
+        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(state))
     }
 
     @Test

@@ -210,6 +210,8 @@ struct WheelSettingsView: View {
         case .pedalsMode: return state.pedalsMode >= 0 ? Int(state.pedalsMode) : nil
         case .lightMode: return state.lightMode >= 0 ? Int(state.lightMode) : nil
         case .ledMode: return state.ledMode >= 0 ? Int(state.ledMode) : nil
+        case .cutoutAngle: return state.cutoutAngle >= 0 ? Int(state.cutoutAngle) : nil
+        case .rollAngleMode: return state.rollAngle >= 0 ? Int(state.rollAngle) : nil
         default: return nil
         }
     }

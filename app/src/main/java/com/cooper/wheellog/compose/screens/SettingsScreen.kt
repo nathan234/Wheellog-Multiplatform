@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -18,40 +20,41 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.cooper.wheellog.BuildConfig
 import com.cooper.wheellog.compose.AlarmAction
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.compose.components.SectionCard
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.AppConstants
+import com.cooper.wheellog.core.domain.ControlSpec
+import com.cooper.wheellog.core.domain.SettingsCommandId
+import com.cooper.wheellog.core.domain.WheelSettingsConfig
 import com.cooper.wheellog.core.utils.ByteUtils
-import com.cooper.wheellog.core.utils.DisplayUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +65,13 @@ fun SettingsScreen(viewModel: WheelViewModel) {
     val useMph = appConfig.useMph
     val useFahrenheit = appConfig.useFahrenheit
     val context = LocalContext.current
+
+    // Wheel settings config-driven state
+    val wheelSections = remember(wheelState.wheelType) {
+        WheelSettingsConfig.sections(wheelState.wheelType)
+    }
+    val toggleStates = remember { mutableStateMapOf<SettingsCommandId, Boolean>() }
+    var pendingAction by remember { mutableStateOf<ControlSpec?>(null) }
 
     Column(
         modifier = Modifier
@@ -275,45 +285,21 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             )
         }
 
-        // Wheel settings (when connected)
-        if (connectionState.isConnected && wheelState.pedalsMode >= 0) {
-            SettingsSection(title = "Wheel Settings") {
-                Text(
-                    "Pedals Mode",
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    listOf("Hard", "Medium", "Soft").forEachIndexed { index, label ->
-                        SegmentedButton(
-                            selected = wheelState.pedalsMode == index,
-                            onClick = { viewModel.setPedalsMode(index) },
-                            shape = SegmentedButtonDefaults.itemShape(index, 3)
-                        ) {
-                            Text(label)
-                        }
-                    }
-                }
-                Text(
-                    "Pedals mode is sent to the wheel immediately.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                StatRow(
-                    label = "Tilt-Back Speed",
-                    value = DisplayUtils.tiltBackSpeedText(wheelState.tiltBackSpeed, useMph)
-                )
-                StatRow(
-                    label = "Light Mode",
-                    value = DisplayUtils.lightModeText(wheelState.lightMode)
-                )
-                StatRow(
-                    label = "LED Mode",
-                    value = if (wheelState.ledMode < 0) "Unknown" else "${wheelState.ledMode}"
+        // Wheel settings (config-driven, when connected)
+        if (connectionState.isConnected && wheelSections.isNotEmpty()) {
+            for (section in wheelSections) {
+                SectionCard(
+                    section = section,
+                    wheelState = wheelState,
+                    toggleStates = toggleStates,
+                    onIntCommand = { id, value ->
+                        viewModel.executeWheelCommand(id, intValue = value)
+                    },
+                    onBoolCommand = { id, value ->
+                        toggleStates[id] = value
+                        viewModel.executeWheelCommand(id, boolValue = value)
+                    },
+                    onDangerousAction = { control -> pendingAction = control }
                 )
             }
         }
@@ -381,6 +367,52 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         }
 
         Spacer(Modifier.height(16.dp))
+    }
+
+    // Confirmation dialog for dangerous wheel settings actions
+    pendingAction?.let { action ->
+        when (action) {
+            is ControlSpec.DangerousButton -> {
+                AlertDialog(
+                    onDismissRequest = { pendingAction = null },
+                    title = { Text(action.confirmTitle) },
+                    text = { Text(action.confirmMessage) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.executeWheelCommand(action.commandId)
+                                pendingAction = null
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+                        ) { Text("Confirm") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { pendingAction = null }) { Text("Cancel") }
+                    }
+                )
+            }
+            is ControlSpec.DangerousToggle -> {
+                AlertDialog(
+                    onDismissRequest = { pendingAction = null },
+                    title = { Text(action.confirmTitle) },
+                    text = { Text(action.confirmMessage) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                toggleStates[action.commandId] = true
+                                viewModel.executeWheelCommand(action.commandId, boolValue = true)
+                                pendingAction = null
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+                        ) { Text("Confirm") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { pendingAction = null }) { Text("Cancel") }
+                    }
+                )
+            }
+            else -> { pendingAction = null }
+        }
     }
 }
 

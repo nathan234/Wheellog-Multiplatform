@@ -285,6 +285,10 @@ The Android app supports three decoder modes under **Settings > Application Sett
 
 iOS always uses the KMP decoders.
 
+## Resources
+
+See **[RESOURCES.md](RESOURCES.md)** for a curated collection of EUC protocol documentation, BLE references, open-source hardware projects, VESC resources, and community links. The long-term goal is to move toward open-source EUC hardware and firmware, similar to what VESC did for electric skateboards.
+
 ## Contributing
 
 Pull requests are welcome on the `main` branch.

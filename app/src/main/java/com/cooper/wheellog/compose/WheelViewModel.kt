@@ -290,10 +290,11 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun shutdownService() {
         if (rideLogger.isLogging) stopLogging()
         telemetryHistory?.save()
-        viewModelScope.launch {
-            connectionManager?.disconnect()
-            wheelService?.shutdown()
-        }
+        // shutdown() calls stopSelf() which is synchronous.
+        // BLE disconnect is handled by WheelService.onDestroy().
+        // Must not be in a coroutine — viewModelScope may be cancelled
+        // before it runs if finishAffinity() is called immediately after.
+        wheelService?.shutdown()
     }
 
     fun attemptStartupAutoConnect() {

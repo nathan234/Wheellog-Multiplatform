@@ -3,6 +3,7 @@ package com.cooper.wheellog.core.util
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
+import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.utils.DisplayUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -250,6 +251,149 @@ class DisplayUtilsTest {
     fun `WheelState displayName brand only when btName also empty`() {
         val state = WheelState(wheelType = WheelType.GOTWAY)
         assertEquals("Begode", state.displayName)
+    }
+
+    // ==================== formatDurationCompact ====================
+
+    @Test
+    fun `formatDurationCompact hours minutes seconds`() {
+        assertEquals("1:01:01", DisplayUtils.formatDurationCompact(3661))
+    }
+
+    @Test
+    fun `formatDurationCompact minutes and seconds only`() {
+        assertEquals("1:30", DisplayUtils.formatDurationCompact(90))
+    }
+
+    @Test
+    fun `formatDurationCompact zero`() {
+        assertEquals("0:00", DisplayUtils.formatDurationCompact(0))
+    }
+
+    @Test
+    fun `formatDurationCompact exact hour`() {
+        assertEquals("1:00:00", DisplayUtils.formatDurationCompact(3600))
+    }
+
+    @Test
+    fun `formatDurationCompact seconds only`() {
+        assertEquals("0:05", DisplayUtils.formatDurationCompact(5))
+    }
+
+    // ==================== convertMetricValue ====================
+
+    @Test
+    fun `convertMetricValue speed in mph`() {
+        val result = DisplayUtils.convertMetricValue(25.0, MetricType.SPEED, useMph = true, useFahrenheit = false)
+        assertEquals(15.5, result, 0.1)
+    }
+
+    @Test
+    fun `convertMetricValue speed in kmh passthrough`() {
+        assertEquals(25.0, DisplayUtils.convertMetricValue(25.0, MetricType.SPEED, useMph = false, useFahrenheit = false))
+    }
+
+    @Test
+    fun `convertMetricValue temperature in fahrenheit`() {
+        assertEquals(95.0, DisplayUtils.convertMetricValue(35.0, MetricType.TEMPERATURE, useMph = false, useFahrenheit = true))
+    }
+
+    @Test
+    fun `convertMetricValue temperature in celsius passthrough`() {
+        assertEquals(35.0, DisplayUtils.convertMetricValue(35.0, MetricType.TEMPERATURE, useMph = false, useFahrenheit = false))
+    }
+
+    @Test
+    fun `convertMetricValue battery unchanged`() {
+        assertEquals(80.0, DisplayUtils.convertMetricValue(80.0, MetricType.BATTERY, useMph = true, useFahrenheit = true))
+    }
+
+    @Test
+    fun `convertMetricValue gps speed in mph`() {
+        val result = DisplayUtils.convertMetricValue(25.0, MetricType.GPS_SPEED, useMph = true, useFahrenheit = false)
+        assertEquals(15.5, result, 0.1)
+    }
+
+    // ==================== metricUnit ====================
+
+    @Test
+    fun `metricUnit speed metric`() {
+        assertEquals("km/h", DisplayUtils.metricUnit(MetricType.SPEED, useMph = false, useFahrenheit = false))
+    }
+
+    @Test
+    fun `metricUnit speed imperial`() {
+        assertEquals("mph", DisplayUtils.metricUnit(MetricType.SPEED, useMph = true, useFahrenheit = false))
+    }
+
+    @Test
+    fun `metricUnit temperature celsius`() {
+        assertEquals("\u00B0C", DisplayUtils.metricUnit(MetricType.TEMPERATURE, useMph = false, useFahrenheit = false))
+    }
+
+    @Test
+    fun `metricUnit temperature fahrenheit`() {
+        assertEquals("\u00B0F", DisplayUtils.metricUnit(MetricType.TEMPERATURE, useMph = false, useFahrenheit = true))
+    }
+
+    @Test
+    fun `metricUnit battery uses default`() {
+        assertEquals("%", DisplayUtils.metricUnit(MetricType.BATTERY, useMph = true, useFahrenheit = true))
+    }
+
+    @Test
+    fun `metricUnit power uses default`() {
+        assertEquals("W", DisplayUtils.metricUnit(MetricType.POWER, useMph = false, useFahrenheit = false))
+    }
+
+    // ==================== Energy Consumption ====================
+
+    @Test
+    fun `formatEnergyConsumption metric`() {
+        assertEquals("12.3 Wh/km", DisplayUtils.formatEnergyConsumption(12.3, useMph = false))
+    }
+
+    @Test
+    fun `formatEnergyConsumption imperial`() {
+        // 12.3 Wh/km / 0.62137 = ~19.8 Wh/mi
+        assertEquals("19.8 Wh/mi", DisplayUtils.formatEnergyConsumption(12.3, useMph = true))
+    }
+
+    @Test
+    fun `energyConsumptionUnit metric`() {
+        assertEquals("Wh/km", DisplayUtils.energyConsumptionUnit(false))
+    }
+
+    @Test
+    fun `energyConsumptionUnit imperial`() {
+        assertEquals("Wh/mi", DisplayUtils.energyConsumptionUnit(true))
+    }
+
+    // ==================== MetricType.formatValue ====================
+
+    @Test
+    fun `MetricType SPEED formatValue 1 decimal`() {
+        assertEquals("25.5", MetricType.SPEED.formatValue(25.5))
+    }
+
+    @Test
+    fun `MetricType BATTERY formatValue 0 decimals`() {
+        assertEquals("80", MetricType.BATTERY.formatValue(80.0))
+    }
+
+    @Test
+    fun `MetricType POWER formatValue 0 decimals`() {
+        assertEquals("1500", MetricType.POWER.formatValue(1500.0))
+    }
+
+    @Test
+    fun `MetricType PWM formatValue 1 decimal`() {
+        assertEquals("45.3", MetricType.PWM.formatValue(45.3))
+    }
+
+    @Test
+    fun `MetricType TEMPERATURE formatValue 0 decimals`() {
+        assertEquals("35", MetricType.TEMPERATURE.formatValue(35.0))
     }
 
     // ==================== AlarmType.displayName ====================

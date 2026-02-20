@@ -512,16 +512,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             wheelState.collect { state ->
                 if (state.speed != 0 || state.voltage != 0) {
-                    val sample = TelemetrySample(
-                        timestampMs = System.currentTimeMillis(),
-                        speedKmh = state.speedKmh,
-                        voltageV = state.voltageV,
-                        currentA = state.currentA,
-                        powerW = state.powerW,
-                        temperatureC = state.temperatureC.toDouble(),
-                        batteryPercent = state.batteryLevel.toDouble(),
-                        pwmPercent = state.pwmPercent,
-                        gpsSpeedKmh = _gpsSpeedKmh.value
+                    val sample = TelemetrySample.fromWheelState(
+                        state, System.currentTimeMillis(), _gpsSpeedKmh.value
                     )
                     if (telemetryBuffer.addSampleIfNeeded(sample)) {
                         _telemetrySamples.value = telemetryBuffer.samples

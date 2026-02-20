@@ -6,8 +6,6 @@ struct MetricDetailView: View {
     @EnvironmentObject var wheelManager: WheelManager
     let metricId: String
 
-    private let kmToMiles = 0.62137119223733
-
     private var chartSamples: [TelemetrySample] {
         if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
             return wheelManager.telemetryBuffer.samples
@@ -47,25 +45,11 @@ struct MetricDetailView: View {
     }
 
     private var displayUnit: String {
-        switch metric {
-        case .speed, .gpsSpeed:
-            return wheelManager.useMph ? "mph" : "km/h"
-        case .temperature:
-            return wheelManager.useFahrenheit ? "\u{00B0}F" : "\u{00B0}C"
-        default:
-            return metric.unit
-        }
+        DisplayUtils.shared.metricUnit(metric: metric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
     }
 
     private func convertValue(_ raw: Double) -> Double {
-        switch metric {
-        case .speed, .gpsSpeed:
-            return wheelManager.useMph ? raw * kmToMiles : raw
-        case .temperature:
-            return wheelManager.useFahrenheit ? raw * 9.0 / 5.0 + 32 : raw
-        default:
-            return raw
-        }
+        DisplayUtils.shared.convertMetricValue(value: raw, metric: metric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
     }
 
     private var chartColor: Color {
@@ -160,14 +144,7 @@ struct MetricDetailView: View {
     }
 
     private func formatValue(_ value: Double) -> String {
-        switch metric {
-        case .battery, .power, .temperature:
-            return String(format: "%.0f", value)
-        case .pwm:
-            return String(format: "%.1f", value)
-        default:
-            return String(format: "%.1f", value)
-        }
+        metric.formatValue(value: value)
     }
 }
 

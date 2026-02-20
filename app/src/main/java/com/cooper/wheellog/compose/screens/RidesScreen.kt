@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.data.TripDataDbEntry
-import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.utils.DisplayUtils
 import java.io.File
 import java.text.SimpleDateFormat
@@ -218,9 +217,7 @@ private fun RideRow(
                     parts.add("${trip.maxPower.toInt()} W max")
                 }
                 if (trip.consumptionByKm > 0) {
-                    val unit = if (useMph) "Wh/mi" else "Wh/km"
-                    val value = if (useMph) trip.consumptionByKm / ByteUtils.KM_TO_MILES_MULTIPLIER else trip.consumptionByKm.toDouble()
-                    parts.add("%.1f %s".format(value, unit))
+                    parts.add(DisplayUtils.formatEnergyConsumption(trip.consumptionByKm.toDouble(), useMph))
                 }
                 Text(
                     text = parts.joinToString("  |  "),

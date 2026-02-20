@@ -1,6 +1,7 @@
 package com.cooper.wheellog.core.utils
 
 import com.cooper.wheellog.core.domain.WheelType
+import com.cooper.wheellog.core.telemetry.MetricType
 
 /**
  * Shared display formatting utilities for both Android and iOS.
@@ -43,6 +44,51 @@ object DisplayUtils {
         val mins = minutes % 60
         return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
     }
+
+    fun formatDurationCompact(seconds: Int): String {
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        val secs = seconds % 60
+        return if (hours > 0) {
+            "$hours:${padZero(minutes)}:${padZero(secs)}"
+        } else {
+            "$minutes:${padZero(secs)}"
+        }
+    }
+
+    private fun padZero(value: Int): String = if (value < 10) "0$value" else value.toString()
+
+    // --- Metric conversion ---
+
+    fun convertMetricValue(
+        value: Double,
+        metric: MetricType,
+        useMph: Boolean,
+        useFahrenheit: Boolean
+    ): Double = when (metric) {
+        MetricType.SPEED, MetricType.GPS_SPEED ->
+            if (useMph) ByteUtils.kmToMiles(value) else value
+        MetricType.TEMPERATURE ->
+            if (useFahrenheit) ByteUtils.celsiusToFahrenheit(value) else value
+        else -> value
+    }
+
+    fun metricUnit(metric: MetricType, useMph: Boolean, useFahrenheit: Boolean): String =
+        when (metric) {
+            MetricType.SPEED, MetricType.GPS_SPEED -> speedUnit(useMph)
+            MetricType.TEMPERATURE -> temperatureUnit(useFahrenheit)
+            else -> metric.unit
+        }
+
+    // --- Energy consumption ---
+
+    fun formatEnergyConsumption(whPerKm: Double, useMph: Boolean, decimals: Int = 1): String {
+        val value = if (useMph) whPerKm / ByteUtils.KM_TO_MILES_MULTIPLIER else whPerKm
+        return "${StringUtil.formatDecimal(value, decimals)} ${energyConsumptionUnit(useMph)}"
+    }
+
+    fun energyConsumptionUnit(useMph: Boolean): String =
+        if (useMph) "Wh/mi" else "Wh/km"
 
     // --- Wheel settings text ---
 

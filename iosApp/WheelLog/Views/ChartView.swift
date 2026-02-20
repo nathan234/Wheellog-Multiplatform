@@ -10,8 +10,6 @@ struct TelemetryChartView: View {
     @State private var showTemperature = false
     @State private var selectedSample: TelemetrySample?
 
-    private let kmToMiles = 0.62137119223733
-
     private var chartSamples: [TelemetrySample] {
         if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
             return chartSamples
@@ -47,19 +45,19 @@ struct TelemetryChartView: View {
     }
 
     private func displaySpeed(_ kmh: Double) -> Double {
-        wheelManager.useMph ? kmh * kmToMiles : kmh
+        wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: kmh) : kmh
     }
 
     private var speedUnit: String {
-        wheelManager.useMph ? "mph" : "km/h"
+        DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
     }
 
     private func displayTemp(_ celsius: Double) -> Double {
-        wheelManager.useFahrenheit ? celsius * 9.0 / 5.0 + 32 : celsius
+        wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: celsius) : celsius
     }
 
     private var tempUnit: String {
-        wheelManager.useFahrenheit ? "°F" : "°C"
+        DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
     }
 
     var body: some View {

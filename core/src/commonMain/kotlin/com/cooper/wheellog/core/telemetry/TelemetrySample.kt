@@ -1,5 +1,7 @@
 package com.cooper.wheellog.core.telemetry
 
+import com.cooper.wheellog.core.domain.WheelState
+
 /**
  * A single telemetry snapshot captured at a point in time.
  * Shared across Android and iOS via KMP.
@@ -14,4 +16,22 @@ data class TelemetrySample(
     val batteryPercent: Double,
     val pwmPercent: Double,
     val gpsSpeedKmh: Double = 0.0
-)
+) {
+    companion object {
+        fun fromWheelState(
+            state: WheelState,
+            timestampMs: Long,
+            gpsSpeedKmh: Double = 0.0
+        ): TelemetrySample = TelemetrySample(
+            timestampMs = timestampMs,
+            speedKmh = state.speedKmh,
+            voltageV = state.voltageV,
+            currentA = state.currentA,
+            powerW = state.powerW,
+            temperatureC = state.temperatureC.toDouble(),
+            batteryPercent = state.batteryLevel.toDouble(),
+            pwmPercent = state.pwmPercent,
+            gpsSpeedKmh = gpsSpeedKmh
+        )
+    }
+}

@@ -42,32 +42,10 @@ class TelemetryHistoryBridge: ObservableObject {
         syncSamples()
     }
 
-    /// Add a telemetry sample (same data as TelemetryBuffer).
-    func addSample(
-        speedKmh: Double,
-        voltage: Double,
-        current: Double,
-        power: Double,
-        temperature: Int,
-        battery: Int,
-        pwmPercent: Double = 0,
-        gpsSpeedKmh: Double = 0
-    ) {
+    /// Add a telemetry sample.
+    func addSample(_ sample: WheelLogCore.TelemetrySample) {
         guard let history = kmpHistory else { return }
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
-        let sample = WheelLogCore.TelemetrySample(
-            timestampMs: now,
-            speedKmh: speedKmh,
-            voltageV: voltage,
-            currentA: current,
-            powerW: power,
-            temperatureC: Double(temperature),
-            batteryPercent: Double(battery),
-            pwmPercent: pwmPercent,
-            gpsSpeedKmh: gpsSpeedKmh
-        )
         let _ = history.addSample(sample: sample)
-        // Sync published samples if viewing non-5m range
         if timeRange != .fiveMinutes {
             syncSamples()
         }

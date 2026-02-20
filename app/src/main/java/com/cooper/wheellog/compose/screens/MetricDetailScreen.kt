@@ -49,7 +49,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
-import com.cooper.wheellog.core.utils.ByteUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -71,38 +71,15 @@ fun MetricDetailScreen(
             ?: MetricType.SPEED
     }
 
-    // Determine display unit and conversion
-    val displayUnit = when (metric) {
-        MetricType.SPEED, MetricType.GPS_SPEED ->
-            if (useMph) "mph" else "km/h"
-        MetricType.TEMPERATURE ->
-            if (useFahrenheit) "\u00B0F" else "\u00B0C"
-        else -> metric.unit
-    }
+    val displayUnit = DisplayUtils.metricUnit(metric, useMph, useFahrenheit)
 
     val values = samples.map { sample ->
         val raw = metric.extractValue(sample)
-        when (metric) {
-            MetricType.SPEED, MetricType.GPS_SPEED ->
-                if (useMph) ByteUtils.kmToMiles(raw) else raw
-            MetricType.TEMPERATURE ->
-                if (useFahrenheit) ByteUtils.celsiusToFahrenheit(raw) else raw
-            else -> raw
-        }
+        DisplayUtils.convertMetricValue(raw, metric, useMph, useFahrenheit)
     }
 
     val currentValue = values.lastOrNull() ?: 0.0
     val stats = viewModel.telemetryBuffer.statsFor(metric)
-    // Use history stats for longer ranges (overridden below in display)
-
-    // Apply unit conversion to stats
-    fun convertStat(v: Double): Double = when (metric) {
-        MetricType.SPEED, MetricType.GPS_SPEED ->
-            if (useMph) ByteUtils.kmToMiles(v) else v
-        MetricType.TEMPERATURE ->
-            if (useFahrenheit) ByteUtils.celsiusToFahrenheit(v) else v
-        else -> v
-    }
 
     val chartColor = metricColor(metric)
 
@@ -148,7 +125,7 @@ fun MetricDetailScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = formatMetricValue(currentValue, metric),
+                    text = metric.formatValue(currentValue),
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold,
                     color = chartColor
@@ -216,9 +193,9 @@ fun MetricDetailScreen(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    StatItem("Min", formatMetricValue(convertStat(stats.min), metric), displayUnit)
-                    StatItem("Avg", formatMetricValue(convertStat(stats.avg), metric), displayUnit)
-                    StatItem("Max", formatMetricValue(convertStat(stats.max), metric), displayUnit)
+                    StatItem("Min", metric.formatValue(DisplayUtils.convertMetricValue(stats.min, metric, useMph, useFahrenheit)), displayUnit)
+                    StatItem("Avg", metric.formatValue(DisplayUtils.convertMetricValue(stats.avg, metric, useMph, useFahrenheit)), displayUnit)
+                    StatItem("Max", metric.formatValue(DisplayUtils.convertMetricValue(stats.max, metric, useMph, useFahrenheit)), displayUnit)
                 }
             }
 
@@ -246,14 +223,6 @@ private fun StatItem(label: String, value: String, unit: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
-}
-
-private fun formatMetricValue(value: Double, metric: MetricType): String = when (metric) {
-    MetricType.BATTERY -> String.format(Locale.US, "%.0f", value)
-    MetricType.POWER -> String.format(Locale.US, "%.0f", value)
-    MetricType.PWM -> String.format(Locale.US, "%.1f", value)
-    MetricType.TEMPERATURE -> String.format(Locale.US, "%.0f", value)
-    else -> String.format(Locale.US, "%.1f", value)
 }
 
 internal fun metricColor(metric: MetricType): Color = when (metric) {

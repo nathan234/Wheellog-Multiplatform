@@ -18,30 +18,8 @@ class TelemetryBuffer: ObservableObject {
 
     nonisolated init() {}
 
-    func addSampleIfNeeded(
-        speedKmh: Double,
-        voltage: Double,
-        current: Double,
-        power: Double,
-        temperature: Int,
-        battery: Int,
-        pwmPercent: Double = 0,
-        gpsSpeedKmh: Double = 0
-    ) {
-        let now = Int64(Date().timeIntervalSince1970 * 1000)
-        let sample = WheelLogCore.TelemetrySample(
-            timestampMs: now,
-            speedKmh: speedKmh,
-            voltageV: voltage,
-            currentA: current,
-            powerW: power,
-            temperatureC: Double(temperature),
-            batteryPercent: Double(battery),
-            pwmPercent: pwmPercent,
-            gpsSpeedKmh: gpsSpeedKmh
-        )
+    func addSampleIfNeeded(sample: WheelLogCore.TelemetrySample) {
         if kmpBuffer.addSampleIfNeeded(sample: sample) {
-            // Convert KMP samples to Swift array for SwiftUI
             syncSamples()
         }
     }

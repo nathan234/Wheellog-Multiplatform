@@ -18,22 +18,20 @@ struct TripDetailView: View {
     @State private var showPwm = false
     @State private var selectedSample: TelemetrySample?
 
-    private let kmToMiles = 0.62137119223733
-
     private func displaySpeed(_ kmh: Double) -> Double {
-        wheelManager.useMph ? kmh * kmToMiles : kmh
+        wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: kmh) : kmh
     }
 
     private var speedUnit: String {
-        wheelManager.useMph ? "mph" : "km/h"
+        DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
     }
 
     private func displayTemp(_ celsius: Double) -> Double {
-        wheelManager.useFahrenheit ? celsius * 9.0 / 5.0 + 32 : celsius
+        wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: celsius) : celsius
     }
 
     private var tempUnit: String {
-        wheelManager.useFahrenheit ? "°F" : "°C"
+        DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
     }
 
     var body: some View {
@@ -86,7 +84,7 @@ struct TripDetailView: View {
     private var summaryCard: some View {
         VStack(spacing: 8) {
             HStack {
-                summaryItem(label: "Duration", value: formatDuration(ride.duration))
+                summaryItem(label: "Duration", value: DisplayUtils.shared.formatDurationCompact(seconds: Int32(ride.duration)))
                 Spacer()
                 summaryItem(label: "Distance", value: DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))
             }
@@ -102,11 +100,7 @@ struct TripDetailView: View {
                     }
                     Spacer()
                     if ride.consumptionWhPerKm > 0 {
-                        let unit = wheelManager.useMph ? "Wh/mi" : "Wh/km"
-                        let value = wheelManager.useMph
-                            ? ride.consumptionWhPerKm / ByteUtils.shared.KM_TO_MILES_MULTIPLIER
-                            : ride.consumptionWhPerKm
-                        summaryItem(label: "Energy", value: String(format: "%.1f %@", value, unit))
+                        summaryItem(label: "Energy", value: DisplayUtils.shared.formatEnergyConsumption(whPerKm: ride.consumptionWhPerKm, useMph: wheelManager.useMph, decimals: 1))
                     }
                 }
             }
@@ -341,15 +335,4 @@ struct TripDetailView: View {
         isLoading = false
     }
 
-    // MARK: - Formatting
-
-    private func formatDuration(_ seconds: TimeInterval) -> String {
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        let secs = Int(seconds) % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        }
-        return String(format: "%d:%02d", minutes, secs)
-    }
 }

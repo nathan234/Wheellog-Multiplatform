@@ -4,8 +4,6 @@ import WheelLogCore
 struct SettingsView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
-    private let kmToMiles = 0.62137119223733
-
     var body: some View {
         Form {
             // MARK: - Units
@@ -63,7 +61,7 @@ struct SettingsView: View {
                         value: $wheelManager.warningSpeed,
                         range: 0...120,
                         displayValue: displaySpeed(wheelManager.warningSpeed),
-                        unit: wheelManager.useMph ? "mph" : "km/h"
+                        unit: DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
                     )
                     alarmSlider(
                         label: "Warning PWM",
@@ -96,7 +94,7 @@ struct SettingsView: View {
                         value: $wheelManager.alarm1Speed,
                         range: 0...100,
                         displayValue: displaySpeed(wheelManager.alarm1Speed),
-                        unit: wheelManager.useMph ? "mph" : "km/h"
+                        unit: DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
                     )
                     alarmSlider(
                         label: "Alarm 1 Battery",
@@ -111,7 +109,7 @@ struct SettingsView: View {
                         value: $wheelManager.alarm2Speed,
                         range: 0...100,
                         displayValue: displaySpeed(wheelManager.alarm2Speed),
-                        unit: wheelManager.useMph ? "mph" : "km/h"
+                        unit: DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
                     )
                     alarmSlider(
                         label: "Alarm 2 Battery",
@@ -126,7 +124,7 @@ struct SettingsView: View {
                         value: $wheelManager.alarm3Speed,
                         range: 0...100,
                         displayValue: displaySpeed(wheelManager.alarm3Speed),
-                        unit: wheelManager.useMph ? "mph" : "km/h"
+                        unit: DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
                     )
                     alarmSlider(
                         label: "Alarm 3 Battery",
@@ -160,14 +158,14 @@ struct SettingsView: View {
                         value: $wheelManager.alarmTemperature,
                         range: 0...80,
                         displayValue: displayTemperature(wheelManager.alarmTemperature),
-                        unit: wheelManager.useFahrenheit ? "°F" : "°C"
+                        unit: DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
                     )
                     alarmSlider(
                         label: "Motor Temp Alarm",
                         value: $wheelManager.alarmMotorTemperature,
                         range: 0...200,
                         displayValue: displayTemperature(wheelManager.alarmMotorTemperature),
-                        unit: wheelManager.useFahrenheit ? "°F" : "°C"
+                        unit: DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
                     )
                     alarmSlider(
                         label: "Battery Alarm",
@@ -257,11 +255,11 @@ struct SettingsView: View {
     // MARK: - Unit Conversion Helpers
 
     private func displaySpeed(_ kmh: Double) -> Double {
-        wheelManager.useMph ? kmh * kmToMiles : kmh
+        wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: kmh) : kmh
     }
 
     private func displayTemperature(_ celsius: Double) -> Double {
-        wheelManager.useFahrenheit ? celsius * 9.0 / 5.0 + 32 : celsius
+        wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: celsius) : celsius
     }
 
     private var appVersion: String {

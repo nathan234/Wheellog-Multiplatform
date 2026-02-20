@@ -64,7 +64,7 @@ struct RidesView: View {
                         .font(.headline)
 
                     // Line 1: Duration + Distance
-                    Text("\(formatDuration(ride.duration))  |  \(DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))")
+                    Text("\(DisplayUtils.shared.formatDurationCompact(seconds: Int32(ride.duration)))  |  \(DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
 
@@ -100,12 +100,7 @@ struct RidesView: View {
             parts.append("\(Int(ride.maxPower)) W max")
         }
         if ride.consumptionWhPerKm > 0 {
-            if wheelManager.useMph {
-                let whPerMi = ride.consumptionWhPerKm / ByteUtils.shared.KM_TO_MILES_MULTIPLIER
-                parts.append(String(format: "%.1f Wh/mi", whPerMi))
-            } else {
-                parts.append(String(format: "%.1f Wh/km", ride.consumptionWhPerKm))
-            }
+            parts.append(DisplayUtils.shared.formatEnergyConsumption(whPerKm: ride.consumptionWhPerKm, useMph: wheelManager.useMph, decimals: 1))
         }
         return parts.joined(separator: "  |  ")
     }
@@ -117,19 +112,6 @@ struct RidesView: View {
             wheelManager.startLogging()
         }
     }
-
-    // MARK: - Formatting
-
-    private func formatDuration(_ seconds: TimeInterval) -> String {
-        let hours = Int(seconds) / 3600
-        let minutes = (Int(seconds) % 3600) / 60
-        let secs = Int(seconds) % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        }
-        return String(format: "%d:%02d", minutes, secs)
-    }
-
 
     private func friendlyDate(_ date: Date) -> String {
         let calendar = Calendar.current

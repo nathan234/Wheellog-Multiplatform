@@ -335,26 +335,13 @@ class WheelManager: ObservableObject {
 
         // Feed telemetry buffer and history for chart view
         let gpsSpeed = max(0, locationManager.currentLocation?.speed ?? 0) * 3.6
-        telemetryBuffer.addSampleIfNeeded(
-            speedKmh: wheelState.speedKmh,
-            voltage: wheelState.voltage,
-            current: wheelState.current,
-            power: wheelState.power,
-            temperature: wheelState.temperature,
-            battery: wheelState.batteryLevel,
-            pwmPercent: wheelState.pwmPercent,
+        let demoSample = WheelLogCore.TelemetrySample.companion.fromWheelState(
+            state: kmpState,
+            timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
             gpsSpeedKmh: gpsSpeed
         )
-        telemetryHistory.addSample(
-            speedKmh: wheelState.speedKmh,
-            voltage: wheelState.voltage,
-            current: wheelState.current,
-            power: wheelState.power,
-            temperature: wheelState.temperature,
-            battery: wheelState.batteryLevel,
-            pwmPercent: wheelState.pwmPercent,
-            gpsSpeedKmh: gpsSpeed
-        )
+        telemetryBuffer.addSampleIfNeeded(sample: demoSample)
+        telemetryHistory.addSample(demoSample)
 
         // Check alarms via KMP
         let kmpAlarmState = WheelConnectionManagerHelper.shared.getDemoState(provider: demoProvider)
@@ -492,26 +479,13 @@ class WheelManager: ObservableObject {
         // Feature 6: Telemetry buffer sampling + history
         if connectionState.isConnected {
             let gpsSpeedPoll = max(0, (locationManager.currentLocation?.speed ?? 0)) * 3.6
-            telemetryBuffer.addSampleIfNeeded(
-                speedKmh: wheelState.speedKmh,
-                voltage: wheelState.voltage,
-                current: wheelState.current,
-                power: wheelState.power,
-                temperature: wheelState.temperature,
-                battery: wheelState.batteryLevel,
-                pwmPercent: wheelState.pwmPercent,
+            let telSample = WheelLogCore.TelemetrySample.companion.fromWheelState(
+                state: kmpWheelState,
+                timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
                 gpsSpeedKmh: gpsSpeedPoll
             )
-            telemetryHistory.addSample(
-                speedKmh: wheelState.speedKmh,
-                voltage: wheelState.voltage,
-                current: wheelState.current,
-                power: wheelState.power,
-                temperature: wheelState.temperature,
-                battery: wheelState.batteryLevel,
-                pwmPercent: wheelState.pwmPercent,
-                gpsSpeedKmh: gpsSpeedPoll
-            )
+            telemetryBuffer.addSampleIfNeeded(sample: telSample)
+            telemetryHistory.addSample(telSample)
         }
 
         // Feature 2: Update reconnect state + auto-connect from shared KMP manager

@@ -39,8 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.ToggleChip
+import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.telemetry.TelemetrySample
-import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.utils.DisplayUtils
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -216,7 +216,7 @@ fun TripDetailScreen(
                     val visibleSeries = buildList {
                         if (showSpeed) add(TripSeriesInfo(
                             color = SPEED_COLOR,
-                            values = s.samples.map { if (useMph) ByteUtils.kmToMiles(it.speedKmh) else it.speedKmh }
+                            values = s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) }
                         ))
                         if (showCurrent) add(TripSeriesInfo(
                             color = CURRENT_COLOR,
@@ -228,9 +228,7 @@ fun TripDetailScreen(
                         ))
                         if (showTemperature) add(TripSeriesInfo(
                             color = TEMP_COLOR,
-                            values = s.samples.map {
-                                if (useFahrenheit) ByteUtils.celsiusToFahrenheit(it.temperatureC) else it.temperatureC
-                            }
+                            values = s.samples.map { DisplayUtils.convertMetricValue(it.temperatureC, MetricType.TEMPERATURE, useMph, useFahrenheit) }
                         ))
                         if (showPwm) add(TripSeriesInfo(
                             color = PWM_COLOR,
@@ -318,9 +316,7 @@ private fun TripSummaryCard(
                             SummaryItem("Max Power", "${trip.maxPower.toInt()} W")
                         }
                         if (trip.consumptionByKm > 0) {
-                            val unit = if (useMph) "Wh/mi" else "Wh/km"
-                            val value = if (useMph) trip.consumptionByKm / ByteUtils.KM_TO_MILES_MULTIPLIER else trip.consumptionByKm.toDouble()
-                            SummaryItem("Energy", "%.1f %s".format(value, unit))
+                            SummaryItem("Energy", DisplayUtils.formatEnergyConsumption(trip.consumptionByKm.toDouble(), useMph))
                         }
                     }
                 }

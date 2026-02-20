@@ -148,5 +148,8 @@ data class WheelState(
 
     companion object {
         const val KM_TO_MILES = 0.62137119223733
+
+        /** Creates a default empty WheelState. Useful from Swift/ObjC where default-parameter constructors aren't available. */
+        fun empty(): WheelState = WheelState()
     }
 }

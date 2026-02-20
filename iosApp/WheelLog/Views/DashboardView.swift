@@ -88,7 +88,7 @@ struct DashboardView: View {
                     )
 
                     // Power tile
-                    let powerVal = wheelManager.wheelState.power
+                    let powerVal = wheelManager.wheelState.powerW
                     let powerMax = wheelManager.telemetryBuffer.buffer.effectiveMax(metric: .power)
                     GaugeTileView(
                         label: "Power",
@@ -113,7 +113,7 @@ struct DashboardView: View {
                     )
 
                     // Temperature tile
-                    let tempC = Double(wheelManager.wheelState.temperature)
+                    let tempC = Double(wheelManager.wheelState.temperatureC)
                     let tempDisplay = DisplayUtils.shared.convertTemp(celsius: tempC, useFahrenheit: wheelManager.useFahrenheit)
                     let tempUnit = DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
                     GaugeTileView(
@@ -144,8 +144,8 @@ struct DashboardView: View {
 
                 // Compact stats row
                 VStack(spacing: 12) {
-                    StatRow(label: "Voltage", value: String(format: "%.1f V", wheelManager.wheelState.voltage))
-                    StatRow(label: "Current", value: String(format: "%.1f A", wheelManager.wheelState.current))
+                    StatRow(label: "Voltage", value: String(format: "%.1f V", wheelManager.wheelState.voltageV))
+                    StatRow(label: "Current", value: String(format: "%.1f A", wheelManager.wheelState.currentA))
                     StatRow(label: "Trip Distance", value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.wheelDistanceKm, useMph: wheelManager.useMph, decimals: 2))
                     StatRow(label: "Total Distance", value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.totalDistanceKm, useMph: wheelManager.useMph, decimals: 1))
                 }
@@ -180,7 +180,7 @@ struct DashboardView: View {
                         if !wheelManager.wheelState.model.isEmpty {
                             StatRow(label: "Model", value: wheelManager.wheelState.model)
                         }
-                        StatRow(label: "Type", value: wheelManager.wheelState.wheelType)
+                        StatRow(label: "Type", value: wheelManager.wheelState.wheelType.name)
                     }
                     .padding()
                     .background(Color(UIColor.secondarySystemGroupedBackground))

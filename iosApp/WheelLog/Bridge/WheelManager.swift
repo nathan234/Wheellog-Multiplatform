@@ -8,7 +8,7 @@ import WheelLogCore
 class WheelManager: ObservableObject {
     // MARK: - Published State
 
-    @Published private(set) var wheelState: WheelStateWrapper = WheelStateWrapper()
+    @Published private(set) var wheelState: WheelState = WheelState.companion.empty()
     @Published private(set) var connectionState: ConnectionStateWrapper = .disconnected
     @Published private(set) var discoveredDevices: [DiscoveredDevice] = []
     @Published private(set) var isScanning: Bool = false
@@ -314,7 +314,7 @@ class WheelManager: ObservableObject {
         WheelConnectionManagerHelper.shared.stopDemo(provider: demoProvider)
         isMockMode = false
         connectionState = .disconnected
-        wheelState = WheelStateWrapper()
+        wheelState = WheelState.companion.empty()
         telemetryBuffer.clear()
     }
 
@@ -328,7 +328,7 @@ class WheelManager: ObservableObject {
 
     private func pollDemoState() {
         let kmpState = WheelConnectionManagerHelper.shared.getDemoState(provider: demoProvider)
-        let newWheelState = WheelStateWrapper(from: kmpState)
+        let newWheelState = kmpState
         guard newWheelState != wheelState else { return }
 
         wheelState = newWheelState
@@ -381,7 +381,7 @@ class WheelManager: ObservableObject {
     func stopTestMode() {
         isTestMode = false
         connectionState = .disconnected
-        wheelState = WheelStateWrapper()
+        wheelState = WheelState.companion.empty()
         telemetryBuffer.clear()
     }
 
@@ -417,7 +417,7 @@ class WheelManager: ObservableObject {
         // In test mode, only poll wheel state (not connection state)
         if isTestMode {
             let kmpWheelState = WheelConnectionManagerHelper.shared.getWheelState(manager: cm)
-            let newWheelState = WheelStateWrapper(from: kmpWheelState)
+            let newWheelState = kmpWheelState
             if newWheelState != wheelState {
                 syncUnitsFromWheel(newWheelState)
                 wheelState = newWheelState
@@ -435,7 +435,7 @@ class WheelManager: ObservableObject {
 
         // Poll wheel state using iOS helper
         let kmpWheelState = WheelConnectionManagerHelper.shared.getWheelState(manager: cm)
-        let newWheelState = WheelStateWrapper(from: kmpWheelState)
+        let newWheelState = kmpWheelState
         if newWheelState != wheelState {
             syncUnitsFromWheel(newWheelState)
             wheelState = newWheelState
@@ -534,7 +534,7 @@ class WheelManager: ObservableObject {
 
             // Auto-save wheel profile
             let displayName = wheelState.displayName == "Dashboard" ? "" : wheelState.displayName
-            saveProfile(address: address, displayName: displayName, wheelTypeName: wheelState.wheelType)
+            saveProfile(address: address, displayName: displayName, wheelTypeName: wheelState.wheelType.name)
 
             // Load telemetry history for this wheel
             telemetryHistory.loadForWheel(address: address)
@@ -576,7 +576,7 @@ class WheelManager: ObservableObject {
 
     /// Auto-set useMph based on the wheel's reported miles setting.
     /// Called when wheel state changes so the app matches the wheel's configuration.
-    private func syncUnitsFromWheel(_ newState: WheelStateWrapper) {
+    private func syncUnitsFromWheel(_ newState: WheelState) {
         if newState.inMiles != wheelState.inMiles {
             useMph = newState.inMiles
         }
@@ -931,7 +931,7 @@ class WheelManager: ObservableObject {
         connectionManager.disconnect { [weak self] error in
             Task { @MainActor in
                 self?.connectionState = .disconnected
-                self?.wheelState = WheelStateWrapper()
+                self?.wheelState = WheelState.companion.empty()
                 self?.telemetryBuffer.clear()
                 if let error = error {
                     print("Disconnect error: \(error.localizedDescription)")
@@ -942,198 +942,6 @@ class WheelManager: ObservableObject {
 }
 
 // MARK: - Swift Wrappers for KMP Types
-
-/// Swift wrapper for KMP WheelState
-struct WheelStateWrapper: Equatable {
-    // Core telemetry
-    let speedKmh: Double
-    let voltage: Double
-    let current: Double
-    let power: Double
-    let temperature: Int
-    let batteryLevel: Int
-
-    // Distance
-    let totalDistanceKm: Double
-    let wheelDistanceKm: Double
-
-    // PWM
-    let pwmPercent: Double
-
-    // Wheel info
-    let wheelType: String
-    let name: String
-    let model: String
-
-    // Wheel display name (computed from KMP DisplayUtils)
-    let displayName: String
-
-    // Wheel-reported settings
-    let inMiles: Bool
-
-    // Wheel settings (from BLE frame 0x04)
-    let pedalsMode: Int32    // 0=Hard, 1=Medium, 2=Soft, -1=unknown
-    let tiltBackSpeed: Int32 // km/h
-    let lightMode: Int32     // 0=Off, 1=On, 2=Strobe, -1=unknown
-    let ledMode: Int32       // 0-9, -1=unknown
-    let cutoutAngle: Int32   // degrees (45-90, -1=unknown)
-    let rollAngle: Int32     // 0=Low, 1=Medium, 2=High, -1=unknown
-
-    // BMS data
-    let bms1: BmsSnapshotWrapper?
-    let bms2: BmsSnapshotWrapper?
-
-    init() {
-        speedKmh = 0
-        voltage = 0
-        current = 0
-        power = 0
-        temperature = 0
-        batteryLevel = 0
-        totalDistanceKm = 0
-        wheelDistanceKm = 0
-        pwmPercent = 0
-        wheelType = "Unknown"
-        name = ""
-        model = ""
-        displayName = "Dashboard"
-        inMiles = false
-        pedalsMode = -1
-        tiltBackSpeed = 0
-        lightMode = -1
-        ledMode = -1
-        cutoutAngle = -1
-        rollAngle = -1
-        bms1 = nil
-        bms2 = nil
-    }
-
-    init(
-        speedKmh: Double,
-        voltage: Double,
-        current: Double,
-        power: Double,
-        temperature: Int,
-        batteryLevel: Int,
-        totalDistanceKm: Double,
-        wheelDistanceKm: Double,
-        pwmPercent: Double,
-        wheelType: String,
-        name: String,
-        model: String,
-        displayName: String = "Dashboard",
-        inMiles: Bool = false,
-        pedalsMode: Int32 = -1,
-        tiltBackSpeed: Int32 = 0,
-        lightMode: Int32 = -1,
-        ledMode: Int32 = -1,
-        cutoutAngle: Int32 = -1,
-        rollAngle: Int32 = -1,
-        bms1: BmsSnapshotWrapper? = nil,
-        bms2: BmsSnapshotWrapper? = nil
-    ) {
-        self.speedKmh = speedKmh
-        self.voltage = voltage
-        self.current = current
-        self.power = power
-        self.temperature = temperature
-        self.batteryLevel = batteryLevel
-        self.totalDistanceKm = totalDistanceKm
-        self.wheelDistanceKm = wheelDistanceKm
-        self.pwmPercent = pwmPercent
-        self.wheelType = wheelType
-        self.name = name
-        self.model = model
-        self.displayName = displayName
-        self.inMiles = inMiles
-        self.pedalsMode = pedalsMode
-        self.tiltBackSpeed = tiltBackSpeed
-        self.lightMode = lightMode
-        self.ledMode = ledMode
-        self.cutoutAngle = cutoutAngle
-        self.rollAngle = rollAngle
-        self.bms1 = bms1
-        self.bms2 = bms2
-    }
-
-    init(from kmpState: WheelState) {
-        speedKmh = kmpState.speedKmh
-        voltage = kmpState.voltageV
-        current = kmpState.currentA
-        power = kmpState.powerW
-        temperature = Int(kmpState.temperatureC)
-        batteryLevel = Int(kmpState.batteryLevel)
-        totalDistanceKm = kmpState.totalDistanceKm
-        wheelDistanceKm = kmpState.wheelDistanceKm
-        pwmPercent = kmpState.pwmPercent
-        wheelType = kmpState.wheelType.name
-        name = kmpState.name
-        model = kmpState.model
-        displayName = kmpState.displayName
-        inMiles = kmpState.inMiles
-        pedalsMode = kmpState.pedalsMode
-        tiltBackSpeed = kmpState.tiltBackSpeed
-        lightMode = kmpState.lightMode
-        ledMode = kmpState.ledMode
-        cutoutAngle = kmpState.cutoutAngle
-        rollAngle = kmpState.rollAngle
-        bms1 = kmpState.bms1.map { BmsSnapshotWrapper(from: $0) }
-        bms2 = kmpState.bms2.map { BmsSnapshotWrapper(from: $0) }
-    }
-}
-
-/// Swift wrapper for KMP BmsSnapshot
-struct BmsSnapshotWrapper: Equatable {
-    let serialNumber: String
-    let versionNumber: String
-    let factoryCap: Int
-    let actualCap: Int
-    let fullCycles: Int
-    let chargeCount: Int
-    let mfgDateStr: String
-    let status: Int
-    let remCap: Int
-    let remPerc: Int
-    let current: Double
-    let voltage: Double
-    let temp1: Double
-    let temp2: Double
-    let health: Int
-    let minCell: Double
-    let maxCell: Double
-    let cellDiff: Double
-    let avgCell: Double
-    let minCellNum: Int
-    let maxCellNum: Int
-    let cellNum: Int
-    let cells: [Double]
-
-    init(from snapshot: BmsSnapshot) {
-        serialNumber = snapshot.serialNumber
-        versionNumber = snapshot.versionNumber
-        factoryCap = Int(snapshot.factoryCap)
-        actualCap = Int(snapshot.actualCap)
-        fullCycles = Int(snapshot.fullCycles)
-        chargeCount = Int(snapshot.chargeCount)
-        mfgDateStr = snapshot.mfgDateStr
-        status = Int(snapshot.status)
-        remCap = Int(snapshot.remCap)
-        remPerc = Int(snapshot.remPerc)
-        current = snapshot.current
-        voltage = snapshot.voltage
-        temp1 = snapshot.temp1
-        temp2 = snapshot.temp2
-        health = Int(snapshot.health)
-        minCell = snapshot.minCell
-        maxCell = snapshot.maxCell
-        cellDiff = snapshot.cellDiff
-        avgCell = snapshot.avgCell
-        minCellNum = Int(snapshot.minCellNum)
-        maxCellNum = Int(snapshot.maxCellNum)
-        cellNum = Int(snapshot.cellNum)
-        cells = (0..<Int(snapshot.cellNum)).map { (snapshot.cells.get(index: Int32($0)) as! NSNumber).doubleValue }
-    }
-}
 
 /// Swift wrapper for KMP ConnectionState
 enum ConnectionStateWrapper: Equatable {
@@ -1242,7 +1050,7 @@ extension WheelManager {
     /// Create a preview instance with mock data
     static func preview(
         connectionState: ConnectionStateWrapper = .disconnected,
-        wheelState: WheelStateWrapper = WheelStateWrapper(),
+        wheelState: WheelState = WheelState.companion.empty(),
         devices: [DiscoveredDevice] = []
     ) -> WheelManager {
         let manager = WheelManager()

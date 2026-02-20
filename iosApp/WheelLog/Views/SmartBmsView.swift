@@ -1,6 +1,13 @@
 import SwiftUI
 import WheelLogCore
 
+/// Convenience accessor for KMP BmsSnapshot cells (KotlinArray<KotlinDouble> → [Double]).
+extension BmsSnapshot {
+    var cellValues: [Double] {
+        (0..<Int(cellNum)).map { (cells.get(index: Int32($0)) as! NSNumber).doubleValue }
+    }
+}
+
 struct SmartBmsView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
@@ -35,7 +42,7 @@ struct SmartBmsView: View {
 }
 
 private struct BmsBlock: View {
-    let bms: BmsSnapshotWrapper
+    let bms: BmsSnapshot
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -52,8 +59,8 @@ private struct BmsBlock: View {
             if bms.health > 0 {
                 Text("Health: \(bms.health)%")
             }
-            Text("Max Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.maxCell, cellNum: Int32(bms.maxCellNum)))")
-            Text("Min Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.minCell, cellNum: Int32(bms.minCellNum)))")
+            Text("Max Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.maxCell, cellNum: bms.maxCellNum))")
+            Text("Min Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.minCell, cellNum: bms.minCellNum))")
             Text("Cell Diff: \(DisplayUtils.shared.formatBmsCell(voltage: bms.cellDiff))")
             Text("Avg Cell: \(DisplayUtils.shared.formatBmsCell(voltage: bms.avgCell))")
 
@@ -62,8 +69,8 @@ private struct BmsBlock: View {
                 Text("Cells (\(bms.cellNum)):")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                ForEach(0..<bms.cellNum, id: \.self) { i in
-                    Text("  \(DisplayUtils.shared.formatBmsCellIndexed(index: Int32(i + 1), voltage: bms.cells[i]))")
+                ForEach(0..<Int(bms.cellNum), id: \.self) { i in
+                    Text("  \(DisplayUtils.shared.formatBmsCellIndexed(index: Int32(i + 1), voltage: bms.cellValues[i]))")
                         .font(.system(.body, design: .monospaced))
                 }
             }

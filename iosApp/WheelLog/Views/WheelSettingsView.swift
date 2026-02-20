@@ -13,8 +13,7 @@ struct WheelSettingsView: View {
     @State private var showConfirmation = false
 
     var body: some View {
-        let kmpWheelType = WheelType.companion.fromString(name: wheelManager.wheelState.wheelType)
-        let sections = WheelSettingsConfig.shared.sections(wheelType: kmpWheelType)
+        let sections = WheelSettingsConfig.shared.sections(wheelType: wheelManager.wheelState.wheelType)
 
         Form {
             if sections.isEmpty {

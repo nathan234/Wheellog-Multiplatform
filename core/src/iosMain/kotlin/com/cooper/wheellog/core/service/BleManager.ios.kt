@@ -65,6 +65,10 @@ actual class BleManager {
 
     // Track which services have completed characteristic discovery
     private val discoveredServiceUuids = mutableSetOf<String>()
+    // Number of services we kicked off characteristic discovery for
+    private var expectedServiceCount: Int = 0
+    // Timeout job for service/characteristic discovery phase
+    private var serviceDiscoveryTimeoutJob: Job? = null
 
     // Delegate instances (prevent garbage collection)
     private var centralDelegate: CBCentralManagerDelegateImpl? = null
@@ -165,6 +169,8 @@ actual class BleManager {
     }
 
     actual suspend fun disconnect() {
+        serviceDiscoveryTimeoutJob?.cancel()
+        serviceDiscoveryTimeoutJob = null
         currentPeripheral?.let { peripheral ->
             centralManager?.cancelPeripheralConnection(peripheral)
         }
@@ -172,6 +178,7 @@ actual class BleManager {
         writeCharacteristic = null
         readCharacteristic = null
         discoveredServiceUuids.clear()
+        expectedServiceCount = 0
         _connectionState.value = ConnectionState.Disconnected
     }
 
@@ -280,8 +287,31 @@ actual class BleManager {
         _connectionState.value = ConnectionState.DiscoveringServices(
             peripheral.identifier.UUIDString
         )
+        discoveredServiceUuids.clear()
+        expectedServiceCount = 0
+
         // Discover only the services used by supported wheels
         peripheral.discoverServices(serviceUUIDs = wheelServiceUUIDs())
+
+        // Safety timeout — if service/characteristic discovery doesn't complete
+        // within 15 seconds, fail the connection instead of hanging forever.
+        serviceDiscoveryTimeoutJob?.cancel()
+        serviceDiscoveryTimeoutJob = scope.launch {
+            delay(15_000)
+            val address = peripheral.identifier.UUIDString
+            Logger.w("BleManager", "Service discovery timed out after 15s for $address")
+            _connectionState.value = ConnectionState.Failed(
+                error = "Service discovery timed out",
+                address = address
+            )
+            centralManager?.cancelPeripheralConnection(peripheral)
+            continuationLock.withLock {
+                connectionContinuation?.resume(
+                    Result.failure(Exception("Service discovery timed out"))
+                ) {}
+                connectionContinuation = null
+            }
+        }
     }
 
     internal fun onWillRestoreState(peripherals: List<CBPeripheral>?) {
@@ -293,6 +323,8 @@ actual class BleManager {
     }
 
     internal fun onConnectionFailed(peripheral: CBPeripheral, error: NSError?) {
+        serviceDiscoveryTimeoutJob?.cancel()
+        serviceDiscoveryTimeoutJob = null
         val errorMessage = error?.localizedDescription ?: "Connection failed"
         _connectionState.value = ConnectionState.Failed(error = errorMessage, address = peripheral.identifier.UUIDString)
 
@@ -303,6 +335,8 @@ actual class BleManager {
     }
 
     internal fun onPeripheralDisconnected(peripheral: CBPeripheral, error: NSError?) {
+        serviceDiscoveryTimeoutJob?.cancel()
+        serviceDiscoveryTimeoutJob = null
         val address = peripheral.identifier.UUIDString
         if (error != null) {
             _connectionState.value = ConnectionState.ConnectionLost(
@@ -317,19 +351,52 @@ actual class BleManager {
         writeCharacteristic = null
         readCharacteristic = null
         discoveredServiceUuids.clear()
+        expectedServiceCount = 0
     }
 
     internal fun onServicesDiscovered(peripheral: CBPeripheral, error: NSError?) {
         if (error != null) {
+            serviceDiscoveryTimeoutJob?.cancel()
+            serviceDiscoveryTimeoutJob = null
             _connectionState.value = ConnectionState.Failed(
                 error = error.localizedDescription ?: "Service discovery failed",
                 address = peripheral.identifier.UUIDString
             )
+            continuationLock.withLock {
+                connectionContinuation?.resume(
+                    Result.failure(Exception(error.localizedDescription ?: "Service discovery failed"))
+                ) {}
+                connectionContinuation = null
+            }
+            return
+        }
+
+        // Capture count BEFORE kicking off characteristic discovery.
+        // peripheral.services here contains exactly the services matching our
+        // discoverServices(serviceUUIDs:) filter — not all services on the device.
+        val services = peripheral.services ?: emptyList<Any>()
+        expectedServiceCount = services.size
+
+        if (expectedServiceCount == 0) {
+            serviceDiscoveryTimeoutJob?.cancel()
+            serviceDiscoveryTimeoutJob = null
+            val address = peripheral.identifier.UUIDString
+            Logger.w("BleManager", "No matching services found on $address")
+            _connectionState.value = ConnectionState.Failed(
+                error = "No supported services found",
+                address = address
+            )
+            continuationLock.withLock {
+                connectionContinuation?.resume(
+                    Result.failure(Exception("No supported services found"))
+                ) {}
+                connectionContinuation = null
+            }
             return
         }
 
         // Discover characteristics for each service
-        peripheral.services?.forEach { service ->
+        services.forEach { service ->
             (service as? CBService)?.let { cbService ->
                 peripheral.discoverCharacteristics(null, cbService)
             }
@@ -346,11 +413,13 @@ actual class BleManager {
         // Track this service as having completed characteristic discovery
         discoveredServiceUuids.add(serviceUuid.lowercase())
 
-        // Check if all services have completed characteristic discovery
-        val totalServices = peripheral.services?.size ?: 0
-        val allServicesDiscovered = discoveredServiceUuids.size >= totalServices
+        // Check if all services we kicked off discovery for have reported back
+        val allServicesDiscovered = expectedServiceCount > 0 &&
+            discoveredServiceUuids.size >= expectedServiceCount
 
         if (allServicesDiscovered) {
+            serviceDiscoveryTimeoutJob?.cancel()
+            serviceDiscoveryTimeoutJob = null
             // Build complete DiscoveredServices (expand short CoreBluetooth UUIDs to 128-bit)
             val discoveredServices = peripheral.services?.mapNotNull { svc ->
                 (svc as? CBService)?.let { cbService ->

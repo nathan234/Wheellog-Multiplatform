@@ -22,6 +22,10 @@ import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelProfile
 import com.cooper.wheellog.core.alarm.AlarmChecker
 import com.cooper.wheellog.core.alarm.AlarmConfig
+import android.media.AudioManager
+import android.media.ToneGenerator
+import android.os.VibrationEffect
+import android.os.Vibrator
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.data.TripDatabase
 import com.cooper.wheellog.data.TripRepository
@@ -537,6 +541,21 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     // --- Alarm monitoring ---
 
     private val alarmChecker = AlarmChecker()
+    private val alarmHandler = AlarmHandler(
+        vibrate = { pattern ->
+            val vibrator = getApplication<Application>().getSystemService(Vibrator::class.java)
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        },
+        playTone = { type, duration ->
+            val tg = ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME)
+            try {
+                tg.startTone(type, duration)
+            } finally {
+                tg.release()
+            }
+        },
+        onWheelBeep = ::wheelBeep
+    )
 
     private fun startAlarmMonitoring() {
         viewModelScope.launch {
@@ -572,6 +591,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                 val now = System.currentTimeMillis()
                 val result = alarmChecker.check(state, config, now)
                 _activeAlarms.value = result.triggeredAlarms.map { it.type }.toSet()
+                alarmHandler.handleAlarmResult(result, AlarmAction.fromValue(appConfig.alarmAction))
             }
         }
     }

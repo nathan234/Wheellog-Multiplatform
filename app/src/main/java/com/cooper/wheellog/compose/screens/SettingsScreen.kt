@@ -11,8 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -24,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -39,12 +46,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.cooper.wheellog.BuildConfig
+import com.cooper.wheellog.compose.AlarmAction
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.AppConstants
 import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.utils.DisplayUtils
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: WheelViewModel) {
     val appConfig = viewModel.appConfig
@@ -91,6 +100,48 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             )
 
             if (appConfig.alarmsEnabled) {
+                HorizontalDivider()
+
+                // Alarm Action picker
+                val alarmActionLabels = listOf("Phone Only", "Phone + Wheel", "All")
+                var alarmActionExpanded by remember { mutableStateOf(false) }
+                val selectedAction = AlarmAction.fromValue(appConfig.alarmAction)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Alarm Action")
+                    ExposedDropdownMenuBox(
+                        expanded = alarmActionExpanded,
+                        onExpandedChange = { alarmActionExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = alarmActionLabels[selectedAction.value],
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = alarmActionExpanded) },
+                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            textStyle = MaterialTheme.typography.bodyMedium
+                        )
+                        ExposedDropdownMenu(
+                            expanded = alarmActionExpanded,
+                            onDismissRequest = { alarmActionExpanded = false }
+                        ) {
+                            alarmActionLabels.forEachIndexed { index, label ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        appConfig.alarmAction = index
+                                        alarmActionExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 HorizontalDivider()
 
                 SettingsToggle(

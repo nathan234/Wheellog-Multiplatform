@@ -366,6 +366,10 @@ class AppConfig(var context: Context): KoinComponent {
         get() = getSpecific(R.string.use_wheel_beep_for_alarm, false)
         set(value) = setSpecific(R.string.use_wheel_beep_for_alarm, value)
 
+    var alarmAction: Int
+        get() = getValue("alarm_action", 0)
+        set(value) = setValue("alarm_action", value)
+
     var pwmBasedAlarms: Boolean
         get() = getSpecific(R.string.altered_alarms, true)
         set(value) = setSpecific(R.string.altered_alarms, value)

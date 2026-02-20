@@ -44,6 +44,7 @@ class WheelViewModelAutoConnectTest {
     private lateinit var app: Application
     private lateinit var viewModel: WheelViewModel
 
+    private lateinit var mockService: WheelService
     private lateinit var mockCm: WheelConnectionManager
     private lateinit var mockBle: BleManager
     private lateinit var mockConnectionState: MutableStateFlow<ConnectionState>
@@ -66,6 +67,7 @@ class WheelViewModelAutoConnectTest {
             every { wheelState } returns MutableStateFlow(WheelState())
         }
         mockBle = mockk(relaxed = true)
+        mockService = mockk(relaxed = true)
     }
 
     @After
@@ -99,7 +101,7 @@ class WheelViewModelAutoConnectTest {
     fun `attemptStartupAutoConnect does nothing when lastMac is empty`() = runTest(testDispatcher) {
         setUseReconnect(true)
         setLastMac("")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.attemptStartupAutoConnect()
@@ -111,7 +113,7 @@ class WheelViewModelAutoConnectTest {
     fun `attemptStartupAutoConnect does nothing when useReconnect is false`() = runTest(testDispatcher) {
         setUseReconnect(false)
         setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.attemptStartupAutoConnect()
@@ -135,7 +137,7 @@ class WheelViewModelAutoConnectTest {
     fun `attemptStartupAutoConnect delegates to shared manager`() = runTest(testDispatcher) {
         setUseReconnect(true)
         setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.attemptStartupAutoConnect()
@@ -149,7 +151,7 @@ class WheelViewModelAutoConnectTest {
     fun `disconnect stops auto-connect and clears lastMac`() = runTest(testDispatcher) {
         setUseReconnect(true)
         setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.attemptStartupAutoConnect()
@@ -165,7 +167,7 @@ class WheelViewModelAutoConnectTest {
     @Test
     fun `connect persists MAC address`() = runTest(testDispatcher) {
         setLastMac("")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.connect("11:22:33:44:55:66")
@@ -180,7 +182,7 @@ class WheelViewModelAutoConnectTest {
     fun `ConnectionLost triggers reconnect when autoReconnect enabled`() = runTest(testDispatcher) {
         setUseReconnect(true)
         setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         // Simulate connection lost
@@ -194,7 +196,7 @@ class WheelViewModelAutoConnectTest {
     fun `ConnectionLost does not trigger reconnect when autoReconnect disabled`() = runTest(testDispatcher) {
         setUseReconnect(false)
         setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         mockConnectionState.value = ConnectionState.ConnectionLost("AA:BB:CC:DD:EE:FF", "timeout")
@@ -208,7 +210,7 @@ class WheelViewModelAutoConnectTest {
     @Test
     fun `startupScan does nothing when lastMac is empty`() = runTest(testDispatcher) {
         setLastMac("")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.startupScan()
@@ -221,7 +223,7 @@ class WheelViewModelAutoConnectTest {
     @Test
     fun `startupScan starts scanning when lastMac is set`() = runTest(testDispatcher) {
         setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.startupScan()
@@ -235,7 +237,7 @@ class WheelViewModelAutoConnectTest {
 
     @Test
     fun `auto-save profile on connection`() = runTest(testDispatcher) {
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         // Simulate connection
@@ -251,7 +253,7 @@ class WheelViewModelAutoConnectTest {
         viewModel.profileStore.saveProfile(
             WheelProfile("AA:BB:CC:DD:EE:FF", "My Wheel", "KINGSONG", 1000L)
         )
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         assertThat(viewModel.savedAddresses.value).contains("AA:BB:CC:DD:EE:FF")
@@ -266,7 +268,7 @@ class WheelViewModelAutoConnectTest {
         viewModel.profileStore.saveProfile(
             WheelProfile("AA:BB:CC:DD:EE:FF", "My Wheel", "KINGSONG", 1000L)
         )
-        viewModel.attachService(mockCm, mockBle)
+        viewModel.attachService(mockService, mockCm, mockBle)
         advanceUntilIdle()
 
         viewModel.disconnect()

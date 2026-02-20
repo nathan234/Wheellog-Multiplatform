@@ -49,6 +49,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val demoDataProvider = DemoDataProvider()
 
     // Service references (set via attachService/detachService)
+    private var wheelService: WheelService? = null
     private var connectionManager: WheelConnectionManager? = null
     private var bleManager: BleManager? = null
     private var stateCollectionJob: Job? = null
@@ -151,7 +152,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Service binding ---
 
-    fun attachService(cm: WheelConnectionManager, ble: BleManager) {
+    fun attachService(service: WheelService, cm: WheelConnectionManager, ble: BleManager) {
+        wheelService = service
         connectionManager = cm
         bleManager = ble
 
@@ -194,6 +196,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         connectionCollectionJob = null
         autoConnectManager?.destroy()
         autoConnectManager = null
+        wheelService = null
         connectionManager = null
         bleManager = null
     }
@@ -274,8 +277,15 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             connectionManager?.disconnect()
         }
+        wheelService?.shutdown()
         telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
+    }
+
+    fun shutdownService() {
+        if (rideLogger.isLogging) stopLogging()
+        telemetryHistory?.save()
+        wheelService?.shutdown()
     }
 
     fun attemptStartupAutoConnect() {

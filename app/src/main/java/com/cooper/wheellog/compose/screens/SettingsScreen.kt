@@ -283,10 +283,9 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         }
 
         // Close app
-        val isLogging by viewModel.isLogging.collectAsState()
         OutlinedButton(
             onClick = {
-                if (isLogging) viewModel.toggleLogging()
+                viewModel.shutdownService()
                 (context as? Activity)?.finishAffinity()
             },
             modifier = Modifier.fillMaxWidth(),

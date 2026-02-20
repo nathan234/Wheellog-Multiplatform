@@ -3,6 +3,7 @@ package com.cooper.wheellog.compose
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Binder
@@ -71,10 +72,12 @@ class WheelService : Service() {
         }
     }
 
-    override fun onBind(intent: Intent?): IBinder {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, createNotification("Disconnected"))
-        return binder
+        return START_STICKY
     }
+
+    override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
         serviceScope.cancel()
@@ -82,6 +85,14 @@ class WheelService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
         }
         super.onDestroy()
+    }
+
+    fun shutdown() {
+        serviceScope.cancel()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        }
+        stopSelf()
     }
 
     private fun createNotificationChannel() {
@@ -99,10 +110,16 @@ class WheelService : Service() {
     }
 
     private fun createNotification(text: String): Notification {
+        val intent = Intent(this, ComposeActivity::class.java)
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            PendingIntent.FLAG_IMMUTABLE else 0
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("WheelLog")
             .setContentText(text)
+            .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
             .build()

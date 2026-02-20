@@ -26,7 +26,7 @@ class ComposeActivity : ComponentActivity() {
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             val binder = service as WheelService.LocalBinder
-            viewModel.attachService(binder.service.connectionManager, binder.service.bleManager)
+            viewModel.attachService(binder.service, binder.service.connectionManager, binder.service.bleManager)
             viewModel.startupScan()
         }
 
@@ -59,9 +59,6 @@ class ComposeActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (viewModel.isLogging.value) {
-            viewModel.toggleLogging()
-        }
         try {
             unbindService(serviceConnection)
         } catch (_: IllegalArgumentException) {
@@ -98,6 +95,7 @@ class ComposeActivity : ComponentActivity() {
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         if (bluetoothManager?.adapter?.isEnabled == true) {
             val intent = Intent(this, WheelService::class.java)
+            ContextCompat.startForegroundService(this, intent)
             bindService(intent, serviceConnection, BIND_AUTO_CREATE)
         }
     }

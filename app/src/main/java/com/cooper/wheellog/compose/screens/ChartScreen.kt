@@ -35,8 +35,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.telemetry.ChartTimeRange
 import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.compose.components.ToggleChip
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
@@ -67,7 +70,8 @@ fun ChartScreen(
     viewModel: WheelViewModel,
     onBack: () -> Unit
 ) {
-    val samples by viewModel.telemetrySamples.collectAsState()
+    val samples by viewModel.chartSamples.collectAsState()
+    val selectedRange by viewModel.chartTimeRange.collectAsState()
     val useMph = viewModel.appConfig.useMph
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
@@ -94,9 +98,25 @@ fun ChartScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            // Time range picker
+            LazyRow(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (range in ChartTimeRange.entries) {
+                    item {
+                        FilterChip(
+                            selected = selectedRange == range,
+                            onClick = { viewModel.setChartTimeRange(range) },
+                            label = { Text(range.label) }
+                        )
+                    }
+                }
+            }
+
             // Toggle chips
             LazyRow(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item { ToggleChip("Speed", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
@@ -159,7 +179,8 @@ fun ChartScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(250.dp)
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = 16.dp),
+                        timeRange = selectedRange
                     )
                 }
 
@@ -181,7 +202,8 @@ fun ChartScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
-                        .padding(horizontal = 16.dp)
+                        .padding(horizontal = 16.dp),
+                    timeRange = selectedRange
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -199,7 +221,8 @@ private data class SeriesInfo(
 private fun VicoLineChart(
     samples: List<TelemetrySample>,
     seriesList: List<SeriesInfo>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    timeRange: ChartTimeRange = ChartTimeRange.FIVE_MINUTES
 ) {
     if (samples.isEmpty() || seriesList.isEmpty()) return
 
@@ -216,10 +239,11 @@ private fun VicoLineChart(
         }
     }
 
-    // X-axis formatter: show mm:ss timestamps
-    val timeFormat = remember { SimpleDateFormat("mm:ss", Locale.US) }
+    // X-axis formatter: mm:ss for 5m, HH:mm for longer ranges
+    val timeFormatPattern = if (timeRange == ChartTimeRange.FIVE_MINUTES) "mm:ss" else "HH:mm"
+    val timeFormat = remember(timeFormatPattern) { SimpleDateFormat(timeFormatPattern, Locale.US) }
     val firstTimestamp = samples.firstOrNull()?.timestampMs ?: 0L
-    val bottomAxisFormatter = remember(firstTimestamp, samples.size) {
+    val bottomAxisFormatter = remember(firstTimestamp, samples.size, timeFormatPattern) {
         CartesianValueFormatter { _, value, _ ->
             val index = value.toInt().coerceIn(0, samples.lastIndex)
             timeFormat.format(Date(samples[index].timestampMs))

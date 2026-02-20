@@ -5,6 +5,7 @@ import WheelLogCore
 /// without importing WheelLogCore directly.
 typealias TelemetrySample = WheelLogCore.TelemetrySample
 typealias MetricType = WheelLogCore.MetricType
+typealias MetricStats = WheelLogCore.MetricStats
 
 /// Swift wrapper around the KMP TelemetryBuffer.
 /// Exposes samples as a Published array for SwiftUI observation.

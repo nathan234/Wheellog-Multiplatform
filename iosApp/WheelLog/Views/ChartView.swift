@@ -12,6 +12,40 @@ struct TelemetryChartView: View {
 
     private let kmToMiles = 0.62137119223733
 
+    private var chartSamples: [TelemetrySample] {
+        if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
+            return chartSamples
+        } else {
+            return wheelManager.telemetryHistory.samples
+        }
+    }
+
+    private var axisStride: Calendar.Component {
+        switch wheelManager.telemetryHistory.timeRange {
+        case .fiveMinutes: return .second
+        case .oneHour: return .minute
+        case .twentyFourHours: return .hour
+        default: return .second
+        }
+    }
+
+    private var axisStrideCount: Int {
+        switch wheelManager.telemetryHistory.timeRange {
+        case .fiveMinutes: return 10
+        case .oneHour: return 5
+        case .twentyFourHours: return 2
+        default: return 10
+        }
+    }
+
+    private var axisFormat: Date.FormatStyle {
+        if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
+            return .dateTime.minute().second()
+        } else {
+            return .dateTime.hour().minute()
+        }
+    }
+
     private func displaySpeed(_ kmh: Double) -> Double {
         wheelManager.useMph ? kmh * kmToMiles : kmh
     }
@@ -31,6 +65,18 @@ struct TelemetryChartView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                // Time range picker
+                Picker("Range", selection: Binding(
+                    get: { wheelManager.telemetryHistory.timeRange },
+                    set: { wheelManager.telemetryHistory.setTimeRange($0) }
+                )) {
+                    Text("5m").tag(ChartTimeRange.fiveMinutes)
+                    Text("1h").tag(ChartTimeRange.oneHour)
+                    Text("24h").tag(ChartTimeRange.twentyFourHours)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
                 // Toggle chips
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -42,7 +88,7 @@ struct TelemetryChartView: View {
                     .padding(.horizontal)
                 }
 
-                if wheelManager.telemetryBuffer.samples.isEmpty {
+                if chartSamples.isEmpty {
                     VStack(spacing: 12) {
                         Spacer()
                         Image(systemName: "chart.xyaxis.line")
@@ -58,7 +104,7 @@ struct TelemetryChartView: View {
                     // Main telemetry chart
                     Chart {
                         if showSpeed {
-                            ForEach(wheelManager.telemetryBuffer.samples) { sample in
+                            ForEach(chartSamples) { sample in
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
                                     y: .value("Speed", displaySpeed(sample.speed)),
@@ -68,7 +114,7 @@ struct TelemetryChartView: View {
                             }
                         }
                         if showCurrent {
-                            ForEach(wheelManager.telemetryBuffer.samples) { sample in
+                            ForEach(chartSamples) { sample in
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
                                     y: .value("Current", sample.current),
@@ -78,7 +124,7 @@ struct TelemetryChartView: View {
                             }
                         }
                         if showPower {
-                            ForEach(wheelManager.telemetryBuffer.samples) { sample in
+                            ForEach(chartSamples) { sample in
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
                                     y: .value("Power", sample.power),
@@ -88,7 +134,7 @@ struct TelemetryChartView: View {
                             }
                         }
                         if showTemperature {
-                            ForEach(wheelManager.telemetryBuffer.samples) { sample in
+                            ForEach(chartSamples) { sample in
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
                                     y: .value("Temp", displayTemp(sample.temperature)),
@@ -141,9 +187,9 @@ struct TelemetryChartView: View {
                         }
                     }
                     .chartXAxis {
-                        AxisMarks(values: .stride(by: .second, count: 10)) { _ in
+                        AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
                             AxisGridLine()
-                            AxisValueLabel(format: .dateTime.minute().second())
+                            AxisValueLabel(format: axisFormat)
                         }
                     }
                     .chartYAxis {
@@ -163,7 +209,7 @@ struct TelemetryChartView: View {
                                             let originX = geometry[proxy.plotAreaFrame].origin.x
                                             let locationX = value.location.x - originX
                                             if let date: Date = proxy.value(atX: locationX) {
-                                                selectedSample = nearestSample(to: date, in: wheelManager.telemetryBuffer.samples)
+                                                selectedSample = nearestSample(to: date, in: chartSamples)
                                             }
                                         }
                                         .onEnded { _ in
@@ -176,7 +222,7 @@ struct TelemetryChartView: View {
                     .padding(.horizontal)
 
                     // Voltage chart
-                    VoltageChartView(samples: wheelManager.telemetryBuffer.samples)
+                    VoltageChartView(samples: chartSamples, axisStride: axisStride, axisStrideCount: axisStrideCount, axisFormat: axisFormat)
                 }
             }
             .padding(.vertical)
@@ -186,8 +232,8 @@ struct TelemetryChartView: View {
     }
 
     private func mainChartAnnotationPosition(for sample: TelemetrySample) -> AnnotationPosition {
-        guard let first = wheelManager.telemetryBuffer.samples.first?.timestamp,
-              let last = wheelManager.telemetryBuffer.samples.last?.timestamp else { return .top }
+        guard let first = chartSamples.first?.timestamp,
+              let last = chartSamples.last?.timestamp else { return .top }
         let range = last.timeIntervalSince(first)
         guard range > 0 else { return .top }
         let position = sample.timestamp.timeIntervalSince(first) / range
@@ -216,6 +262,9 @@ private func annotationPosition(for sample: TelemetrySample, in samples: [Teleme
 
 struct VoltageChartView: View {
     let samples: [TelemetrySample]
+    var axisStride: Calendar.Component = .second
+    var axisStrideCount: Int = 10
+    var axisFormat: Date.FormatStyle = .dateTime.minute().second()
 
     @State private var selectedSample: TelemetrySample?
 
@@ -266,9 +315,9 @@ struct VoltageChartView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: .second, count: 10)) { _ in
+                AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
                     AxisGridLine()
-                    AxisValueLabel(format: .dateTime.minute().second())
+                    AxisValueLabel(format: axisFormat)
                 }
             }
             .chartYAxis {

@@ -32,7 +32,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.telemetry.ChartTimeRange
 import com.cooper.wheellog.core.telemetry.MetricType
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.FilterChip
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
 import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
@@ -58,7 +61,8 @@ fun MetricDetailScreen(
     metricId: String,
     onBack: () -> Unit
 ) {
-    val samples by viewModel.telemetrySamples.collectAsState()
+    val selectedRange by viewModel.chartTimeRange.collectAsState()
+    val samples by viewModel.chartSamples.collectAsState()
     val useMph = viewModel.appConfig.useMph
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
@@ -89,6 +93,7 @@ fun MetricDetailScreen(
 
     val currentValue = values.lastOrNull() ?: 0.0
     val stats = viewModel.telemetryBuffer.statsFor(metric)
+    // Use history stats for longer ranges (overridden below in display)
 
     // Apply unit conversion to stats
     fun convertStat(v: Double): Double = when (metric) {
@@ -119,6 +124,22 @@ fun MetricDetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
+            // Time range picker
+            LazyRow(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (range in ChartTimeRange.entries) {
+                    item {
+                        FilterChip(
+                            selected = selectedRange == range,
+                            onClick = { viewModel.setChartTimeRange(range) },
+                            label = { Text(range.label) }
+                        )
+                    }
+                }
+            }
+
             // Current value
             Column(
                 modifier = Modifier
@@ -149,8 +170,9 @@ fun MetricDetailScreen(
                     }
                 }
 
-                val timeFormat = remember { SimpleDateFormat("mm:ss", Locale.US) }
-                val bottomAxisFormatter = remember(samples.size) {
+                val timeFormatPattern = if (selectedRange == ChartTimeRange.FIVE_MINUTES) "mm:ss" else "HH:mm"
+                val timeFormat = remember(timeFormatPattern) { SimpleDateFormat(timeFormatPattern, Locale.US) }
+                val bottomAxisFormatter = remember(samples.size, timeFormatPattern) {
                     CartesianValueFormatter { _, value, _ ->
                         val index = value.toInt().coerceIn(0, samples.lastIndex)
                         timeFormat.format(Date(samples[index].timestampMs))

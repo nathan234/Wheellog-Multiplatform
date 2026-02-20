@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.cooper.wheellog.AppConfig
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.logging.RideLogger
+import com.cooper.wheellog.core.telemetry.ChartTimeRange
+import com.cooper.wheellog.core.telemetry.PlatformTelemetryFileIO
 import com.cooper.wheellog.core.telemetry.TelemetryBuffer
+import com.cooper.wheellog.core.telemetry.TelemetryHistory
 import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.core.service.AutoConnectManager
 import com.cooper.wheellog.core.service.BleDevice
@@ -91,13 +94,32 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     // Telemetry buffer for charts (shared KMP)
     val telemetryBuffer = TelemetryBuffer()
 
+    // Persistent telemetry history (24h, downsampled)
+    private var telemetryHistory: TelemetryHistory? = null
+    private val telemetryFileIO = PlatformTelemetryFileIO()
+
+    // Chart time range selection
+    private val _chartTimeRange = MutableStateFlow(ChartTimeRange.FIVE_MINUTES)
+    val chartTimeRange: StateFlow<ChartTimeRange> = _chartTimeRange.asStateFlow()
+
     // GPS speed (m/s from FusedLocation, converted to km/h for display)
     private val _gpsSpeedKmh = MutableStateFlow(0.0)
     val gpsSpeedKmh: StateFlow<Double> = _gpsSpeedKmh.asStateFlow()
 
-    // Expose samples as StateFlow for backward compatibility with ChartScreen
+    // Expose samples as StateFlow — merges buffer (5m) or history (1h/24h)
     private val _telemetrySamples = MutableStateFlow<List<TelemetrySample>>(emptyList())
     val telemetrySamples: StateFlow<List<TelemetrySample>> = _telemetrySamples.asStateFlow()
+
+    // Combined chart samples: buffer for 5m, history for longer ranges
+    val chartSamples: StateFlow<List<TelemetrySample>> = combine(
+        _chartTimeRange,
+        _telemetrySamples
+    ) { range, bufferSamples ->
+        when (range) {
+            ChartTimeRange.FIVE_MINUTES -> bufferSamples
+            else -> telemetryHistory?.samplesForRange(range) ?: emptyList()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Logging
     private val _isLogging = MutableStateFlow(false)
@@ -141,6 +163,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             scope = viewModelScope
         )
 
+        // Refresh saved addresses (profiles may have been added before attach)
+        _savedAddresses.value = profileStore.getSavedAddresses()
+
         stateCollectionJob = viewModelScope.launch {
             cm.wheelState.collect { _realWheelState.value = it }
         }
@@ -152,6 +177,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                 // Auto-save profile when connected
                 if (state is ConnectionState.Connected) {
                     autoSaveProfile(state.address)
+                    initHistoryForWheel(state.address)
                 }
                 // Start reconnect-after-loss when connection drops
                 if (state is ConnectionState.ConnectionLost && appConfig.useReconnect) {
@@ -177,6 +203,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun startDemo() {
         _isDemo.value = true
         _connectionState.value = ConnectionState.Connected("demo", "Demo Wheel")
+        // Don't persist history for demo mode
         demoDataProvider.start(viewModelScope)
     }
 
@@ -243,6 +270,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         appConfig.lastMac = ""
         autoConnectManager?.stop()
         if (rideLogger.isLogging) stopLogging()
+        telemetryHistory?.save()
         viewModelScope.launch {
             connectionManager?.disconnect()
         }
@@ -447,6 +475,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                     if (telemetryBuffer.addSampleIfNeeded(sample)) {
                         _telemetrySamples.value = telemetryBuffer.samples
                     }
+                    telemetryHistory?.addSample(sample)
                 }
             }
         }
@@ -455,6 +484,31 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     /** Call from Activity/Service when GPS location updates arrive. */
     fun updateGpsSpeed(speedMs: Float) {
         _gpsSpeedKmh.value = speedMs.toDouble() * 3.6
+    }
+
+    fun setChartTimeRange(range: ChartTimeRange) {
+        _chartTimeRange.value = range
+        // Refresh chart samples for non-buffer ranges
+        if (range != ChartTimeRange.FIVE_MINUTES) {
+            _telemetrySamples.value = _telemetrySamples.value // trigger recompute
+        }
+    }
+
+    fun saveHistoryToDisk() {
+        telemetryHistory?.save()
+    }
+
+    private fun initHistoryForWheel(address: String) {
+        // Don't persist for demo mode
+        if (address == "demo") return
+        // Save current history if switching wheels
+        telemetryHistory?.save()
+        val sanitized = address.replace(":", "_").replace("/", "_")
+        val dir = File(getApplication<Application>().filesDir, "telemetry")
+        val path = File(dir, "$sanitized.csv").absolutePath
+        val history = TelemetryHistory(telemetryFileIO)
+        history.loadForWheel(path, System.currentTimeMillis())
+        telemetryHistory = history
     }
 
     // --- Alarm monitoring ---

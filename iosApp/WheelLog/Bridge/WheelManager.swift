@@ -188,6 +188,7 @@ class WheelManager: ObservableObject {
     let locationManager = LocationManager()
     let backgroundManager = BackgroundManager()
     let telemetryBuffer = TelemetryBuffer()
+    let telemetryHistory = TelemetryHistoryBridge()
 
     // MARK: - Connection Tracking
 
@@ -332,9 +333,19 @@ class WheelManager: ObservableObject {
 
         wheelState = newWheelState
 
-        // Feed telemetry buffer for chart view
+        // Feed telemetry buffer and history for chart view
         let gpsSpeed = max(0, locationManager.currentLocation?.speed ?? 0) * 3.6
         telemetryBuffer.addSampleIfNeeded(
+            speedKmh: wheelState.speedKmh,
+            voltage: wheelState.voltage,
+            current: wheelState.current,
+            power: wheelState.power,
+            temperature: wheelState.temperature,
+            battery: wheelState.batteryLevel,
+            pwmPercent: wheelState.pwmPercent,
+            gpsSpeedKmh: gpsSpeed
+        )
+        telemetryHistory.addSample(
             speedKmh: wheelState.speedKmh,
             voltage: wheelState.voltage,
             current: wheelState.current,
@@ -478,10 +489,20 @@ class WheelManager: ObservableObject {
             )
         }
 
-        // Feature 6: Telemetry buffer sampling
+        // Feature 6: Telemetry buffer sampling + history
         if connectionState.isConnected {
             let gpsSpeedPoll = max(0, (locationManager.currentLocation?.speed ?? 0)) * 3.6
             telemetryBuffer.addSampleIfNeeded(
+                speedKmh: wheelState.speedKmh,
+                voltage: wheelState.voltage,
+                current: wheelState.current,
+                power: wheelState.power,
+                temperature: wheelState.temperature,
+                battery: wheelState.batteryLevel,
+                pwmPercent: wheelState.pwmPercent,
+                gpsSpeedKmh: gpsSpeedPoll
+            )
+            telemetryHistory.addSample(
                 speedKmh: wheelState.speedKmh,
                 voltage: wheelState.voltage,
                 current: wheelState.current,
@@ -552,6 +573,9 @@ class WheelManager: ObservableObject {
             let displayName = wheelState.displayName == "Dashboard" ? "" : wheelState.displayName
             saveProfile(address: address, displayName: displayName, wheelTypeName: wheelState.wheelType)
 
+            // Load telemetry history for this wheel
+            telemetryHistory.loadForWheel(address: address)
+
             // Auto-start logging if enabled
             if autoStartLogging && !isLogging {
                 startLogging()
@@ -571,6 +595,7 @@ class WheelManager: ObservableObject {
                 stopLogging()
             }
 
+            telemetryHistory.save()
             telemetryBuffer.clear()
         }
 
@@ -579,6 +604,7 @@ class WheelManager: ObservableObject {
             if isLogging {
                 stopLogging()
             }
+            telemetryHistory.save()
             telemetryBuffer.clear()
         }
     }
@@ -834,6 +860,7 @@ class WheelManager: ObservableObject {
     // MARK: - Background Mode (Feature 4)
 
     func onEnterBackground() {
+        telemetryHistory.save()
         if connectionState.isConnected {
             backgroundManager.beginBackgroundTask()
         }

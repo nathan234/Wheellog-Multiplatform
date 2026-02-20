@@ -8,7 +8,7 @@ enum class SettingsCommandId {
     // Lighting
     LIGHT_MODE, LED, LED_MODE, STROBE_MODE, TAIL_LIGHT, DRL, LIGHT_BRIGHTNESS,
     // Ride
-    PEDALS_MODE, ROLL_ANGLE_MODE, HANDLE_BUTTON, BRAKE_ASSIST,
+    PEDALS_MODE, ROLL_ANGLE_MODE, CUTOUT_ANGLE, HANDLE_BUTTON, BRAKE_ASSIST,
     RIDE_MODE, GO_HOME_MODE, FANCIER_MODE, TRANSPORT_MODE,
     PEDAL_TILT, PEDAL_SENSITIVITY,
     // Speed
@@ -29,6 +29,7 @@ enum class SettingsCommandId {
         LIGHT_MODE -> state.lightMode.takeIf { it >= 0 }
         LED_MODE -> state.ledMode.takeIf { it >= 0 }
         ROLL_ANGLE_MODE -> state.rollAngle.takeIf { it >= 0 }
+        CUTOUT_ANGLE -> state.cutoutAngle.takeIf { it >= 0 }
         MAX_SPEED -> state.maxSpeed.takeIf { it >= 0 }
         PEDAL_TILT -> state.pedalTilt.takeIf { it >= 0 }
         PEDAL_SENSITIVITY -> state.pedalSensitivity.takeIf { it >= 0 }

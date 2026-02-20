@@ -250,6 +250,10 @@ sealed class WheelCommand {
 
     data class SetMilesMode(val enabled: Boolean) : WheelCommand()
 
+    // --- Cutout angle (Begode) ---
+
+    data class SetCutoutAngle(val angle: Int) : WheelCommand()
+
     // --- BMS requests (Kingsong) ---
 
     /**

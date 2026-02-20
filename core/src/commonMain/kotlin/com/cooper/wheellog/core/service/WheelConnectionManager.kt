@@ -336,6 +336,7 @@ class WheelConnectionManager(
     suspend fun setPedalTilt(angle: Int) { sendCommand(WheelCommand.SetPedalTilt(angle)) }
     suspend fun setPedalSensitivity(sensitivity: Int) { sendCommand(WheelCommand.SetPedalSensitivity(sensitivity)) }
     suspend fun setMilesMode(enabled: Boolean) { sendCommand(WheelCommand.SetMilesMode(enabled)) }
+    suspend fun setCutoutAngle(angle: Int) { sendCommand(WheelCommand.SetCutoutAngle(angle)) }
     suspend fun requestBmsData(bmsNum: Int, dataType: Int) { sendCommand(WheelCommand.RequestBmsData(bmsNum, dataType)) }
     suspend fun setKingsongAlarms(a1: Int, a2: Int, a3: Int, max: Int) { sendCommand(WheelCommand.SetKingsongAlarms(a1, a2, a3, max)) }
     suspend fun requestAlarmSettings() { sendCommand(WheelCommand.RequestAlarmSettings) }
@@ -355,6 +356,7 @@ class WheelConnectionManager(
             SettingsCommandId.LIGHT_BRIGHTNESS -> setLightBrightness(intValue)
             SettingsCommandId.PEDALS_MODE -> setPedalsMode(intValue)
             SettingsCommandId.ROLL_ANGLE_MODE -> setRollAngleMode(intValue)
+            SettingsCommandId.CUTOUT_ANGLE -> setCutoutAngle(intValue)
             SettingsCommandId.HANDLE_BUTTON -> setHandleButton(boolValue)
             SettingsCommandId.BRAKE_ASSIST -> setBrakeAssist(boolValue)
             SettingsCommandId.RIDE_MODE -> setRideMode(boolValue)

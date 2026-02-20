@@ -38,7 +38,8 @@ object WheelSettingsConfig {
         )),
         SettingsSection("Ride", listOf(
             ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE),
-            ControlSpec.Segmented("Roll Angle", listOf("Low", "Medium", "High"), SettingsCommandId.ROLL_ANGLE_MODE)
+            ControlSpec.Segmented("Roll Angle", listOf("Low", "Medium", "High"), SettingsCommandId.ROLL_ANGLE_MODE),
+            ControlSpec.Slider("Cutout Angle", 45, 90, "°", 70, SettingsCommandId.CUTOUT_ANGLE)
         )),
         SettingsSection("Speed", listOf(
             ControlSpec.Slider("Max Speed", 0, 99, "km/h", 30, SettingsCommandId.MAX_SPEED)

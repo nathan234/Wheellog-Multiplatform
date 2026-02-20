@@ -580,6 +580,9 @@ class GotwayDecoder : WheelDecoder {
                     WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
                 )
             }
+            is WheelCommand.SetCutoutAngle -> {
+                listOf(WheelCommand.SendBytes(byteArrayOf(0x72, 0x73, command.angle.toByte())))
+            }
             is WheelCommand.SetAlarmMode -> {
                 // 0=two alarms("o"), 1=one alarm("u"), 2=off("i"), 3=CF tiltback("I")
                 val cmd = when (command.mode) {

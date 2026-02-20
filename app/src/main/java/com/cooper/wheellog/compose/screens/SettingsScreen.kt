@@ -30,9 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.cooper.wheellog.BuildConfig
 import com.cooper.wheellog.compose.WheelViewModel
@@ -48,6 +52,7 @@ fun SettingsScreen(viewModel: WheelViewModel) {
     val connectionState by viewModel.connectionState.collectAsState()
     val useMph = appConfig.useMph
     val useFahrenheit = appConfig.useFahrenheit
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -253,7 +258,6 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             StatRow(label = "Version", value = BuildConfig.VERSION_NAME)
             StatRow(label = "Build Date", value = BuildConfig.BUILD_DATE)
             HorizontalDivider()
-            val context = LocalContext.current
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -273,6 +277,20 @@ fun SettingsScreen(viewModel: WheelViewModel) {
                     fontWeight = FontWeight.Medium
                 )
             }
+        }
+
+        // Close app
+        val isLogging by viewModel.isLogging.collectAsState()
+        OutlinedButton(
+            onClick = {
+                if (isLogging) viewModel.toggleLogging()
+                (context as? Activity)?.finishAffinity()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF44336))
+        ) {
+            Text("Close App")
         }
 
         Spacer(Modifier.height(16.dp))

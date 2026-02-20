@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct WheelLogApp: App {
@@ -9,6 +10,11 @@ struct WheelLogApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(wheelManager)
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                    if wheelManager.isLogging {
+                        wheelManager.stopLogging()
+                    }
+                }
         }
         .onChange(of: scenePhase) { newPhase in
             switch newPhase {

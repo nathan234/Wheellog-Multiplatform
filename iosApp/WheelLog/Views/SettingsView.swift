@@ -213,6 +213,22 @@ struct SettingsView: View {
                 }
                 Link("GitHub Repository", destination: URL(string: AppConstants.shared.GITHUB_REPO_URL)!)
             }
+
+            // MARK: - Close App
+            Section {
+                Button(action: {
+                    if wheelManager.isLogging { wheelManager.stopLogging() }
+                    exit(0)
+                }) {
+                    HStack {
+                        Spacer()
+                        Text("Close App")
+                            .fontWeight(.medium)
+                        Spacer()
+                    }
+                }
+                .foregroundColor(.red)
+            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)

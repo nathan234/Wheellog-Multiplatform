@@ -59,6 +59,9 @@ class ComposeActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (viewModel.isLogging.value) {
+            viewModel.toggleLogging()
+        }
         try {
             unbindService(serviceConnection)
         } catch (_: IllegalArgumentException) {

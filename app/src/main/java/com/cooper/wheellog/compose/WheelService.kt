@@ -88,10 +88,6 @@ class WheelService : Service() {
     }
 
     fun shutdown() {
-        serviceScope.cancel()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-        }
         stopSelf()
     }
 

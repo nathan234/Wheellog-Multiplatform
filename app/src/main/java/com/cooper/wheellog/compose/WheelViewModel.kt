@@ -276,8 +276,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         telemetryHistory?.save()
         viewModelScope.launch {
             connectionManager?.disconnect()
+            wheelService?.shutdown()
         }
-        wheelService?.shutdown()
         telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
     }
@@ -285,7 +285,10 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun shutdownService() {
         if (rideLogger.isLogging) stopLogging()
         telemetryHistory?.save()
-        wheelService?.shutdown()
+        viewModelScope.launch {
+            connectionManager?.disconnect()
+            wheelService?.shutdown()
+        }
     }
 
     fun attemptStartupAutoConnect() {

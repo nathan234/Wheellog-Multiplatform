@@ -5,7 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Tests for buildCommand() across all decoders that support horn and light commands.
+ * Tests for buildCommand() across all decoders.
  */
 class WheelCommandTest {
 
@@ -52,9 +52,79 @@ class WheelCommandTest {
     }
 
     @Test
+    fun `KingsongDecoder Calibrate returns frame with type 0x89`() {
+        val decoder = KingsongDecoder()
+        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        assertEquals(1, commands.size)
+        val cmd = commands[0] as WheelCommand.SendBytes
+        assertEquals(20, cmd.data.size, "Kingsong frame must be 20 bytes")
+        assertEquals(0x89.toByte(), cmd.data[16], "Frame type should be 0x89")
+        assertEquals(0x5A.toByte(), cmd.data[18], "Trailer byte")
+        assertEquals(0x5A.toByte(), cmd.data[19], "Trailer byte")
+    }
+
+    @Test
+    fun `KingsongDecoder PowerOff returns frame with type 0x40`() {
+        val decoder = KingsongDecoder()
+        val commands = decoder.buildCommand(WheelCommand.PowerOff)
+        assertEquals(1, commands.size)
+        val cmd = commands[0] as WheelCommand.SendBytes
+        assertEquals(20, cmd.data.size, "Kingsong frame must be 20 bytes")
+        assertEquals(0x40.toByte(), cmd.data[16], "Frame type should be 0x40")
+        assertEquals(0x5A.toByte(), cmd.data[18], "Trailer byte")
+        assertEquals(0x5A.toByte(), cmd.data[19], "Trailer byte")
+    }
+
+    @Test
+    fun `KingsongDecoder SetLock returns empty`() {
+        val decoder = KingsongDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(true)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(false)).isEmpty())
+    }
+
+    @Test
+    fun `KingsongDecoder ResetTrip returns empty`() {
+        val decoder = KingsongDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.ResetTrip).isEmpty())
+    }
+
+    @Test
     fun `KingsongDecoder unsupported command returns empty list`() {
         val decoder = KingsongDecoder()
         assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
+    }
+
+    // ==================== Gotway ====================
+
+    @Test
+    fun `GotwayDecoder Calibrate returns two-step c then y with 300ms delay`() {
+        val decoder = GotwayDecoder()
+        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        assertEquals(2, commands.size, "Calibrate should produce 2 steps")
+        val step1 = commands[0] as WheelCommand.SendBytes
+        assertEquals("c", step1.data.decodeToString(), "First step sends 'c'")
+        val step2 = commands[1] as WheelCommand.SendDelayed
+        assertEquals("y", step2.data.decodeToString(), "Second step sends 'y'")
+        assertEquals(300L, step2.delayMs, "Delay should be 300ms")
+    }
+
+    @Test
+    fun `GotwayDecoder PowerOff returns empty`() {
+        val decoder = GotwayDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.PowerOff).isEmpty())
+    }
+
+    @Test
+    fun `GotwayDecoder SetLock returns empty`() {
+        val decoder = GotwayDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(true)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(false)).isEmpty())
+    }
+
+    @Test
+    fun `GotwayDecoder ResetTrip returns empty`() {
+        val decoder = GotwayDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.ResetTrip).isEmpty())
     }
 
     // ==================== Veteran ====================
@@ -87,9 +157,31 @@ class WheelCommandTest {
     }
 
     @Test
-    fun `VeteranDecoder unsupported command returns empty list`() {
+    fun `VeteranDecoder ResetTrip returns CLEARMETER`() {
+        val decoder = VeteranDecoder()
+        val commands = decoder.buildCommand(WheelCommand.ResetTrip)
+        assertEquals(1, commands.size)
+        val cmd = commands[0] as WheelCommand.SendBytes
+        assertEquals("CLEARMETER", cmd.data.decodeToString())
+    }
+
+    @Test
+    fun `VeteranDecoder Calibrate returns empty`() {
         val decoder = VeteranDecoder()
         assertTrue(decoder.buildCommand(WheelCommand.Calibrate).isEmpty())
+    }
+
+    @Test
+    fun `VeteranDecoder PowerOff returns empty`() {
+        val decoder = VeteranDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.PowerOff).isEmpty())
+    }
+
+    @Test
+    fun `VeteranDecoder SetLock returns empty`() {
+        val decoder = VeteranDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(true)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(false)).isEmpty())
     }
 
     // ==================== InMotion V1 ====================
@@ -113,6 +205,35 @@ class WheelCommandTest {
         val commandsOff = decoder.buildCommand(WheelCommand.SetLight(false))
         assertEquals(1, commandsOff.size)
         assertTrue((commandsOff[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `InMotionDecoder Calibrate returns non-empty result`() {
+        val decoder = InMotionDecoder()
+        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `InMotionDecoder PowerOff returns non-empty result`() {
+        val decoder = InMotionDecoder()
+        val commands = decoder.buildCommand(WheelCommand.PowerOff)
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `InMotionDecoder SetLock returns empty`() {
+        val decoder = InMotionDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(true)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(false)).isEmpty())
+    }
+
+    @Test
+    fun `InMotionDecoder ResetTrip returns empty`() {
+        val decoder = InMotionDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.ResetTrip).isEmpty())
     }
 
     @Test
@@ -145,6 +266,40 @@ class WheelCommandTest {
     }
 
     @Test
+    fun `InMotionV2Decoder Calibrate returns non-empty result`() {
+        val decoder = InMotionV2Decoder()
+        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `InMotionV2Decoder PowerOff returns non-empty result`() {
+        val decoder = InMotionV2Decoder()
+        val commands = decoder.buildCommand(WheelCommand.PowerOff)
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `InMotionV2Decoder SetLock returns non-empty result`() {
+        val decoder = InMotionV2Decoder()
+        val commandsOn = decoder.buildCommand(WheelCommand.SetLock(true))
+        assertEquals(1, commandsOn.size)
+        assertTrue((commandsOn[0] as WheelCommand.SendBytes).data.isNotEmpty())
+
+        val commandsOff = decoder.buildCommand(WheelCommand.SetLock(false))
+        assertEquals(1, commandsOff.size)
+        assertTrue((commandsOff[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `InMotionV2Decoder ResetTrip returns empty`() {
+        val decoder = InMotionV2Decoder()
+        assertTrue(decoder.buildCommand(WheelCommand.ResetTrip).isEmpty())
+    }
+
+    @Test
     fun `InMotionV2Decoder unsupported command returns empty list`() {
         val decoder = InMotionV2Decoder()
         assertTrue(decoder.buildCommand(WheelCommand.SetMilesMode(true)).isEmpty())
@@ -158,6 +313,10 @@ class WheelCommandTest {
         assertTrue(decoder.buildCommand(WheelCommand.Beep).isEmpty())
         assertTrue(decoder.buildCommand(WheelCommand.SetLight(true)).isEmpty())
         assertTrue(decoder.buildCommand(WheelCommand.SetLight(false)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.Calibrate).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.PowerOff).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.SetLock(true)).isEmpty())
+        assertTrue(decoder.buildCommand(WheelCommand.ResetTrip).isEmpty())
     }
 
     // ==================== Ninebot Z ====================
@@ -169,6 +328,42 @@ class WheelCommandTest {
         val commandsOn = decoder.buildCommand(WheelCommand.SetLight(true))
         assertEquals(1, commandsOn.size)
         assertTrue((commandsOn[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `NinebotZDecoder Calibrate returns non-empty CAN message`() {
+        val decoder = NinebotZDecoder()
+        val commands = decoder.buildCommand(WheelCommand.Calibrate)
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `NinebotZDecoder SetLock true returns non-empty CAN message`() {
+        val decoder = NinebotZDecoder()
+        val commands = decoder.buildCommand(WheelCommand.SetLock(true))
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `NinebotZDecoder SetLock false returns non-empty CAN message`() {
+        val decoder = NinebotZDecoder()
+        val commands = decoder.buildCommand(WheelCommand.SetLock(false))
+        assertEquals(1, commands.size)
+        assertTrue((commands[0] as WheelCommand.SendBytes).data.isNotEmpty())
+    }
+
+    @Test
+    fun `NinebotZDecoder PowerOff returns empty`() {
+        val decoder = NinebotZDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.PowerOff).isEmpty())
+    }
+
+    @Test
+    fun `NinebotZDecoder ResetTrip returns empty`() {
+        val decoder = NinebotZDecoder()
+        assertTrue(decoder.buildCommand(WheelCommand.ResetTrip).isEmpty())
     }
 
     @Test

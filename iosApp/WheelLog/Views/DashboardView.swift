@@ -130,7 +130,7 @@ struct DashboardView: View {
 
                     // GPS Speed tile
                     let gpsSpeedRaw = wheelManager.locationManager.currentLocation?.speed ?? 0
-                    let gpsKmh = max(0, gpsSpeedRaw) * 3.6
+                    let gpsKmh = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, gpsSpeedRaw))
                     let gpsDisplay = wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: gpsKmh) : gpsKmh
                     GaugeTileView(
                         label: "GPS Speed",

@@ -90,6 +90,26 @@ object DisplayUtils {
     fun energyConsumptionUnit(useMph: Boolean): String =
         if (useMph) "Wh/mi" else "Wh/km"
 
+    // --- BMS formatting ---
+
+    fun formatBmsVoltage(voltage: Double): String =
+        "${StringUtil.formatDecimal(voltage, 2)} V"
+
+    fun formatBmsCurrent(current: Double): String =
+        "${StringUtil.formatDecimal(current, 2)} A"
+
+    fun formatBmsTemperature(celsius: Double): String =
+        "${StringUtil.formatDecimal(celsius, 1)}\u00B0C"
+
+    fun formatBmsCell(voltage: Double): String =
+        "${StringUtil.formatDecimal(voltage, 3)} V"
+
+    fun formatBmsCellLabeled(voltage: Double, cellNum: Int): String =
+        "${StringUtil.formatDecimal(voltage, 3)} V [$cellNum]"
+
+    fun formatBmsCellIndexed(index: Int, voltage: Double): String =
+        "#$index: ${StringUtil.formatDecimal(voltage, 3)} V"
+
     // --- Wheel settings text ---
 
     fun pedalsModeText(mode: Int): String = when (mode) {

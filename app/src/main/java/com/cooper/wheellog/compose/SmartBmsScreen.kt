@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.core.domain.BmsSnapshot
+import com.cooper.wheellog.core.utils.DisplayUtils
 
 /**
  * BMS screen driven by KMP WheelState via ViewModel (used in Compose Navigation).
@@ -52,26 +53,26 @@ private fun BmsBlock(bms: BmsSnapshot) {
         if (bms.serialNumber.isNotEmpty()) {
             Text("Serial: ${bms.serialNumber}")
         }
-        Text("Voltage: ${String.format("%.2f V", bms.voltage)}")
-        Text("Current: ${String.format("%.2f A", bms.current)}")
+        Text("Voltage: ${DisplayUtils.formatBmsVoltage(bms.voltage)}")
+        Text("Current: ${DisplayUtils.formatBmsCurrent(bms.current)}")
         if (bms.remCap > 0) {
             Text("Remaining: ${bms.remCap} / ${bms.factoryCap} mAh (${bms.remPerc}%)")
         }
-        Text("Temp 1: ${String.format("%.1f\u00B0C", bms.temp1)}")
-        Text("Temp 2: ${String.format("%.1f\u00B0C", bms.temp2)}")
+        Text("Temp 1: ${DisplayUtils.formatBmsTemperature(bms.temp1)}")
+        Text("Temp 2: ${DisplayUtils.formatBmsTemperature(bms.temp2)}")
         if (bms.health > 0) {
             Text("Health: ${bms.health}%")
         }
-        Text("Max Cell: ${String.format("%.3f V [%d]", bms.maxCell, bms.maxCellNum)}")
-        Text("Min Cell: ${String.format("%.3f V [%d]", bms.minCell, bms.minCellNum)}")
-        Text("Cell Diff: ${String.format("%.3f V", bms.cellDiff)}")
-        Text("Avg Cell: ${String.format("%.3f V", bms.avgCell)}")
+        Text("Max Cell: ${DisplayUtils.formatBmsCellLabeled(bms.maxCell, bms.maxCellNum)}")
+        Text("Min Cell: ${DisplayUtils.formatBmsCellLabeled(bms.minCell, bms.minCellNum)}")
+        Text("Cell Diff: ${DisplayUtils.formatBmsCell(bms.cellDiff)}")
+        Text("Avg Cell: ${DisplayUtils.formatBmsCell(bms.avgCell)}")
 
         if (bms.cellNum > 0) {
             Spacer(Modifier.height(4.dp))
             Text("Cells (${bms.cellNum}):", style = MaterialTheme.typography.labelMedium)
             for (i in 0 until bms.cellNum) {
-                Text("  #${i + 1}: ${String.format("%.3f V", bms.cells[i])}")
+                Text("  ${DisplayUtils.formatBmsCellIndexed(i + 1, bms.cells[i])}")
             }
         }
     }

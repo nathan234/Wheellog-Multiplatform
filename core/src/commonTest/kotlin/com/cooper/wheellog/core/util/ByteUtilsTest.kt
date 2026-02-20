@@ -31,6 +31,14 @@ class ByteUtilsTest {
         assertEquals(98.6, ByteUtils.celsiusToFahrenheit(37.0), 0.0001)
     }
 
+    @Test
+    fun `metersPerSecondToKmh converts correctly`() {
+        assertEquals(0.0, ByteUtils.metersPerSecondToKmh(0.0), 0.0001)
+        assertEquals(3.6, ByteUtils.metersPerSecondToKmh(1.0), 0.0001)
+        assertEquals(36.0, ByteUtils.metersPerSecondToKmh(10.0), 0.0001)
+        assertEquals(100.8, ByteUtils.metersPerSecondToKmh(28.0), 0.0001)
+    }
+
     // ==================== Big Endian Reads ====================
 
     @Test

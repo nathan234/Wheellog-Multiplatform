@@ -1,4 +1,5 @@
 import SwiftUI
+import WheelLogCore
 
 struct SmartBmsView: View {
     @EnvironmentObject var wheelManager: WheelManager
@@ -41,20 +42,20 @@ private struct BmsBlock: View {
             if !bms.serialNumber.isEmpty {
                 Text("Serial: \(bms.serialNumber)")
             }
-            Text(String(format: "Voltage: %.2f V", bms.voltage))
-            Text(String(format: "Current: %.2f A", bms.current))
+            Text("Voltage: \(DisplayUtils.shared.formatBmsVoltage(voltage: bms.voltage))")
+            Text("Current: \(DisplayUtils.shared.formatBmsCurrent(current: bms.current))")
             if bms.remCap > 0 {
                 Text("Remaining: \(bms.remCap) / \(bms.factoryCap) mAh (\(bms.remPerc)%)")
             }
-            Text(String(format: "Temp 1: %.1f\u{00B0}C", bms.temp1))
-            Text(String(format: "Temp 2: %.1f\u{00B0}C", bms.temp2))
+            Text("Temp 1: \(DisplayUtils.shared.formatBmsTemperature(celsius: bms.temp1))")
+            Text("Temp 2: \(DisplayUtils.shared.formatBmsTemperature(celsius: bms.temp2))")
             if bms.health > 0 {
                 Text("Health: \(bms.health)%")
             }
-            Text(String(format: "Max Cell: %.3f V [%d]", bms.maxCell, bms.maxCellNum))
-            Text(String(format: "Min Cell: %.3f V [%d]", bms.minCell, bms.minCellNum))
-            Text(String(format: "Cell Diff: %.3f V", bms.cellDiff))
-            Text(String(format: "Avg Cell: %.3f V", bms.avgCell))
+            Text("Max Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.maxCell, cellNum: Int32(bms.maxCellNum)))")
+            Text("Min Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.minCell, cellNum: Int32(bms.minCellNum)))")
+            Text("Cell Diff: \(DisplayUtils.shared.formatBmsCell(voltage: bms.cellDiff))")
+            Text("Avg Cell: \(DisplayUtils.shared.formatBmsCell(voltage: bms.avgCell))")
 
             if bms.cellNum > 0 {
                 Divider()
@@ -62,7 +63,7 @@ private struct BmsBlock: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
                 ForEach(0..<bms.cellNum, id: \.self) { i in
-                    Text(String(format: "  #%d: %.3f V", i + 1, bms.cells[i]))
+                    Text("  \(DisplayUtils.shared.formatBmsCellIndexed(index: Int32(i + 1), voltage: bms.cells[i]))")
                         .font(.system(.body, design: .monospaced))
                 }
             }

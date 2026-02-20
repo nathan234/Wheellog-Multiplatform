@@ -3,10 +3,13 @@ package com.cooper.wheellog.core.util
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
+import com.cooper.wheellog.core.service.currentTimeMillis
 import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.utils.DisplayUtils
+import com.cooper.wheellog.core.utils.PlatformDateFormatter
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class DisplayUtilsTest {
 
@@ -394,6 +397,73 @@ class DisplayUtilsTest {
     @Test
     fun `MetricType TEMPERATURE formatValue 0 decimals`() {
         assertEquals("35", MetricType.TEMPERATURE.formatValue(35.0))
+    }
+
+    // ==================== BMS Formatting ====================
+
+    @Test
+    fun `formatBmsVoltage formats to 2 decimals`() {
+        assertEquals("67.89 V", DisplayUtils.formatBmsVoltage(67.891))
+    }
+
+    @Test
+    fun `formatBmsCurrent formats to 2 decimals`() {
+        assertEquals("12.34 A", DisplayUtils.formatBmsCurrent(12.341))
+    }
+
+    @Test
+    fun `formatBmsTemperature formats to 1 decimal with degree C`() {
+        assertEquals("25.5\u00B0C", DisplayUtils.formatBmsTemperature(25.5))
+    }
+
+    @Test
+    fun `formatBmsCell formats to 3 decimals`() {
+        assertEquals("3.456 V", DisplayUtils.formatBmsCell(3.456))
+    }
+
+    @Test
+    fun `formatBmsCellLabeled includes cell number in brackets`() {
+        assertEquals("3.456 V [5]", DisplayUtils.formatBmsCellLabeled(3.456, 5))
+    }
+
+    @Test
+    fun `formatBmsCellIndexed includes hash index prefix`() {
+        assertEquals("#3: 3.456 V", DisplayUtils.formatBmsCellIndexed(3, 3.456))
+    }
+
+    // ==================== PlatformDateFormatter ====================
+
+    @Test
+    fun `formatFriendlyDate today shows Today prefix`() {
+        val oneHourAgo = currentTimeMillis() - 3_600_000
+        val result = PlatformDateFormatter.formatFriendlyDate(oneHourAgo)
+        assertTrue(result.startsWith("Today,"), "Expected 'Today,' prefix but got: $result")
+    }
+
+    @Test
+    fun `formatFriendlyDate yesterday shows Yesterday prefix`() {
+        // 25 hours ago to avoid midnight edge cases
+        val yesterday = currentTimeMillis() - 25 * 3_600_000
+        val result = PlatformDateFormatter.formatFriendlyDate(yesterday)
+        assertTrue(result.startsWith("Yesterday,"), "Expected 'Yesterday,' prefix but got: $result")
+    }
+
+    @Test
+    fun `formatFriendlyDate old date shows year`() {
+        // Jan 15, 2020, 12:00:00 UTC
+        val oldDate = 1579089600000L
+        val result = PlatformDateFormatter.formatFriendlyDate(oldDate)
+        assertTrue(result.contains("2020"), "Expected year 2020 in: $result")
+    }
+
+    @Test
+    fun `formatFriendlyDate zero returns Unknown date`() {
+        assertEquals("Unknown date", PlatformDateFormatter.formatFriendlyDate(0))
+    }
+
+    @Test
+    fun `formatFriendlyDate negative returns Unknown date`() {
+        assertEquals("Unknown date", PlatformDateFormatter.formatFriendlyDate(-1))
     }
 
     // ==================== AlarmType.displayName ====================

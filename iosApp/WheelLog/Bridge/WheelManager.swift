@@ -334,7 +334,7 @@ class WheelManager: ObservableObject {
         wheelState = newWheelState
 
         // Feed telemetry buffer and history for chart view
-        let gpsSpeed = max(0, locationManager.currentLocation?.speed ?? 0) * 3.6
+        let gpsSpeed = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, locationManager.currentLocation?.speed ?? 0))
         let demoSample = WheelLogCore.TelemetrySample.companion.fromWheelState(
             state: kmpState,
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
@@ -478,7 +478,7 @@ class WheelManager: ObservableObject {
 
         // Feature 6: Telemetry buffer sampling + history
         if connectionState.isConnected {
-            let gpsSpeedPoll = max(0, (locationManager.currentLocation?.speed ?? 0)) * 3.6
+            let gpsSpeedPoll = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, locationManager.currentLocation?.speed ?? 0))
             let telSample = WheelLogCore.TelemetrySample.companion.fromWheelState(
                 state: kmpWheelState,
                 timestampMs: Int64(Date().timeIntervalSince1970 * 1000),

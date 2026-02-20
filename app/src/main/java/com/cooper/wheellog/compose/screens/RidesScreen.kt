@@ -44,11 +44,8 @@ import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.core.utils.DisplayUtils
+import com.cooper.wheellog.core.utils.PlatformDateFormatter
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun RidesScreen(
@@ -190,7 +187,7 @@ private fun RideRow(
         Column(modifier = Modifier.weight(1f)) {
             // Title: friendly date
             Text(
-                text = formatFriendlyDate(trip.start.toLong() * 1000),
+                text = PlatformDateFormatter.formatFriendlyDate(trip.start.toLong() * 1000),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
@@ -234,40 +231,4 @@ private fun RideRow(
             )
         }
     }
-}
-
-
-private fun formatFriendlyDate(epochMillis: Long): String {
-    if (epochMillis <= 0) return "Unknown date"
-
-    val date = Date(epochMillis)
-    val now = Calendar.getInstance()
-    val then = Calendar.getInstance().apply { time = date }
-
-    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val timeStr = timeFormat.format(date)
-
-    return when {
-        isSameDay(now, then) -> "Today, $timeStr"
-        isYesterday(now, then) -> "Yesterday, $timeStr"
-        now.get(Calendar.YEAR) == then.get(Calendar.YEAR) -> {
-            val dayFormat = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
-            "${dayFormat.format(date)}, $timeStr"
-        }
-        else -> {
-            val dayFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-            "${dayFormat.format(date)}, $timeStr"
-        }
-    }
-}
-
-private fun isSameDay(a: Calendar, b: Calendar): Boolean {
-    return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
-        a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-}
-
-private fun isYesterday(now: Calendar, then: Calendar): Boolean {
-    val yesterday = now.clone() as Calendar
-    yesterday.add(Calendar.DAY_OF_YEAR, -1)
-    return isSameDay(yesterday, then)
 }

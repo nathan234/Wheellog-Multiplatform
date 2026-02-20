@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cooper.wheellog.AppConfig
 import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.logging.RideLogger
 import com.cooper.wheellog.core.telemetry.ChartTimeRange
 import com.cooper.wheellog.core.telemetry.PlatformTelemetryFileIO
@@ -526,7 +527,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Call from Activity/Service when GPS location updates arrive. */
     fun updateGpsSpeed(speedMs: Float) {
-        _gpsSpeedKmh.value = speedMs.toDouble() * 3.6
+        _gpsSpeedKmh.value = ByteUtils.metersPerSecondToKmh(speedMs.toDouble())
     }
 
     fun setChartTimeRange(range: ChartTimeRange) {

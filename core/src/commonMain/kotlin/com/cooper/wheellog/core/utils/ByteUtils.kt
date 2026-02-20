@@ -22,6 +22,11 @@ object ByteUtils {
     fun kmToMiles(km: Float): Float = (km * KM_TO_MILES_MULTIPLIER).toFloat()
 
     /**
+     * Convert meters per second to kilometers per hour.
+     */
+    fun metersPerSecondToKmh(speedMs: Double): Double = speedMs * 3.6
+
+    /**
      * Convert Celsius to Fahrenheit.
      */
     fun celsiusToFahrenheit(temp: Double): Double = temp * 9.0 / 5.0 + 32

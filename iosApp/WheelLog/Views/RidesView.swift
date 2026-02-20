@@ -60,7 +60,7 @@ struct RidesView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     // Friendly date title
-                    Text(friendlyDate(ride.startDate))
+                    Text(PlatformDateFormatter.shared.formatFriendlyDate(epochMs: Int64(ride.startDate.timeIntervalSince1970 * 1000)))
                         .font(.headline)
 
                     // Line 1: Duration + Distance
@@ -113,28 +113,6 @@ struct RidesView: View {
         }
     }
 
-    private func friendlyDate(_ date: Date) -> String {
-        let calendar = Calendar.current
-        let now = Date()
-
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "h:mm a"
-        let timeStr = timeFormatter.string(from: date)
-
-        if calendar.isDateInToday(date) {
-            return "Today, \(timeStr)"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday, \(timeStr)"
-        } else if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
-            let dayFormatter = DateFormatter()
-            dayFormatter.dateFormat = "EEE, MMM d"
-            return "\(dayFormatter.string(from: date)), \(timeStr)"
-        } else {
-            let dayFormatter = DateFormatter()
-            dayFormatter.dateFormat = "MMM d, yyyy"
-            return "\(dayFormatter.string(from: date)), \(timeStr)"
-        }
-    }
 }
 
 #Preview {

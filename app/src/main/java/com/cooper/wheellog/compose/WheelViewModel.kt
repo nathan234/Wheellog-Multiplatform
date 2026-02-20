@@ -17,8 +17,11 @@ import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.DemoDataProvider
 import com.cooper.wheellog.core.service.WheelConnectionManager
+import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelProfile
+import com.cooper.wheellog.core.alarm.AlarmChecker
+import com.cooper.wheellog.core.alarm.AlarmConfig
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.data.TripDatabase
 import com.cooper.wheellog.data.TripRepository
@@ -36,10 +39,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
-enum class AlarmType {
-    SPEED_1, SPEED_2, SPEED_3, CURRENT, TEMPERATURE, BATTERY
-}
 
 class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -532,8 +531,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Alarm monitoring ---
 
-    private val alarmCooldowns = mutableMapOf<AlarmType, Long>()
-    private val ALARM_COOLDOWN_MS = 5000L
+    private val alarmChecker = AlarmChecker()
 
     private fun startAlarmMonitoring() {
         viewModelScope.launch {
@@ -545,33 +543,31 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                     return@collect
                 }
 
+                val config = AlarmConfig(
+                    pwmBasedAlarms = appConfig.pwmBasedAlarms,
+                    alarmFactor1 = appConfig.alarmFactor1,
+                    alarmFactor2 = appConfig.alarmFactor2,
+                    warningPwm = appConfig.warningPwm,
+                    warningSpeed = appConfig.warningSpeed,
+                    warningSpeedPeriod = appConfig.warningSpeedPeriod,
+                    alarm1Speed = appConfig.alarm1Speed,
+                    alarm1Battery = appConfig.alarm1Battery,
+                    alarm2Speed = appConfig.alarm2Speed,
+                    alarm2Battery = appConfig.alarm2Battery,
+                    alarm3Speed = appConfig.alarm3Speed,
+                    alarm3Battery = appConfig.alarm3Battery,
+                    alarmCurrent = appConfig.alarmCurrent,
+                    alarmPhaseCurrent = appConfig.alarmPhaseCurrent,
+                    alarmTemperature = appConfig.alarmTemperature,
+                    alarmMotorTemperature = appConfig.alarmMotorTemperature,
+                    alarmBattery = appConfig.alarmBattery,
+                    alarmWheel = appConfig.alarmWheel
+                )
+
                 val now = System.currentTimeMillis()
-                val alarms = mutableSetOf<AlarmType>()
-
-                val speedKmh = state.speedKmh
-                checkAlarm(AlarmType.SPEED_1, speedKmh >= appConfig.alarm1Speed && appConfig.alarm1Speed > 0, now, alarms)
-                checkAlarm(AlarmType.SPEED_2, speedKmh >= appConfig.alarm2Speed && appConfig.alarm2Speed > 0, now, alarms)
-                checkAlarm(AlarmType.SPEED_3, speedKmh >= appConfig.alarm3Speed && appConfig.alarm3Speed > 0, now, alarms)
-
-                val currentA = kotlin.math.abs(state.currentA)
-                checkAlarm(AlarmType.CURRENT, currentA >= appConfig.alarmCurrent && appConfig.alarmCurrent > 0, now, alarms)
-
-                checkAlarm(AlarmType.TEMPERATURE, state.temperatureC >= appConfig.alarmTemperature && appConfig.alarmTemperature > 0, now, alarms)
-
-                checkAlarm(AlarmType.BATTERY, state.batteryLevel <= appConfig.alarmBattery && appConfig.alarmBattery > 0 && state.batteryLevel > 0, now, alarms)
-
-                _activeAlarms.value = alarms
+                val result = alarmChecker.check(state, config, now)
+                _activeAlarms.value = result.triggeredAlarms.map { it.type }.toSet()
             }
-        }
-    }
-
-    private fun checkAlarm(type: AlarmType, triggered: Boolean, now: Long, alarms: MutableSet<AlarmType>) {
-        if (triggered) {
-            val lastFired = alarmCooldowns[type] ?: 0
-            if (now - lastFired >= ALARM_COOLDOWN_MS) {
-                alarmCooldowns[type] = now
-            }
-            alarms.add(type)
         }
     }
 }

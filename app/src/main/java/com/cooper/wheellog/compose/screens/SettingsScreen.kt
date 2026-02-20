@@ -93,30 +93,64 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             if (appConfig.alarmsEnabled) {
                 HorizontalDivider()
 
-                AlarmSlider(
-                    label = "Alarm 1 Speed",
-                    value = appConfig.alarm1Speed.toFloat(),
-                    range = 0f..100f,
-                    displayValue = displaySpeed(appConfig.alarm1Speed, useMph),
-                    unit = if (useMph) "mph" else "km/h",
-                    onValueChange = { appConfig.alarm1Speed = it.toInt() }
+                SettingsToggle(
+                    label = "PWM-Based Alarms",
+                    checked = appConfig.pwmBasedAlarms,
+                    onCheckedChange = { appConfig.pwmBasedAlarms = it }
                 )
-                AlarmSlider(
-                    label = "Alarm 2 Speed",
-                    value = appConfig.alarm2Speed.toFloat(),
-                    range = 0f..100f,
-                    displayValue = displaySpeed(appConfig.alarm2Speed, useMph),
-                    unit = if (useMph) "mph" else "km/h",
-                    onValueChange = { appConfig.alarm2Speed = it.toInt() }
+                Text(
+                    "PWM alarms trigger based on motor load instead of speed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
                 )
-                AlarmSlider(
-                    label = "Alarm 3 Speed",
-                    value = appConfig.alarm3Speed.toFloat(),
-                    range = 0f..100f,
-                    displayValue = displaySpeed(appConfig.alarm3Speed, useMph),
-                    unit = if (useMph) "mph" else "km/h",
-                    onValueChange = { appConfig.alarm3Speed = it.toInt() }
-                )
+
+                HorizontalDivider()
+
+                if (appConfig.pwmBasedAlarms) {
+                    AlarmSlider(
+                        label = "Alarm Start (Factor 1)",
+                        value = appConfig.alarmFactor1.toFloat(),
+                        range = 0f..100f,
+                        displayValue = appConfig.alarmFactor1,
+                        unit = "%",
+                        onValueChange = { appConfig.alarmFactor1 = it.toInt() }
+                    )
+                    AlarmSlider(
+                        label = "Max Intensity (Factor 2)",
+                        value = appConfig.alarmFactor2.toFloat(),
+                        range = 0f..100f,
+                        displayValue = appConfig.alarmFactor2,
+                        unit = "%",
+                        onValueChange = { appConfig.alarmFactor2 = it.toInt() }
+                    )
+                } else {
+                    AlarmSlider(
+                        label = "Alarm 1 Speed",
+                        value = appConfig.alarm1Speed.toFloat(),
+                        range = 0f..100f,
+                        displayValue = displaySpeed(appConfig.alarm1Speed, useMph),
+                        unit = if (useMph) "mph" else "km/h",
+                        onValueChange = { appConfig.alarm1Speed = it.toInt() }
+                    )
+                    AlarmSlider(
+                        label = "Alarm 2 Speed",
+                        value = appConfig.alarm2Speed.toFloat(),
+                        range = 0f..100f,
+                        displayValue = displaySpeed(appConfig.alarm2Speed, useMph),
+                        unit = if (useMph) "mph" else "km/h",
+                        onValueChange = { appConfig.alarm2Speed = it.toInt() }
+                    )
+                    AlarmSlider(
+                        label = "Alarm 3 Speed",
+                        value = appConfig.alarm3Speed.toFloat(),
+                        range = 0f..100f,
+                        displayValue = displaySpeed(appConfig.alarm3Speed, useMph),
+                        unit = if (useMph) "mph" else "km/h",
+                        onValueChange = { appConfig.alarm3Speed = it.toInt() }
+                    )
+                }
+
                 AlarmSlider(
                     label = "Current Alarm",
                     value = appConfig.alarmCurrent.toFloat(),

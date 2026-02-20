@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cooper.wheellog.compose.AlarmType
+import com.cooper.wheellog.core.domain.AlarmType
 
 @Composable
 fun AlarmBanner(
@@ -49,16 +49,7 @@ fun AlarmBanner(
         label = "alarm_pulse"
     )
 
-    val alarmText = activeAlarms.sorted().joinToString(", ") { type ->
-        when (type) {
-            AlarmType.SPEED_1 -> "Speed 1"
-            AlarmType.SPEED_2 -> "Speed 2"
-            AlarmType.SPEED_3 -> "Speed 3"
-            AlarmType.CURRENT -> "Current"
-            AlarmType.TEMPERATURE -> "Temp"
-            AlarmType.BATTERY -> "Battery"
-        }
-    }
+    val alarmText = activeAlarms.sortedBy { it.value }.joinToString(", ") { it.displayName }
 
     Row(
         modifier = modifier

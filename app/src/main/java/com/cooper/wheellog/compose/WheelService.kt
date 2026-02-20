@@ -31,6 +31,9 @@ class WheelService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    var onLightToggleRequested: (() -> Unit)? = null
+    var onLogToggleRequested: (() -> Unit)? = null
+
     inner class LocalBinder : Binder() {
         val service get() = this@WheelService
     }
@@ -74,7 +77,12 @@ class WheelService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, createNotification("Disconnected"))
+        when (intent?.action) {
+            ACTION_BEEP -> serviceScope.launch { connectionManager.wheelBeep() }
+            ACTION_LIGHT -> onLightToggleRequested?.invoke()
+            ACTION_LOG -> onLogToggleRequested?.invoke()
+            else -> startForeground(NOTIFICATION_ID, createNotification("Disconnected"))
+        }
         return START_STICKY
     }
 
@@ -122,7 +130,18 @@ class WheelService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
+            .addAction(R.drawable.ic_horn_32_gray, "Beep", actionPendingIntent(ACTION_BEEP))
+            .addAction(R.drawable.ic_sun_32_gray, "Light", actionPendingIntent(ACTION_LIGHT))
+            .addAction(R.drawable.ic_baseline_magic_log_24, "Log", actionPendingIntent(ACTION_LOG))
             .build()
+    }
+
+    private fun actionPendingIntent(action: String): PendingIntent {
+        val intent = Intent(this, WheelService::class.java).apply { this.action = action }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        else PendingIntent.FLAG_UPDATE_CURRENT
+        return PendingIntent.getService(this, action.hashCode(), intent, flags)
     }
 
     private fun updateNotification(state: ConnectionState) {
@@ -142,5 +161,8 @@ class WheelService : Service() {
     companion object {
         private const val CHANNEL_ID = "wheellog_compose"
         private const val NOTIFICATION_ID = 423412
+        const val ACTION_BEEP = "com.cooper.wheellog.compose.ACTION_BEEP"
+        const val ACTION_LIGHT = "com.cooper.wheellog.compose.ACTION_LIGHT"
+        const val ACTION_LOG = "com.cooper.wheellog.compose.ACTION_LOG"
     }
 }

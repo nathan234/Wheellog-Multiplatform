@@ -171,6 +171,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         // Refresh saved addresses (profiles may have been added before attach)
         _savedAddresses.value = profileStore.getSavedAddresses()
 
+        service.onLightToggleRequested = ::toggleLight
+        service.onLogToggleRequested = ::toggleLogging
+
         stateCollectionJob = viewModelScope.launch {
             cm.wheelState.collect { _realWheelState.value = it }
         }
@@ -199,6 +202,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         connectionCollectionJob = null
         autoConnectManager?.destroy()
         autoConnectManager = null
+        wheelService?.onLightToggleRequested = null
+        wheelService?.onLogToggleRequested = null
         wheelService = null
         connectionManager = null
         bleManager = null

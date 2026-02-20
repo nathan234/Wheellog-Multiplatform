@@ -77,7 +77,6 @@ fun applicationScreen(
                 entries = mapOf(
                     DecoderMode.LEGACY_ONLY.value.toString() to stringResource(R.string.decoder_mode_legacy),
                     DecoderMode.KMP_ONLY.value.toString() to stringResource(R.string.decoder_mode_kmp),
-                    DecoderMode.BOTH.value.toString() to stringResource(R.string.decoder_mode_both),
                 ),
                 defaultKey = appConfig.decoderModeInt.toString(),
             ) {

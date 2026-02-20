@@ -1,6 +1,5 @@
 package com.cooper.wheellog.kmp
 
-import com.cooper.wheellog.WheelData
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
 import com.cooper.wheellog.core.protocol.*
@@ -15,23 +14,13 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
- * Bridge between the existing WheelData/Adapter system and KMP decoders.
+ * Bridge between the legacy BluetoothService and KMP decoders.
  *
- * This enables incremental migration by:
- * 1. Running KMP decoders in parallel with existing adapters
- * 2. Exposing decoded state as a StateFlow for new UI components
- * 3. Allowing comparison between old and new decoder outputs
- * 4. Eventually replacing the adapter system entirely
+ * Used in the legacy UI path when decoder mode is set to KMP_ONLY,
+ * allowing BluetoothService to route BLE data through KMP decoders.
  *
- * ## Usage
- *
- * ```kotlin
- * // In BluetoothService or data receiving code:
- * KmpWheelBridge.instance.onDataReceived(data, wheelType)
- *
- * // In UI (Compose or Fragment):
- * val wheelState by KmpWheelBridge.instance.wheelState.collectAsState()
- * ```
+ * The Compose UI path (ComposeActivity/WheelService) does not use this bridge —
+ * it connects to KMP decoders directly via WheelConnectionManager.
  */
 class KmpWheelBridge private constructor() {
 
@@ -45,14 +34,7 @@ class KmpWheelBridge private constructor() {
     private var currentWheelType: WheelType = WheelType.Unknown
 
     /**
-     * When true, KMP state updates are synced to WheelData.
-     * Enable this when using KMP_ONLY mode so the existing UI continues to work.
-     */
-    var syncToWheelData: Boolean = false
-
-    /**
      * Current wheel state from KMP decoder.
-     * Compare with WheelData values to validate decoder correctness.
      */
     val wheelState: StateFlow<WheelState> = _wheelState.asStateFlow()
 
@@ -129,12 +111,6 @@ class KmpWheelBridge private constructor() {
                 result?.let { decoded ->
                     _wheelState.value = decoded.newState
 
-                    // Sync to WheelData when in KMP_ONLY mode
-                    if (syncToWheelData) {
-                        syncStateToWheelData(decoded.newState)
-                    }
-
-                    // Log commands that would be sent (for debugging)
                     if (decoded.commands.isNotEmpty()) {
                         Timber.d("KmpWheelBridge: Decoder returned ${decoded.commands.size} commands")
                     }
@@ -178,69 +154,6 @@ class KmpWheelBridge private constructor() {
      */
     fun getKeepAliveIntervalMs(): Long {
         return currentDecoder?.keepAliveIntervalMs ?: 0
-    }
-
-    /**
-     * Sync KMP WheelState to legacy WheelData.
-     * Used in KMP_ONLY mode to keep the existing UI working.
-     */
-    private fun syncStateToWheelData(state: WheelState) {
-        val wd = WheelData.getInstance() ?: return
-
-        // Core telemetry
-        wd.setSpeed(state.speed)
-        wd.setVoltage(state.voltage)
-        wd.setPower(state.power)
-        wd.batteryLevel = state.batteryLevel
-        wd.setTemperature(state.temperature)
-
-        // Distance
-        wd.totalDistance = state.totalDistance
-        // wheelDistance is package-private, skip it
-
-        // Info
-        if (state.name.isNotEmpty()) wd.setName(state.name)
-        if (state.model.isNotEmpty()) wd.setModel(state.model)
-        if (state.serialNumber.isNotEmpty()) wd.setSerial(state.serialNumber)
-        if (state.version.isNotEmpty()) wd.setVersion(state.version)
-
-        // Additional telemetry
-        wd.setTemperature2(state.temperature2)
-        wd.setFanStatus(state.fanStatus)
-        wd.setOutput(state.output)
-        wd.setCpuLoad(state.cpuLoad)
-    }
-
-    /**
-     * Compare KMP state with WheelData for validation.
-     * Returns a map of fields that differ.
-     */
-    fun compareWithWheelData(): Map<String, Pair<Any?, Any?>> {
-        val wd = WheelData.getInstance() ?: return emptyMap()
-        val kmp = _wheelState.value
-        val differences = mutableMapOf<String, Pair<Any?, Any?>>()
-
-        // Compare key fields
-        if (wd.speed != kmp.speed) {
-            differences["speed"] = wd.speed to kmp.speed
-        }
-        if (wd.voltage != kmp.voltage) {
-            differences["voltage"] = wd.voltage to kmp.voltage
-        }
-        if (wd.current != kmp.current) {
-            differences["current"] = wd.current to kmp.current
-        }
-        if (wd.batteryLevel != kmp.batteryLevel) {
-            differences["battery"] = wd.batteryLevel to kmp.batteryLevel
-        }
-        if (wd.temperature != kmp.temperature) {
-            differences["temperature"] = wd.temperature to kmp.temperature
-        }
-        if (wd.totalDistance != kmp.totalDistance) {
-            differences["totalDistance"] = wd.totalDistance to kmp.totalDistance
-        }
-
-        return differences
     }
 
     companion object {

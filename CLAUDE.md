@@ -60,9 +60,27 @@ Users can choose which decoder to use:
 Options:
 - `LEGACY_ONLY` (default): Original Java/Kotlin decoders
 - `KMP_ONLY`: New cross-platform decoders
-- `BOTH`: Run both in parallel for comparison
 
 iOS always uses KMP decoders (no legacy option).
+
+## Legacy vs Compose Boundary
+
+The `app/` module contains two independent UI paths:
+
+| | Legacy Path | Compose Path |
+|---|---|---|
+| Entry point | `MainActivity` | `ComposeActivity` |
+| BLE service | `BluetoothService` | `WheelService` |
+| Data model | `WheelData` singleton | KMP `WheelState` via `WheelViewModel` |
+| Decoder | Legacy adapters or `KmpWheelBridge` | KMP decoders via `WheelConnectionManager` |
+| Settings | `AppConfig` (full) | `AppConfig` (SharedPreferences only, no `wd` access) |
+| UI | XML layouts + hybrid Compose | Pure Jetpack Compose |
+
+Files in `compose/screens/` belong to the Compose path.
+Files in `compose/legacy/` are hybrid screens rendered inside `MainActivity`.
+
+When `use_compose_ui` is true, `WheelData` is never initialized and legacy Koin modules
+(`notificationsModule`, `volumeKeyModule`) are not loaded.
 
 ## Key Files
 
@@ -89,6 +107,7 @@ iOS always uses KMP decoders (no legacy option).
 | ViewModel | `app/src/main/.../compose/WheelViewModel.kt` |
 | Compose screens | `app/src/main/.../compose/screens/*.kt` |
 | Compose components | `app/src/main/.../compose/components/*.kt` |
+| Legacy hybrid screens | `app/src/main/.../compose/legacy/*.kt` |
 | **iOS App** | |
 | Main bridge (orchestrator) | `iosApp/WheelLog/Bridge/WheelManager.swift` |
 | StateFlow → @Published | `iosApp/WheelLog/Bridge/StateFlowObserver.swift` |

@@ -15,12 +15,24 @@ package com.cooper.wheellog.core.telemetry
  *
  * Samples older than 24h are dropped. Downsampling runs periodically.
  */
-class TelemetryHistory(
+class TelemetryHistory internal constructor(
     private val fileIO: TelemetryFileIO,
     private val sampleIntervalMs: Long = 500,
     private val maxAgeMs: Long = 86_400_000L,
     private val downsampleThreshold: Int = 60
 ) {
+    /**
+     * Public constructor for Swift interop.
+     * Kotlin/Native doesn't export default parameter values or internal constructors
+     * to ObjC/Swift, so this provides a clean single-param init.
+     */
+    constructor(fileIO: TelemetryFileIO) : this(
+        fileIO = fileIO,
+        sampleIntervalMs = 500,
+        maxAgeMs = 86_400_000L,
+        downsampleThreshold = 60
+    )
+
     private val _samples = mutableListOf<TelemetrySample>()
     val samples: List<TelemetrySample> get() = _samples.toList()
 

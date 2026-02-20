@@ -8,6 +8,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import com.cooper.wheellog.compose.legacy.ParamsListScreen
+import com.cooper.wheellog.compose.legacy.SmartBmsScreen
 import com.cooper.wheellog.views.WheelView
 
 enum class Page { Main, Params, Trips, Events, BMS }

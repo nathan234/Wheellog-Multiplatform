@@ -1,4 +1,4 @@
-package com.cooper.wheellog.compose
+package com.cooper.wheellog.compose.legacy
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text

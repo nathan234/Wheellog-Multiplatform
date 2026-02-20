@@ -206,6 +206,14 @@ class AppConfig(var context: Context): KoinComponent {
                 wd.bluetoothService?.stopReconnectTimer()
         }
 
+    /**
+     * Write useReconnect without legacy WheelData/BluetoothService side effects.
+     * Used by the Compose UI path where reconnect is managed by AutoConnectManager.
+     */
+    fun setUseReconnectDirect(value: Boolean) {
+        setValue(R.string.use_reconnect, value)
+    }
+
     var detectBatteryOptimization: Boolean
         get() = getValue(R.string.use_detect_battery_optimization, true)
         set(value) = setValue(R.string.use_detect_battery_optimization, value)

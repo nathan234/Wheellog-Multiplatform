@@ -156,7 +156,10 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             SettingsToggle(
                 label = "Auto Reconnect",
                 checked = appConfig.useReconnect,
-                onCheckedChange = { appConfig.useReconnect = it }
+                // Write directly to SharedPreferences — the legacy AppConfig setter
+                // triggers WheelData/BluetoothService side effects that aren't
+                // initialized in Compose mode.
+                onCheckedChange = { appConfig.setUseReconnectDirect(it) }
             )
             Text(
                 "Automatically reconnect to the last wheel on startup.",

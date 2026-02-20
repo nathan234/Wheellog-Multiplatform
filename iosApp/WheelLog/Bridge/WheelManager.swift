@@ -987,6 +987,8 @@ struct WheelStateWrapper: Equatable {
     let tiltBackSpeed: Int32 // km/h
     let lightMode: Int32     // 0=Off, 1=On, 2=Strobe, -1=unknown
     let ledMode: Int32       // 0-9, -1=unknown
+    let cutoutAngle: Int32   // degrees (45-90, -1=unknown)
+    let rollAngle: Int32     // 0=Low, 1=Medium, 2=High, -1=unknown
 
     // BMS data
     let bms1: BmsSnapshotWrapper?
@@ -1011,6 +1013,8 @@ struct WheelStateWrapper: Equatable {
         tiltBackSpeed = 0
         lightMode = -1
         ledMode = -1
+        cutoutAngle = -1
+        rollAngle = -1
         bms1 = nil
         bms2 = nil
     }
@@ -1034,6 +1038,8 @@ struct WheelStateWrapper: Equatable {
         tiltBackSpeed: Int32 = 0,
         lightMode: Int32 = -1,
         ledMode: Int32 = -1,
+        cutoutAngle: Int32 = -1,
+        rollAngle: Int32 = -1,
         bms1: BmsSnapshotWrapper? = nil,
         bms2: BmsSnapshotWrapper? = nil
     ) {
@@ -1055,6 +1061,8 @@ struct WheelStateWrapper: Equatable {
         self.tiltBackSpeed = tiltBackSpeed
         self.lightMode = lightMode
         self.ledMode = ledMode
+        self.cutoutAngle = cutoutAngle
+        self.rollAngle = rollAngle
         self.bms1 = bms1
         self.bms2 = bms2
     }
@@ -1078,6 +1086,8 @@ struct WheelStateWrapper: Equatable {
         tiltBackSpeed = kmpState.tiltBackSpeed
         lightMode = kmpState.lightMode
         ledMode = kmpState.ledMode
+        cutoutAngle = kmpState.cutoutAngle
+        rollAngle = kmpState.rollAngle
         bms1 = kmpState.bms1.map { BmsSnapshotWrapper(from: $0) }
         bms2 = kmpState.bms2.map { BmsSnapshotWrapper(from: $0) }
     }

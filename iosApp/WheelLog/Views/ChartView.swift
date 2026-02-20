@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import WheelLogCore
 
 struct TelemetryChartView: View {
     @EnvironmentObject var wheelManager: WheelManager

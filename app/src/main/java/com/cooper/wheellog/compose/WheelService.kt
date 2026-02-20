@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class WheelService : Service() {
 
@@ -80,6 +81,9 @@ class WheelService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        // Disconnect BLE before cancelling scope to ensure the GATT connection
+        // is released even if the ViewModel's coroutine was cancelled first.
+        runBlocking { connectionManager.disconnect() }
         serviceScope.cancel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)

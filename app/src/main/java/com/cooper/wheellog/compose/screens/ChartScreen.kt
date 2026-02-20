@@ -53,7 +53,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
-import com.cooper.wheellog.core.utils.ByteUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -153,7 +153,7 @@ fun ChartScreen(
                 val visibleSeries = buildList {
                     if (showSpeed) add(SeriesInfo(
                         color = SPEED_COLOR,
-                        values = samples.map { if (useMph) ByteUtils.kmToMiles(it.speedKmh) else it.speedKmh }
+                        values = samples.map { DisplayUtils.convertSpeed(it.speedKmh, useMph) }
                     ))
                     if (showCurrent) add(SeriesInfo(
                         color = CURRENT_COLOR,
@@ -165,9 +165,7 @@ fun ChartScreen(
                     ))
                     if (showTemperature) add(SeriesInfo(
                         color = TEMP_COLOR,
-                        values = samples.map {
-                            if (useFahrenheit) ByteUtils.celsiusToFahrenheit(it.temperatureC) else it.temperatureC
-                        }
+                        values = samples.map { DisplayUtils.convertTemp(it.temperatureC, useFahrenheit) }
                     ))
                 }
 

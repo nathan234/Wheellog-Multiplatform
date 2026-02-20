@@ -283,6 +283,28 @@ class DisplayUtilsTest {
         assertEquals("0:05", DisplayUtils.formatDurationCompact(5))
     }
 
+    // ==================== convertSpeed / convertTemp ====================
+
+    @Test
+    fun `convertSpeed metric returns same value`() {
+        assertEquals(25.0, DisplayUtils.convertSpeed(25.0, useMph = false))
+    }
+
+    @Test
+    fun `convertSpeed imperial converts to miles`() {
+        assertEquals(15.5, DisplayUtils.convertSpeed(25.0, useMph = true), 0.1)
+    }
+
+    @Test
+    fun `convertTemp metric returns same value`() {
+        assertEquals(35.0, DisplayUtils.convertTemp(35.0, useFahrenheit = false))
+    }
+
+    @Test
+    fun `convertTemp imperial converts to fahrenheit`() {
+        assertEquals(95.0, DisplayUtils.convertTemp(35.0, useFahrenheit = true))
+    }
+
     // ==================== convertMetricValue ====================
 
     @Test

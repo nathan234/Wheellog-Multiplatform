@@ -54,7 +54,7 @@ import com.cooper.wheellog.core.domain.AppConstants
 import com.cooper.wheellog.core.domain.ControlSpec
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelSettingsConfig
-import com.cooper.wheellog.core.utils.ByteUtils
+import com.cooper.wheellog.core.utils.DisplayUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -488,7 +488,7 @@ private fun AlarmSlider(
 }
 
 private fun displaySpeed(kmh: Int, useMph: Boolean): Int =
-    if (useMph) ByteUtils.kmToMiles(kmh.toDouble()).toInt() else kmh
+    DisplayUtils.convertSpeed(kmh.toDouble(), useMph).toInt()
 
 private fun displayTemperature(celsius: Int, useFahrenheit: Boolean): Int =
-    if (useFahrenheit) ByteUtils.celsiusToFahrenheit(celsius.toDouble()).toInt() else celsius
+    DisplayUtils.convertTemp(celsius.toDouble(), useFahrenheit).toInt()

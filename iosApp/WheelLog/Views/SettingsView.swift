@@ -255,11 +255,11 @@ struct SettingsView: View {
     // MARK: - Unit Conversion Helpers
 
     private func displaySpeed(_ kmh: Double) -> Double {
-        wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: kmh) : kmh
+        DisplayUtils.shared.convertSpeed(kmh: kmh, useMph: wheelManager.useMph)
     }
 
     private func displayTemperature(_ celsius: Double) -> Double {
-        wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: celsius) : celsius
+        DisplayUtils.shared.convertTemp(celsius: celsius, useFahrenheit: wheelManager.useFahrenheit)
     }
 
     private var appVersion: String {

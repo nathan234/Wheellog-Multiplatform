@@ -58,6 +58,14 @@ object DisplayUtils {
 
     private fun padZero(value: Int): String = if (value < 10) "0$value" else value.toString()
 
+    // --- Simple value conversion ---
+
+    fun convertSpeed(kmh: Double, useMph: Boolean): Double =
+        if (useMph) ByteUtils.kmToMiles(kmh) else kmh
+
+    fun convertTemp(celsius: Double, useFahrenheit: Boolean): Double =
+        if (useFahrenheit) ByteUtils.celsiusToFahrenheit(celsius) else celsius
+
     // --- Metric conversion ---
 
     fun convertMetricValue(

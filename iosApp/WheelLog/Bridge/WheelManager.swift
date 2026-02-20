@@ -458,19 +458,8 @@ class WheelManager: ObservableObject {
 
         // Feature 3: Write ride log sample
         if isLogging {
-            let sampleData = RideLogger.SampleData(
-                speedKmh: wheelState.speedKmh,
-                voltage: wheelState.voltage,
-                current: wheelState.current,
-                power: wheelState.power,
-                pwm: wheelState.pwmPercent,
-                batteryLevel: wheelState.batteryLevel,
-                wheelDistanceKm: wheelState.wheelDistanceKm,
-                totalDistanceKm: wheelState.totalDistanceKm,
-                temperature: wheelState.temperature
-            )
-            rideLogger.writeSampleIfThrottled(
-                data: sampleData,
+            rideLogger.writeSample(
+                state: kmpWheelState,
                 location: locationManager.currentLocation,
                 includeGPS: logGPS
             )

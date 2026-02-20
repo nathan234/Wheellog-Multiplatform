@@ -19,7 +19,7 @@ struct TripDetailView: View {
     @State private var selectedSample: TelemetrySample?
 
     private func displaySpeed(_ kmh: Double) -> Double {
-        wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: kmh) : kmh
+        DisplayUtils.shared.convertSpeed(kmh: kmh, useMph: wheelManager.useMph)
     }
 
     private var speedUnit: String {
@@ -27,7 +27,7 @@ struct TripDetailView: View {
     }
 
     private func displayTemp(_ celsius: Double) -> Double {
-        wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: celsius) : celsius
+        DisplayUtils.shared.convertTemp(celsius: celsius, useFahrenheit: wheelManager.useFahrenheit)
     }
 
     private var tempUnit: String {

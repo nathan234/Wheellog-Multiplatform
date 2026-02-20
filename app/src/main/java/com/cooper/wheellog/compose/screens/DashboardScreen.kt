@@ -49,7 +49,6 @@ import com.cooper.wheellog.compose.components.SpeedGauge
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.telemetry.ColorZone
 import com.cooper.wheellog.core.telemetry.MetricType
-import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.utils.DisplayUtils
 import java.util.Locale
 
@@ -73,7 +72,7 @@ fun DashboardScreen(
     val useMph = viewModel.appConfig.useMph
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
-    val displaySpeed = if (useMph) ByteUtils.kmToMiles(wheelState.speedKmh) else wheelState.speedKmh
+    val displaySpeed = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
     val speedUnit = DisplayUtils.speedUnit(useMph)
     val maxSpeed = if (useMph) 31.0 else 50.0
 
@@ -138,7 +137,7 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val speedVal = if (useMph) ByteUtils.kmToMiles(wheelState.speedKmh) else wheelState.speedKmh
+            val speedVal = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
             val speedMax = if (useMph) 31.0 else 50.0
             GaugeTile(
                 label = "Speed",
@@ -203,7 +202,7 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val tempC = wheelState.temperatureC.toDouble()
-            val tempDisplay = if (useFahrenheit) ByteUtils.celsiusToFahrenheit(tempC) else tempC
+            val tempDisplay = DisplayUtils.convertTemp(tempC, useFahrenheit)
             val tempUnit = DisplayUtils.temperatureUnit(useFahrenheit)
             GaugeTile(
                 label = "Temp",
@@ -215,7 +214,7 @@ fun DashboardScreen(
                 onClick = { onNavigateToMetric("temperature") },
                 modifier = tileModifier
             )
-            val gpsVal = if (useMph) ByteUtils.kmToMiles(gpsSpeed) else gpsSpeed
+            val gpsVal = DisplayUtils.convertSpeed(gpsSpeed, useMph)
             val gpsDisplay = if (gpsSpeed > 0) String.format(Locale.US, "%.1f", gpsVal) else "\u2014"
             GaugeTile(
                 label = "GPS Speed",

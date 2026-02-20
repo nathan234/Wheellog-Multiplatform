@@ -8,9 +8,7 @@ struct DashboardView: View {
     @State private var selectedMetric: String?
 
     private var displaySpeed: Double {
-        wheelManager.useMph
-            ? ByteUtils.shared.kmToMiles(km: wheelManager.wheelState.speedKmh)
-            : wheelManager.wheelState.speedKmh
+        DisplayUtils.shared.convertSpeed(kmh: wheelManager.wheelState.speedKmh, useMph: wheelManager.useMph)
     }
 
     private var speedUnit: String {
@@ -116,7 +114,7 @@ struct DashboardView: View {
 
                     // Temperature tile
                     let tempC = Double(wheelManager.wheelState.temperature)
-                    let tempDisplay = wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: tempC) : tempC
+                    let tempDisplay = DisplayUtils.shared.convertTemp(celsius: tempC, useFahrenheit: wheelManager.useFahrenheit)
                     let tempUnit = DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
                     GaugeTileView(
                         label: "Temp",
@@ -131,7 +129,7 @@ struct DashboardView: View {
                     // GPS Speed tile
                     let gpsSpeedRaw = wheelManager.locationManager.currentLocation?.speed ?? 0
                     let gpsKmh = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, gpsSpeedRaw))
-                    let gpsDisplay = wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: gpsKmh) : gpsKmh
+                    let gpsDisplay = DisplayUtils.shared.convertSpeed(kmh: gpsKmh, useMph: wheelManager.useMph)
                     GaugeTileView(
                         label: "GPS Speed",
                         value: gpsKmh > 0 ? String(format: "%.1f", gpsDisplay) : "\u{2014}",

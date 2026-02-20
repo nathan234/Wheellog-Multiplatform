@@ -322,26 +322,24 @@ private fun TripSummaryCard(
                 }
             } else {
                 // Fallback: compute from samples
-                val durationMs = samples.last().timestampMs - samples.first().timestampMs
-                val durationMin = (durationMs / 60000).toInt()
-                val maxSpeed = samples.maxOf { it.speedKmh }
-                val avgSpeed = samples.map { it.speedKmh }.average()
-                val maxPower = samples.maxOf { it.powerW }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    SummaryItem("Duration", DisplayUtils.formatDurationShort(durationMin))
-                    SummaryItem("Max Speed", DisplayUtils.formatSpeed(maxSpeed, useMph))
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    SummaryItem("Avg Speed", DisplayUtils.formatSpeed(avgSpeed, useMph))
-                    SummaryItem("Max Power", "${maxPower.toInt()} W")
+                val stats = TelemetrySample.computeTripStats(samples)
+                if (stats != null) {
+                    val durationMin = (stats.durationMs / 60000).toInt()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        SummaryItem("Duration", DisplayUtils.formatDurationShort(durationMin))
+                        SummaryItem("Max Speed", DisplayUtils.formatSpeed(stats.maxSpeedKmh, useMph))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        SummaryItem("Avg Speed", DisplayUtils.formatSpeed(stats.avgSpeedKmh, useMph))
+                        SummaryItem("Max Power", "${stats.maxPowerW.toInt()} W")
+                    }
                 }
             }
         }

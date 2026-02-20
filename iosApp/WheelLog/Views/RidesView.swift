@@ -56,40 +56,42 @@ struct RidesView: View {
     }
 
     private func rideRow(_ ride: RideMetadata) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                // Friendly date title
-                Text(friendlyDate(ride.startDate))
-                    .font(.headline)
+        NavigationLink(destination: TripDetailView(ride: ride)) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    // Friendly date title
+                    Text(friendlyDate(ride.startDate))
+                        .font(.headline)
 
-                // Line 1: Duration + Distance
-                Text("\(formatDuration(ride.duration))  |  \(DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    // Line 1: Duration + Distance
+                    Text("\(formatDuration(ride.duration))  |  \(DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
 
-                // Line 2: Max speed + Avg speed
-                Text("\(DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0)) max  |  \(DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0)) avg")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                // Line 3: Power + Energy (if data exists)
-                if ride.maxPower > 0 || ride.consumptionWhPerKm > 0 {
-                    let parts = powerEnergyParts(ride)
-                    Text(parts)
+                    // Line 2: Max speed + Avg speed
+                    Text("\(DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0)) max  |  \(DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0)) avg")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    // Line 3: Power + Energy (if data exists)
+                    if ride.maxPower > 0 || ride.consumptionWhPerKm > 0 {
+                        let parts = powerEnergyParts(ride)
+                        Text(parts)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
-            }
 
-            Spacer()
+                Spacer()
 
-            ShareLink(item: wheelManager.rideStore.fileURL(for: ride)) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.caption)
+                ShareLink(item: wheelManager.rideStore.fileURL(for: ride)) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
+            .padding(.vertical, 2)
         }
-        .padding(.vertical, 2)
     }
 
     private func powerEnergyParts(_ ride: RideMetadata) -> String {

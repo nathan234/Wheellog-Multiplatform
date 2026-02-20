@@ -465,6 +465,10 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         return tripRepository.getAllData().sortedByDescending { it.start }
     }
 
+    suspend fun loadTripByFileName(fileName: String): TripDataDbEntry? {
+        return tripRepository.getTripByFileName(fileName)
+    }
+
     fun deleteTrip(trip: TripDataDbEntry, context: Context) {
         viewModelScope.launch {
             tripRepository.removeDataById(trip.id.toLong())

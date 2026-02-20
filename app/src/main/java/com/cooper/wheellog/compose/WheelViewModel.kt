@@ -276,10 +276,16 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         telemetryHistory?.save()
         viewModelScope.launch {
             connectionManager?.disconnect()
-            wheelService?.shutdown()
         }
         telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
+    }
+
+    fun onBluetoothOff() {
+        _isScanning.value = false
+        if (!_isDemo.value) {
+            _connectionState.value = ConnectionState.Disconnected
+        }
     }
 
     fun shutdownService() {

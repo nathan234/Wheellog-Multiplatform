@@ -3,6 +3,7 @@ package com.cooper.wheellog.compose.screens
 import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +52,10 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun RidesScreen(viewModel: WheelViewModel) {
+fun RidesScreen(
+    viewModel: WheelViewModel,
+    onNavigateToTripDetail: (String) -> Unit = {}
+) {
     val context = LocalContext.current
     var trips by remember { mutableStateOf<List<TripDataDbEntry>>(emptyList()) }
     val useMph = viewModel.appConfig.useMph
@@ -142,6 +146,7 @@ fun RidesScreen(viewModel: WheelViewModel) {
                         RideRow(
                             trip = trip,
                             useMph = useMph,
+                            onClick = { onNavigateToTripDetail(trip.fileName) },
                             onShare = {
                                 val ridesDir = File(context.getExternalFilesDir(null), "rides")
                                 val csvFile = File(ridesDir, trip.fileName)
@@ -172,11 +177,13 @@ fun RidesScreen(viewModel: WheelViewModel) {
 private fun RideRow(
     trip: TripDataDbEntry,
     useMph: Boolean,
+    onClick: () -> Unit,
     onShare: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

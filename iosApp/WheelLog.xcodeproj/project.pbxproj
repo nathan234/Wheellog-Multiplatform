@@ -30,6 +30,7 @@
 		C1000001221F000000001B /* GaugeTileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001221F000000000B /* GaugeTileView.swift */; };
 		C1000001221F000000001C /* MetricDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001221F000000000C /* MetricDetailView.swift */; };
 		D1000001221F000000001D /* WheelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001221F000000000D /* WheelSettingsView.swift */; };
+		F1000001221F000000001F /* TripDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001221F000000000F /* TripDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +59,7 @@
 		C1000001221F000000000B /* GaugeTileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GaugeTileView.swift; sourceTree = "<group>"; };
 		C1000001221F000000000C /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 		D1000001221F000000000D /* WheelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelSettingsView.swift; sourceTree = "<group>"; };
+		F1000001221F000000000F /* TripDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +140,7 @@
 				C1000001221F000000000B /* GaugeTileView.swift */,
 				C1000001221F000000000C /* MetricDetailView.swift */,
 				D1000001221F000000000D /* WheelSettingsView.swift */,
+				F1000001221F000000000F /* TripDetailView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -256,6 +259,7 @@
 				C1000001221F000000001B /* GaugeTileView.swift in Sources */,
 				C1000001221F000000001C /* MetricDetailView.swift in Sources */,
 				D1000001221F000000001D /* WheelSettingsView.swift in Sources */,
+				F1000001221F000000001F /* TripDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

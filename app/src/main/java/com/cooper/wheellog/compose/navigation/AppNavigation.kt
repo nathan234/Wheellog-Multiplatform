@@ -28,6 +28,7 @@ import com.cooper.wheellog.compose.screens.MetricDetailScreen
 import com.cooper.wheellog.compose.screens.RidesScreen
 import com.cooper.wheellog.compose.screens.AutoConnectScreen
 import com.cooper.wheellog.compose.screens.ScanScreen
+import com.cooper.wheellog.compose.screens.TripDetailScreen
 import com.cooper.wheellog.compose.screens.WheelSettingsScreen
 import com.cooper.wheellog.compose.screens.SettingsScreen
 
@@ -49,6 +50,7 @@ fun AppNavigation(viewModel: WheelViewModel) {
     val showBottomBar = currentRoute != "chart" && currentRoute != "bms"
         && currentRoute != "wheel_settings"
         && currentRoute?.startsWith("metric/") != true
+        && currentRoute?.startsWith("trip/") != true
 
     Scaffold(
         bottomBar = {
@@ -97,7 +99,12 @@ fun AppNavigation(viewModel: WheelViewModel) {
                 }
             }
             composable(Screen.Rides.route) {
-                RidesScreen(viewModel = viewModel)
+                RidesScreen(
+                    viewModel = viewModel,
+                    onNavigateToTripDetail = { fileName ->
+                        navController.navigate("trip/$fileName")
+                    }
+                )
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(viewModel = viewModel)
@@ -122,6 +129,14 @@ fun AppNavigation(viewModel: WheelViewModel) {
             composable("wheel_settings") {
                 WheelSettingsScreen(
                     viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("trip/{fileName}") { backStackEntry ->
+                val fileName = backStackEntry.arguments?.getString("fileName") ?: ""
+                TripDetailScreen(
+                    viewModel = viewModel,
+                    fileName = fileName,
                     onBack = { navController.popBackStack() }
                 )
             }

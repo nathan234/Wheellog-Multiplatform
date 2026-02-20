@@ -1,0 +1,355 @@
+import SwiftUI
+import Charts
+import WheelLogCore
+
+struct TripDetailView: View {
+    @EnvironmentObject var wheelManager: WheelManager
+
+    let ride: RideMetadata
+
+    @State private var samples: [TelemetrySample] = []
+    @State private var isLoading = true
+    @State private var errorMessage: String?
+
+    @State private var showSpeed = true
+    @State private var showCurrent = true
+    @State private var showPower = false
+    @State private var showTemperature = false
+    @State private var showPwm = false
+    @State private var selectedSample: TelemetrySample?
+
+    private let kmToMiles = 0.62137119223733
+
+    private func displaySpeed(_ kmh: Double) -> Double {
+        wheelManager.useMph ? kmh * kmToMiles : kmh
+    }
+
+    private var speedUnit: String {
+        wheelManager.useMph ? "mph" : "km/h"
+    }
+
+    private func displayTemp(_ celsius: Double) -> Double {
+        wheelManager.useFahrenheit ? celsius * 9.0 / 5.0 + 32 : celsius
+    }
+
+    private var tempUnit: String {
+        wheelManager.useFahrenheit ? "°F" : "°C"
+    }
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView("Loading ride data...")
+            } else if let error = errorMessage {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "chart.xyaxis.line")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        summaryCard
+                        toggleChips
+                        if !samples.isEmpty {
+                            mainChart
+                            voltageChart
+                        }
+                    }
+                    .padding(.vertical)
+                }
+            }
+        }
+        .navigationTitle(titleDate)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await loadCsvData()
+        }
+    }
+
+    // MARK: - Title
+
+    private var titleDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, h:mm a"
+        return formatter.string(from: ride.startDate)
+    }
+
+    // MARK: - Summary Card
+
+    private var summaryCard: some View {
+        VStack(spacing: 8) {
+            HStack {
+                summaryItem(label: "Duration", value: formatDuration(ride.duration))
+                Spacer()
+                summaryItem(label: "Distance", value: DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))
+            }
+            HStack {
+                summaryItem(label: "Max Speed", value: DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0))
+                Spacer()
+                summaryItem(label: "Avg Speed", value: DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0))
+            }
+            if ride.maxPower > 0 || ride.consumptionWhPerKm > 0 {
+                HStack {
+                    if ride.maxPower > 0 {
+                        summaryItem(label: "Max Power", value: "\(Int(ride.maxPower)) W")
+                    }
+                    Spacer()
+                    if ride.consumptionWhPerKm > 0 {
+                        let unit = wheelManager.useMph ? "Wh/mi" : "Wh/km"
+                        let value = wheelManager.useMph
+                            ? ride.consumptionWhPerKm / ByteUtils.shared.KM_TO_MILES_MULTIPLIER
+                            : ride.consumptionWhPerKm
+                        summaryItem(label: "Energy", value: String(format: "%.1f %@", value, unit))
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+        .padding(.horizontal)
+    }
+
+    private func summaryItem(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.body)
+                .fontWeight(.medium)
+        }
+    }
+
+    // MARK: - Toggle Chips
+
+    private var toggleChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ToggleChip(label: "Speed", color: .blue, isOn: $showSpeed)
+                ToggleChip(label: "Current", color: .orange, isOn: $showCurrent)
+                ToggleChip(label: "Power", color: .green, isOn: $showPower)
+                ToggleChip(label: "Temp", color: .red, isOn: $showTemperature)
+                ToggleChip(label: "PWM", color: .pink, isOn: $showPwm)
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    // MARK: - Main Chart
+
+    private var mainChart: some View {
+        Chart {
+            if showSpeed {
+                ForEach(samples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Speed", displaySpeed(sample.speed)),
+                        series: .value("Series", "Speed")
+                    )
+                    .foregroundStyle(.blue)
+                }
+            }
+            if showCurrent {
+                ForEach(samples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Current", sample.current),
+                        series: .value("Series", "Current")
+                    )
+                    .foregroundStyle(.orange)
+                }
+            }
+            if showPower {
+                ForEach(samples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Power", sample.power),
+                        series: .value("Series", "Power")
+                    )
+                    .foregroundStyle(.green)
+                }
+            }
+            if showTemperature {
+                ForEach(samples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Temp", displayTemp(sample.temperature)),
+                        series: .value("Series", "Temp")
+                    )
+                    .foregroundStyle(.red)
+                }
+            }
+            if showPwm {
+                ForEach(samples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("PWM", sample.pwmPercent),
+                        series: .value("Series", "PWM")
+                    )
+                    .foregroundStyle(.pink)
+                }
+            }
+
+            if let selected = selectedSample {
+                RuleMark(x: .value("Time", selected.timestamp))
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: annotationPosition(for: selected), spacing: 8) {
+                        annotationContent(for: selected)
+                    }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .minute, count: axisStrideCount)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: .dateTime.hour().minute())
+            }
+        }
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisGridLine()
+                AxisValueLabel()
+            }
+        }
+        .chartOverlay { proxy in
+            GeometryReader { geometry in
+                Rectangle()
+                    .fill(Color.clear)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let originX = geometry[proxy.plotAreaFrame].origin.x
+                                let locationX = value.location.x - originX
+                                if let date: Date = proxy.value(atX: locationX) {
+                                    selectedSample = samples.min(by: {
+                                        abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date))
+                                    })
+                                }
+                            }
+                            .onEnded { _ in
+                                selectedSample = nil
+                            }
+                    )
+            }
+        }
+        .frame(height: 250)
+        .padding(.horizontal)
+    }
+
+    private var axisStrideCount: Int {
+        let durationMinutes = ride.duration / 60
+        if durationMinutes < 10 { return 1 }
+        if durationMinutes < 60 { return 5 }
+        return 15
+    }
+
+    private func annotationPosition(for sample: TelemetrySample) -> AnnotationPosition {
+        guard let first = samples.first?.timestamp,
+              let last = samples.last?.timestamp else { return .top }
+        let range = last.timeIntervalSince(first)
+        guard range > 0 else { return .top }
+        let position = sample.timestamp.timeIntervalSince(first) / range
+        return position > 0.75 ? .topLeading : .topTrailing
+    }
+
+    private func annotationContent(for selected: TelemetrySample) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if showSpeed {
+                HStack(spacing: 4) {
+                    Circle().fill(.blue).frame(width: 6, height: 6)
+                    Text(String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit))
+                }
+            }
+            if showCurrent {
+                HStack(spacing: 4) {
+                    Circle().fill(.orange).frame(width: 6, height: 6)
+                    Text(String(format: "%.1f A", selected.current))
+                }
+            }
+            if showPower {
+                HStack(spacing: 4) {
+                    Circle().fill(.green).frame(width: 6, height: 6)
+                    Text(String(format: "%.0f W", selected.power))
+                }
+            }
+            if showTemperature {
+                HStack(spacing: 4) {
+                    Circle().fill(.red).frame(width: 6, height: 6)
+                    Text(String(format: "%.0f%@", displayTemp(selected.temperature), tempUnit))
+                }
+            }
+            if showPwm {
+                HStack(spacing: 4) {
+                    Circle().fill(.pink).frame(width: 6, height: 6)
+                    Text(String(format: "%.1f%%", selected.pwmPercent))
+                }
+            }
+            Text(selected.timestamp, format: .dateTime.hour().minute().second())
+                .foregroundColor(.secondary)
+        }
+        .font(.caption)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(.systemBackground))
+        .cornerRadius(6)
+        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+    }
+
+    // MARK: - Voltage Chart
+
+    private var voltageChart: some View {
+        VoltageChartView(
+            samples: samples,
+            axisStride: .minute,
+            axisStrideCount: axisStrideCount,
+            axisFormat: .dateTime.hour().minute()
+        )
+    }
+
+    // MARK: - Data Loading
+
+    private func loadCsvData() async {
+        let fileURL = wheelManager.rideStore.fileURL(for: ride)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            errorMessage = "CSV file not found"
+            isLoading = false
+            return
+        }
+
+        do {
+            let csvContent = try String(contentsOf: fileURL, encoding: .utf8)
+            let kmpSamples = CsvParser.shared.parse(csvContent: csvContent)
+            let parsed = kmpSamples.compactMap { $0 as? WheelLogCore.TelemetrySample }
+            if parsed.isEmpty {
+                errorMessage = "No data in CSV file"
+            } else {
+                samples = parsed
+            }
+        } catch {
+            errorMessage = "Failed to parse ride: \(error.localizedDescription)"
+        }
+
+        isLoading = false
+    }
+
+    // MARK: - Formatting
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        let hours = Int(seconds) / 3600
+        let minutes = (Int(seconds) % 3600) / 60
+        let secs = Int(seconds) % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%d:%02d", minutes, secs)
+    }
+}

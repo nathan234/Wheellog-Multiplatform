@@ -17,6 +17,12 @@ class TripRepository (private val tripDao: TripDao) {
         }
     }
 
+    suspend fun getTripByFileName(fileName: String): TripDataDbEntry? {
+        return withContext(Dispatchers.IO) {
+            return@withContext tripDao.getTripByFileName(fileName)
+        }
+    }
+
     suspend fun removeDataById(id: Long) {
         withContext(Dispatchers.IO) {
             tripDao.deleteDataById(id)

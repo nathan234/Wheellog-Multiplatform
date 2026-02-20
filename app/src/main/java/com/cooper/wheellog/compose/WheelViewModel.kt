@@ -146,6 +146,25 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _savedAddresses = MutableStateFlow(profileStore.getSavedAddresses())
     val savedAddresses: StateFlow<Set<String>> = _savedAddresses.asStateFlow()
 
+    // Alarm checking — must be declared before init{} because startAlarmMonitoring()
+    // launches an immediate coroutine that accesses these properties.
+    private val alarmChecker = AlarmChecker()
+    private val alarmHandler = AlarmHandler(
+        vibrate = { pattern ->
+            val vibrator = getApplication<Application>().getSystemService(Vibrator::class.java)
+            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
+        },
+        playTone = { type, duration ->
+            val tg = ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME)
+            try {
+                tg.startTone(type, duration)
+            } finally {
+                tg.release()
+            }
+        },
+        onWheelBeep = ::wheelBeep
+    )
+
     init {
         val db = TripDatabase.getDataBase(application)
         tripRepository = TripRepository(db.tripDao())
@@ -544,23 +563,6 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- Alarm monitoring ---
-
-    private val alarmChecker = AlarmChecker()
-    private val alarmHandler = AlarmHandler(
-        vibrate = { pattern ->
-            val vibrator = getApplication<Application>().getSystemService(Vibrator::class.java)
-            vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
-        },
-        playTone = { type, duration ->
-            val tg = ToneGenerator(AudioManager.STREAM_ALARM, ToneGenerator.MAX_VOLUME)
-            try {
-                tg.startTone(type, duration)
-            } finally {
-                tg.release()
-            }
-        },
-        onWheelBeep = ::wheelBeep
-    )
 
     private fun startAlarmMonitoring() {
         viewModelScope.launch {

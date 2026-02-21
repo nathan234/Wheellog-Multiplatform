@@ -19,23 +19,44 @@ import kotlin.math.roundToLong
  * - Freestyl3r (custom firmware with hardware PWM)
  * - SmirnoV/SV (Alexovik custom firmware)
  *
- * Frame format (reassembled by GotwayUnpacker):
- * - Bytes 0-1:  Header (55 AA)
- * - Bytes 2-3:  Voltage (BE)
- * - Bytes 4-5:  Speed (BE, signed)
- * - Bytes 6-9:  Distance (BE)
- * - Bytes 10-11: Current (BE, signed)
- * - Bytes 12-13: Temperature (BE)
- * - Byte 18:    Frame type
- * - Byte 19:    Padding (5A 5A)
+ * Frame format (24 bytes, reassembled by GotwayUnpacker):
+ * - Bytes 0-1:   Header (55 AA)
+ * - Bytes 2-17:  Data payload (varies by frame type, see below)
+ * - Byte 18:     Frame type
+ * - Byte 19:     Footer byte (typically 0x18)
+ * - Bytes 20-23: Footer (5A 5A 5A 5A)
  *
- * Frame types:
- *   0x00 = Live telemetry (speed, voltage, current, temp, distance)
+ * Frame 0x00 (live telemetry) layout:
+ *   Bytes 2-3:   Voltage (BE unsigned)
+ *   Bytes 4-5:   Speed (BE signed)
+ *   Bytes 6-9:   Distance (BE; Alexovik: battery current flag + value)
+ *   Bytes 10-11: Phase current (BE signed)
+ *   Bytes 12-13: Temperature (BE signed, MPU6050/6500 raw)
+ *   Bytes 14-15: Hardware PWM (BE signed)
+ *   Byte 16:     Unknown/unused
+ *   Byte 17:     Beeper volume (0-9)
+ *
+ * Frame 0x04 (settings) layout:
+ *   Bytes 2-5:   Total distance (BE 32-bit)
+ *   Bytes 6-7:   Settings bitfield (pedalsMode, speedAlarms, rollAngle, inMiles)
+ *   Bytes 8-9:   Power-off countdown timer
+ *   Bytes 10-11: Tilt-back speed (0-99, ≥100 = disabled)
+ *   Byte 12:     Unknown/unused
+ *   Byte 13:     LED mode (0-9)
+ *   Byte 14:     Alert flags
+ *   Byte 15:     Light mode (bits 0-1)
+ *   Bytes 16-17: Unknown/unused
+ *
+ * Frame 0x07 (current/temp) layout:
+ *   Bytes 2-3:   Battery current (BE signed)
+ *   Bytes 4-5:   Cutout angle step (0-9 → 45-90°)
+ *   Bytes 6-7:   Motor temperature (BE signed)
+ *   Bytes 8-9:   Hardware PWM (BE signed, true PWM)
+ *
+ * Other frame types:
  *   0x01 = Extended data (true voltage, BMS temps)
  *   0x02/0x03 = BMS cell voltages
- *   0x04 = Total distance, settings, alerts
- *   0x07 = Battery current, motor temperature
- *   0xFF = Firmware settings
+ *   0xFF = Firmware settings (Alexovik/SmirnoV only)
  *
  * Init commands: "V" (firmware), "b", "N" (name), "b"
  * Retry: re-sends "V"/"N" via getKeepAliveCommand until both fw and model

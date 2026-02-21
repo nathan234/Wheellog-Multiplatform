@@ -143,7 +143,7 @@ Decoders without unpackers (KS, VT, NZ) handle framing internally.
 ### WheelState Conventions
 
 - **Internal units**: Speed/voltage/current/temp stored as `Int × 100`. Use computed properties for display (`speedKmh`, `voltageV`, etc.). Distance in meters.
-- **Default -1 = unknown**: Settings fields (`pedalsMode`, `lightMode`, `ledMode`, `maxSpeed`, `pedalTilt`, `pedalSensitivity`, `speakerVolume`, `lightBrightness`, `cutoutAngle`, `rollAngle`, `speedAlarms`) use -1 for "not yet read from wheel"
+- **Default -1 = unknown**: Settings fields (`pedalsMode`, `lightMode`, `ledMode`, `maxSpeed`, `pedalTilt`, `pedalSensitivity`, `speakerVolume`, `beeperVolume`, `lightBrightness`, `cutoutAngle`, `rollAngle`, `speedAlarms`) use -1 for "not yet read from wheel"
 - **Immutable + copy**: Decoders return `currentState.copy(field = newValue)`. SmartBms is mutable internally but exposed via immutable `BmsSnapshot`
 - **BMS accumulation**: `bms1`/`bms2` built across multiple frames. Cell voltages arrive separately (GW: frame 0x02/0x03, KS: via RequestBmsData)
 
@@ -341,6 +341,9 @@ BLE is not available on iOS Simulator. Use the test mode instead:
 
 Protocol decoder gotchas discovered during development:
 
+- **Gotway FRAME_00 bytes 16-17**: Byte 16 is unknown/unused. Byte 17 contains beeper volume (0-9).
+  These bytes were previously undocumented — discovered via BLE PacketLogger capture (the ATT summary
+  truncates notifications to 16 bytes; full data is in the L2CAP/ACL hex dump).
 - **GotwayDecoder retry counter**: `infoAttempt` is 0-indexed and compared with `<`. Fallback triggers
   when counter **reaches** `MAX_INFO_ATTEMPTS` (50), not after 50 iterations — loop needs 51 iterations
   to see the fallback.

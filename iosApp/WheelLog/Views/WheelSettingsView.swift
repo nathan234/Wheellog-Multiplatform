@@ -1,7 +1,9 @@
 import SwiftUI
 import WheelLogCore
 
-struct WheelSettingsView: View {
+// MARK: - Embeddable Wheel Settings Content
+
+struct WheelSettingsContent: View {
     @EnvironmentObject var wheelManager: WheelManager
 
     // Local state for write-only toggles and sliders
@@ -15,24 +17,13 @@ struct WheelSettingsView: View {
     var body: some View {
         let sections = WheelSettingsConfig.shared.sections(wheelType: wheelManager.wheelState.wheelType)
 
-        Form {
-            if sections.isEmpty {
-                Section {
-                    Text("Connect to a wheel to see its settings.")
-                        .foregroundColor(.secondary)
-                }
-            } else {
-                ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
-                    Section(section.title) {
-                        ForEach(Array(section.controls.enumerated()), id: \.offset) { _, control in
-                            renderControl(control)
-                        }
-                    }
+        ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
+            Section(section.title) {
+                ForEach(Array(section.controls.enumerated()), id: \.offset) { _, control in
+                    renderControl(control)
                 }
             }
         }
-        .navigationTitle("Wheel Settings")
-        .navigationBarTitleDisplayMode(.inline)
         .alert(
             confirmationTitle,
             isPresented: $showConfirmation,
@@ -161,7 +152,8 @@ struct WheelSettingsView: View {
                 }
             ),
             range: Double(control.min)...Double(control.max),
-            unit: control.unit
+            unit: control.unit,
+            step: Double(control.step)
         )
     }
 
@@ -209,24 +201,11 @@ struct WheelSettingsView: View {
     // MARK: - State Readback
 
     private func readInt(_ commandId: SettingsCommandId) -> Int? {
-        let state = wheelManager.wheelState
-        switch commandId {
-        case .pedalsMode: return state.pedalsMode >= 0 ? Int(state.pedalsMode) : nil
-        case .lightMode: return state.lightMode >= 0 ? Int(state.lightMode) : nil
-        case .ledMode: return state.ledMode >= 0 ? Int(state.ledMode) : nil
-        case .cutoutAngle: return state.cutoutAngle >= 0 ? Int(state.cutoutAngle) : nil
-        case .rollAngleMode: return state.rollAngle >= 0 ? Int(state.rollAngle) : nil
-        default: return nil
-        }
+        return commandId.readInt(state: wheelManager.wheelState)?.intValue
     }
 
     private func readBool(_ commandId: SettingsCommandId) -> Bool? {
-        let state = wheelManager.wheelState
-        switch commandId {
-        case .led: return state.ledMode >= 0 ? state.ledMode > 0 : nil
-        case .lightMode: return state.lightMode >= 0 ? state.lightMode > 0 : nil
-        default: return nil
-        }
+        return commandId.readBool(state: wheelManager.wheelState)?.boolValue
     }
 
     // MARK: - Confirmation Helpers
@@ -250,6 +229,18 @@ struct WheelSettingsView: View {
     }
 }
 
+// MARK: - Full Page Wrapper
+
+struct WheelSettingsView: View {
+    var body: some View {
+        Form {
+            WheelSettingsContent()
+        }
+        .navigationTitle("Wheel Settings")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
 // MARK: - Slider Row
 
 private struct SliderRow: View {
@@ -257,6 +248,7 @@ private struct SliderRow: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     let unit: String
+    let step: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -266,7 +258,7 @@ private struct SliderRow: View {
                 Text("\(Int(value))\(unit.isEmpty ? "" : " \(unit)")")
                     .foregroundColor(.secondary)
             }
-            Slider(value: $value, in: range, step: 1)
+            Slider(value: $value, in: range, step: step)
         }
     }
 }

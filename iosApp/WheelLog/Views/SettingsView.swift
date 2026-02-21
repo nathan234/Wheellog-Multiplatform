@@ -196,9 +196,7 @@ struct SettingsView: View {
 
             // MARK: - Wheel Settings
             if wheelManager.connectionState.isConnected {
-                Section("Wheel Settings") {
-                    NavigationLink("Wheel Control Panel", destination: WheelSettingsView())
-                }
+                WheelSettingsContent()
             }
 
             // MARK: - About

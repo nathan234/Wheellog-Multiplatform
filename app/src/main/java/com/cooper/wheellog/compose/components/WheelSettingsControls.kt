@@ -47,6 +47,7 @@ internal fun SectionCard(
     section: SettingsSection,
     wheelState: WheelState,
     toggleStates: Map<SettingsCommandId, Boolean>,
+    sliderOverrides: Map<SettingsCommandId, Int> = emptyMap(),
     onIntCommand: (SettingsCommandId, Int) -> Unit,
     onBoolCommand: (SettingsCommandId, Boolean) -> Unit,
     onDangerousAction: (ControlSpec) -> Unit
@@ -84,6 +85,7 @@ internal fun SectionCard(
                     control = control,
                     wheelState = wheelState,
                     toggleStates = toggleStates,
+                    sliderOverrides = sliderOverrides,
                     onIntCommand = onIntCommand,
                     onBoolCommand = onBoolCommand,
                     onDangerousAction = onDangerousAction
@@ -102,6 +104,7 @@ internal fun RenderControl(
     control: ControlSpec,
     wheelState: WheelState,
     toggleStates: Map<SettingsCommandId, Boolean>,
+    sliderOverrides: Map<SettingsCommandId, Int> = emptyMap(),
     onIntCommand: (SettingsCommandId, Int) -> Unit,
     onBoolCommand: (SettingsCommandId, Boolean) -> Unit,
     onDangerousAction: (ControlSpec) -> Unit
@@ -110,7 +113,7 @@ internal fun RenderControl(
         is ControlSpec.Toggle -> ToggleControl(control, wheelState, toggleStates, onBoolCommand)
         is ControlSpec.Segmented -> SegmentedControl(control, wheelState, onIntCommand)
         is ControlSpec.Picker -> PickerControl(control, wheelState, onIntCommand)
-        is ControlSpec.Slider -> SliderControl(control, onIntCommand)
+        is ControlSpec.Slider -> SliderControl(control, wheelState, sliderOverrides[control.commandId], onIntCommand)
         is ControlSpec.DangerousButton -> DangerousButtonControl(control, onDangerousAction)
         is ControlSpec.DangerousToggle -> DangerousToggleControl(control, toggleStates, onBoolCommand, onDangerousAction)
     }
@@ -215,9 +218,13 @@ internal fun PickerControl(
 @Composable
 internal fun SliderControl(
     control: ControlSpec.Slider,
+    wheelState: WheelState,
+    persistedValue: Int?,
     onIntCommand: (SettingsCommandId, Int) -> Unit
 ) {
-    var value by remember { mutableFloatStateOf(control.defaultValue.toFloat()) }
+    val readback = control.commandId.readInt(wheelState)
+    val initial = readback ?: persistedValue ?: control.defaultValue
+    var value by remember(readback, persistedValue) { mutableFloatStateOf(initial.toFloat()) }
 
     Column {
         Row(

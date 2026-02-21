@@ -3,7 +3,6 @@ package com.cooper.wheellog.compose.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -48,6 +47,20 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
     // Local toggle state for write-only commands
     val toggleStates = remember { mutableStateMapOf<SettingsCommandId, Boolean>() }
 
+    // Persisted slider values for write-only commands (e.g. beeper volume)
+    val sliderOverrides = remember(sections) {
+        val map = mutableStateMapOf<SettingsCommandId, Int>()
+        for (section in sections) {
+            for (control in section.controls) {
+                if (control is ControlSpec.Slider) {
+                    val saved = viewModel.loadSliderValue(control.commandId)
+                    if (saved != null) map[control.commandId] = saved
+                }
+            }
+        }
+        map
+    }
+
     // Pending confirmation dialog
     var pendingAction by remember { mutableStateOf<ControlSpec?>(null) }
 
@@ -60,10 +73,8 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                windowInsets = WindowInsets(0, 0, 0, 0)
             )
-        },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        }
     ) { contentPadding ->
         if (sections.isEmpty()) {
             Column(
@@ -95,7 +106,10 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                             section = section,
                             wheelState = wheelState,
                             toggleStates = toggleStates,
+                            sliderOverrides = sliderOverrides,
                             onIntCommand = { id, value ->
+                                viewModel.saveSliderValue(id, value)
+                                sliderOverrides[id] = value
                                 viewModel.executeWheelCommand(id, intValue = value)
                             },
                             onBoolCommand = { id, value ->

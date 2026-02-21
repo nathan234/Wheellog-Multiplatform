@@ -25,6 +25,8 @@ internal fun SmartBmsContent(bms1: BmsSnapshot?, bms2: BmsSnapshot?) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(12.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(6.dp)

@@ -416,6 +416,19 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // --- Slider persistence for write-only commands ---
+
+    private val prefs = PreferenceManager.getDefaultSharedPreferences(application)
+
+    fun saveSliderValue(commandId: SettingsCommandId, value: Int) {
+        prefs.edit().putInt("wheel_slider_${commandId.name}", value).apply()
+    }
+
+    fun loadSliderValue(commandId: SettingsCommandId): Int? {
+        val key = "wheel_slider_${commandId.name}"
+        return if (prefs.contains(key)) prefs.getInt(key, 0) else null
+    }
+
     fun executeWheelCommand(commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
         viewModelScope.launch {
             connectionManager?.executeCommand(commandId, intValue, boolValue)

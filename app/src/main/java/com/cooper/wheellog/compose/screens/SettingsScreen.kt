@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -71,11 +72,24 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         WheelSettingsConfig.sections(wheelState.wheelType)
     }
     val toggleStates = remember { mutableStateMapOf<SettingsCommandId, Boolean>() }
+    val sliderOverrides = remember(wheelSections) {
+        val map = mutableStateMapOf<SettingsCommandId, Int>()
+        for (section in wheelSections) {
+            for (control in section.controls) {
+                if (control is ControlSpec.Slider) {
+                    val saved = viewModel.loadSliderValue(control.commandId)
+                    if (saved != null) map[control.commandId] = saved
+                }
+            }
+        }
+        map
+    }
     var pendingAction by remember { mutableStateOf<ControlSpec?>(null) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -292,7 +306,10 @@ fun SettingsScreen(viewModel: WheelViewModel) {
                     section = section,
                     wheelState = wheelState,
                     toggleStates = toggleStates,
+                    sliderOverrides = sliderOverrides,
                     onIntCommand = { id, value ->
+                        viewModel.saveSliderValue(id, value)
+                        sliderOverrides[id] = value
                         viewModel.executeWheelCommand(id, intValue = value)
                     },
                     onBoolCommand = { id, value ->

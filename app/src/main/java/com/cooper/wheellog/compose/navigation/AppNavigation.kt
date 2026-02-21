@@ -1,5 +1,6 @@
 package com.cooper.wheellog.compose.navigation
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
@@ -53,6 +54,7 @@ fun AppNavigation(viewModel: WheelViewModel) {
         && currentRoute?.startsWith("trip/") != true
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {

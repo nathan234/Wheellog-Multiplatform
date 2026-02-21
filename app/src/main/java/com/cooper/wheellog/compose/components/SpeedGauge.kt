@@ -65,8 +65,10 @@ fun SpeedGauge(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val canvasSize = min(size.width, size.height)
             val lineWidth = canvasSize * 0.08f
-            val radius = (canvasSize - lineWidth) / 2f
-            val center = Offset(size.width / 2f, size.height / 2f)
+            // Shift arc down so the top doesn't sit under the top bar
+            val topInset = canvasSize * 0.06f
+            val radius = (canvasSize - lineWidth) / 2f - topInset
+            val center = Offset(size.width / 2f, size.height / 2f + topInset)
 
             // Arc spans from 144° to -144° (288° total), starting at bottom-left
             val startAngle = 144f  // degrees from top (12 o'clock), going clockwise

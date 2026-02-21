@@ -688,6 +688,73 @@ class GotwayDecoderTest {
         assertEquals(45.0, state.speedKmh, 1.0)
     }
 
+    // ==================== 0xFF Settings Frame Decoding ====================
+
+    @Test
+    fun `0xFF frame decodes cutoutAngle from byte 5`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Build 0xFF settings frame with byte 5 = 90 (raw), display = 90 + 260 = 350°
+        val frame = buildFirmwareSettingsFrame(cutoutAngleRaw = 90)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(350, result.newState.cutoutAngle)
+    }
+
+    @Test
+    fun `0xFF frame cutoutAngle minimum raw 0 maps to 260 degrees`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildFirmwareSettingsFrame(cutoutAngleRaw = 0)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(260, result.newState.cutoutAngle)
+    }
+
+    @Test
+    fun `0xFF frame cutoutAngle maximum raw 100 maps to 360 degrees`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildFirmwareSettingsFrame(cutoutAngleRaw = 100)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(360, result.newState.cutoutAngle)
+    }
+
+    // ==================== SetCutoutAngle Command ====================
+
+    @Test
+    fun `SetCutoutAngle 350 degrees sends raw byte 90`() {
+        // Legacy: byte[] cmd = { 0x72, 0x73, (byte)(value - 260) }
+        val commands = decoder.buildCommand(WheelCommand.SetCutoutAngle(350))
+        assertEquals(1, commands.size)
+        val sendBytes = commands[0] as WheelCommand.SendBytes
+        assertEquals(3, sendBytes.data.size)
+        assertEquals(0x72.toByte(), sendBytes.data[0])
+        assertEquals(0x73.toByte(), sendBytes.data[1])
+        assertEquals(90.toByte(), sendBytes.data[2]) // 350 - 260 = 90
+    }
+
+    @Test
+    fun `SetCutoutAngle 260 degrees sends raw byte 0`() {
+        val commands = decoder.buildCommand(WheelCommand.SetCutoutAngle(260))
+        val sendBytes = commands[0] as WheelCommand.SendBytes
+        assertEquals(0.toByte(), sendBytes.data[2]) // 260 - 260 = 0
+    }
+
+    @Test
+    fun `SetCutoutAngle 360 degrees sends raw byte 100`() {
+        val commands = decoder.buildCommand(WheelCommand.SetCutoutAngle(360))
+        val sendBytes = commands[0] as WheelCommand.SendBytes
+        assertEquals(100.toByte(), sendBytes.data[2]) // 360 - 260 = 100
+    }
+
     // ==================== Helpers ====================
 
     /**
@@ -821,6 +888,19 @@ class GotwayDecoderTest {
         packet[18] = 0x5A
         packet[19] = 0x5A
         return packet
+    }
+
+    /**
+     * Build a frame 0xFF (firmware settings) with the given cutout angle raw value.
+     * Legacy decodes: rotationAngle = (buff[5] & 0xFF) + 260
+     */
+    private fun buildFirmwareSettingsFrame(cutoutAngleRaw: Int = 90): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val payload = ByteArray(18)
+        payload[3] = cutoutAngleRaw.toByte()  // byte 5 of full frame (offset 3 in payload)
+        payload[16] = 0xFF.toByte()           // frame type at byte 18
+        payload[17] = 0x18                    // padding byte
+        return header + payload + byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
     }
 
 }

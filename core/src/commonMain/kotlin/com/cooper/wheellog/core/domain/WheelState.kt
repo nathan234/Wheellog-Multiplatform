@@ -87,7 +87,7 @@ data class WheelState(
     val tiltBackSpeed: Int = 0,     // km/h (0-99)
     val lightMode: Int = -1,        // 0=Off, 1=On, 2=Strobe
     val ledMode: Int = -1,          // 0-9 LED pattern
-    val cutoutAngle: Int = -1,      // degrees (45-90, -1=unknown)
+    val cutoutAngle: Int = -1,      // degrees (260-360, -1=unknown)
 
     // InMotionV2 settings reported via BLE — populated by: IM2 only
     val maxSpeed: Int = -1,         // km/h (-1=unknown)

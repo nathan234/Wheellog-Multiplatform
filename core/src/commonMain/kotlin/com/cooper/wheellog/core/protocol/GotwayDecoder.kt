@@ -200,7 +200,7 @@ class GotwayDecoder : WheelDecoder {
             FRAME_BMS_CELLS_1, FRAME_BMS_CELLS_2 -> processBmsCellsFrame(buff, frameType)
             FRAME_TOTAL_DISTANCE -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW)
             FRAME_CURRENT_TEMP -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)
-            FRAME_SETTINGS -> processSettingsFrame(buff, isAlexovikFW)
+            FRAME_SETTINGS -> processSettingsFrame(buff, currentState)
             else -> null
         }
     }
@@ -489,12 +489,21 @@ class GotwayDecoder : WheelDecoder {
     }
 
     /**
-     * Frame type 0xFF: Firmware settings (custom firmware)
+     * Frame type 0xFF: Firmware settings (Alexovik/SmirnoV custom firmware)
+     *
+     * Layout:
+     * - Byte 2 bit 0: extreme mode
+     * - Byte 3: braking current
+     * - Byte 4 bit 0: rotation control enabled
+     * - Byte 5: cutout angle raw (0-100, display = raw + 260)
+     * - Bytes 6-17: PID tuning parameters (not stored in WheelState)
      */
-    private fun processSettingsFrame(buff: ByteArray, isAlexovikFW: Boolean): FrameResult? {
-        // This frame contains advanced settings for custom firmware
-        // Not processing for now as it's mostly for configuration UI
-        return null
+    private fun processSettingsFrame(buff: ByteArray, currentState: WheelState): FrameResult {
+        val cutoutAngle = (buff[5].toInt() and 0xFF) + 260
+        return FrameResult(
+            state = currentState.copy(cutoutAngle = cutoutAngle),
+            hasNewData = false
+        )
     }
 
     private fun updateBmsCellStats(bms: SmartBms) {
@@ -643,7 +652,8 @@ class GotwayDecoder : WheelDecoder {
                 )
             }
             is WheelCommand.SetCutoutAngle -> {
-                listOf(WheelCommand.SendBytes(byteArrayOf(0x72, 0x73, command.angle.toByte())))
+                // Angle is 260-360° display value; protocol sends raw 0-100 (value - 260)
+                listOf(WheelCommand.SendBytes(byteArrayOf(0x72, 0x73, (command.angle - 260).toByte())))
             }
             is WheelCommand.SetAlarmMode -> {
                 // 0=two alarms("o"), 1=one alarm("u"), 2=off("i"), 3=CF tiltback("I")

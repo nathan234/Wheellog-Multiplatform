@@ -38,6 +38,13 @@ class GotwayDecoder : WheelDecoder {
     private var truePWM = false
     private var isReady = false
 
+    // Retry counter for firmware/model info requests (mirrors legacy adapter)
+    private var infoAttempt = 0
+    private companion object {
+        private const val MAX_INFO_ATTEMPTS = 50
+        private const val RATIO_GW = 0.875
+    }
+
     // BMS state (mutable during decode)
     private var bms1 = SmartBms()
     private var bms2 = SmartBms()
@@ -97,6 +104,29 @@ class GotwayDecoder : WheelDecoder {
                         hasNewData = hasNewData || result.hasNewData
                         result.news?.let { news = it }
                         commands.addAll(result.commands)
+                    }
+                }
+            }
+
+            // Retry firmware/model requests until both are populated (like legacy adapter)
+            if (hasNewData && (fw.isEmpty() || model.isEmpty())) {
+                if (infoAttempt < MAX_INFO_ATTEMPTS) {
+                    infoAttempt++
+                    if (fw.isEmpty()) {
+                        commands.add(WheelCommand.SendBytes("V".encodeToByteArray()))
+                    } else if (model.isEmpty()) {
+                        commands.add(WheelCommand.SendBytes("N".encodeToByteArray()))
+                    }
+                } else {
+                    // Fallback after max attempts
+                    if (model.isEmpty()) {
+                        model = fwProt.ifEmpty { "Begode" }
+                        newState = newState.copy(model = model)
+                    }
+                    if (fw.isEmpty()) {
+                        fw = "-"
+                        newState = newState.copy(version = fw)
+                        isReady = true
                     }
                 }
             }
@@ -512,6 +542,7 @@ class GotwayDecoder : WheelDecoder {
             bmsCurrent = false
             truePWM = false
             isReady = false
+            infoAttempt = 0
             bms1 = SmartBms()
             bms2 = SmartBms()
         }
@@ -636,7 +667,4 @@ class GotwayDecoder : WheelDecoder {
         )
     }
 
-    companion object {
-        private const val RATIO_GW = 0.875
-    }
 }

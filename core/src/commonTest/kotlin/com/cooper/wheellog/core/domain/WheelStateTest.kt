@@ -31,6 +31,13 @@ class WheelStateTest {
     }
 
     @Test
+    fun `companion empty returns same defaults as constructor`() {
+        val fromConstructor = WheelState()
+        val fromEmpty = WheelState.empty()
+        assertEquals(fromConstructor, fromEmpty)
+    }
+
+    @Test
     fun `distance defaults to zero`() {
         val state = WheelState()
 

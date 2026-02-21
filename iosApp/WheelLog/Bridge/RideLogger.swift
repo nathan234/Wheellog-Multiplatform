@@ -101,7 +101,7 @@ class RideLogger: ObservableObject {
             gps = GpsLocation(
                 latitude: loc.coordinate.latitude,
                 longitude: loc.coordinate.longitude,
-                speedKmh: loc.speed >= 0 ? loc.speed * 3.6 : 0,
+                speedKmh: loc.speed >= 0 ? ByteUtils.shared.metersPerSecondToKmh(speedMs: loc.speed) : 0,
                 altitude: loc.altitude,
                 bearing: loc.course >= 0 ? loc.course : 0,
                 cumulativeDistance: 0

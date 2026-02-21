@@ -488,6 +488,18 @@ class DisplayUtilsTest {
         assertEquals("Unknown date", PlatformDateFormatter.formatFriendlyDate(-1))
     }
 
+    // ==================== maxSpeedDefault ====================
+
+    @Test
+    fun `maxSpeedDefault metric returns 50`() {
+        assertEquals(50.0, DisplayUtils.maxSpeedDefault(useMph = false))
+    }
+
+    @Test
+    fun `maxSpeedDefault imperial returns 31`() {
+        assertEquals(31.0, DisplayUtils.maxSpeedDefault(useMph = true))
+    }
+
     // ==================== AlarmType.displayName ====================
 
     @Test

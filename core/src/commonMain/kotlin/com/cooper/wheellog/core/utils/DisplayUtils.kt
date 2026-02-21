@@ -60,6 +60,8 @@ object DisplayUtils {
 
     // --- Simple value conversion ---
 
+    fun maxSpeedDefault(useMph: Boolean): Double = if (useMph) 31.0 else 50.0
+
     fun convertSpeed(kmh: Double, useMph: Boolean): Double =
         if (useMph) ByteUtils.kmToMiles(kmh) else kmh
 

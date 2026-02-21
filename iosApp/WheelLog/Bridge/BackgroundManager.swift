@@ -1,6 +1,7 @@
 import Foundation
 import UserNotifications
 import UIKit
+import WheelLogCore
 
 @MainActor
 class BackgroundManager: ObservableObject {
@@ -23,14 +24,14 @@ class BackgroundManager: ObservableObject {
 
     // MARK: - Alarm Notification
 
-    func postAlarmNotification(type: AlarmDisplayType, value: String) {
+    func postAlarmNotification(type: AlarmType, value: String) {
         let content = UNMutableNotificationContent()
         content.title = "WheelLog Alarm"
         content.body = value
         content.sound = .default
 
         let request = UNNotificationRequest(
-            identifier: "alarm_\(type.rawValue)_\(Date().timeIntervalSince1970)",
+            identifier: "alarm_\(type.name)_\(Date().timeIntervalSince1970)",
             content: content,
             trigger: nil  // Deliver immediately
         )

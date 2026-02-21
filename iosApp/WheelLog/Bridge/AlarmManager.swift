@@ -3,44 +3,6 @@ import AVFoundation
 import UIKit
 import WheelLogCore
 
-/// Maps KMP AlarmType enum values to Swift for display and notification purposes.
-enum AlarmDisplayType: String, CaseIterable, Hashable {
-    case speed1, speed2, speed3, current, temperature, pwm, battery, wheel
-
-    var displayName: String {
-        guard let kmpType = kmpAlarmType else { return rawValue }
-        return kmpType.displayName
-    }
-
-    private var kmpAlarmType: AlarmType? {
-        switch self {
-        case .speed1: return .speed1
-        case .speed2: return .speed2
-        case .speed3: return .speed3
-        case .current: return .current
-        case .temperature: return .temperature
-        case .pwm: return .pwm
-        case .battery: return .battery
-        case .wheel: return .wheel
-        }
-    }
-
-    /// Map from KMP AlarmType to Swift AlarmDisplayType
-    static func from(kmpAlarmType: AlarmType) -> AlarmDisplayType? {
-        switch kmpAlarmType {
-        case .speed1: return .speed1
-        case .speed2: return .speed2
-        case .speed3: return .speed3
-        case .current: return .current
-        case .temperature: return .temperature
-        case .pwm: return .pwm
-        case .battery: return .battery
-        case .wheel: return .wheel
-        default: return nil
-        }
-    }
-}
-
 enum AlarmAction: Int, CaseIterable {
     case phoneOnly = 0
     case phoneAndWheel = 1
@@ -58,9 +20,9 @@ enum AlarmAction: Int, CaseIterable {
 @MainActor
 class AlarmManager: ObservableObject {
 
-    @Published var activeAlarms: Set<AlarmDisplayType> = []
+    @Published var activeAlarms: Set<AlarmType> = []
 
-    var onAlarmFired: ((AlarmDisplayType, String) -> Void)?
+    var onAlarmFired: ((AlarmType, String) -> Void)?
     var sendWheelBeep: (() -> Void)?
 
     // KMP alarm checker (created once, reused)
@@ -107,15 +69,14 @@ class AlarmManager: ObservableObject {
     // MARK: - Process Result
 
     private func processAlarmResult(_ result: AlarmResult, action: AlarmAction) {
-        var newActive: Set<AlarmDisplayType> = []
+        var newActive: Set<AlarmType> = []
 
         for alarm in result.triggeredAlarms {
-            guard let displayType = AlarmDisplayType.from(kmpAlarmType: alarm.type) else { continue }
-            newActive.insert(displayType)
+            newActive.insert(alarm.type)
 
             // Fire platform effects for each triggered alarm
             fireAlarm(
-                type: displayType,
+                type: alarm.type,
                 action: action,
                 toneDurationMs: Int(alarm.toneDuration)
             )
@@ -131,7 +92,7 @@ class AlarmManager: ObservableObject {
 
     // MARK: - Fire Alarm
 
-    private func fireAlarm(type: AlarmDisplayType, action: AlarmAction, toneDurationMs: Int) {
+    private func fireAlarm(type: AlarmType, action: AlarmAction, toneDurationMs: Int) {
         // Audio beep with KMP-computed duration
         let frequency: Float
         switch type {
@@ -140,6 +101,7 @@ class AlarmManager: ObservableObject {
         case .temperature: frequency = 600
         case .battery: frequency = 400
         case .wheel: frequency = 1200
+        default: frequency = 1000
         }
 
         setupAudioSessionIfNeeded()
@@ -152,6 +114,8 @@ class AlarmManager: ObservableObject {
             heavyImpact.impactOccurred()
         case .temperature, .battery:
             notificationFeedback.notificationOccurred(.warning)
+        default:
+            heavyImpact.impactOccurred()
         }
 
         // Wheel beep (if action includes wheel)
@@ -173,7 +137,7 @@ class AlarmManager: ObservableObject {
         generateTone(frequency: frequency, duration: 0.1)
     }
 
-    private func alarmMessage(for type: AlarmDisplayType) -> String {
+    private func alarmMessage(for type: AlarmType) -> String {
         switch type {
         case .speed1: return "Speed alarm 1 triggered"
         case .speed2: return "Speed alarm 2 triggered"
@@ -183,6 +147,7 @@ class AlarmManager: ObservableObject {
         case .pwm: return "PWM alarm triggered"
         case .battery: return "Low battery alarm triggered"
         case .wheel: return "Wheel alarm triggered"
+        default: return "Alarm triggered"
         }
     }
 

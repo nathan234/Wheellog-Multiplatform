@@ -51,7 +51,7 @@ class WheelManager: ObservableObject {
     @Published var alarmAction: AlarmAction = AlarmAction(rawValue: UserDefaults.standard.integer(forKey: "alarm_action")) ?? .phoneOnly {
         didSet { UserDefaults.standard.set(alarmAction.rawValue, forKey: "alarm_action") }
     }
-    @Published private(set) var activeAlarms: Set<AlarmDisplayType> = []
+    @Published private(set) var activeAlarms: Set<AlarmType> = []
 
     // PWM-based alarm settings
     @Published var pwmBasedAlarms: Bool = UserDefaults.standard.bool(forKey: "pwm_based_alarms") {

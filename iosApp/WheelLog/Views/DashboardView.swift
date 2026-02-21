@@ -16,7 +16,7 @@ struct DashboardView: View {
     }
 
     private var maxSpeed: Double {
-        wheelManager.useMph ? 31.0 : 50.0
+        DisplayUtils.shared.maxSpeedDefault(useMph: wheelManager.useMph)
     }
 
     // MARK: - Tile Helpers
@@ -355,12 +355,12 @@ struct DashboardView: View {
 // MARK: - Alarm Banner
 
 struct AlarmBannerView: View {
-    let activeAlarms: Set<AlarmDisplayType>
+    let activeAlarms: Set<AlarmType>
 
     @State private var isPulsing = false
 
     private var alarmText: String {
-        let types = activeAlarms.sorted { $0.rawValue < $1.rawValue }
+        let types = activeAlarms.sorted { $0.value < $1.value }
         return types.map { $0.displayName }.joined(separator: ", ")
     }
 

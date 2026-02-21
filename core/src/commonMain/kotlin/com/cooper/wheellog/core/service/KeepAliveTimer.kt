@@ -229,6 +229,31 @@ class CommandScheduler(
     }
 
     /**
+     * Schedule a sequence of commands as a single coroutine.
+     * Unlike [schedule], this runs the entire block sequentially,
+     * so delays within the block are relative to the previous step.
+     */
+    fun scheduleSequence(block: suspend () -> Unit) {
+        val job = scope.launch(dispatcher) {
+            try {
+                block()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logger.e("CommandScheduler", "Error executing scheduled command sequence", e)
+            }
+        }
+
+        lock.lock()
+        try {
+            pendingJobs.add(job)
+            pendingJobs.removeAll { !it.isActive }
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    /**
      * Cancel all pending commands.
      */
     fun cancelAll() {

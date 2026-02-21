@@ -649,7 +649,7 @@ class GotwayDecoder : WheelDecoder {
                 listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
             }
             is WheelCommand.SetLedMode -> {
-                // Multi-step: "W" then "M" after 100ms, then mode digit after 300ms then "b" after 100ms
+                // Multi-step: W, then M 100ms later, digit 300ms later, b 100ms later
                 val param = byteArrayOf(((command.mode % 10) + 0x30).toByte())
                 listOf(
                     WheelCommand.SendBytes("W".encodeToByteArray()),
@@ -659,7 +659,7 @@ class GotwayDecoder : WheelDecoder {
                 )
             }
             is WheelCommand.SetBeeperVolume -> {
-                // Multi-step: "W" then "B" after 100ms, then volume digit after 300ms then "b" after 100ms
+                // Multi-step: W, then B 100ms later, digit 300ms later, b 100ms later
                 val param = byteArrayOf(((command.volume % 10) + 0x30).toByte())
                 listOf(
                     WheelCommand.SendBytes("W".encodeToByteArray()),
@@ -669,7 +669,7 @@ class GotwayDecoder : WheelDecoder {
                 )
             }
             is WheelCommand.SetCutoutAngle -> {
-                // Multi-step: "W" then "X" after 200ms, then step digit after 200ms
+                // Multi-step: W, then X 200ms later, then step digit 200ms later
                 // Angle 45-90° in 5° steps → digit 0-9: (angle - 45) / 5
                 val step = ((command.angle - 45) / 5).coerceIn(0, 9)
                 val param = byteArrayOf((step + 0x30).toByte())

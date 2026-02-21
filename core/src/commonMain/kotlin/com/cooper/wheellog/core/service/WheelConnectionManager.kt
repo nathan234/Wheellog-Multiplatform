@@ -13,6 +13,7 @@ import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -152,13 +153,16 @@ class WheelConnectionManager(
             }
             else -> {
                 val rawCommands = currentDecoder?.buildCommand(command) ?: return
-                for (cmd in rawCommands) {
-                    when (cmd) {
-                        is WheelCommand.SendBytes -> bleManager.write(cmd.data)
-                        is WheelCommand.SendDelayed -> commandScheduler.schedule(cmd.delayMs) {
-                            bleManager.write(cmd.data)
+                commandScheduler.scheduleSequence {
+                    for (cmd in rawCommands) {
+                        when (cmd) {
+                            is WheelCommand.SendBytes -> bleManager.write(cmd.data)
+                            is WheelCommand.SendDelayed -> {
+                                delay(cmd.delayMs)
+                                bleManager.write(cmd.data)
+                            }
+                            else -> {} // prevent recursion
                         }
-                        else -> {} // prevent recursion
                     }
                 }
             }

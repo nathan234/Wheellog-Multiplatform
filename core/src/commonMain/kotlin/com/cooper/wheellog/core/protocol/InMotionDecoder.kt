@@ -51,6 +51,8 @@ class InMotionDecoder : WheelDecoder {
             val commands = mutableListOf<WheelCommand>()
             var news: String? = null
 
+            var frameProcessed = false
+
             // Process each byte through the unpacker
             for (byte in data) {
                 if (unpacker.addChar(byte.toInt() and 0xFF)) {
@@ -58,6 +60,7 @@ class InMotionDecoder : WheelDecoder {
                     val canMessage = CANMessage.verify(buffer)
 
                     if (canMessage != null) {
+                        frameProcessed = true
                         val idValue = IDValue.fromInt(canMessage.id)
 
                         when (idValue) {
@@ -144,7 +147,7 @@ class InMotionDecoder : WheelDecoder {
                 }
             }
 
-            if (hasNewData || newState != currentState) {
+            if (frameProcessed || hasNewData || newState != currentState) {
                 DecodedData(
                     newState = newState,
                     commands = commands,

@@ -111,6 +111,8 @@ class InMotionV2Decoder : WheelDecoder {
         var hasNewData = false
         var news: String? = null
 
+        var frameProcessed = false
+
         for (byte in data) {
             if (unpacker.addChar(byte.toInt() and 0xFF)) {
                 val buffer = unpacker.getBuffer()
@@ -119,6 +121,7 @@ class InMotionV2Decoder : WheelDecoder {
                 if (message != null) {
                     val result = processMessage(message, newState)
                     if (result != null) {
+                        frameProcessed = true
                         newState = result.state
                         hasNewData = hasNewData || result.hasNewData
                         result.news?.let { news = it }
@@ -127,7 +130,7 @@ class InMotionV2Decoder : WheelDecoder {
             }
         }
 
-        if (hasNewData || newState != currentState) {
+        if (frameProcessed || hasNewData || newState != currentState) {
             DecodedData(
                 newState = newState,
                 hasNewData = hasNewData,

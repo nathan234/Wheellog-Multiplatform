@@ -422,6 +422,8 @@ class NinebotZDecoder : WheelDecoder {
             var hasNewData = false
             val commands = mutableListOf<WheelCommand>()
 
+            var frameProcessed = false
+
             for (byte in data) {
                 if (unpacker.addChar(byte.toInt() and 0xFF)) {
                     val buffer = unpacker.getBuffer()
@@ -430,8 +432,9 @@ class NinebotZDecoder : WheelDecoder {
                     if (result != null) {
                         val parseResult = processMessage(result, newState)
                         if (parseResult.first != null) {
+                            frameProcessed = true
                             newState = parseResult.first!!
-                            hasNewData = parseResult.second
+                            hasNewData = hasNewData || parseResult.second
                         }
                         parseResult.third?.let { commands.add(it) }
                     }
@@ -440,7 +443,7 @@ class NinebotZDecoder : WheelDecoder {
                 }
             }
 
-            if (hasNewData || commands.isNotEmpty()) {
+            if (frameProcessed || hasNewData || commands.isNotEmpty()) {
                 DecodedData(
                     newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
                     hasNewData = hasNewData,

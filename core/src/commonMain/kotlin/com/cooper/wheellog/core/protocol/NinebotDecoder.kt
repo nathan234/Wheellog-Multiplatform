@@ -172,6 +172,8 @@ class NinebotDecoder(
             var hasNewData = false
             val commands = mutableListOf<WheelCommand>()
 
+            var frameProcessed = false
+
             for (byte in data) {
                 if (unpacker.addChar(byte.toInt() and 0xFF)) {
                     val buffer = unpacker.getBuffer()
@@ -180,6 +182,7 @@ class NinebotDecoder(
                     if (result != null) {
                         val frameResult = processMessage(result, newState)
                         if (frameResult != null) {
+                            frameProcessed = true
                             newState = frameResult.state
                             hasNewData = hasNewData || frameResult.hasNewData
                             commands.addAll(frameResult.commands)
@@ -188,7 +191,7 @@ class NinebotDecoder(
                 }
             }
 
-            if (hasNewData || newState != currentState) {
+            if (frameProcessed || hasNewData || newState != currentState) {
                 DecodedData(
                     newState = newState,
                     commands = commands,

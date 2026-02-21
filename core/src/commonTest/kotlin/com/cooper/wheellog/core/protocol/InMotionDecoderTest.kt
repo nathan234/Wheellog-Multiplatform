@@ -289,6 +289,6 @@ class InMotionDecoderTest {
     @Test
     fun `InMotionV2Decoder keepAliveIntervalMs is correct`() {
         val decoder = InMotionV2Decoder()
-        assertEquals(25L, decoder.keepAliveIntervalMs)
+        assertEquals(250L, decoder.keepAliveIntervalMs)
     }
 }

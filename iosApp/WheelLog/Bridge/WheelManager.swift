@@ -17,10 +17,16 @@ class WheelManager: ObservableObject {
 
     // Unit preferences (persisted to UserDefaults, matching Android's use_mph / use_fahrenheit)
     @Published var useMph: Bool = UserDefaults.standard.bool(forKey: "use_mph") {
-        didSet { UserDefaults.standard.set(useMph, forKey: "use_mph") }
+        didSet {
+            UserDefaults.standard.set(useMph, forKey: "use_mph")
+            pushDecoderConfig()
+        }
     }
     @Published var useFahrenheit: Bool = UserDefaults.standard.bool(forKey: "use_fahrenheit") {
-        didSet { UserDefaults.standard.set(useFahrenheit, forKey: "use_fahrenheit") }
+        didSet {
+            UserDefaults.standard.set(useFahrenheit, forKey: "use_fahrenheit")
+            pushDecoderConfig()
+        }
     }
     @Published var isLightOn: Bool = false
 
@@ -532,6 +538,9 @@ class WheelManager: ObservableObject {
             // Auto-connect flags are cleared automatically by the shared AutoConnectManager
             // via its connection state observer
 
+            // Push current unit preferences to decoder
+            pushDecoderConfig()
+
             // Auto-save wheel profile
             let displayName = wheelState.displayName == "Dashboard" ? "" : wheelState.displayName
             saveProfile(address: address, displayName: displayName, wheelTypeName: wheelState.wheelType.name)
@@ -570,6 +579,13 @@ class WheelManager: ObservableObject {
             telemetryHistory.save()
             telemetryBuffer.clear()
         }
+    }
+
+    // MARK: - DecoderConfig Propagation
+
+    private func pushDecoderConfig() {
+        guard let cm = connectionManager else { return }
+        WheelConnectionManagerHelper.shared.updateDecoderConfig(manager: cm, useMph: useMph, useFahrenheit: useFahrenheit)
     }
 
     // MARK: - Unit Sync

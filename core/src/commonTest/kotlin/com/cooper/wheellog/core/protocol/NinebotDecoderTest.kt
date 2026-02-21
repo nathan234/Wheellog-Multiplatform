@@ -317,7 +317,7 @@ class NinebotDecoderTest {
     @Test
     fun `NinebotZDecoder keepAliveIntervalMs is correct`() {
         val decoder = NinebotZDecoder()
-        assertEquals(25L, decoder.keepAliveIntervalMs)
+        assertEquals(125L, decoder.keepAliveIntervalMs)
     }
 
     @Test

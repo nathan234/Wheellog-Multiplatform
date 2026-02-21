@@ -44,7 +44,7 @@ import kotlin.math.roundToInt
 class InMotionV2Decoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.INMOTION_V2
-    override val keepAliveIntervalMs: Long = 25L
+    override val keepAliveIntervalMs: Long = 250L
 
     private val stateLock = Lock()
     private val unpacker = InMotionV2Unpacker()

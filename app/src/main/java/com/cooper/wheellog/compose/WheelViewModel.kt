@@ -21,6 +21,8 @@ import com.cooper.wheellog.core.service.WheelConnectionManager
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelProfile
+import com.cooper.wheellog.core.protocol.DecoderConfig
+import android.content.SharedPreferences
 import com.cooper.wheellog.core.alarm.AlarmChecker
 import com.cooper.wheellog.core.alarm.AlarmConfig
 import android.media.AudioManager
@@ -147,6 +149,37 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _savedAddresses = MutableStateFlow(profileStore.getSavedAddresses())
     val savedAddresses: StateFlow<Set<String>> = _savedAddresses.asStateFlow()
 
+    // --- DecoderConfig propagation ---
+
+    private val prefs = PreferenceManager.getDefaultSharedPreferences(application)
+
+    private val prefChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        pushDecoderConfig()
+    }
+
+    private fun buildDecoderConfig(): DecoderConfig {
+        return DecoderConfig(
+            useMph = appConfig.useMph,
+            useFahrenheit = appConfig.useFahrenheit,
+            useCustomPercents = appConfig.customPercents,
+            cellVoltageTiltback = appConfig.cellVoltageTiltback,
+            rotationSpeed = appConfig.rotationSpeed,
+            rotationVoltage = appConfig.rotationVoltage,
+            powerFactor = appConfig.powerFactor,
+            batteryCapacity = appConfig.batteryCapacity,
+            wheelPassword = appConfig.passwordForWheel,
+            gotwayNegative = appConfig.gotwayNegative.toIntOrNull() ?: 0,
+            useRatio = appConfig.useRatio,
+            gotwayVoltage = appConfig.gotwayVoltage.toIntOrNull() ?: 0,
+            hwPwmEnabled = appConfig.hwPwm,
+            autoVoltage = appConfig.autoVoltage
+        )
+    }
+
+    private fun pushDecoderConfig() {
+        connectionManager?.updateConfig(buildDecoderConfig())
+    }
+
     // Alarm checking — must be declared before init{} because startAlarmMonitoring()
     // launches an immediate coroutine that accesses these properties.
     private val alarmChecker = AlarmChecker()
@@ -169,8 +202,14 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     init {
         val db = TripDatabase.getDataBase(application)
         tripRepository = TripRepository(db.tripDao())
+        prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
         startTelemetryBuffering()
         startAlarmMonitoring()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener)
     }
 
     // --- Service binding ---
@@ -179,6 +218,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         wheelService = service
         connectionManager = cm
         bleManager = ble
+
+        pushDecoderConfig()
 
         // Create shared auto-connect manager
         autoConnectManager?.destroy()
@@ -420,8 +461,6 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // --- Slider persistence for write-only commands ---
-
-    private val prefs = PreferenceManager.getDefaultSharedPreferences(application)
 
     fun saveSliderValue(commandId: SettingsCommandId, value: Int) {
         prefs.edit().putInt("wheel_slider_${commandId.name}", value).apply()

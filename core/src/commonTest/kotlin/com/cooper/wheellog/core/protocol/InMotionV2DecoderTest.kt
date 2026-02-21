@@ -562,8 +562,8 @@ class InMotionV2DecoderTest {
     // ==================== Keep Alive Test ====================
 
     @Test
-    fun `keepAliveIntervalMs is 25ms`() {
-        assertEquals(25L, decoder.keepAliveIntervalMs)
+    fun `keepAliveIntervalMs is 250ms`() {
+        assertEquals(250L, decoder.keepAliveIntervalMs)
     }
 
     @Test

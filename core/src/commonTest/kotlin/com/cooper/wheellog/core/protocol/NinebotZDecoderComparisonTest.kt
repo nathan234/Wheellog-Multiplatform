@@ -415,8 +415,8 @@ class NinebotZDecoderComparisonTest {
     // ==================== Keep-alive ====================
 
     @Test
-    fun `keep-alive interval is 25ms`() {
-        assertEquals(25L, decoder.keepAliveIntervalMs, "Keep-alive should be 25ms")
+    fun `keep-alive interval is 125ms`() {
+        assertEquals(125L, decoder.keepAliveIntervalMs, "Keep-alive should be 125ms")
     }
 
     @Test

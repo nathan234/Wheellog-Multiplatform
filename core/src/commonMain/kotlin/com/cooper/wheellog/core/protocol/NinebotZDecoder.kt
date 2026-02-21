@@ -812,7 +812,7 @@ class NinebotZDecoder : WheelDecoder {
 
     // ========== Keep-alive and Initialization ==========
 
-    override val keepAliveIntervalMs: Long = 25L
+    override val keepAliveIntervalMs: Long = 125L
 
     override fun getKeepAliveCommand(): WheelCommand? {
         // Return the appropriate command based on connection state

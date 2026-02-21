@@ -4,6 +4,7 @@ import com.cooper.wheellog.core.alarm.AlarmChecker
 import com.cooper.wheellog.core.alarm.AlarmConfig
 import com.cooper.wheellog.core.alarm.AlarmResult
 import com.cooper.wheellog.core.domain.WheelState
+import com.cooper.wheellog.core.protocol.DecoderConfig
 import com.cooper.wheellog.core.protocol.DefaultWheelDecoderFactory
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +31,14 @@ object WheelConnectionManagerHelper {
             decoderFactory = DefaultWheelDecoderFactory(),
             scope = scope
         )
+    }
+
+    /**
+     * Update decoder config with unit preferences.
+     * Only exposes useMph/useFahrenheit — the only decoder-relevant settings with iOS UI.
+     */
+    fun updateDecoderConfig(manager: WheelConnectionManager, useMph: Boolean, useFahrenheit: Boolean) {
+        manager.updateConfig(DecoderConfig(useMph = useMph, useFahrenheit = useFahrenheit))
     }
 
     /**

@@ -75,7 +75,7 @@ fun DashboardScreen(
 
     val displaySpeed = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
     val speedUnit = DisplayUtils.speedUnit(useMph)
-    val maxSpeed = viewModel.appConfig.maxSpeed.toDouble()
+    val maxSpeed = DisplayUtils.maxSpeedDefault(useMph)
 
     val title = wheelState.displayName
 

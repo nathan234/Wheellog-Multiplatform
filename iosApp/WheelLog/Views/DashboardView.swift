@@ -181,6 +181,9 @@ struct DashboardView: View {
                             StatRow(label: "Model", value: wheelManager.wheelState.model)
                         }
                         StatRow(label: "Type", value: wheelManager.wheelState.wheelType.name)
+                        if !wheelManager.wheelState.version.isEmpty {
+                            StatRow(label: "Firmware", value: wheelManager.wheelState.version)
+                        }
                     }
                     .padding()
                     .background(Color(UIColor.secondarySystemGroupedBackground))

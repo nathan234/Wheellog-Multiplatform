@@ -255,6 +255,9 @@ fun DashboardScreen(
                     StatRow(label = "Model", value = wheelState.model)
                 }
                 StatRow(label = "Type", value = wheelState.wheelType.name)
+                if (wheelState.version.isNotEmpty()) {
+                    StatRow(label = "Firmware", value = wheelState.version)
+                }
             }
         }
 

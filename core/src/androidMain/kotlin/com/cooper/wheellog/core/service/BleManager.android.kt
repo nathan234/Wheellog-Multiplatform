@@ -89,7 +89,7 @@ actual class BleManager {
             scanDeviceFoundCallback?.invoke(
                 BleDevice(
                     address = peripheral.address,
-                    name = peripheral.name,
+                    name = peripheral.name ?: scanResult.scanRecord?.deviceName,
                     rssi = scanResult.rssi
                 )
             )

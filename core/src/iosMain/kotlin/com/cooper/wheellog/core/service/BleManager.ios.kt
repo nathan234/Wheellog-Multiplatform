@@ -268,10 +268,11 @@ actual class BleManager {
         }
     }
 
-    internal fun onPeripheralDiscovered(peripheral: CBPeripheral, rssi: Int) {
+    internal fun onPeripheralDiscovered(peripheral: CBPeripheral, advertisementData: Map<Any?, *>, rssi: Int) {
+        val advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         val device = BleDevice(
             address = peripheral.identifier.UUIDString,
-            name = peripheral.name,
+            name = peripheral.name ?: advertisedName,
             rssi = rssi
         )
         scanCallback?.invoke(device)
@@ -542,7 +543,7 @@ private class CBCentralManagerDelegateImpl(
         advertisementData: Map<Any?, *>,
         RSSI: NSNumber
     ) {
-        manager.onPeripheralDiscovered(didDiscoverPeripheral, RSSI.intValue)
+        manager.onPeripheralDiscovered(didDiscoverPeripheral, advertisementData, RSSI.intValue)
     }
 
     override fun centralManager(central: CBCentralManager, didConnectPeripheral: CBPeripheral) {

@@ -268,6 +268,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun addDiscoveredDevice(device: BleDevice) {
+        if (!appConfig.showUnknownDevices && device.name.isNullOrEmpty()) {
+            return
+        }
         val current = _discoveredDevices.value.toMutableList()
         val existing = current.indexOfFirst { it.address == device.address }
         val discovered = DiscoveredDevice(

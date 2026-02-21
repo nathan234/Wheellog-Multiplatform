@@ -866,6 +866,9 @@ class WheelManager: ObservableObject {
     }
 
     private func onDeviceDiscovered(_ device: BleDevice) {
+        if !showUnknownDevices && (device.name == nil || device.name?.isEmpty == true) {
+            return
+        }
         let discovered = DiscoveredDevice(
             address: device.address,
             name: device.name ?? "Unknown",

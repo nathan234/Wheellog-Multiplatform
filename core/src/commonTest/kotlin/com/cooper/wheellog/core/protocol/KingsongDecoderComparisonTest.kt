@@ -5,6 +5,7 @@ import com.cooper.wheellog.core.utils.ByteUtils
 import kotlin.math.round
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -503,6 +504,76 @@ class KingsongDecoderComparisonTest {
 
     // ==================== BMS Cell Voltage Parsing (0xF1 Frame) ====================
 
+    // ==================== isReady() Tests ====================
+
+    @Test
+    fun `isReady returns false before any data`() {
+        val freshDecoder = KingsongDecoder()
+        assertFalse(freshDecoder.isReady(), "Should not be ready before any data")
+    }
+
+    @Test
+    fun `isReady returns false after model name but before voltage data`() {
+        val freshDecoder = KingsongDecoder()
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        freshDecoder.decode(namePacket, defaultState, defaultConfig)
+
+        assertFalse(freshDecoder.isReady(),
+            "Should not be ready with model name alone — no voltage data yet")
+    }
+
+    @Test
+    fun `isReady returns true after model name AND 0xA9 live data with voltage greater than 0`() {
+        val freshDecoder = KingsongDecoder()
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        var state = defaultState
+        val r1 = freshDecoder.decode(namePacket, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        val livePacket = buildKsLivePacket(voltage = 6505)
+        freshDecoder.decode(livePacket, state, defaultConfig)
+
+        assertTrue(freshDecoder.isReady(),
+            "Should be ready after model name AND live data with voltage > 0")
+    }
+
+    @Test
+    fun `isReady returns false after reset`() {
+        val freshDecoder = KingsongDecoder()
+        // Make it ready
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        var state = defaultState
+        val r1 = freshDecoder.decode(namePacket, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+        val livePacket = buildKsLivePacket(voltage = 6505)
+        freshDecoder.decode(livePacket, state, defaultConfig)
+        assertTrue(freshDecoder.isReady())
+
+        // Reset
+        freshDecoder.reset()
+        assertFalse(freshDecoder.isReady(), "Should not be ready after reset")
+    }
+
+    @Test
+    fun `isReady does NOT require BMS voltage`() {
+        // Regression test: old isReady() checked bms1.voltage > 0 which required
+        // an explicit BMS data request. Most wheels never report BMS voltage proactively.
+        val freshDecoder = KingsongDecoder()
+        val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
+        var state = defaultState
+        val r1 = freshDecoder.decode(namePacket, state, defaultConfig)
+        if (r1 != null) state = r1.newState
+
+        // Send live data (0xA9) but NO BMS data (0xF1)
+        val livePacket = buildKsLivePacket(voltage = 6505)
+        freshDecoder.decode(livePacket, state, defaultConfig)
+
+        assertTrue(freshDecoder.isReady(),
+            "Should be ready without BMS voltage — only needs model + main voltage")
+    }
+
+    // ==================== BMS Cell Voltage Parsing (0xF1 Frame) ====================
+
     @Test
     fun `BMS cell voltage and capacity from 0xF1 pNum 0x00`() {
         // Frame 0xF1 with pNum 0x00 contains: voltage, current, remCap, factoryCap, fullCycles
@@ -553,5 +624,45 @@ class KingsongDecoderComparisonTest {
         assertEquals(2000, bms1.remCap, "BMS remaining capacity should be 2000 mAh")
         assertEquals(3000, bms1.factoryCap, "BMS factory capacity should be 3000 mAh")
         assertEquals(50, bms1.fullCycles, "BMS full cycles should be 50")
+    }
+
+    // ==================== Helpers ====================
+
+    /**
+     * Build a KingSong 0xBB name frame.
+     */
+    private fun buildKsNamePacket(name: String): ByteArray {
+        val packet = ByteArray(20)
+        packet[0] = 0xAA.toByte()
+        packet[1] = 0x55
+        val nameBytes = name.encodeToByteArray()
+        for (i in nameBytes.indices) {
+            if (i + 2 < 16) packet[i + 2] = nameBytes[i]
+        }
+        packet[16] = 0xBB.toByte()
+        packet[17] = 0x14
+        packet[18] = 0x5A
+        packet[19] = 0x5A
+        return packet
+    }
+
+    /**
+     * Build a KingSong 0xA9 live data frame with given voltage.
+     */
+    private fun buildKsLivePacket(voltage: Int): ByteArray {
+        val packet = ByteArray(20)
+        packet[0] = 0xAA.toByte()
+        packet[1] = 0x55
+        // Voltage at offset 2-3 (LE)
+        packet[2] = (voltage and 0xFF).toByte()
+        packet[3] = ((voltage shr 8) and 0xFF).toByte()
+        // Mode indicator
+        packet[15] = 0xE0.toByte()
+        // Frame type
+        packet[16] = 0xA9.toByte()
+        packet[17] = 0x14
+        packet[18] = 0x5A
+        packet[19] = 0x5A
+        return packet
     }
 }

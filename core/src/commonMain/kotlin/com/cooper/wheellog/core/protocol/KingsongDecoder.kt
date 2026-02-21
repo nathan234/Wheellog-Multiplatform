@@ -55,6 +55,7 @@ class KingsongDecoder : WheelDecoder {
     private var name = ""
     private var serialNumber = ""
     private var version = ""
+    private var hasReceivedVoltage = false
     private var bms1 = SmartBms()
     private var bms2 = SmartBms()
 
@@ -103,6 +104,7 @@ class KingsongDecoder : WheelDecoder {
         config: DecoderConfig
     ): WheelState {
         val voltage = ByteUtils.getInt2R(data, 2)
+        if (voltage > 0) hasReceivedVoltage = true
         val speed = ByteUtils.getInt2R(data, 4)
         var totalDistance = ByteUtils.getInt4R(data, 6).toLong()
 
@@ -560,7 +562,7 @@ class KingsongDecoder : WheelDecoder {
     }
 
     override fun isReady(): Boolean = stateLock.withLock {
-        model.isNotEmpty() && bms1.voltage > 0
+        model.isNotEmpty() && hasReceivedVoltage
     }
 
     override fun reset() = stateLock.withLock {
@@ -575,6 +577,7 @@ class KingsongDecoder : WheelDecoder {
         name = ""
         serialNumber = ""
         version = ""
+        hasReceivedVoltage = false
         bms1 = SmartBms()
         bms2 = SmartBms()
     }

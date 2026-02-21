@@ -11,7 +11,7 @@ package com.cooper.wheellog.core.protocol
  *
  * Total frame size = length + 6 (header + length byte + data + CRC)
  */
-class NinebotUnpacker {
+class NinebotUnpacker : Unpacker {
 
     private enum class State {
         UNKNOWN,
@@ -28,7 +28,7 @@ class NinebotUnpacker {
     /**
      * Reset the unpacker state.
      */
-    fun reset() {
+    override fun reset() {
         buffer = ByteArrayBuilder()
         oldC = 0
         len = 0
@@ -38,14 +38,14 @@ class NinebotUnpacker {
     /**
      * Get the complete frame buffer.
      */
-    fun getBuffer(): ByteArray = buffer.toByteArray()
+    override fun getBuffer(): ByteArray = buffer.toByteArray()
 
     /**
      * Add a byte to the unpacker.
      * @param c The byte value (0-255)
      * @return true if a complete valid frame is ready
      */
-    fun addChar(c: Int): Boolean {
+    override fun addChar(c: Int): Boolean {
         val byte = c and 0xFF
 
         when (state) {

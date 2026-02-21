@@ -46,115 +46,107 @@ class InMotionDecoder : WheelDecoder {
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
         return stateLock.withLock {
-            var newState = currentState
-            var hasNewData = false
-            val commands = mutableListOf<WheelCommand>()
-            var news: String? = null
+            decodeFrames(data, unpacker, currentState) { buffer, state ->
+                processFrame(buffer, state, config)
+            }
+        }
+    }
 
-            var frameProcessed = false
+    private fun processFrame(
+        buffer: ByteArray,
+        currentState: WheelState,
+        config: DecoderConfig
+    ): FrameResult? {
+        val canMessage = CANMessage.verify(buffer) ?: return null
+        val idValue = IDValue.fromInt(canMessage.id)
 
-            // Process each byte through the unpacker
-            for (byte in data) {
-                if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                    val buffer = unpacker.getBuffer()
-                    val canMessage = CANMessage.verify(buffer)
-
-                    if (canMessage != null) {
-                        frameProcessed = true
-                        val idValue = IDValue.fromInt(canMessage.id)
-
-                        when (idValue) {
-                            IDValue.GetFastInfo -> {
-                                val result = canMessage.parseFastInfoMessage(model, newState, config)
-                                if (result != null) {
-                                    newState = result.state
-                                    hasNewData = true
-                                    result.news?.let { news = it }
-                                }
-                            }
-
-                            IDValue.Alert -> {
-                                val alertResult = canMessage.parseAlertInfoMessage(newState)
-                                if (alertResult != null) {
-                                    newState = alertResult.state
-                                    news = alertResult.news
-                                }
-                            }
-
-                            IDValue.GetSlowInfo -> {
-                                if (canMessage.isValid()) {
-                                    needSlowData = false
-                                }
-                                val result = canMessage.parseSlowInfoMessage(newState)
-                                if (result != null) {
-                                    newState = result.state
-                                    if (result.detectedModel != Model.UNKNOWN) {
-                                        model = result.detectedModel
-                                        isReady = true
-                                    }
-                                }
-                            }
-
-                            IDValue.PinCode -> {
-                                // Password accepted
-                            }
-
-                            IDValue.Calibration -> {
-                                news = if (canMessage.data[0] == 1.toByte()) {
-                                    "Calibration success"
-                                } else {
-                                    "Calibration failed"
-                                }
-                            }
-
-                            IDValue.RideMode -> {
-                                news = if (canMessage.data[0] == 1.toByte()) {
-                                    "Ride mode changed"
-                                } else {
-                                    "Ride mode change failed"
-                                }
-                            }
-
-                            IDValue.Light -> {
-                                news = if (canMessage.data[0] == 1.toByte()) {
-                                    "Light toggled"
-                                } else {
-                                    "Light toggle failed"
-                                }
-                            }
-
-                            IDValue.HandleButton -> {
-                                news = if (canMessage.data[0] == 1.toByte()) {
-                                    "Handle button setting changed"
-                                } else {
-                                    "Handle button setting failed"
-                                }
-                            }
-
-                            IDValue.SpeakerVolume -> {
-                                news = if (canMessage.data[0] == 1.toByte()) {
-                                    "Speaker volume changed"
-                                } else {
-                                    "Speaker volume change failed"
-                                }
-                            }
-
-                            else -> {
-                                // Unknown message ID
-                            }
-                        }
-                    }
+        return when (idValue) {
+            IDValue.GetFastInfo -> {
+                val result = canMessage.parseFastInfoMessage(model, currentState, config)
+                if (result != null) {
+                    FrameResult(result.state, hasNewData = true, news = result.news)
+                } else {
+                    FrameResult(currentState)
                 }
             }
 
-            if (frameProcessed || hasNewData || newState != currentState) {
-                DecodedData(
-                    newState = newState,
-                    commands = commands,
-                    hasNewData = hasNewData,
-                    news = news
-                )
-            } else null
+            IDValue.Alert -> {
+                val alertResult = canMessage.parseAlertInfoMessage(currentState)
+                if (alertResult != null) {
+                    FrameResult(alertResult.state, news = alertResult.news)
+                } else {
+                    FrameResult(currentState)
+                }
+            }
+
+            IDValue.GetSlowInfo -> {
+                if (canMessage.isValid()) {
+                    needSlowData = false
+                }
+                val result = canMessage.parseSlowInfoMessage(currentState)
+                if (result != null) {
+                    if (result.detectedModel != Model.UNKNOWN) {
+                        model = result.detectedModel
+                        isReady = true
+                    }
+                    FrameResult(result.state)
+                } else {
+                    FrameResult(currentState)
+                }
+            }
+
+            IDValue.PinCode -> {
+                FrameResult(currentState)
+            }
+
+            IDValue.Calibration -> {
+                val news = if (canMessage.data[0] == 1.toByte()) {
+                    "Calibration success"
+                } else {
+                    "Calibration failed"
+                }
+                FrameResult(currentState, news = news)
+            }
+
+            IDValue.RideMode -> {
+                val news = if (canMessage.data[0] == 1.toByte()) {
+                    "Ride mode changed"
+                } else {
+                    "Ride mode change failed"
+                }
+                FrameResult(currentState, news = news)
+            }
+
+            IDValue.Light -> {
+                val news = if (canMessage.data[0] == 1.toByte()) {
+                    "Light toggled"
+                } else {
+                    "Light toggle failed"
+                }
+                FrameResult(currentState, news = news)
+            }
+
+            IDValue.HandleButton -> {
+                val news = if (canMessage.data[0] == 1.toByte()) {
+                    "Handle button setting changed"
+                } else {
+                    "Handle button setting failed"
+                }
+                FrameResult(currentState, news = news)
+            }
+
+            IDValue.SpeakerVolume -> {
+                val news = if (canMessage.data[0] == 1.toByte()) {
+                    "Speaker volume changed"
+                } else {
+                    "Speaker volume change failed"
+                }
+                FrameResult(currentState, news = news)
+            }
+
+            else -> {
+                FrameResult(currentState)
+            }
         }
     }
 

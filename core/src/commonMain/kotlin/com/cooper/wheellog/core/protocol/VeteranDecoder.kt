@@ -18,7 +18,7 @@ import kotlin.math.roundToInt
  * - Bytes 4+: Data payload
  * - Last 4 bytes: CRC32 (for newer firmware)
  */
-class VeteranUnpacker {
+class VeteranUnpacker : Unpacker {
 
     private enum class State {
         UNKNOWN,
@@ -34,15 +34,15 @@ class VeteranUnpacker {
     private var state = State.UNKNOWN
     private var usingCrc = false
 
-    fun reset() {
+    override fun reset() {
         old1 = 0
         old2 = 0
         state = State.UNKNOWN
     }
 
-    fun getBuffer(): ByteArray = buffer.toByteArray()
+    override fun getBuffer(): ByteArray = buffer.toByteArray()
 
-    fun addChar(c: Int): Boolean {
+    override fun addChar(c: Int): Boolean {
         val byte = c and 0xFF
 
         when (state) {
@@ -176,26 +176,16 @@ class VeteranDecoder : WheelDecoder {
             }
             lastPacketTime = currentTime
 
-            var newState = currentState
-            var hasNewData = false
-
-            for (byte in data) {
-                if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                    val buff = unpacker.getBuffer()
-                    val result = processFrame(buff, newState, config)
-                    if (result != null) {
-                        newState = result
-                        hasNewData = true
-                    }
+            decodeFrames(data, unpacker, currentState) { buffer, state ->
+                processFrame(buffer, state, config)?.let {
+                    FrameResult(it, hasNewData = true)
                 }
+            }?.let { result ->
+                result.copy(newState = result.newState.copy(
+                    bms1 = bms1.toSnapshot(),
+                    bms2 = bms2.toSnapshot()
+                ))
             }
-
-            if (hasNewData) {
-                DecodedData(
-                    newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
-                    hasNewData = true
-                )
-            } else null
         }
     }
 

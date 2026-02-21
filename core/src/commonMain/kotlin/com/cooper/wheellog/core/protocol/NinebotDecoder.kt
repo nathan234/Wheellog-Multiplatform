@@ -168,36 +168,10 @@ class NinebotDecoder(
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
         return stateLock.withLock {
-            var newState = currentState
-            var hasNewData = false
-            val commands = mutableListOf<WheelCommand>()
-
-            var frameProcessed = false
-
-            for (byte in data) {
-                if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                    val buffer = unpacker.getBuffer()
-                    val result = verifyAndParse(buffer)
-
-                    if (result != null) {
-                        val frameResult = processMessage(result, newState)
-                        if (frameResult != null) {
-                            frameProcessed = true
-                            newState = frameResult.state
-                            hasNewData = hasNewData || frameResult.hasNewData
-                            commands.addAll(frameResult.commands)
-                        }
-                    }
-                }
+            decodeFrames(data, unpacker, currentState) { buffer, state ->
+                val msg = verifyAndParse(buffer) ?: return@decodeFrames null
+                processMessage(msg, state)
             }
-
-            if (frameProcessed || hasNewData || newState != currentState) {
-                DecodedData(
-                    newState = newState,
-                    commands = commands,
-                    hasNewData = hasNewData
-                )
-            } else null
         }
     }
 
@@ -484,11 +458,6 @@ class NinebotDecoder(
         else -> "Ninebot"
     }
 
-    private data class FrameResult(
-        val state: WheelState,
-        val hasNewData: Boolean,
-        val commands: List<WheelCommand> = emptyList()
-    )
 
     override fun isReady(): Boolean {
         return stateLock.withLock {

@@ -85,9 +85,6 @@ class GotwayDecoder : WheelDecoder {
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
         return stateLock.withLock {
             var newState = currentState
-            var hasNewData = false
-            val commands = mutableListOf<WheelCommand>()
-            var news: String? = null
 
             // Try to parse firmware/model info from string data
             if (model.isEmpty() || fw.isEmpty()) {
@@ -127,26 +124,19 @@ class GotwayDecoder : WheelDecoder {
                 }
             }
 
-            // Process each byte through the unpacker
-            var frameProcessed = false
-            for (byte in data) {
-                if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                    val buff = unpacker.getBuffer()
-                    val result = processFrame(buff, newState, config)
-                    if (result != null) {
-                        frameProcessed = true
-                        newState = result.state
-                        // OR semantics: sticky true once any frame produces new data.
-                        // Intentionally different from legacy which overwrites per-frame.
-                        hasNewData = hasNewData || result.hasNewData
-                        result.news?.let { news = it }
-                        commands.addAll(result.commands)
-                    }
-                }
+            // Unpacker loop
+            val result = decodeFrames(data, unpacker, newState) { buffer, state ->
+                processFrame(buffer, state, config)
             }
 
+            // Merge pre-loop state changes with unpacker loop results
+            var finalState = result?.newState ?: newState
+            var finalHasNewData = result?.hasNewData ?: false
+            val commands = result?.commands?.toMutableList() ?: mutableListOf()
+            var news = result?.news
+
             // Retry firmware/model requests until both are populated (like legacy adapter)
-            if (hasNewData && (fw.isEmpty() || model.isEmpty())) {
+            if (finalHasNewData && (fw.isEmpty() || model.isEmpty())) {
                 if (infoAttempt < MAX_INFO_ATTEMPTS) {
                     infoAttempt++
                     if (fw.isEmpty()) {
@@ -158,36 +148,29 @@ class GotwayDecoder : WheelDecoder {
                     // Fallback after max attempts
                     if (model.isEmpty()) {
                         model = fwProt.ifEmpty { "Begode" }
-                        newState = newState.copy(model = model)
+                        finalState = finalState.copy(model = model)
                     }
                     if (fw.isEmpty()) {
                         fw = "-"
-                        newState = newState.copy(version = fw)
+                        finalState = finalState.copy(version = fw)
                         isReady = true
                     }
                 }
             }
 
-            if (frameProcessed || hasNewData || newState != currentState) {
+            if (result != null || finalState != currentState) {
                 DecodedData(
-                    newState = newState.copy(
+                    newState = finalState.copy(
                         bms1 = bms1.toSnapshot(),
                         bms2 = bms2.toSnapshot()
                     ),
                     commands = commands,
-                    hasNewData = hasNewData,
+                    hasNewData = finalHasNewData,
                     news = news
                 )
             } else null
         }
     }
-
-    private data class FrameResult(
-        val state: WheelState,
-        val hasNewData: Boolean,
-        val news: String? = null,
-        val commands: List<WheelCommand> = emptyList()
-    )
 
     private fun processFrame(
         buff: ByteArray,

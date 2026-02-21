@@ -12,7 +12,7 @@ package com.cooper.wheellog.core.protocol
  * Escape sequence: 0xA5 followed by the escaped byte (AA, 55, or A5)
  * The escape byte 0xA5 is used to escape special bytes in the data.
  */
-class InMotionUnpacker {
+class InMotionUnpacker : Unpacker {
 
     private enum class State {
         UNKNOWN,
@@ -34,7 +34,7 @@ class InMotionUnpacker {
     /**
      * Reset the unpacker state.
      */
-    fun reset() {
+    override fun reset() {
         buffer = ByteArrayBuilder()
         state = State.UNKNOWN
         oldC = 0
@@ -45,13 +45,13 @@ class InMotionUnpacker {
     /**
      * Get the complete frame buffer.
      */
-    fun getBuffer(): ByteArray = buffer.toByteArray()
+    override fun getBuffer(): ByteArray = buffer.toByteArray()
 
     /**
      * Add a byte to the unpacker.
      * @return true if a complete valid frame is ready
      */
-    fun addChar(c: Int): Boolean {
+    override fun addChar(c: Int): Boolean {
         val byte = c and 0xFF
 
         // Skip escaped bytes (0xA5 is the escape prefix)

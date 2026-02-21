@@ -19,7 +19,7 @@ import com.cooper.wheellog.core.utils.withLock
  * The payload is XOR encrypted using a 16-byte gamma key obtained
  * during the connection handshake.
  */
-class NinebotZUnpacker {
+class NinebotZUnpacker : Unpacker {
 
     private enum class State {
         UNKNOWN,
@@ -33,20 +33,20 @@ class NinebotZUnpacker {
     private var len = 0
     private var state = State.UNKNOWN
 
-    fun reset() {
+    override fun reset() {
         oldC = 0
         len = 0
         state = State.UNKNOWN
         buffer = ByteArrayBuilder()
     }
 
-    fun getBuffer(): ByteArray = buffer.toByteArray()
+    override fun getBuffer(): ByteArray = buffer.toByteArray()
 
     /**
      * Add a byte to the unpacker.
      * @return true if a complete frame is ready for verification
      */
-    fun addChar(c: Int): Boolean {
+    override fun addChar(c: Int): Boolean {
         val byte = c and 0xFF
 
         when (state) {
@@ -418,56 +418,32 @@ class NinebotZDecoder : WheelDecoder {
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
         return stateLock.withLock {
-            var newState = currentState
-            var hasNewData = false
-            val commands = mutableListOf<WheelCommand>()
-
-            var frameProcessed = false
-
-            for (byte in data) {
-                if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                    val buffer = unpacker.getBuffer()
-                    val result = CANMessage.verify(buffer, gamma)
-
-                    if (result != null) {
-                        val parseResult = processMessage(result, newState)
-                        if (parseResult.first != null) {
-                            frameProcessed = true
-                            newState = parseResult.first!!
-                            hasNewData = hasNewData || parseResult.second
-                        }
-                        parseResult.third?.let { commands.add(it) }
-                    }
-
-                    unpacker.reset()
-                }
+            decodeFrames(data, unpacker, currentState) { buffer, state ->
+                val msg = CANMessage.verify(buffer, gamma) ?: return@decodeFrames null
+                processMessage(msg, state)
+            }?.let { result ->
+                result.copy(newState = result.newState.copy(
+                    bms1 = bms1.toSnapshot(),
+                    bms2 = bms2.toSnapshot()
+                ))
             }
-
-            if (frameProcessed || hasNewData || commands.isNotEmpty()) {
-                DecodedData(
-                    newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
-                    hasNewData = hasNewData,
-                    commands = commands
-                )
-            } else null
         }
     }
 
     /**
      * Process a verified CAN message and update state accordingly.
-     * Returns: Pair of (updated state or null, hasNewData flag, optional command)
      */
     private fun processMessage(
         msg: CANMessage,
         currentState: WheelState
-    ): Triple<WheelState?, Boolean, WheelCommand?> {
+    ): FrameResult? {
 
         when {
             // BLE Version response - initial connection confirmation
             msg.parameter == CANMessage.Param.BLE_VERSION &&
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 connectionState = NinebotZConnectionState.SERIAL_NUMBER
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
 
             // Encryption key received
@@ -475,7 +451,7 @@ class NinebotZDecoder : WheelDecoder {
                     msg.source == CANMessage.Addr.KEY_GENERATOR -> {
                 gamma = parseKey(msg.data)
                 connectionState = NinebotZConnectionState.SERIAL_NUMBER
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
 
             // Serial number received
@@ -483,10 +459,8 @@ class NinebotZDecoder : WheelDecoder {
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 val serial = parseSerialNumber(msg.data)
                 connectionState = NinebotZConnectionState.VERSION
-                return Triple(
-                    currentState.copy(serialNumber = serial, model = "Ninebot Z"),
-                    false,
-                    null
+                return FrameResult(
+                    currentState.copy(serialNumber = serial, model = "Ninebot Z")
                 )
             }
 
@@ -495,10 +469,8 @@ class NinebotZDecoder : WheelDecoder {
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 val result = parseVersionNumber(msg.data)
                 connectionState = NinebotZConnectionState.PARAMS1
-                return Triple(
-                    currentState.copy(version = result.first, error = result.second),
-                    false,
-                    null
+                return FrameResult(
+                    currentState.copy(version = result.first, error = result.second)
                 )
             }
 
@@ -507,7 +479,7 @@ class NinebotZDecoder : WheelDecoder {
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 parseParams1(msg.data)
                 connectionState = NinebotZConnectionState.PARAMS2
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
 
             // Params2 (LED mode, pedal sensitivity, etc.)
@@ -515,7 +487,7 @@ class NinebotZDecoder : WheelDecoder {
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 parseParams2(msg.data)
                 connectionState = NinebotZConnectionState.PARAMS3
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
 
             // Params3 (speaker volume)
@@ -523,14 +495,14 @@ class NinebotZDecoder : WheelDecoder {
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 parseParams3(msg.data)
                 connectionState = NinebotZConnectionState.READY
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
 
             // Live telemetry data
             msg.parameter == CANMessage.Param.LIVE_DATA &&
                     msg.source == CANMessage.Addr.CONTROLLER -> {
                 val newState = parseLiveData(msg.data, currentState)
-                return Triple(newState, true, null)
+                return FrameResult(newState, hasNewData = true)
             }
 
             // BMS1 responses
@@ -549,7 +521,7 @@ class NinebotZDecoder : WheelDecoder {
                         connectionState = NinebotZConnectionState.BMS2_SN
                     }
                 }
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
 
             // BMS2 responses
@@ -568,11 +540,11 @@ class NinebotZDecoder : WheelDecoder {
                         connectionState = NinebotZConnectionState.READY
                     }
                 }
-                return Triple(null, false, null)
+                return FrameResult(currentState)
             }
         }
 
-        return Triple(null, false, null)
+        return FrameResult(currentState)
     }
 
     // ========== Parsing Methods ==========

@@ -13,7 +13,7 @@ import kotlin.math.min
  * - Byte 19: Footer byte (typically 18)
  * - Bytes 20-23: Footer (5A 5A 5A 5A)
  */
-class GotwayUnpacker {
+class GotwayUnpacker : Unpacker {
 
     private enum class State {
         UNKNOWN,
@@ -28,7 +28,7 @@ class GotwayUnpacker {
     /**
      * Reset the unpacker state.
      */
-    fun reset() {
+    override fun reset() {
         buffer = ByteArrayBuilder()
         state = State.UNKNOWN
         oldC = -1
@@ -37,13 +37,13 @@ class GotwayUnpacker {
     /**
      * Get the complete frame buffer.
      */
-    fun getBuffer(): ByteArray = buffer.toByteArray()
+    override fun getBuffer(): ByteArray = buffer.toByteArray()
 
     /**
      * Add a byte to the unpacker.
      * @return true if a complete valid frame is ready
      */
-    fun addChar(c: Int): Boolean {
+    override fun addChar(c: Int): Boolean {
         val byte = c and 0xFF
 
         when (state) {

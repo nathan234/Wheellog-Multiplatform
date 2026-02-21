@@ -107,36 +107,10 @@ class InMotionV2Decoder : WheelDecoder {
     }
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? = stateLock.withLock {
-        var newState = currentState
-        var hasNewData = false
-        var news: String? = null
-
-        var frameProcessed = false
-
-        for (byte in data) {
-            if (unpacker.addChar(byte.toInt() and 0xFF)) {
-                val buffer = unpacker.getBuffer()
-                val message = verifyAndParse(buffer)
-
-                if (message != null) {
-                    val result = processMessage(message, newState)
-                    if (result != null) {
-                        frameProcessed = true
-                        newState = result.state
-                        hasNewData = hasNewData || result.hasNewData
-                        result.news?.let { news = it }
-                    }
-                }
-            }
+        decodeFrames(data, unpacker, currentState) { buffer, state ->
+            val msg = verifyAndParse(buffer) ?: return@decodeFrames null
+            processMessage(msg, state)
         }
-
-        if (frameProcessed || hasNewData || newState != currentState) {
-            DecodedData(
-                newState = newState,
-                hasNewData = hasNewData,
-                news = news
-            )
-        } else null
     }
 
     /**
@@ -164,14 +138,6 @@ class InMotionV2Decoder : WheelDecoder {
         }
     }
 
-    /**
-     * Result from processing a message.
-     */
-    private data class ProcessResult(
-        val state: WheelState,
-        val hasNewData: Boolean,
-        val news: String? = null
-    )
 
     /**
      * Verify checksum and parse message from buffer.
@@ -207,7 +173,7 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Process a verified message and update state.
      */
-    private fun processMessage(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processMessage(message: Message, currentState: WheelState): FrameResult? {
         return when {
             message.flags == Flag.INITIAL -> {
                 when (message.command) {
@@ -232,7 +198,7 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Process main info (car type, serial number, versions).
      */
-    private fun processMainInfo(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processMainInfo(message: Message, currentState: WheelState): FrameResult? {
         val data = message.data
         if (data.isEmpty()) return null
 
@@ -289,13 +255,13 @@ class InMotionV2Decoder : WheelDecoder {
             }
         }
 
-        return ProcessResult(newState, false)
+        return FrameResult(newState, false)
     }
 
     /**
      * Process settings data.
      */
-    private fun processSettings(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processSettings(message: Message, currentState: WheelState): FrameResult? {
         // Settings are parsed but don't update WheelState directly
         // They would typically update app configuration
         return when (model) {
@@ -313,7 +279,7 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Process diagnostic data.
      */
-    private fun processDiagnostic(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processDiagnostic(message: Message, currentState: WheelState): FrameResult? {
         // Check if all diagnostic bytes are 0 (OK)
         if (message.data.size > 7) {
             for (byte in message.data) {
@@ -329,7 +295,7 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Process battery real-time info.
      */
-    private fun processBatteryRealTimeInfo(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processBatteryRealTimeInfo(message: Message, currentState: WheelState): FrameResult? {
         val data = message.data
         if (data.size < 20) return null
 
@@ -347,13 +313,13 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Process total statistics.
      */
-    private fun processTotalStats(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processTotalStats(message: Message, currentState: WheelState): FrameResult? {
         val data = message.data
         if (data.size < 20) return null
 
         val totalDistance = ByteUtils.intFromBytesLE(data, 0).toLong() * 10
 
-        return ProcessResult(
+        return FrameResult(
             currentState.copy(totalDistance = totalDistance),
             false
         )
@@ -362,7 +328,7 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Process real-time telemetry info.
      */
-    private fun processRealTimeInfo(message: Message, currentState: WheelState): ProcessResult? {
+    private fun processRealTimeInfo(message: Message, currentState: WheelState): FrameResult? {
         return when (model) {
             Model.V11 -> {
                 if (protoVer < 2) {
@@ -383,7 +349,7 @@ class InMotionV2Decoder : WheelDecoder {
 
     // ==================== V11 Parsing ====================
 
-    private fun parseRealTimeInfoV11(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV11(data: ByteArray, currentState: WheelState): FrameResult? {
         if (data.size < 38) return null
 
         val voltage = ByteUtils.shortFromBytesLE(data, 0)
@@ -409,7 +375,7 @@ class InMotionV2Decoder : WheelDecoder {
         val modeStr = buildModeString(data, stateIndex)
         val alert = getErrorString(data, stateIndex + 5)
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 voltage = voltage,
                 current = current,
@@ -438,7 +404,7 @@ class InMotionV2Decoder : WheelDecoder {
         )
     }
 
-    private fun parseRealTimeInfoV11_1_4(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV11_1_4(data: ByteArray, currentState: WheelState): FrameResult? {
         if (data.size < 57) return null
 
         val voltage = ByteUtils.shortFromBytesLE(data, 0)
@@ -462,7 +428,7 @@ class InMotionV2Decoder : WheelDecoder {
         val modeStr = buildModeString(data, 56)
         val alert = getErrorString(data, 61)
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 voltage = voltage,
                 current = current,
@@ -493,7 +459,7 @@ class InMotionV2Decoder : WheelDecoder {
 
     // ==================== V12 Parsing ====================
 
-    private fun parseRealTimeInfoV12(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV12(data: ByteArray, currentState: WheelState): FrameResult? {
         if (data.size < 60) return null
 
         val voltage = ByteUtils.shortFromBytesLE(data, 0)
@@ -517,7 +483,7 @@ class InMotionV2Decoder : WheelDecoder {
         val modeStr = buildModeString(data, 54)
         val alert = getErrorString(data, 59)
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 voltage = voltage,
                 current = current,
@@ -548,7 +514,7 @@ class InMotionV2Decoder : WheelDecoder {
 
     // ==================== V13 Parsing ====================
 
-    private fun parseRealTimeInfoV13(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV13(data: ByteArray, currentState: WheelState): FrameResult? {
         if (data.size < 77) return null
 
         val voltage = ByteUtils.shortFromBytesLE(data, 0)
@@ -573,7 +539,7 @@ class InMotionV2Decoder : WheelDecoder {
         val modeStr = buildModeString(data, 74)
         val alert = getErrorString(data, 76)
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 voltage = voltage,
                 current = current,
@@ -604,7 +570,7 @@ class InMotionV2Decoder : WheelDecoder {
 
     // ==================== V14 Parsing ====================
 
-    private fun parseRealTimeInfoV14(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV14(data: ByteArray, currentState: WheelState): FrameResult? {
         if (data.size < 78) return null
 
         val voltage = ByteUtils.shortFromBytesLE(data, 0)
@@ -629,7 +595,7 @@ class InMotionV2Decoder : WheelDecoder {
         val modeStr = buildModeStringV14(data, 74)
         val alert = getErrorString(data, 77)
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 voltage = voltage,
                 current = current,
@@ -660,7 +626,7 @@ class InMotionV2Decoder : WheelDecoder {
 
     // ==================== V11Y Parsing ====================
 
-    private fun parseRealTimeInfoV11y(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV11y(data: ByteArray, currentState: WheelState): FrameResult? {
         if (data.size < 78) return null
 
         val voltage = ByteUtils.shortFromBytesLE(data, 0)
@@ -685,7 +651,7 @@ class InMotionV2Decoder : WheelDecoder {
         val modeStr = buildModeStringExtended(data, 74)
         val alert = getErrorString(data, 77)
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 voltage = voltage,
                 current = current,
@@ -716,21 +682,21 @@ class InMotionV2Decoder : WheelDecoder {
 
     // ==================== V9 Parsing ====================
 
-    private fun parseRealTimeInfoV9(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV9(data: ByteArray, currentState: WheelState): FrameResult? {
         // V9 uses same format as V11Y
         return parseRealTimeInfoV11y(data, currentState)
     }
 
     // ==================== V12S Parsing ====================
 
-    private fun parseRealTimeInfoV12S(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseRealTimeInfoV12S(data: ByteArray, currentState: WheelState): FrameResult? {
         // V12S uses same format as V11Y
         return parseRealTimeInfoV11y(data, currentState)
     }
 
     // ==================== Settings Parsing ====================
 
-    private fun parseSettingsV11(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV11(data: ByteArray, currentState: WheelState): FrameResult? {
         // V11 unique layout: offsets relative to data[1]
         val i = 1
         if (data.size < i + 23) return null
@@ -761,7 +727,7 @@ class InMotionV2Decoder : WheelDecoder {
         val lowBat = ((flags22 shr 2) and 0x03) != 0      // bits 2-3 → goHome
         val fanQuietMode = ((flags22 shr 4) and 0x03) != 0 // bits 4-5
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 maxSpeed = speedLim,
                 pedalTilt = pedalTilt,
@@ -781,7 +747,7 @@ class InMotionV2Decoder : WheelDecoder {
         )
     }
 
-    private fun parseSettingsV12(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV12(data: ByteArray, currentState: WheelState): FrameResult? {
         // V12 uses absolute offsets (not i-relative)
         if (data.size < 42) return null
 
@@ -800,7 +766,7 @@ class InMotionV2Decoder : WheelDecoder {
         val handleBtn = ((flags39 shr 2) and 0x01) == 0  // bit 2, inverted
         val transpMode = ((flags39 shr 6) and 0x01) != 0 // bit 6
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 maxSpeed = speedLim,
                 pedalTilt = pedalTilt,
@@ -819,7 +785,7 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Parse settings for V13/V14 layout (shared).
      */
-    private fun parseSettingsV13V14(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV13V14(data: ByteArray, currentState: WheelState): FrameResult? {
         val i = 1
         if (data.size < i + 35) return null
 
@@ -839,7 +805,7 @@ class InMotionV2Decoder : WheelDecoder {
         // data[i+31]
         val transpMode = ((data[i + 31].toInt() shr 4) and 0x01) != 0  // bit 4
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 maxSpeed = speedLim,
                 pedalTilt = pedalTilt,
@@ -854,11 +820,11 @@ class InMotionV2Decoder : WheelDecoder {
         )
     }
 
-    private fun parseSettingsV13(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV13(data: ByteArray, currentState: WheelState): FrameResult? {
         return parseSettingsV13V14(data, currentState)
     }
 
-    private fun parseSettingsV14(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV14(data: ByteArray, currentState: WheelState): FrameResult? {
         return parseSettingsV13V14(data, currentState)
     }
 
@@ -866,7 +832,7 @@ class InMotionV2Decoder : WheelDecoder {
      * Parse settings for V11Y/V9/V12S layout (shared).
      * Same as V13/V14 plus handleButton, goHome.
      */
-    private fun parseSettingsExtended(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsExtended(data: ByteArray, currentState: WheelState): FrameResult? {
         val i = 1
         if (data.size < i + 35) return null
 
@@ -890,7 +856,7 @@ class InMotionV2Decoder : WheelDecoder {
         // data[i+32]
         val goHome = ((data[i + 32].toInt() shr 2) and 0x01) != 0  // bit 2
 
-        return ProcessResult(
+        return FrameResult(
             state = currentState.copy(
                 maxSpeed = speedLim,
                 pedalTilt = pedalTilt,
@@ -907,15 +873,15 @@ class InMotionV2Decoder : WheelDecoder {
         )
     }
 
-    private fun parseSettingsV11y(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV11y(data: ByteArray, currentState: WheelState): FrameResult? {
         return parseSettingsExtended(data, currentState)
     }
 
-    private fun parseSettingsV9(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV9(data: ByteArray, currentState: WheelState): FrameResult? {
         return parseSettingsExtended(data, currentState)
     }
 
-    private fun parseSettingsV12S(data: ByteArray, currentState: WheelState): ProcessResult? {
+    private fun parseSettingsV12S(data: ByteArray, currentState: WheelState): FrameResult? {
         return parseSettingsExtended(data, currentState)
     }
 

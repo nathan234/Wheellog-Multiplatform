@@ -224,7 +224,7 @@ internal fun SliderControl(
 ) {
     val readback = control.commandId.readInt(wheelState)
     val initial = readback ?: persistedValue ?: control.defaultValue
-    var value by remember(readback, persistedValue) { mutableFloatStateOf(initial.toFloat()) }
+    var value by remember(readback) { mutableFloatStateOf(initial.toFloat()) }
 
     Column {
         Row(
@@ -243,7 +243,7 @@ internal fun SliderControl(
             onValueChange = { value = it },
             onValueChangeFinished = { onIntCommand(control.commandId, value.toInt()) },
             valueRange = control.min.toFloat()..control.max.toFloat(),
-            steps = (control.max - control.min - 1).coerceAtLeast(0)
+            steps = ((control.max - control.min) / control.step - 1).coerceAtLeast(0)
         )
     }
 }

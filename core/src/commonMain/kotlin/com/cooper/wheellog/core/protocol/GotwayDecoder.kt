@@ -501,11 +501,11 @@ class GotwayDecoder : WheelDecoder {
      * - Byte 2 bit 0: extreme mode
      * - Byte 3: braking current
      * - Byte 4 bit 0: rotation control enabled
-     * - Byte 5: cutout angle raw (0-100, display = raw + 260)
+     * - Byte 5: cutout angle in degrees (45-90)
      * - Bytes 6-17: PID tuning parameters (not stored in WheelState)
      */
     private fun processSettingsFrame(buff: ByteArray, currentState: WheelState): FrameResult {
-        val cutoutAngle = (buff[5].toInt() and 0xFF) + 260
+        val cutoutAngle = buff[5].toInt() and 0xFF
         return FrameResult(
             state = currentState.copy(cutoutAngle = cutoutAngle),
             hasNewData = false
@@ -660,8 +660,10 @@ class GotwayDecoder : WheelDecoder {
                 )
             }
             is WheelCommand.SetCutoutAngle -> {
-                // Angle is 260-360° display value; protocol sends raw 0-100 (value - 260)
-                listOf(WheelCommand.SendBytes(byteArrayOf(0x72, 0x73, (command.angle - 260).toByte())))
+                listOf(
+                    WheelCommand.SendBytes(byteArrayOf(0x72, 0x73, command.angle.toByte())),
+                    WheelCommand.SendDelayed("b".encodeToByteArray(), 200)
+                )
             }
             is WheelCommand.SetAlarmMode -> {
                 // 0=two alarms("o"), 1=one alarm("u"), 2=off("i"), 3=CF tiltback("I")

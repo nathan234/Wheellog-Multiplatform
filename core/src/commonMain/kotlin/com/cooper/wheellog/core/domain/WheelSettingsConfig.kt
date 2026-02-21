@@ -39,7 +39,7 @@ object WheelSettingsConfig {
         SettingsSection("Ride", listOf(
             ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE),
             ControlSpec.Segmented("Roll Angle", listOf("Low", "Medium", "High"), SettingsCommandId.ROLL_ANGLE_MODE),
-            ControlSpec.Slider("Cutout Angle", 260, 360, "°", 350, SettingsCommandId.CUTOUT_ANGLE)
+            ControlSpec.Slider("Cutout Angle", 45, 90, "°", 70, SettingsCommandId.CUTOUT_ANGLE, step = 5)
         )),
         SettingsSection("Audio", listOf(
             ControlSpec.Slider("Beeper Volume", 1, 9, "", 5, SettingsCommandId.BEEPER_VOLUME)

@@ -81,7 +81,8 @@ sealed class ControlSpec {
         val unit: String,
         val defaultValue: Int,
         override val commandId: SettingsCommandId,
-        val visibleWhen: SettingsCommandId? = null
+        val visibleWhen: SettingsCommandId? = null,
+        val step: Int = 1
     ) : ControlSpec()
 
     data class DangerousButton(

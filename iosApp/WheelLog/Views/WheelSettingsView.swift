@@ -144,14 +144,19 @@ struct WheelSettingsView: View {
     @ViewBuilder
     private func sliderContent(_ control: ControlSpec.Slider) -> some View {
         let key = control.commandId.name
-        let defaultVal = Double(control.defaultValue)
+        let readback = readInt(control.commandId)
+        let persistKey = "wheel_slider_\(key)"
+        let persisted: Double? = UserDefaults.standard.object(forKey: persistKey) != nil
+            ? UserDefaults.standard.double(forKey: persistKey) : nil
+        let initial = readback.map { Double($0) } ?? persisted ?? Double(control.defaultValue)
 
         SliderRow(
             label: control.label,
             value: Binding(
-                get: { sliderValues[key] ?? defaultVal },
+                get: { sliderValues[key] ?? initial },
                 set: { newValue in
                     sliderValues[key] = newValue
+                    UserDefaults.standard.set(newValue, forKey: persistKey)
                     executeCommand(control.commandId, intValue: Int32(newValue))
                 }
             ),

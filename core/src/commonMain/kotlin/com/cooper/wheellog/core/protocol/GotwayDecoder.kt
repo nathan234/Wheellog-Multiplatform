@@ -495,19 +495,22 @@ class GotwayDecoder : WheelDecoder {
     }
 
     /**
-     * Frame type 0xFF: Firmware settings (Alexovik/SmirnoV custom firmware)
+     * Frame type 0xFF: Firmware settings (Alexovik/SmirnoV custom firmware only)
      *
      * Layout:
      * - Byte 2 bit 0: extreme mode
      * - Byte 3: braking current
      * - Byte 4 bit 0: rotation control enabled
-     * - Byte 5: cutout angle in degrees (45-90)
+     * - Byte 5: rotation angle (SmirnoV-specific, not the standard cutout angle)
      * - Bytes 6-17: PID tuning parameters (not stored in WheelState)
+     *
+     * Note: Standard Begode firmware does not send this frame.
+     * The cutout angle (45-90°) on standard firmware has no readback —
+     * it is set via the W/X/digit command sequence only.
      */
     private fun processSettingsFrame(buff: ByteArray, currentState: WheelState): FrameResult {
-        val cutoutAngle = buff[5].toInt() and 0xFF
         return FrameResult(
-            state = currentState.copy(cutoutAngle = cutoutAngle),
+            state = currentState,
             hasNewData = false
         )
     }
@@ -660,9 +663,14 @@ class GotwayDecoder : WheelDecoder {
                 )
             }
             is WheelCommand.SetCutoutAngle -> {
+                // Multi-step: "W" then "X" after 200ms, then step digit after 200ms
+                // Angle 45-90° in 5° steps → digit 0-9: (angle - 45) / 5
+                val step = ((command.angle - 45) / 5).coerceIn(0, 9)
+                val param = byteArrayOf((step + 0x30).toByte())
                 listOf(
-                    WheelCommand.SendBytes(byteArrayOf(0x72, 0x73, command.angle.toByte())),
-                    WheelCommand.SendDelayed("b".encodeToByteArray(), 200)
+                    WheelCommand.SendBytes("W".encodeToByteArray()),
+                    WheelCommand.SendDelayed("X".encodeToByteArray(), 200),
+                    WheelCommand.SendDelayed(param, 200)
                 )
             }
             is WheelCommand.SetAlarmMode -> {

@@ -29,7 +29,7 @@ enum class SettingsCommandId {
         LIGHT_MODE -> state.lightMode.takeIf { it >= 0 }
         LED_MODE -> state.ledMode.takeIf { it >= 0 }
         ROLL_ANGLE_MODE -> state.rollAngle.takeIf { it >= 0 }
-        CUTOUT_ANGLE -> state.cutoutAngle.takeIf { it >= 0 }
+        CUTOUT_ANGLE -> null // No readback from standard Begode firmware
         MAX_SPEED -> state.maxSpeed.takeIf { it >= 0 }
         PEDAL_TILT -> state.pedalTilt.takeIf { it >= 0 }
         PEDAL_SENSITIVITY -> state.pedalSensitivity.takeIf { it >= 0 }

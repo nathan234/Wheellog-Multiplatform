@@ -331,15 +331,10 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `readInt returns cutoutAngle from WheelState`() {
-        val state = WheelState(cutoutAngle = 350)
-        assertEquals(350, SettingsCommandId.CUTOUT_ANGLE.readInt(state))
-    }
-
-    @Test
-    fun `readInt returns null for cutoutAngle when unknown`() {
-        val state = WheelState(cutoutAngle = -1)
-        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(state))
+    fun `readInt returns null for cutoutAngle - no readback from standard firmware`() {
+        val state = WheelState(cutoutAngle = 70)
+        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(state),
+            "cutoutAngle has no readback from standard Begode firmware")
     }
 
     @Test

@@ -171,10 +171,11 @@ class GotwayDecoderTest {
         state = result2.newState
 
         // Original expected values from VeteranAdapterTest
+        // gotwayNegative=0 (default) → abs() applied to speed and phaseCurrent
         assertEquals(0, abs(state.speed / 100))
         assertEquals(50, state.temperature / 100)
         assertEquals(9686, state.voltage) // 96.86V
-        assertEquals(-340, state.phaseCurrent) // -3.4A * 100 -> stored as * 10
+        assertEquals(340, state.phaseCurrent) // raw -34 * 10 = -340, abs() → 340
         assertEquals(15349L, state.wheelDistance)
         assertEquals(15349L, state.totalDistance)
         assertEquals(90, state.batteryLevel)

@@ -128,11 +128,13 @@ class GotwayDecoder : WheelDecoder {
             }
 
             // Process each byte through the unpacker
+            var frameProcessed = false
             for (byte in data) {
                 if (unpacker.addChar(byte.toInt() and 0xFF)) {
                     val buff = unpacker.getBuffer()
                     val result = processFrame(buff, newState, config)
                     if (result != null) {
+                        frameProcessed = true
                         newState = result.state
                         // OR semantics: sticky true once any frame produces new data.
                         // Intentionally different from legacy which overwrites per-frame.
@@ -166,7 +168,7 @@ class GotwayDecoder : WheelDecoder {
                 }
             }
 
-            if (hasNewData || newState != currentState) {
+            if (frameProcessed || hasNewData || newState != currentState) {
                 DecodedData(
                     newState = newState.copy(
                         bms1 = bms1.toSnapshot(),

@@ -412,7 +412,7 @@ class VeteranDecoderComparisonTest {
     }
 
     @Test
-    fun `decode veteran negative speed preserved when raw value is negative`() {
+    fun `decode veteran negative speed becomes absolute when gotwayNegative is 0`() {
         // Build a packet with negative raw speed to test sign handling
         // Header: DC 5A 5C 20
         // Voltage at bytes 4-5: 9500 = 0x251C
@@ -422,15 +422,16 @@ class VeteranDecoderComparisonTest {
 
         decoder.reset()
         var state = defaultState
+        // defaultConfig has gotwayNegative=0 → abs() applied
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
         if (result1 != null) state = result1.newState
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
         assertTrue(result2?.hasNewData == true, "Should decode data")
-        // Raw speed = -274, * 10 = -2740, * veteranNegative(1) = -2740
-        assertEquals(-2740, result2!!.newState.speed,
-            "Negative speed should be preserved (-27.40 km/h)")
-        assertTrue(result2.newState.speed < 0, "Speed should be negative")
+        // Raw speed = -274, * 10 = -2740, abs() → 2740
+        assertEquals(2740, result2!!.newState.speed,
+            "gotwayNegative=0: speed should be absolute (27.40 km/h)")
+        assertTrue(result2.newState.speed > 0, "Speed should be positive with gotwayNegative=0")
     }
 
     // ==================== Sherman S Variant Header ====================

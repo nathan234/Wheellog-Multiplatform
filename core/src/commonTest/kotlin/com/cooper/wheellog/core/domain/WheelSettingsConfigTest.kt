@@ -20,14 +20,13 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `Gotway has 5 sections - Lighting, Ride, Speed, Audio, Dangerous`() {
+    fun `Gotway has 4 sections - Lighting, Ride, Audio, Dangerous`() {
         val sections = WheelSettingsConfig.sections(WheelType.GOTWAY)
-        assertEquals(5, sections.size)
+        assertEquals(4, sections.size)
         assertEquals("Lighting", sections[0].title)
         assertEquals("Ride", sections[1].title)
-        assertEquals("Speed", sections[2].title)
-        assertEquals("Audio", sections[3].title)
-        assertEquals("Dangerous Actions", sections[4].title)
+        assertEquals("Audio", sections[2].title)
+        assertEquals("Dangerous Actions", sections[3].title)
     }
 
     @Test
@@ -139,14 +138,14 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `Gotway has Max Speed slider 0-99 in Speed section`() {
-        val speed = WheelSettingsConfig.sections(WheelType.GOTWAY)[2]
-        assertEquals(1, speed.controls.size)
-        val slider = speed.controls[0] as ControlSpec.Slider
-        assertEquals("Max Speed", slider.label)
-        assertEquals(0, slider.min)
-        assertEquals(99, slider.max)
-        assertEquals("km/h", slider.unit)
+    fun `Gotway has Beeper Volume slider 1-9 in Audio section`() {
+        val audio = WheelSettingsConfig.sections(WheelType.GOTWAY)[2]
+        assertEquals("Audio", audio.title)
+        assertEquals(1, audio.controls.size)
+        val slider = audio.controls[0] as ControlSpec.Slider
+        assertEquals("Beeper Volume", slider.label)
+        assertEquals(1, slider.min)
+        assertEquals(9, slider.max)
     }
 
     @Test
@@ -387,10 +386,10 @@ class WheelSettingsConfigTest {
     @Test
     fun `Sliders without visibleWhen have null gating`() {
         val gotwaySections = WheelSettingsConfig.sections(WheelType.GOTWAY)
-        val maxSpeed = gotwaySections[2].controls[0] as ControlSpec.Slider
-        assertNull(maxSpeed.visibleWhen)
+        val cutoutAngle = gotwaySections[1].controls[2] as ControlSpec.Slider
+        assertNull(cutoutAngle.visibleWhen)
 
-        val beeperVolume = gotwaySections[3].controls[0] as ControlSpec.Slider
+        val beeperVolume = gotwaySections[2].controls[0] as ControlSpec.Slider
         assertNull(beeperVolume.visibleWhen)
     }
 

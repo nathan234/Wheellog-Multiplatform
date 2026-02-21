@@ -147,13 +147,17 @@ struct WheelSettingsContent: View {
                 get: { sliderValues[key] ?? initial },
                 set: { newValue in
                     sliderValues[key] = newValue
-                    UserDefaults.standard.set(newValue, forKey: persistKey)
-                    executeCommand(control.commandId, intValue: Int32(newValue))
                 }
             ),
             range: Double(control.min)...Double(control.max),
             unit: control.unit,
-            step: Double(control.step)
+            step: Double(control.step),
+            onEditingChanged: { editing in
+                if !editing, let value = sliderValues[key] {
+                    UserDefaults.standard.set(value, forKey: persistKey)
+                    executeCommand(control.commandId, intValue: Int32(value))
+                }
+            }
         )
     }
 
@@ -249,6 +253,7 @@ private struct SliderRow: View {
     let range: ClosedRange<Double>
     let unit: String
     let step: Double
+    var onEditingChanged: ((Bool) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -258,7 +263,9 @@ private struct SliderRow: View {
                 Text("\(Int(value))\(unit.isEmpty ? "" : " \(unit)")")
                     .foregroundColor(.secondary)
             }
-            Slider(value: $value, in: range, step: step)
+            Slider(value: $value, in: range, step: step) { editing in
+                onEditingChanged?(editing)
+            }
         }
     }
 }

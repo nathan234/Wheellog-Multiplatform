@@ -139,6 +139,20 @@ class VeteranUnpacker {
  * - Oryx
  * - Nosfet Apex/Aero
  *
+ * Data starts streaming immediately — no init commands needed.
+ * Model is detected from the mVer byte in the first valid frame.
+ *
+ * Frame format (reassembled by VeteranUnpacker):
+ * - Bytes 0-1:  Voltage (BE, ÷100)
+ * - Bytes 2-3:  Speed (BE, ÷10, signed)
+ * - Bytes 4-7:  Distance (BE, ÷1000)
+ * - Bytes 8-9:  Phase current (BE, signed)
+ * - Bytes 10-11: Temperature (BE, ÷340 + 36.53)
+ * - Byte 20:    mVer (model identifier)
+ *   0/1=Sherman, 2=Abrams, 3=Sherman S, 4=Patton, 5=Lynx, etc.
+ *
+ * State machine: none — always ready after first frame with valid mVer.
+ *
  * This class is thread-safe.
  */
 class VeteranDecoder : WheelDecoder {

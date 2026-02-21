@@ -373,6 +373,17 @@ enum class NinebotZConnectionState(val value: Int) {
  * - Dual BMS support with cell voltage, temperature, and health data
  * - Connection state machine for proper handshake sequence
  *
+ * Uses CAN messages over BLE with gamma XOR encryption.
+ * Connection requires a 14-step handshake before live data flows.
+ *
+ * State machine:
+ *   INIT → WAIT_KEY → SERIAL_NUMBER → VERSION → PARAMS1 → PARAMS2 → PARAMS3
+ *     → BMS1_SN → BMS1_LIFE → BMS1_CELLS → BMS2_SN → BMS2_LIFE → BMS2_CELLS → READY
+ *                                            └── skipped when bmsReadingMode=false ──┘
+ *
+ * Each state sends the corresponding request via getKeepAliveCommand().
+ * State advances when the matching response is received in decode().
+ *
  * This class is thread-safe.
  */
 class NinebotZDecoder : WheelDecoder {

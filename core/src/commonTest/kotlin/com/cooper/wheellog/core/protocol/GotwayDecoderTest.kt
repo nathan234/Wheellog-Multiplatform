@@ -29,13 +29,6 @@ class GotwayDecoderTest {
         useCustomPercents = false
     )
 
-    // Helper to convert hex string to ByteArray
-    private fun String.hexToByteArray(): ByteArray {
-        val hex = this.replace(" ", "")
-        return ByteArray(hex.length / 2) { i ->
-            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-        }
-    }
 
     @Test
     fun `decode with corrupted data 1-30 units returns null`() {
@@ -830,13 +823,4 @@ class GotwayDecoderTest {
         return packet
     }
 
-    // Helper function to convert short to big-endian bytes
-    private fun shortToBytesBE(value: Short): ByteArray {
-        return byteArrayOf(
-            ((value.toInt() shr 8) and 0xFF).toByte(),
-            (value.toInt() and 0xFF).toByte()
-        )
-    }
-
-    private fun shortToBytesBE(value: Int): ByteArray = shortToBytesBE(value.toShort())
 }

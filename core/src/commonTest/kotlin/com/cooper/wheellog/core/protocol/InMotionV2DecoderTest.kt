@@ -32,13 +32,6 @@ class InMotionV2DecoderTest {
     private val defaultState = WheelState()
     private val defaultConfig = DecoderConfig()
 
-    // Helper to convert hex string to byte array
-    private fun String.hexToByteArray(): ByteArray {
-        val hex = this.replace(" ", "").uppercase()
-        return ByteArray(hex.length / 2) { i ->
-            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-        }
-    }
 
     // ==================== Model Detection ====================
 

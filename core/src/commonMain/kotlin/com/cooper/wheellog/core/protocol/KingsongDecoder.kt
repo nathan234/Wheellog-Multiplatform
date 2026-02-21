@@ -19,6 +19,21 @@ import kotlin.math.roundToInt
  * - KS-S18, KS-S16, KS-S19, KS-S20, KS-S22
  * - KS-F18P, KS-F22P
  *
+ * Frame format: Fixed 20 bytes
+ * - Bytes 0-1:  Header (AA 55)
+ * - Bytes 2-15: Data payload (varies by frame type)
+ * - Byte 16:    Frame type
+ * - Byte 17:    0x14 (constant)
+ * - Bytes 18-19: Footer (5A 5A)
+ *
+ * Frame types:
+ *   0xA9 = Live telemetry    0xB9 = Distance/time
+ *   0xBB = Name/type         0xB3 = Serial number
+ *   0xF5 = CPU load/PWM      0xF6 = Speed limit
+ *   0xA4/0xB5 = Alerts       0xF1/0xF2 = BMS data
+ *   0xE1/0xE2 = BMS serial   0xE5/0xE6 = BMS firmware
+ *   0xD0 = Extended BMS (F-series)
+ *
  * Thread-safe: All mutable state is protected by a lock.
  */
 class KingsongDecoder : WheelDecoder {
@@ -56,16 +71,16 @@ class KingsongDecoder : WheelDecoder {
 
         return stateLock.withLock {
             val newState = when (frameType) {
-                0xA9 -> processLiveData(data, currentState, config)
-                0xB9 -> processDistanceTimeData(data, currentState)
-                0xBB -> processNameTypeData(data, currentState)
-                0xB3 -> processSerialNumber(data, currentState, commands)
-                0xF5 -> processCpuLoadPwm(data, currentState)
-                0xF6 -> processSpeedLimit(data, currentState)
-                0xA4, 0xB5 -> processMaxSpeedAlerts(data, currentState, commands)
-                0xF1, 0xF2 -> processBmsData(data, currentState, frameType)
-                0xE1, 0xE2 -> processBmsSerial(data, frameType)
-                0xE5, 0xE6 -> processBmsFirmware(data, frameType)
+                FrameType.LIVE_DATA -> processLiveData(data, currentState, config)
+                FrameType.DISTANCE_TIME -> processDistanceTimeData(data, currentState)
+                FrameType.NAME_TYPE -> processNameTypeData(data, currentState)
+                FrameType.SERIAL_NUMBER -> processSerialNumber(data, currentState, commands)
+                FrameType.CPU_LOAD_PWM -> processCpuLoadPwm(data, currentState)
+                FrameType.SPEED_LIMIT -> processSpeedLimit(data, currentState)
+                FrameType.MAX_SPEED_ALERTS, FrameType.MAX_SPEED_ALERTS_2 -> processMaxSpeedAlerts(data, currentState, commands)
+                FrameType.BMS_DATA_1, FrameType.BMS_DATA_2 -> processBmsData(data, currentState, frameType)
+                FrameType.BMS_SERIAL_1, FrameType.BMS_SERIAL_2 -> processBmsSerial(data, frameType)
+                FrameType.BMS_FW_1, FrameType.BMS_FW_2 -> processBmsFirmware(data, frameType)
                 else -> null
             }
 
@@ -201,7 +216,7 @@ class KingsongDecoder : WheelDecoder {
         serialNumber = snData.decodeToString().trim { it <= ' ' || it == '\u0000' }
 
         // Request alarm and speed settings after getting serial
-        commands.add(WheelCommand.SendBytes(createRequest(0x98)))
+        commands.add(WheelCommand.SendBytes(createRequest(InitCmd.REQUEST_ALARMS)))
 
         return currentState.copy(serialNumber = serialNumber)
     }
@@ -242,10 +257,10 @@ class KingsongDecoder : WheelDecoder {
         ksAlarm2Speed = data[6].toInt() and 0xFF
         ksAlarm1Speed = data[4].toInt() and 0xFF
 
-        // Respond to 0xA4 with 0x98
-        if ((data[16].toInt() and 0xFF) == 0xA4) {
+        // Respond to 0xA4 with alarm settings request
+        if ((data[16].toInt() and 0xFF) == FrameType.MAX_SPEED_ALERTS) {
             val response = data.copyOf()
-            response[16] = 0x98.toByte()
+            response[16] = InitCmd.REQUEST_ALARMS.toByte()
             commands.add(WheelCommand.SendBytes(response))
         }
 
@@ -567,7 +582,7 @@ class KingsongDecoder : WheelDecoder {
     override fun buildCommand(command: WheelCommand): List<WheelCommand> {
         return when (command) {
             is WheelCommand.Beep -> {
-                listOf(WheelCommand.SendBytes(createRequest(0x88)))
+                listOf(WheelCommand.SendBytes(createRequest(CmdByte.BEEP)))
             }
             is WheelCommand.SetLight -> {
                 // SetLight(true) = light on = mode 1, SetLight(false) = light off = mode 0
@@ -579,33 +594,33 @@ class KingsongDecoder : WheelDecoder {
                 val data = getEmptyRequest()
                 data[2] = (command.mode + 0x12).toByte()
                 data[3] = 0x01
-                data[16] = 0x73
+                data[16] = CmdByte.LIGHT_MODE.toByte()
                 listOf(WheelCommand.SendBytes(data))
             }
             is WheelCommand.SetPedalsMode -> {
                 val data = getEmptyRequest()
                 data[2] = command.mode.toByte()
                 data[3] = 0xE0.toByte()
-                data[16] = 0x87.toByte()
+                data[16] = CmdByte.PEDALS_MODE.toByte()
                 data[17] = 0x15
                 listOf(WheelCommand.SendBytes(data))
             }
             is WheelCommand.Calibrate -> {
-                listOf(WheelCommand.SendBytes(createRequest(0x89)))
+                listOf(WheelCommand.SendBytes(createRequest(CmdByte.CALIBRATE)))
             }
             is WheelCommand.PowerOff -> {
-                listOf(WheelCommand.SendBytes(createRequest(0x40)))
+                listOf(WheelCommand.SendBytes(createRequest(CmdByte.POWER_OFF)))
             }
             is WheelCommand.SetLedMode -> {
                 val data = getEmptyRequest()
                 data[2] = command.mode.toByte()
-                data[16] = 0x6C
+                data[16] = CmdByte.LED_MODE.toByte()
                 listOf(WheelCommand.SendBytes(data))
             }
             is WheelCommand.SetStrobeMode -> {
                 val data = getEmptyRequest()
                 data[2] = command.mode.toByte()
-                data[16] = 0x53
+                data[16] = CmdByte.STROBE_MODE.toByte()
                 listOf(WheelCommand.SendBytes(data))
             }
             is WheelCommand.SetKingsongAlarms -> {
@@ -614,11 +629,11 @@ class KingsongDecoder : WheelDecoder {
                 data[4] = command.alarm2Speed.toByte()
                 data[6] = command.alarm3Speed.toByte()
                 data[8] = command.maxSpeed.toByte()
-                data[16] = 0x85.toByte()
+                data[16] = CmdByte.ALARM_SPEED.toByte()
                 listOf(WheelCommand.SendBytes(data))
             }
             is WheelCommand.RequestAlarmSettings -> {
-                listOf(WheelCommand.SendBytes(createRequest(0x98)))
+                listOf(WheelCommand.SendBytes(createRequest(InitCmd.REQUEST_ALARMS)))
             }
             is WheelCommand.RequestBmsData -> {
                 // bmsNum: 1 or 2, dataType: 0=serial, 1=moreData, 2=firmware
@@ -651,10 +666,44 @@ class KingsongDecoder : WheelDecoder {
 
     override fun getInitCommands(): List<WheelCommand> {
         return listOf(
-            WheelCommand.SendBytes(createRequest(0x9B)), // Request name
-            WheelCommand.SendDelayed(createRequest(0x63), 100), // Request serial
-            WheelCommand.SendDelayed(createRequest(0x98), 200)  // Request alarm settings
+            WheelCommand.SendBytes(createRequest(InitCmd.REQUEST_NAME)),
+            WheelCommand.SendDelayed(createRequest(InitCmd.REQUEST_SERIAL), 100),
+            WheelCommand.SendDelayed(createRequest(InitCmd.REQUEST_ALARMS), 200)
         )
+    }
+
+    private object FrameType {
+        const val LIVE_DATA = 0xA9
+        const val DISTANCE_TIME = 0xB9
+        const val NAME_TYPE = 0xBB
+        const val SERIAL_NUMBER = 0xB3
+        const val CPU_LOAD_PWM = 0xF5
+        const val SPEED_LIMIT = 0xF6
+        const val MAX_SPEED_ALERTS = 0xA4
+        const val MAX_SPEED_ALERTS_2 = 0xB5
+        const val BMS_DATA_1 = 0xF1
+        const val BMS_DATA_2 = 0xF2
+        const val BMS_SERIAL_1 = 0xE1
+        const val BMS_SERIAL_2 = 0xE2
+        const val BMS_FW_1 = 0xE5
+        const val BMS_FW_2 = 0xE6
+    }
+
+    private object InitCmd {
+        const val REQUEST_NAME = 0x9B
+        const val REQUEST_SERIAL = 0x63
+        const val REQUEST_ALARMS = 0x98
+    }
+
+    private object CmdByte {
+        const val BEEP = 0x88
+        const val LIGHT_MODE = 0x73
+        const val PEDALS_MODE = 0x87
+        const val CALIBRATE = 0x89
+        const val POWER_OFF = 0x40
+        const val LED_MODE = 0x6C
+        const val STROBE_MODE = 0x53
+        const val ALARM_SPEED = 0x85
     }
 
     companion object {

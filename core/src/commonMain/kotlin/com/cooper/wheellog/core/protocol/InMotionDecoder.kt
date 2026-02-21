@@ -19,7 +19,18 @@ import kotlin.math.roundToInt
  * - R-series, L6, Lively
  *
  * Frame format: AA AA [data with 0xA5 escapes] [checksum] 55 55
- * CAN message structure: 4-byte ID, 8-byte data, len, ch, format, type, [extended_data]
+ *
+ * CAN message fields (after AA AA header + escape removal):
+ * - Bytes 0-3:  CAN ID (identifies message type)
+ *     0x0F550113 = GetFastInfo (live telemetry)
+ *     0x0F550114 = GetSlowInfo (model, version, serial, settings)
+ *     0x0F780101 = Alert
+ * - Bytes 4-11: CAN data (8 bytes)
+ * - Byte 12:    Length
+ * - Byte 13:    Channel
+ * - Byte 14:    Format (0=standard, 1=extended)
+ * - Byte 15:    Type
+ * - Bytes 16+:  Extended data (when format=1)
  *
  * This class is thread-safe.
  */

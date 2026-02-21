@@ -52,6 +52,30 @@ Some decoders have a paired `*Unpacker` for low-level frame reassembly; others h
 
 Supporting files: `WheelDecoder.kt` (interface), `DefaultWheelDecoderFactory.kt` (creates decoder by wheel type), `AutoDetectDecoder.kt` (identifies wheel type from raw packets).
 
+### Decoder Data Flow
+
+```
+BLE notification → WheelConnectionManager.onDataReceived(bytes)
+                     ↓
+              decoder.decode(bytes, currentState, config)
+                     ↓ (returns DecodedData)
+              ┌──────┴──────┐
+              │              │
+         newState        commands
+              ↓              ↓
+     _wheelState.emit()  sendCommand() → bleManager.write()
+              ↓
+        UI observes via StateFlow (Android) / polling (iOS)
+```
+
+Lifecycle:
+1. **Connect** → `WheelTypeDetector` identifies wheel → `DefaultWheelDecoderFactory.createDecoder()`
+2. **Init** → `decoder.getInitCommands()` sent to wheel (identity requests)
+3. **Decode loop** → each BLE notification calls `decode()`, updates state, sends response commands
+4. **Ready** → `decoder.isReady()` returns true → `ConnectionState.Connected` → keep-alive starts
+5. **Keep-alive** → `decoder.getKeepAliveCommand()` sent at `keepAliveIntervalMs` interval
+6. **Disconnect** → `decoder.reset()` → timers stopped → state cleared
+
 ## Decoder Mode (Android)
 
 Users can choose which decoder to use:
@@ -196,12 +220,48 @@ Every new KMP module (`core/src/commonMain/`) should have a corresponding test f
 
 Platform-specific UI (Compose, SwiftUI) is verified via build compilation + manual testing.
 
+### Test Patterns
+
+Decoder tests follow a consistent pattern:
+
+1. **Instantiate decoder directly**: `val decoder = GotwayDecoder()`
+2. **Create default state and config**: `val state = WheelState()`, `val config = DecoderConfig()`
+3. **Build test frames**: Use hex strings or frame builders to create raw byte arrays
+4. **Feed to decoder**: `val result = decoder.decode(frame, state, config)`
+5. **Assert on result**: Check `result.newState.speed`, `result.commands`, etc.
+
+Shared test utilities are in `core/src/commonTest/.../protocol/TestUtils.kt`:
+- `"55AA...".hexToByteArray()` — convert hex string to bytes
+- `shortToBytesBE(value)` — encode Int as 2-byte big-endian array
+
+Frame builders (decoder-specific, in respective test files):
+- `buildLiveDataFrame()` / `buildGotwayLiveDataFrame()` — Gotway frame 0x00
+- `buildIM2Frame(flags, command, data)` — InMotion V2 message with escaping + checksum
+- `buildSettingsFrame(payload)` — InMotion V2 settings frame
+
 ### iOS Testing on Simulator
 
 BLE is not available on iOS Simulator. Use the test mode instead:
 1. Run app on simulator
 2. Tap "Test KMP Decoder" button
 3. Verifies decoder with real Kingsong packets (12% battery, 13°C)
+
+## Common Pitfalls
+
+Protocol decoder gotchas discovered during development:
+
+- **GotwayDecoder retry counter**: `infoAttempt` is 0-indexed and compared with `<`. Fallback triggers
+  when counter **reaches** `MAX_INFO_ATTEMPTS` (50), not after 50 iterations — loop needs 51 iterations
+  to see the fallback.
+- **InMotionV2 MAIN_INFO sub-types**: Command `0x02` (MAIN_INFO) is used for car type, serial, AND
+  version requests. The sub-type is in `data[0]`: `0x01`=car type, `0x02`=serial, `0x06`=versions.
+  Don't confuse the command byte with the sub-type.
+- **InMotionV2 response bit**: Response frames have command byte OR'd with `0x80`
+  (e.g., SETTINGS `0x20` → response `0xA0`). Mask with `0x7F` to get the base command.
+- **NinebotZ state ordering**: The 14 connection states must be traversed in order — skipping states
+  causes the wheel to stop responding. BMS states are conditional on `bmsReadingMode`.
+- **Kingsong 0xA4 acknowledgment**: When a `0xA4` frame is received, the decoder must respond with a
+  `0x98` (alarm settings request) command. This is done via the `commands` return list from `decode()`.
 
 ## Branch
 

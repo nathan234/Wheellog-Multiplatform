@@ -21,9 +21,23 @@ import kotlin.math.roundToInt
  * - Header: AA AA
  * - Flags: 0x11 (Initial) or 0x14 (Default)
  * - Length: Data length + 1
- * - Command: Command byte (masked with 0x7F)
+ * - Command: Command byte (masked with 0x7F for base command)
  * - Data: Variable length payload
  * - Checksum: XOR of all bytes from flags to end of data
+ *
+ * MAIN_INFO (0x02) sub-types (in data[0]):
+ *   0x01 = Car type (model detection)
+ *   0x02 = Serial number
+ *   0x06 = Software/hardware versions
+ *
+ * Keep-alive state machine (implicit, via getKeepAliveCommand):
+ *   !modelDetected       → request car type (Flag.INITIAL, Command.MAIN_INFO, 0x01)
+ *   serial empty         → request serial   (Flag.INITIAL, Command.MAIN_INFO, 0x02)
+ *   version empty        → request versions (Flag.INITIAL, Command.MAIN_INFO, 0x06)
+ *   fully initialized    → request live data (Flag.DEFAULT, Command.REAL_TIME_INFO)
+ *
+ * Response bit: Response frames have command byte OR'd with 0x80
+ * (e.g., SETTINGS 0x20 → response 0xA0). Mask with 0x7F to get the base command.
  *
  * This class is thread-safe.
  */

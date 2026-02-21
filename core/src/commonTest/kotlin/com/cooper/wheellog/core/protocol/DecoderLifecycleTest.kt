@@ -21,18 +21,6 @@ class DecoderLifecycleTest {
     private val defaultState = WheelState()
     private val defaultConfig = DecoderConfig()
 
-    // Helper to convert hex string to ByteArray
-    private fun String.hexToByteArray(): ByteArray {
-        val hex = this.replace(" ", "")
-        return ByteArray(hex.length / 2) { i ->
-            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-        }
-    }
-
-    private fun shortToBytesBE(value: Int): ByteArray = byteArrayOf(
-        ((value shr 8) and 0xFF).toByte(),
-        (value and 0xFF).toByte()
-    )
 
     /**
      * Build a Gotway frame 0x00 (live data) with default values.

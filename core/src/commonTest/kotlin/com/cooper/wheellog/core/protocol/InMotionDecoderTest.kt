@@ -19,13 +19,6 @@ class InMotionDecoderTest {
         useCustomPercents = false
     )
 
-    // Helper to convert hex string to ByteArray
-    private fun String.hexToByteArray(): ByteArray {
-        val hex = this.replace(" ", "")
-        return ByteArray(hex.length / 2) { i ->
-            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-        }
-    }
 
     @Test
     fun `InMotionUnpacker handles header correctly`() {

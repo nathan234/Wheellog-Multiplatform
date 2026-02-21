@@ -23,6 +23,16 @@ import kotlin.math.abs
  * - CAN message (source, destination, parameter, data)
  * - CRC16 checksum
  *
+ * CAN message structure (after decryption):
+ * - Byte 0: Source address
+ * - Byte 1: Destination address
+ * - Byte 2: Command type (Read=0x01, Write=0x03, Get=0x04)
+ * - Byte 3: Parameter type (SerialNumber=0x10, Firmware=0x1A, LiveData=0xB0, etc.)
+ * - Bytes 4+: Data payload
+ *
+ * State machine: WAITING_SERIAL → WAITING_VERSION → READY
+ *   Init sends serial request; keep-alive advances through states.
+ *
  * Uses gamma XOR encryption with a 16-byte key.
  */
 class NinebotDecoder(

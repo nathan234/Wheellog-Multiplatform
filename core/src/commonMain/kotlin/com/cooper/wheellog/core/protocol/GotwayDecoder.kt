@@ -19,6 +19,28 @@ import kotlin.math.roundToLong
  * - Freestyl3r (custom firmware with hardware PWM)
  * - SmirnoV/SV (Alexovik custom firmware)
  *
+ * Frame format (reassembled by GotwayUnpacker):
+ * - Bytes 0-1:  Header (55 AA)
+ * - Bytes 2-3:  Voltage (BE)
+ * - Bytes 4-5:  Speed (BE, signed)
+ * - Bytes 6-9:  Distance (BE)
+ * - Bytes 10-11: Current (BE, signed)
+ * - Bytes 12-13: Temperature (BE)
+ * - Byte 18:    Frame type
+ * - Byte 19:    Padding (5A 5A)
+ *
+ * Frame types:
+ *   0x00 = Live telemetry (speed, voltage, current, temp, distance)
+ *   0x01 = Extended data (true voltage, BMS temps)
+ *   0x02/0x03 = BMS cell voltages
+ *   0x04 = Total distance, settings, alerts
+ *   0x07 = Battery current, motor temperature
+ *   0xFF = Firmware settings
+ *
+ * Init commands: "V" (firmware), "b", "N" (name), "b"
+ * Retry: re-sends "V"/"N" via getKeepAliveCommand until both fw and model
+ * are populated (max 50 attempts).
+ *
  * This class is thread-safe.
  */
 class GotwayDecoder : WheelDecoder {
@@ -43,6 +65,15 @@ class GotwayDecoder : WheelDecoder {
     private companion object {
         private const val MAX_INFO_ATTEMPTS = 50
         private const val RATIO_GW = 0.875
+
+        // Frame types (byte 18 of unpacked frame)
+        private const val FRAME_LIVE_DATA = 0x00
+        private const val FRAME_EXTENDED = 0x01
+        private const val FRAME_BMS_CELLS_1 = 0x02
+        private const val FRAME_BMS_CELLS_2 = 0x03
+        private const val FRAME_TOTAL_DISTANCE = 0x04
+        private const val FRAME_CURRENT_TEMP = 0x07
+        private const val FRAME_SETTINGS = 0xFF
     }
 
     // BMS state (mutable during decode)
@@ -164,12 +195,12 @@ class GotwayDecoder : WheelDecoder {
         val gotwayNegative = config.gotwayNegative
 
         return when (frameType) {
-            0x00 -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative)
-            0x01 -> processExtendedFrame(buff, currentState, isAlexovikFW)
-            0x02, 0x03 -> processBmsCellsFrame(buff, frameType)
-            0x04 -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW)
-            0x07 -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)
-            0xFF -> processSettingsFrame(buff, isAlexovikFW)
+            FRAME_LIVE_DATA -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative)
+            FRAME_EXTENDED -> processExtendedFrame(buff, currentState, isAlexovikFW)
+            FRAME_BMS_CELLS_1, FRAME_BMS_CELLS_2 -> processBmsCellsFrame(buff, frameType)
+            FRAME_TOTAL_DISTANCE -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW)
+            FRAME_CURRENT_TEMP -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)
+            FRAME_SETTINGS -> processSettingsFrame(buff, isAlexovikFW)
             else -> null
         }
     }

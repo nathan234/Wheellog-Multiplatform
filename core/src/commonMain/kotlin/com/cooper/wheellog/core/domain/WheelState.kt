@@ -13,58 +13,73 @@ package com.cooper.wheellog.core.domain
  * - Distance: meters
  */
 data class WheelState(
-    // Core telemetry
+    // Core telemetry — populated by all decoders (KS, GW, VT, NB, NZ, IM1, IM2)
     val speed: Int = 0,
     val voltage: Int = 0,
     val current: Int = 0,
+    /** Phase current in 1/100 A. Populated by: GW, VT. */
     val phaseCurrent: Int = 0,
     val power: Int = 0,
     val temperature: Int = 0,
+    /** Secondary temperature (motor/board). Populated by: KS, GW, IM1, IM2. */
     val temperature2: Int = 0,
     val batteryLevel: Int = 0,
 
-    // Distance tracking
+    // Distance tracking — populated by all decoders
     val totalDistance: Long = 0,
     val wheelDistance: Long = 0,
 
-    // PWM and output
+    // PWM and output — populated by: KS, GW, VT, IM2
     val output: Int = 0,
     val calculatedPwm: Double = 0.0,
 
     // Orientation
+    /** Pitch angle in degrees. Populated by: VT, IM1, IM2. */
     val angle: Double = 0.0,
+    /** Roll angle in degrees. Populated by: IM1, IM2. */
     val roll: Double = 0.0,
 
-    // Motor and performance
+    // Motor and performance — IM2 only unless noted
+    /** Torque in Nm. Populated by: IM2. */
     val torque: Double = 0.0,
+    /** Motor power in W. Populated by: IM2. */
     val motorPower: Double = 0.0,
+    /** CPU temperature in °C. Populated by: IM2. */
     val cpuTemp: Int = 0,
+    /** IMU temperature in °C. Populated by: IM2. */
     val imuTemp: Int = 0,
+    /** CPU load percentage. Populated by: KS. */
     val cpuLoad: Int = 0,
 
-    // Limits
+    // Limits — populated by: IM2
     val speedLimit: Double = 0.0,
     val currentLimit: Double = 0.0,
 
     // Status flags
+    /** Fan status. Populated by: KS. */
     val fanStatus: Int = 0,
+    /** Charging status. Populated by: KS. */
     val chargingStatus: Int = 0,
+    /** Wheel alarm active. Populated by: GW. */
     val wheelAlarm: Boolean = false,
 
-    // Wheel identification
+    // Wheel identification — populated by all decoders (sources differ per decoder)
     val wheelType: WheelType = WheelType.Unknown,
+    /** Wheel BLE name. Populated by: KS. */
     val name: String = "",
     val model: String = "",
+    /** Ride mode string. Populated by: KS, IM1, IM2. */
     val modeStr: String = "",
     val version: String = "",
+    /** Serial number. Populated by: KS, NB, NZ, IM1, IM2. */
     val serialNumber: String = "",
     val btName: String = "",
 
-    // BMS data
+    // BMS data — populated by: KS, GW, VT, NZ
     val bms1: BmsSnapshot? = null,
     val bms2: BmsSnapshot? = null,
 
-    // Wheel settings reported via BLE
+    // Wheel settings reported via BLE — populated by: GW, KS, NZ
     val inMiles: Boolean = false,
     val pedalsMode: Int = -1,       // 0=Hard, 1=Medium, 2=Soft (-1=unknown)
     val speedAlarms: Int = -1,      // 0=alarms on, 1=off level 1, 2=off level 2
@@ -74,7 +89,7 @@ data class WheelState(
     val ledMode: Int = -1,          // 0-9 LED pattern
     val cutoutAngle: Int = -1,      // degrees (45-90, -1=unknown)
 
-    // InMotionV2 settings reported via BLE
+    // InMotionV2 settings reported via BLE — populated by: IM2 only
     val maxSpeed: Int = -1,         // km/h (-1=unknown)
     val pedalTilt: Int = -1,        // 1/10 degree (-1=unknown)
     val pedalSensitivity: Int = -1, // raw 0-100 (-1=unknown)
@@ -91,6 +106,7 @@ data class WheelState(
 
     // Error tracking
     val error: String = "",
+    /** Alert string. Populated by: GW, IM1, IM2. */
     val alert: String = "",
 
     // Timestamp of last update

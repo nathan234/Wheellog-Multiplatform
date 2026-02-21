@@ -52,6 +52,22 @@ import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.utils.DisplayUtils
 import java.util.Locale
 
+// CROSS-PLATFORM SYNC: This screen mirrors iosApp/WheelLog/Views/DashboardView.swift.
+// When adding, removing, or reordering sections, update the counterpart.
+//
+// Shared sections (in order):
+//  1. Connection banner (Android only — iOS uses system indicator)
+//  2. Alarm banner
+//  3. Speed gauge (tappable → metric detail)
+//  4. 2x3 Gauge Tile Grid: Speed, Battery, Power, PWM, Temp, GPS Speed
+//  5. Stats: Voltage, Current, Trip Distance, Total Distance
+//  6. Wheel settings (conditional on pedalsMode >= 0)
+//  7. Wheel info: Name, Model, Type, Firmware
+//  8. Demo mode badge (iOS also has Test mode badge)
+//  9. Controls: Horn, Light, Settings (Android) / Horn, Light (iOS)
+// 10. Record/Chart/BMS row
+// 11. Disconnect button
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(

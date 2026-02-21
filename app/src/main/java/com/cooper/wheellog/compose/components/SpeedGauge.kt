@@ -66,13 +66,16 @@ fun SpeedGauge(
     ) {
         Canvas(modifier = Modifier.fillMaxSize().padding(12.dp)) {
             val canvasSize = min(size.width, size.height)
+            // Stroke width as 8% of gauge diameter — balances arc visibility with label space
             val lineWidth = canvasSize * 0.08f
             val radius = (canvasSize - lineWidth) / 2f
             val center = Offset(size.width / 2f, size.height / 2f)
 
-            // Arc spans from 144° to -144° (288° total), starting at bottom-left
-            val startAngle = 144f  // degrees from top (12 o'clock), going clockwise
-            val sweepAngle = 252f  // total arc sweep (360 - 108 gap at bottom)
+            // startAngle=144°: left endpoint at ~7 o'clock, creating a symmetric bottom gap.
+            // sweepAngle=252°: total arc sweep (360° - 108° gap), prevents arc from
+            // colliding with center text at the bottom.
+            val startAngle = 144f
+            val sweepAngle = 252f
 
             // Background arc
             drawArc(
@@ -96,7 +99,7 @@ fun SpeedGauge(
                 size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
             )
 
-            // Tick labels
+            // Tick labels — positioned inside the arc with a 10px gap from inner stroke edge
             val tickInterval = 10
             val labelRadius = radius - lineWidth - 10f
             for (tickSpeed in 0..maxSpeed.toInt() step tickInterval) {

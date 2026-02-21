@@ -1,6 +1,21 @@
 import SwiftUI
 import WheelLogCore
 
+// CROSS-PLATFORM SYNC: This view mirrors app/.../compose/screens/DashboardScreen.kt.
+// When adding, removing, or reordering sections, update the counterpart.
+//
+// Shared sections (in order):
+//  1. Alarm banner
+//  2. Speed gauge (tappable → metric detail)
+//  3. 2x3 Gauge Tile Grid: Speed, Battery, Power, PWM, Temp, GPS Speed
+//  4. Stats: Voltage, Current, Trip Distance, Total Distance
+//  5. Wheel settings (conditional on pedalsMode >= 0; tappable → WheelSettingsView)
+//  6. Wheel info: Name, Model, Type, Firmware
+//  7. Demo/Test mode badge (iOS has both Demo + Test badges)
+//  8. Controls: Horn, Light (Android also has Settings button)
+//  9. Record/BMS/Chart row (button order differs: Android=Record,Chart,BMS; iOS=Record,BMS,Chart)
+// 10. Disconnect button
+
 struct DashboardView: View {
     @EnvironmentObject var wheelManager: WheelManager
     @State private var showChart = false

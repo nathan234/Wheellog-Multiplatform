@@ -198,7 +198,7 @@ class GotwayDecoder : WheelDecoder {
 
         return when (frameType) {
             FRAME_LIVE_DATA -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative)
-            FRAME_EXTENDED -> processExtendedFrame(buff, currentState, isAlexovikFW)
+            FRAME_EXTENDED -> processExtendedFrame(buff, currentState, config, isAlexovikFW)
             FRAME_BMS_CELLS_1, FRAME_BMS_CELLS_2 -> processBmsCellsFrame(buff, frameType)
             FRAME_TOTAL_DISTANCE -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW)
             FRAME_CURRENT_TEMP -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)
@@ -217,6 +217,7 @@ class GotwayDecoder : WheelDecoder {
         isAlexovikFW: Boolean,
         gotwayNegative: Int
     ): FrameResult {
+        val autoVoltage = config.autoVoltage && !isAlexovikFW
         var voltage = ByteUtils.shortFromBytesBE(buff, 2)
         var speed = (ByteUtils.signedShortFromBytesBE(buff, 4) * 3.6).roundToInt()
         var distance = 0L
@@ -297,7 +298,7 @@ class GotwayDecoder : WheelDecoder {
 
         val newState = currentState.copy(
             speed = speed,
-            voltage = if (!trueVoltage) voltage else currentState.voltage,
+            voltage = if (!(trueVoltage && autoVoltage)) voltage else currentState.voltage,
             phaseCurrent = phaseCurrent,
             current = current,
             power = power,
@@ -310,7 +311,7 @@ class GotwayDecoder : WheelDecoder {
             model = model.ifEmpty { currentState.model }
         )
 
-        val hasNewData = !((trueVoltage) || trueCurrent || bmsCurrent) || isAlexovikFW
+        val hasNewData = !((trueVoltage && autoVoltage) || trueCurrent || bmsCurrent) || isAlexovikFW
 
         return FrameResult(newState, hasNewData)
     }
@@ -321,9 +322,12 @@ class GotwayDecoder : WheelDecoder {
     private fun processExtendedFrame(
         buff: ByteArray,
         currentState: WheelState,
+        config: DecoderConfig,
         isAlexovikFW: Boolean
     ): FrameResult? {
         if (isAlexovikFW) return null
+
+        val autoVoltage = config.autoVoltage && !isAlexovikFW
 
         // Compute hasNewData BEFORE setting flag (matches legacy timing)
         val hasNewData = bmsCurrent || (!trueCurrent && trueVoltage)
@@ -349,7 +353,7 @@ class GotwayDecoder : WheelDecoder {
 
         val current = if (bmsCurrent) bmsCurrentVal * 20 else currentState.current
         val newState = currentState.copy(
-            voltage = batVoltage * 10,
+            voltage = if (autoVoltage) batVoltage * 10 else currentState.voltage,
             current = current
         )
 

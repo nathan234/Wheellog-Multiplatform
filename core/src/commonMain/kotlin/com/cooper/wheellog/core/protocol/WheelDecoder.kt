@@ -159,7 +159,15 @@ data class DecoderConfig(
      * Whether to use hardware PWM from the wheel frame.
      * When false, PWM is calculated from speed/voltage/powerFactor formula.
      */
-    val hwPwmEnabled: Boolean = true
+    val hwPwmEnabled: Boolean = true,
+
+    /**
+     * Whether to automatically use BMS voltage from frame 0x01 (Gotway).
+     * When true, frame 0x01 voltage overrides frame 0x00 voltage, and
+     * frame 0x00 voltage is suppressed after the first frame 0x01.
+     * When false, frame 0x00 voltage is always used.
+     */
+    val autoVoltage: Boolean = true
 )
 
 /**

@@ -1164,6 +1164,109 @@ class GotwayDecoderTest {
             "Frame 0x01 should preserve current when bmsCurrent is false")
     }
 
+    // ==================== autoVoltage Config Gate ====================
+    // Bug fix: KMP unconditionally applied BMS voltage and blocked frame 0x00 voltage.
+    // Legacy gates both with autoVoltage config flag.
+
+    @Test
+    fun `autoVoltage true - frame 0x00 voltage blocked after frame 0x01`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+        val cfg = config.copy(autoVoltage = true)
+
+        var state = WheelState()
+        // Frame 0x00 with voltage 6000
+        val liveFrame1 = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame1, state, cfg)
+        assertNotNull(r1)
+        state = r1.newState
+        assertEquals(6000, state.voltage)
+
+        // Frame 0x01 sets trueVoltage=true and writes BMS voltage
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        assertNotNull(r2)
+        state = r2.newState
+        assertEquals(67000, state.voltage)
+
+        // Subsequent frame 0x00 should NOT overwrite (trueVoltage && autoVoltage = true)
+        val liveFrame2 = buildLiveDataFrame(voltage = 5900)
+        val r3 = freshDecoder.decode(liveFrame2, state, cfg)
+        assertNotNull(r3)
+        assertEquals(67000, r3.newState.voltage,
+            "autoVoltage=true: frame 0x00 voltage should be blocked after frame 0x01")
+    }
+
+    @Test
+    fun `autoVoltage false - frame 0x00 voltage always written even after frame 0x01`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+        val cfg = config.copy(autoVoltage = false)
+
+        var state = WheelState()
+        val liveFrame1 = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame1, state, cfg)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // Frame 0x01 — sets trueVoltage=true but autoVoltage=false
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        assertNotNull(r2)
+        state = r2.newState
+        // With autoVoltage=false, frame 0x01 should NOT write BMS voltage
+        assertEquals(6000, state.voltage,
+            "autoVoltage=false: frame 0x01 should NOT write BMS voltage")
+
+        // Subsequent frame 0x00 should still write (autoVoltage=false overrides trueVoltage)
+        val liveFrame2 = buildLiveDataFrame(voltage = 5900)
+        val r3 = freshDecoder.decode(liveFrame2, state, cfg)
+        assertNotNull(r3)
+        assertEquals(5900, r3.newState.voltage,
+            "autoVoltage=false: frame 0x00 voltage should always be written")
+    }
+
+    @Test
+    fun `autoVoltage false - frame 0x01 does NOT write BMS voltage to state`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+        val cfg = config.copy(autoVoltage = false)
+
+        var state = WheelState()
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame, state, cfg)
+        assertNotNull(r1)
+        state = r1.newState
+        assertEquals(6000, state.voltage)
+
+        // Frame 0x01 with BMS voltage 6700 — should NOT write because autoVoltage=false
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        assertNotNull(r2)
+        assertEquals(6000, r2.newState.voltage,
+            "autoVoltage=false: BMS voltage should not be written")
+    }
+
+    @Test
+    fun `autoVoltage true - frame 0x01 writes BMS voltage`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+        val cfg = config.copy(autoVoltage = true)
+
+        var state = WheelState()
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame, state, cfg)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // Frame 0x01 with BMS voltage 6700 — should write because autoVoltage=true
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        assertNotNull(r2)
+        assertEquals(67000, r2.newState.voltage,
+            "autoVoltage=true: BMS voltage should be written")
+    }
+
     // ==================== hasNewData Timing ====================
     // Bug fix: trueVoltage/trueCurrent flags were set BEFORE computing hasNewData,
     // causing the first frame to fire hasNewData=true one frame too early.

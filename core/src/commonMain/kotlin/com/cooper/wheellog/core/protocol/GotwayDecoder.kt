@@ -60,6 +60,7 @@ class GotwayDecoder : WheelDecoder {
     private var truePWM = false
     private var isReady = false
     private var hasReceivedData = false
+    private var alexovikCurrent = 0
 
     // Retry counter for firmware/model info requests (mirrors legacy adapter)
     private var infoAttempt = 0
@@ -227,7 +228,7 @@ class GotwayDecoder : WheelDecoder {
             if ((buff[7].toInt() and 0x01) == 1) {
                 val batteryCurrent = ByteUtils.signedShortFromBytesBE(buff, 8)
                 trueCurrent = true
-                // Would set current here
+                alexovikCurrent = batteryCurrent
             }
         }
 
@@ -285,7 +286,9 @@ class GotwayDecoder : WheelDecoder {
 
         // Calculate current and power
         val calculatedPwm = hwPwm / 10000.0
-        val current = if (!trueCurrent || !bmsCurrent) {
+        val current = if (isAlexovikFW && trueCurrent) {
+            alexovikCurrent
+        } else if (!trueCurrent || !bmsCurrent) {
             (calculatedPwm * phaseCurrent).roundToInt()
         } else {
             currentState.current
@@ -344,8 +347,10 @@ class GotwayDecoder : WheelDecoder {
             bms.semiVoltage2 = ByteUtils.signedShortFromBytesBE(buff, 14) / 10.0
         }
 
+        val current = if (bmsCurrent) bmsCurrentVal * 20 else currentState.current
         val newState = currentState.copy(
-            voltage = batVoltage * 10
+            voltage = batVoltage * 10,
+            current = current
         )
 
         return FrameResult(newState, hasNewData)
@@ -593,6 +598,7 @@ class GotwayDecoder : WheelDecoder {
             truePWM = false
             isReady = false
             hasReceivedData = false
+            alexovikCurrent = 0
             infoAttempt = 0
             bms1 = SmartBms()
             bms2 = SmartBms()

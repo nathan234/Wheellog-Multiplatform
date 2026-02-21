@@ -689,6 +689,243 @@ class GotwayDecoderTest {
         assertEquals(45.0, state.speedKmh, 1.0)
     }
 
+    // ==================== 0x04 Settings Readback (Begode App Screenshot) ====================
+    // These tests verify that the 0x04 frame decodes settings values matching
+    // the Begode official app's settings tab (captured via iOS PacketLogger).
+    //
+    // Begode app screenshot values:
+    //   Mode setting: Strong           → pedalsMode=0 (Hard)
+    //   Alarm setting: Turn off lvl 2  → speedAlarms=1
+    //   Maximum allowed tilt angle: High → rollAngle=2
+    //   Tilt back speed: Turn off      → tiltBackSpeed=0
+    //   LED setting: LED0              → ledMode=0
+    //   Volume setting: 1              → beeperVolume=1 (write-only, no readback)
+    //   Left/right tilt angle closed: 60° → cutoutAngle=60 (write-only, no readback)
+
+    @Test
+    fun `0x04 frame decodes pedalsMode matching Begode Strong setting`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Raw pedalsMode=2 in settings bits → decoded as 2-2=0 (Hard/Strong)
+        val frame = buildSettingsFrame(pedalsMode = 2)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(0, result.newState.pedalsMode, "Raw 2 → decoded 0 (Hard = Begode 'Strong')")
+    }
+
+    @Test
+    fun `0x04 frame decodes speedAlarms matching Begode Turn off level 2 alarm`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildSettingsFrame(speedAlarms = 1)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(1, result.newState.speedAlarms, "1 = Turn off level 2 alarm")
+    }
+
+    @Test
+    fun `0x04 frame decodes rollAngle matching Begode High setting`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildSettingsFrame(rollAngle = 2)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(2, result.newState.rollAngle, "2 = High")
+    }
+
+    @Test
+    fun `0x04 frame decodes tiltBackSpeed 0 matching Begode Turn off`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildSettingsFrame(tiltBackSpeed = 0)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(0, result.newState.tiltBackSpeed, "0 = Turn off")
+    }
+
+    @Test
+    fun `0x04 frame decodes ledMode 0 matching Begode LED0`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildSettingsFrame(ledMode = 0)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(0, result.newState.ledMode, "0 = LED0")
+    }
+
+    @Test
+    fun `0x04 frame decodes all Begode screenshot settings in one frame`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildSettingsFrame(
+            pedalsMode = 2,    // Strong/Hard
+            speedAlarms = 1,   // Turn off level 2
+            rollAngle = 2,     // High
+            tiltBackSpeed = 0, // Turn off
+            ledMode = 0,       // LED0
+            lightMode = 1      // On
+        )
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        val state = result.newState
+        assertEquals(0, state.pedalsMode)
+        assertEquals(1, state.speedAlarms)
+        assertEquals(2, state.rollAngle)
+        assertEquals(0, state.tiltBackSpeed)
+        assertEquals(0, state.ledMode)
+        assertEquals(1, state.lightMode)
+    }
+
+    @Test
+    fun `0x04 tiltBackSpeed 100 or above clamps to 0`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildSettingsFrame(tiltBackSpeed = 100)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(0, result.newState.tiltBackSpeed, ">=100 clamps to 0 (off)")
+    }
+
+    // ==================== Command Encoding (Begode Protocol) ====================
+    // Verify command bytes match the Begode app's BLE writes.
+
+    @Test
+    fun `SetPedalsMode 0 (Hard - Begode Strong) sends h`() {
+        val commands = decoder.buildCommand(WheelCommand.SetPedalsMode(0))
+        assertEquals(1, commands.size)
+        val send = commands[0] as WheelCommand.SendBytes
+        assertEquals("h", send.data.decodeToString())
+    }
+
+    @Test
+    fun `SetPedalsMode 1 (Medium) sends f`() {
+        val commands = decoder.buildCommand(WheelCommand.SetPedalsMode(1))
+        assertEquals(1, commands.size)
+        assertEquals("f", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetPedalsMode 2 (Soft) sends s`() {
+        val commands = decoder.buildCommand(WheelCommand.SetPedalsMode(2))
+        assertEquals(1, commands.size)
+        assertEquals("s", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetAlarmMode 0 (two alarms on) sends o`() {
+        val commands = decoder.buildCommand(WheelCommand.SetAlarmMode(0))
+        assertEquals(1, commands.size)
+        assertEquals("o", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetAlarmMode 1 (turn off level 2 - Begode screenshot) sends u`() {
+        val commands = decoder.buildCommand(WheelCommand.SetAlarmMode(1))
+        assertEquals(1, commands.size)
+        assertEquals("u", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetRollAngleMode 2 (High - Begode screenshot) sends less-than`() {
+        val commands = decoder.buildCommand(WheelCommand.SetRollAngleMode(2))
+        assertEquals(1, commands.size)
+        assertEquals("<", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetRollAngleMode 0 (Low) sends greater-than`() {
+        val commands = decoder.buildCommand(WheelCommand.SetRollAngleMode(0))
+        assertEquals(1, commands.size)
+        assertEquals(">", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetLightMode 1 (On) sends Q`() {
+        val commands = decoder.buildCommand(WheelCommand.SetLightMode(1))
+        assertEquals(1, commands.size)
+        assertEquals("Q", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetLightMode 0 (Off) sends E`() {
+        val commands = decoder.buildCommand(WheelCommand.SetLightMode(0))
+        assertEquals(1, commands.size)
+        assertEquals("E", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetLightMode 2 (Strobe) sends T`() {
+        val commands = decoder.buildCommand(WheelCommand.SetLightMode(2))
+        assertEquals(1, commands.size)
+        assertEquals("T", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+    }
+
+    @Test
+    fun `SetLedMode 0 (LED0 - Begode screenshot) sends W M 0 b`() {
+        val commands = decoder.buildCommand(WheelCommand.SetLedMode(0))
+        assertEquals(4, commands.size)
+        assertEquals("W", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+        assertEquals("M", (commands[1] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("0", (commands[2] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("b", (commands[3] as WheelCommand.SendDelayed).data.decodeToString())
+    }
+
+    @Test
+    fun `SetBeeperVolume 1 (Begode screenshot) sends W B 1 b`() {
+        val commands = decoder.buildCommand(WheelCommand.SetBeeperVolume(1))
+        assertEquals(4, commands.size)
+        assertEquals("W", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+        assertEquals("B", (commands[1] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("1", (commands[2] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("b", (commands[3] as WheelCommand.SendDelayed).data.decodeToString())
+    }
+
+    @Test
+    fun `SetMaxSpeed 74 (Begode screenshot 74mph) sends b W Y 7 4 b b`() {
+        val commands = decoder.buildCommand(WheelCommand.SetMaxSpeed(74))
+        assertEquals(7, commands.size)
+        assertEquals("b", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+        assertEquals("W", (commands[1] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("Y", (commands[2] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("7", (commands[3] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("4", (commands[4] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("b", (commands[5] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("b", (commands[6] as WheelCommand.SendDelayed).data.decodeToString())
+    }
+
+    @Test
+    fun `SetMaxSpeed 0 (tiltback off - Begode screenshot) sends b quote b b`() {
+        val commands = decoder.buildCommand(WheelCommand.SetMaxSpeed(0))
+        assertEquals(4, commands.size)
+        assertEquals("b", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+        assertEquals("\"", (commands[1] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("b", (commands[2] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("b", (commands[3] as WheelCommand.SendDelayed).data.decodeToString())
+    }
+
+    @Test
+    fun `SetCutoutAngle 60 (Begode screenshot) sends W X 3`() {
+        val commands = decoder.buildCommand(WheelCommand.SetCutoutAngle(60))
+        assertEquals(3, commands.size)
+        assertEquals("W", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
+        assertEquals("X", (commands[1] as WheelCommand.SendDelayed).data.decodeToString())
+        assertEquals("3", (commands[2] as WheelCommand.SendDelayed).data.decodeToString()) // (60-45)/5 = 3
+    }
+
     // ==================== 0xFF Settings Frame ====================
 
     @Test
@@ -1408,29 +1645,47 @@ class GotwayDecoderTest {
 
     /**
      * Build a frame 0x04 (settings/total distance) with given parameters.
-     * The inMiles flag is bit 0 of the settings short at offset 6.
+     *
+     * Settings short layout (offset 6-7):
+     *   bits 14-13: pedalsMode (raw; decoded as 2 - raw)
+     *   bits 11-10: speedAlarms
+     *   bits  8-7:  rollAngle
+     *   bit     0:  inMiles
+     *
+     * Additional fields:
+     *   offset 10-11: tiltBackSpeed (0-99; >=100 clamped to 0 by decoder)
+     *   byte 13:      ledMode
+     *   byte 15:      lightMode (& 0x03)
      */
     private fun buildSettingsFrame(
         totalDistance: Long = 0,
-        inMiles: Boolean = false
+        inMiles: Boolean = false,
+        pedalsMode: Int = 0,
+        speedAlarms: Int = 0,
+        rollAngle: Int = 0,
+        tiltBackSpeed: Int = 0,
+        ledMode: Int = 0,
+        lightMode: Int = 0
     ): ByteArray {
         val header = byteArrayOf(0x55, 0xAA.toByte())
-        // totalDistance as 4 bytes BE at offset 2
         val dist = byteArrayOf(
             ((totalDistance shr 24) and 0xFF).toByte(),
             ((totalDistance shr 16) and 0xFF).toByte(),
             ((totalDistance shr 8) and 0xFF).toByte(),
             (totalDistance and 0xFF).toByte()
         )
-        // Settings short at offset 6: bit 0 = inMiles
-        val settings = if (inMiles) 1 else 0
+        val settings = (pedalsMode shl 13) or (speedAlarms shl 10) or
+                (rollAngle shl 7) or (if (inMiles) 1 else 0)
         return header +
             dist +
-            shortToBytesBE(settings) + // settings (offset 6-7)
-            shortToBytesBE(0) +         // powerOffTime (offset 8-9)
-            shortToBytesBE(0) +         // tiltBackSpeed (offset 10-11)
-            byteArrayOf(0, 0, 0, 0) +   // bytes 12-15
-            byteArrayOf(0, 0, 0x04, 0x18, 0x5A, 0x5A, 0x5A, 0x5A) // frameType=0x04 at byte 18
+            shortToBytesBE(settings) +          // offset 6-7
+            shortToBytesBE(0) +                 // powerOffTime (offset 8-9)
+            shortToBytesBE(tiltBackSpeed) +     // offset 10-11
+            byteArrayOf(0) +                    // byte 12
+            byteArrayOf(ledMode.toByte()) +     // byte 13
+            byteArrayOf(0) +                    // byte 14 (alert)
+            byteArrayOf(lightMode.toByte()) +   // byte 15
+            byteArrayOf(0, 0, 0x04, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
     }
 
     private fun decodeNormalData(voltage: Short = 6000, config: DecoderConfig = this.config): DecodedData? {

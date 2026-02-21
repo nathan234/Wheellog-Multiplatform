@@ -389,6 +389,51 @@ class WheelSettingsConfigTest {
         assertNull(beeperVolume.visibleWhen)
     }
 
+    // ==================== Gotway Readback vs Write-Only (Begode App BLE Capture) ====================
+    // BLE capture of Begode app's settings tab confirmed: zero ATT Send requests.
+    // The Begode app persists all settings locally — it does not read them from the wheel.
+    // The 0x04 telemetry frame provides readback for some settings; others are write-only.
+
+    @Test
+    fun `Gotway settings with readback from 0x04 frame`() {
+        // These settings are decoded from the 0x04 telemetry frame
+        val state = WheelState(
+            pedalsMode = 0,   // Hard (Begode "Strong")
+            lightMode = 1,    // On
+            ledMode = 0,      // LED0
+            rollAngle = 2     // High
+        )
+        assertEquals(0, SettingsCommandId.PEDALS_MODE.readInt(state))
+        assertEquals(1, SettingsCommandId.LIGHT_MODE.readInt(state))
+        assertEquals(0, SettingsCommandId.LED_MODE.readInt(state))
+        assertEquals(2, SettingsCommandId.ROLL_ANGLE_MODE.readInt(state))
+    }
+
+    @Test
+    fun `Gotway write-only settings return null readback`() {
+        // These have no readback from any BLE frame on standard Begode firmware
+        val state = WheelState(cutoutAngle = 60)
+        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(state),
+            "cutoutAngle has no readback — Begode app persists locally")
+        assertNull(SettingsCommandId.BEEPER_VOLUME.readInt(state),
+            "beeperVolume has no readback")
+    }
+
+    @Test
+    fun `Gotway settings map covers all Begode app settings with existing commands`() {
+        // Begode app screenshot settings → our WheelSettingsConfig controls
+        val sections = WheelSettingsConfig.sections(WheelType.GOTWAY)
+        val allCommands = sections.flatMap { s -> s.controls.map { it.commandId } }
+
+        // Settings present in both Begode app and our config
+        assertTrue(SettingsCommandId.PEDALS_MODE in allCommands, "Mode setting (Strong/Medium/Soft)")
+        assertTrue(SettingsCommandId.ROLL_ANGLE_MODE in allCommands, "Maximum allowed tilt angle")
+        assertTrue(SettingsCommandId.CUTOUT_ANGLE in allCommands, "Left and right tilt angle closed")
+        assertTrue(SettingsCommandId.LIGHT_MODE in allCommands, "Light Mode")
+        assertTrue(SettingsCommandId.LED_MODE in allCommands, "LED setting")
+        assertTrue(SettingsCommandId.BEEPER_VOLUME in allCommands, "Volume setting")
+    }
+
     // ==================== Gotway Light Mode Options Match iOS ====================
 
     @Test

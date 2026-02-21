@@ -41,9 +41,6 @@ object WheelSettingsConfig {
             ControlSpec.Segmented("Roll Angle", listOf("Low", "Medium", "High"), SettingsCommandId.ROLL_ANGLE_MODE),
             ControlSpec.Slider("Cutout Angle", 45, 90, "°", 70, SettingsCommandId.CUTOUT_ANGLE)
         )),
-        SettingsSection("Speed", listOf(
-            ControlSpec.Slider("Max Speed", 0, 99, "km/h", 30, SettingsCommandId.MAX_SPEED)
-        )),
         SettingsSection("Audio", listOf(
             ControlSpec.Slider("Beeper Volume", 1, 9, "", 5, SettingsCommandId.BEEPER_VOLUME)
         )),

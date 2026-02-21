@@ -39,7 +39,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.compose.components.MarkerSeriesInfo
 import com.cooper.wheellog.compose.components.ToggleChip
+import com.cooper.wheellog.compose.components.rememberChartMarker
 import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.core.utils.DisplayUtils
@@ -56,6 +58,7 @@ import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.core.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.cooper.wheellog.core.logging.CsvParser
 import kotlinx.coroutines.Dispatchers
@@ -215,38 +218,45 @@ fun TripDetailScreen(
                         item { ToggleChip("PWM", PWM_COLOR, showPwm, { showPwm = !showPwm }) }
                     }
 
+                    val speedUnit = if (useMph) "mph" else "km/h"
+                    val tempUnit = if (useFahrenheit) "\u00B0F" else "\u00B0C"
+
                     // Build visible series
-                    val visibleSeries = buildList {
-                        if (showSpeed) add(TripSeriesInfo(
-                            color = SPEED_COLOR,
-                            values = s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) }
-                        ))
-                        if (showCurrent) add(TripSeriesInfo(
-                            color = CURRENT_COLOR,
-                            values = s.samples.map { it.currentA }
-                        ))
-                        if (showPower) add(TripSeriesInfo(
-                            color = POWER_COLOR,
-                            values = s.samples.map { it.powerW }
-                        ))
-                        if (showTemperature) add(TripSeriesInfo(
-                            color = TEMP_COLOR,
-                            values = s.samples.map { DisplayUtils.convertMetricValue(it.temperatureC, MetricType.TEMPERATURE, useMph, useFahrenheit) }
-                        ))
-                        if (showPwm) add(TripSeriesInfo(
-                            color = PWM_COLOR,
-                            values = s.samples.map { it.pwmPercent }
-                        ))
+                    val visibleSeries = mutableListOf<TripSeriesInfo>()
+                    val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
+                    if (showSpeed) {
+                        visibleSeries += TripSeriesInfo(SPEED_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) })
+                        visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
+                    }
+                    if (showCurrent) {
+                        visibleSeries += TripSeriesInfo(CURRENT_COLOR, s.samples.map { it.currentA })
+                        visibleMarkerInfo += MarkerSeriesInfo("Current", "A", 1)
+                    }
+                    if (showPower) {
+                        visibleSeries += TripSeriesInfo(POWER_COLOR, s.samples.map { it.powerW })
+                        visibleMarkerInfo += MarkerSeriesInfo("Power", "W", 0)
+                    }
+                    if (showTemperature) {
+                        visibleSeries += TripSeriesInfo(TEMP_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.temperatureC, MetricType.TEMPERATURE, useMph, useFahrenheit) })
+                        visibleMarkerInfo += MarkerSeriesInfo("Temp", tempUnit, 0)
+                    }
+                    if (showPwm) {
+                        visibleSeries += TripSeriesInfo(PWM_COLOR, s.samples.map { it.pwmPercent })
+                        visibleMarkerInfo += MarkerSeriesInfo("PWM", "%", 1)
                     }
 
+                    val timeFormatPattern = "HH:mm"
+
                     if (visibleSeries.isNotEmpty()) {
+                        val marker = rememberChartMarker(s.samples, visibleMarkerInfo, timeFormatPattern)
                         TripLineChart(
                             samples = s.samples,
                             seriesList = visibleSeries,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(250.dp)
-                                .padding(horizontal = 16.dp)
+                                .padding(horizontal = 16.dp),
+                            marker = marker,
                         )
                     }
 
@@ -260,6 +270,9 @@ fun TripDetailScreen(
                         color = VOLTAGE_COLOR,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
+                    val voltageMarker = rememberChartMarker(
+                        s.samples, listOf(MarkerSeriesInfo("Voltage", "V", 1)), timeFormatPattern
+                    )
                     TripLineChart(
                         samples = s.samples,
                         seriesList = listOf(
@@ -268,7 +281,8 @@ fun TripDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = 16.dp),
+                        marker = voltageMarker,
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -376,7 +390,8 @@ private data class TripSeriesInfo(
 private fun TripLineChart(
     samples: List<TelemetrySample>,
     seriesList: List<TripSeriesInfo>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    marker: CartesianMarker? = null,
 ) {
     if (samples.isEmpty() || seriesList.isEmpty()) return
 
@@ -414,6 +429,7 @@ private fun TripLineChart(
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
+            marker = marker,
         ),
         modelProducer = modelProducer,
         modifier = modifier,

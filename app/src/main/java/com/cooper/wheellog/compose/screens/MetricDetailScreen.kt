@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.compose.components.MarkerSeriesInfo
+import com.cooper.wheellog.compose.components.rememberChartMarker
 import com.cooper.wheellog.core.telemetry.ChartTimeRange
 import com.cooper.wheellog.core.telemetry.MetricType
 import androidx.compose.foundation.lazy.LazyRow
@@ -159,6 +161,12 @@ fun MetricDetailScreen(
                     }
                 }
 
+                val marker = rememberChartMarker(
+                    samples,
+                    listOf(MarkerSeriesInfo(metric.label, displayUnit, metric.decimals)),
+                    timeFormatPattern,
+                )
+
                 CartesianChartHost(
                     chart = rememberCartesianChart(
                         rememberLineCartesianLayer(
@@ -171,6 +179,7 @@ fun MetricDetailScreen(
                         ),
                         startAxis = VerticalAxis.rememberStart(),
                         bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
+                        marker = marker,
                     ),
                     modelProducer = modelProducer,
                     modifier = Modifier

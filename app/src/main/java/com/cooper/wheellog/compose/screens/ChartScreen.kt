@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.core.telemetry.ChartTimeRange
 import com.cooper.wheellog.core.telemetry.TelemetrySample
+import com.cooper.wheellog.compose.components.MarkerSeriesInfo
 import com.cooper.wheellog.compose.components.ToggleChip
+import com.cooper.wheellog.compose.components.rememberChartMarker
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -53,6 +55,7 @@ import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.core.cartesian.marker.CartesianMarker
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.cooper.wheellog.core.utils.DisplayUtils
 import java.text.SimpleDateFormat
@@ -152,27 +155,33 @@ fun ChartScreen(
                     }
                 }
             } else {
+                val speedUnit = if (useMph) "mph" else "km/h"
+                val tempUnit = if (useFahrenheit) "\u00B0F" else "\u00B0C"
+
                 // Build visible series info
-                val visibleSeries = buildList {
-                    if (showSpeed) add(SeriesInfo(
-                        color = SPEED_COLOR,
-                        values = samples.map { DisplayUtils.convertSpeed(it.speedKmh, useMph) }
-                    ))
-                    if (showCurrent) add(SeriesInfo(
-                        color = CURRENT_COLOR,
-                        values = samples.map { it.currentA }
-                    ))
-                    if (showPower) add(SeriesInfo(
-                        color = POWER_COLOR,
-                        values = samples.map { it.powerW }
-                    ))
-                    if (showTemperature) add(SeriesInfo(
-                        color = TEMP_COLOR,
-                        values = samples.map { DisplayUtils.convertTemp(it.temperatureC, useFahrenheit) }
-                    ))
+                val visibleSeries = mutableListOf<SeriesInfo>()
+                val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
+                if (showSpeed) {
+                    visibleSeries += SeriesInfo(SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.speedKmh, useMph) })
+                    visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
+                }
+                if (showCurrent) {
+                    visibleSeries += SeriesInfo(CURRENT_COLOR, samples.map { it.currentA })
+                    visibleMarkerInfo += MarkerSeriesInfo("Current", "A", 1)
+                }
+                if (showPower) {
+                    visibleSeries += SeriesInfo(POWER_COLOR, samples.map { it.powerW })
+                    visibleMarkerInfo += MarkerSeriesInfo("Power", "W", 0)
+                }
+                if (showTemperature) {
+                    visibleSeries += SeriesInfo(TEMP_COLOR, samples.map { DisplayUtils.convertTemp(it.temperatureC, useFahrenheit) })
+                    visibleMarkerInfo += MarkerSeriesInfo("Temp", tempUnit, 0)
                 }
 
+                val timeFormatPattern = if (selectedRange == ChartTimeRange.FIVE_MINUTES) "mm:ss" else "HH:mm"
+
                 if (visibleSeries.isNotEmpty()) {
+                    val marker = rememberChartMarker(samples, visibleMarkerInfo, timeFormatPattern)
                     // Main telemetry chart
                     VicoLineChart(
                         samples = samples,
@@ -181,7 +190,8 @@ fun ChartScreen(
                             .fillMaxWidth()
                             .height(250.dp)
                             .padding(horizontal = 16.dp),
-                        timeRange = selectedRange
+                        timeRange = selectedRange,
+                        marker = marker,
                     )
                 }
 
@@ -195,6 +205,9 @@ fun ChartScreen(
                     color = VOLTAGE_COLOR,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
+                val voltageMarker = rememberChartMarker(
+                    samples, listOf(MarkerSeriesInfo("Voltage", "V", 1)), timeFormatPattern
+                )
                 VicoLineChart(
                     samples = samples,
                     seriesList = listOf(
@@ -204,7 +217,8 @@ fun ChartScreen(
                         .fillMaxWidth()
                         .height(200.dp)
                         .padding(horizontal = 16.dp),
-                    timeRange = selectedRange
+                    timeRange = selectedRange,
+                    marker = voltageMarker,
                 )
 
                 Spacer(Modifier.height(16.dp))
@@ -223,7 +237,8 @@ private fun VicoLineChart(
     samples: List<TelemetrySample>,
     seriesList: List<SeriesInfo>,
     modifier: Modifier = Modifier,
-    timeRange: ChartTimeRange = ChartTimeRange.FIVE_MINUTES
+    timeRange: ChartTimeRange = ChartTimeRange.FIVE_MINUTES,
+    marker: CartesianMarker? = null,
 ) {
     if (samples.isEmpty() || seriesList.isEmpty()) return
 
@@ -265,6 +280,7 @@ private fun VicoLineChart(
             ),
             startAxis = VerticalAxis.rememberStart(),
             bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
+            marker = marker,
         ),
         modelProducer = modelProducer,
         modifier = modifier,

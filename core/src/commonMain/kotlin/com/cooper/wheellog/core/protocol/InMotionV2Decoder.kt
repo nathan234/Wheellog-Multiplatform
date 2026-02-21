@@ -1143,8 +1143,18 @@ class InMotionV2Decoder : WheelDecoder {
         )
     }
 
-    override fun getKeepAliveCommand(): WheelCommand {
-        return WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.REAL_TIME_INFO, byteArrayOf()))
+    override fun getKeepAliveCommand(): WheelCommand = stateLock.withLock {
+        // State machine: retry init requests until responses arrive (mirrors legacy stateCon)
+        when {
+            !isModelDetected ->
+                WheelCommand.SendBytes(buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x01)))
+            serialNumber.isEmpty() ->
+                WheelCommand.SendBytes(buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x02)))
+            version.isEmpty() ->
+                WheelCommand.SendBytes(buildMessage(Flag.INITIAL, Command.MAIN_INFO, byteArrayOf(0x06)))
+            else ->
+                WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.REAL_TIME_INFO, byteArrayOf()))
+        }
     }
 
     // ==================== Message Building ====================

@@ -25,6 +25,8 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.sp
+import com.cooper.wheellog.core.telemetry.ColorZone
+import com.cooper.wheellog.core.telemetry.MetricType
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
@@ -34,7 +36,7 @@ import kotlin.math.sin
 @Composable
 fun SpeedGauge(
     speed: Double,
-    maxSpeed: Double = 50.0,
+    maxSpeed: Double,
     unitLabel: String = "km/h",
     modifier: Modifier = Modifier
 ) {
@@ -45,10 +47,10 @@ fun SpeedGauge(
         label = "speed_progress"
     )
 
-    val speedColor = when {
-        progress < 0.5f -> Color(0xFF4CAF50) // green
-        progress < 0.75f -> Color(0xFFFF9800) // orange
-        else -> Color(0xFFF44336) // red
+    val speedColor = when (MetricType.SPEED.colorZone(progress.toDouble())) {
+        ColorZone.GREEN -> Color(0xFF4CAF50)
+        ColorZone.ORANGE -> Color(0xFFFF9800)
+        ColorZone.RED -> Color(0xFFF44336)
     }
 
     val textMeasurer = rememberTextMeasurer()

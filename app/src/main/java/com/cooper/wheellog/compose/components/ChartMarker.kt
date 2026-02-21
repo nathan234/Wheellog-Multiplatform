@@ -71,13 +71,13 @@ fun rememberChartMarker(
             fill = Fill(surfaceColor.toArgb()),
             shape = MarkerCorneredShape(CorneredShape.rounded(allDp = 8f)),
             strokeFill = Fill(outlineColor.toArgb()),
-            strokeThicknessDp = 1f,
+            strokeThickness = 1f.dp,
         ),
     )
 
     val guideline = rememberLineComponent(
         fill = Fill(outlineColor.copy(alpha = 0.5f).toArgb()),
-        thicknessDp = 1f,
+        thickness = 1f.dp,
     )
 
     return rememberDefaultCartesianMarker(

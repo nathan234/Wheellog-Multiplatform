@@ -59,6 +59,7 @@ class GotwayDecoder : WheelDecoder {
     private var bmsCurrent = false
     private var truePWM = false
     private var isReady = false
+    private var hasReceivedData = false
 
     // Retry counter for firmware/model info requests (mirrors legacy adapter)
     private var infoAttempt = 0
@@ -277,6 +278,11 @@ class GotwayDecoder : WheelDecoder {
         // Scale voltage based on wheel configuration
         voltage = scaleVoltage(voltage, config).roundToInt()
 
+        // Track that we've received valid live data (for isReady check)
+        if (voltage > 0) {
+            hasReceivedData = true
+        }
+
         // Calculate current and power
         val calculatedPwm = hwPwm / 10000.0
         val current = if (!trueCurrent || !bmsCurrent) {
@@ -288,7 +294,7 @@ class GotwayDecoder : WheelDecoder {
 
         val newState = currentState.copy(
             speed = speed,
-            voltage = voltage,
+            voltage = if (!trueVoltage) voltage else currentState.voltage,
             phaseCurrent = phaseCurrent,
             current = current,
             power = power,
@@ -566,7 +572,7 @@ class GotwayDecoder : WheelDecoder {
     }
 
     override fun isReady(): Boolean = stateLock.withLock {
-        isReady && bms1.voltage > 0 || bms2.voltage > 0
+        isReady && hasReceivedData
     }
 
     override fun reset() {
@@ -582,6 +588,7 @@ class GotwayDecoder : WheelDecoder {
             bmsCurrent = false
             truePWM = false
             isReady = false
+            hasReceivedData = false
             infoAttempt = 0
             bms1 = SmartBms()
             bms2 = SmartBms()

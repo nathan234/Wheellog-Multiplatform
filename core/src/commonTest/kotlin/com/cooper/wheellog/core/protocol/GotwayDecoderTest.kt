@@ -755,6 +755,306 @@ class GotwayDecoderTest {
         assertEquals(100.toByte(), sendBytes.data[2]) // 360 - 260 = 100
     }
 
+    // ==================== isReady() ====================
+
+    @Test
+    fun `isReady returns false before any data`() {
+        val freshDecoder = GotwayDecoder()
+        assertFalse(freshDecoder.isReady(), "Should not be ready before any data")
+    }
+
+    @Test
+    fun `isReady returns false after firmware string but before voltage data`() {
+        val freshDecoder = GotwayDecoder()
+        // Send firmware response — sets internal isReady flag but no voltage data yet
+        val fwData = "GW1.23".encodeToByteArray()
+        freshDecoder.decode(fwData, WheelState(), config)
+
+        assertFalse(freshDecoder.isReady(), "Should not be ready without voltage data")
+    }
+
+    @Test
+    fun `isReady returns true after firmware string AND frame 0x00 with non-zero voltage`() {
+        val freshDecoder = GotwayDecoder()
+        // Send firmware response
+        val fwData = "GW1.23".encodeToByteArray()
+        var state = WheelState()
+        val r1 = freshDecoder.decode(fwData, state, config)
+        if (r1 != null) state = r1.newState
+
+        // Send live data frame with non-zero voltage
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        freshDecoder.decode(liveFrame, state, config)
+
+        assertTrue(freshDecoder.isReady(), "Should be ready after fw + voltage data")
+    }
+
+    @Test
+    fun `isReady returns false after reset`() {
+        val freshDecoder = GotwayDecoder()
+        // Make it ready
+        val fwData = "GW1.23".encodeToByteArray()
+        var state = WheelState()
+        val r1 = freshDecoder.decode(fwData, state, config)
+        if (r1 != null) state = r1.newState
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        freshDecoder.decode(liveFrame, state, config)
+        assertTrue(freshDecoder.isReady())
+
+        // Reset
+        freshDecoder.reset()
+        assertFalse(freshDecoder.isReady(), "Should not be ready after reset")
+    }
+
+    @Test
+    fun `isReady does NOT return true from BMS voltage alone`() {
+        val freshDecoder = GotwayDecoder()
+        // Send firmware response
+        val fwData = "GW1.23".encodeToByteArray()
+        var state = WheelState()
+        val r1 = freshDecoder.decode(fwData, state, config)
+        if (r1 != null) state = r1.newState
+
+        // Send only an extended frame (0x01) with BMS voltage — no frame 0x00
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        freshDecoder.decode(extFrame, state, config)
+
+        // Bug regression: the old code had operator precedence issue where
+        // bms2.voltage > 0 alone could make isReady() return true
+        assertFalse(
+            freshDecoder.isReady(),
+            "BMS voltage alone should not make decoder ready — needs frame 0x00"
+        )
+    }
+
+    // ==================== Voltage Precedence ====================
+
+    @Test
+    fun `frame 0x00 voltage is used before frame 0x01 arrives`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        assertNotNull(result)
+        assertEquals(6000, result.newState.voltage)
+    }
+
+    @Test
+    fun `frame 0x01 voltage overrides frame 0x00 voltage`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // First, frame 0x00 sets voltage to 6000
+        var state = WheelState()
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+        assertEquals(6000, state.voltage)
+
+        // Now frame 0x01 arrives with true voltage 6700 (stored as batVoltage * 10)
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, config)
+        assertNotNull(r2)
+        // Extended frame stores voltage as batVoltage * 10
+        assertEquals(67000, r2.newState.voltage)
+    }
+
+    @Test
+    fun `subsequent frame 0x00 does NOT overwrite voltage after frame 0x01 received`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        var state = WheelState()
+
+        // 1) Frame 0x00 — initial voltage
+        val liveFrame1 = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame1, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // 2) Frame 0x01 — true voltage override
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, config)
+        assertNotNull(r2)
+        state = r2.newState
+        assertEquals(67000, state.voltage)
+
+        // 3) Another frame 0x00 with different voltage — should NOT overwrite
+        val liveFrame2 = buildLiveDataFrame(voltage = 5900)
+        val r3 = freshDecoder.decode(liveFrame2, state, config)
+        assertNotNull(r3)
+        assertEquals(67000, r3.newState.voltage, "Frame 0x00 should not overwrite after 0x01")
+    }
+
+    // ==================== Miles/km Edge Cases ====================
+
+    @Test
+    fun `wheelDistance is NOT normalized when inMiles is false`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Settings frame with inMiles=false
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = false)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // Live data with distance=1000
+        val liveFrame = buildLiveDataFrame(distance = 1000)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+
+        // Should stay as-is when not in miles mode
+        assertEquals(1000L, r2.newState.wheelDistance)
+    }
+
+    @Test
+    fun `speed=0 and distance=0 unchanged regardless of inMiles`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Set inMiles=true
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+        assertTrue(state.inMiles)
+
+        // Live data with speed=0 and distance=0
+        val liveFrame = buildLiveDataFrame(speed = 0, distance = 0)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+
+        assertEquals(0, r2.newState.speed, "Zero speed should stay zero regardless of inMiles")
+        assertEquals(0L, r2.newState.wheelDistance, "Zero distance should stay zero regardless of inMiles")
+    }
+
+    @Test
+    fun `inMiles persists - two consecutive frame 0x00 after frame 0x04 both normalize`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Set inMiles=true
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // First live frame
+        val liveFrame1 = buildLiveDataFrame(speed = 778, distance = 1000)
+        val r2 = freshDecoder.decode(liveFrame1, state, config)
+        assertNotNull(r2)
+        state = r2.newState
+        val speed1 = state.speed
+        val dist1 = state.wheelDistance
+
+        // Second live frame with same values — should also normalize
+        val liveFrame2 = buildLiveDataFrame(speed = 778, distance = 1000)
+        val r3 = freshDecoder.decode(liveFrame2, state, config)
+        assertNotNull(r3)
+        val speed2 = r3.newState.speed
+        val dist2 = r3.newState.wheelDistance
+
+        assertEquals(speed1, speed2, "Both frames should normalize speed identically")
+        assertEquals(dist1, dist2, "Both frames should normalize distance identically")
+        // Verify normalization actually happened (values should be > raw)
+        assertTrue(speed1 > 2801, "Speed should be normalized from mph to kmh (larger value)")
+    }
+
+    @Test
+    fun `ratio + inMiles combined produce correct values`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val ratioConfig = config.copy(useRatio = true)
+
+        // Set inMiles=true
+        val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, ratioConfig)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // Live data: raw speed=778, distance=1000
+        val liveFrame = buildLiveDataFrame(speed = 778, distance = 1000)
+        val r2 = freshDecoder.decode(liveFrame, state, ratioConfig)
+        assertNotNull(r2)
+
+        // Expected calculation order: raw → *3.6 → abs → *ratio → /miles
+        // Speed: 778 * 3.6 = 2800.8 → 2801 → abs → 2801 * 0.875 = 2450.875 → 2451 → /0.62137 = 3944.6 → 3945
+        val rawSpeed = (778 * 3.6).roundToInt()    // 2801
+        val afterRatio = (rawSpeed * 0.875).roundToInt()  // 2451
+        val afterMiles = (afterRatio / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToInt()  // 3945
+        assertEquals(afterMiles, r2.newState.speed)
+
+        // Distance: 1000 * 0.875 = 875 → round → 875 / 0.62137 = 1408.4 → round to long → 1408
+        val distAfterRatio = (1000 * 0.875).roundToInt().toLong()  // 875
+        val distAfterMiles = (distAfterRatio / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToLong()  // 1408
+        assertEquals(distAfterMiles, r2.newState.wheelDistance)
+    }
+
+    // ==================== Current/PWM Verification ====================
+
+    @Test
+    fun `current calculated as (hwPwm div 10000) times phaseCurrent for frame 0x00`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Build frame with known phaseCurrent and hwPwm
+        // phaseCurrent at offset 10-11 (signed), hwPwm at offset 14-15 (signed, * 10 in decoder)
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val phaseCurrent: Short = -500  // -5A raw
+        val hwPwmRaw: Short = 3000     // hwPwm in decoder = 3000 * 10 = 30000
+        val frame = header +
+            shortToBytesBE(6000) +       // voltage
+            shortToBytesBE(0) +          // speed
+            byteArrayOf(0, 0) +
+            shortToBytesBE(0) +          // distance
+            shortToBytesBE(phaseCurrent) +
+            shortToBytesBE(99) +         // temperature
+            shortToBytesBE(hwPwmRaw) +   // offset 14-15
+            byteArrayOf(0, 0, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+
+        val result = freshDecoder.decode(frame, WheelState(), config)
+        assertNotNull(result)
+
+        // gotwayNegative=0 (default): abs(phaseCurrent) = 500, abs(hwPwm) = 30000
+        // calculatedPwm = 30000 / 10000.0 = 3.0
+        // current = round(3.0 * 500) = 1500
+        assertEquals(500, result.newState.phaseCurrent)
+        assertEquals(1500, result.newState.current)
+    }
+
+    @Test
+    fun `output stored as hwPwm (raw times 10) from frame 0x00`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val hwPwmRaw: Short = 2500
+        val frame = header +
+            shortToBytesBE(6000) +
+            shortToBytesBE(0) +
+            byteArrayOf(0, 0) +
+            shortToBytesBE(0) +
+            shortToBytesBE(0) +     // phaseCurrent = 0
+            shortToBytesBE(99) +
+            shortToBytesBE(hwPwmRaw) +
+            byteArrayOf(0, 0, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+
+        val result = freshDecoder.decode(frame, WheelState(), config)
+        assertNotNull(result)
+
+        // hwPwm = abs(2500 * 10) = 25000 (gotwayNegative=0 takes abs)
+        assertEquals(25000, result.newState.output)
+        assertEquals(25000 / 10000.0, result.newState.calculatedPwm)
+    }
+
     // ==================== Helpers ====================
 
     /**
@@ -900,6 +1200,21 @@ class GotwayDecoderTest {
         payload[3] = cutoutAngleRaw.toByte()  // byte 5 of full frame (offset 3 in payload)
         payload[16] = 0xFF.toByte()           // frame type at byte 18
         payload[17] = 0x18                    // padding byte
+        return header + payload + byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
+    }
+
+    /**
+     * Build a frame 0x01 (extended data) with the given BMS battery voltage.
+     * Layout: header(2) + padding(4) + batVoltage(2 bytes BE at offset 6) + ... + frameType=0x01 at byte 18
+     */
+    private fun buildExtendedFrame(batVoltage: Int): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val payload = ByteArray(18)
+        // batVoltage at offset 6-7 in the full frame = offset 4-5 in payload
+        payload[4] = ((batVoltage shr 8) and 0xFF).toByte()
+        payload[5] = (batVoltage and 0xFF).toByte()
+        payload[16] = 0x01  // frame type at byte 18
+        payload[17] = 0x18  // padding
         return header + payload + byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
     }
 

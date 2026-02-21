@@ -6,6 +6,7 @@ import com.cooper.wheellog.core.utils.ByteUtils
 import com.cooper.wheellog.core.utils.Lock
 import com.cooper.wheellog.core.utils.withLock
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Ninebot protocol decoder.
@@ -387,7 +388,7 @@ class NinebotDecoder(
         }
 
         current = ByteUtils.signedShortFromBytesLE(data, 26)
-        power = voltage * current
+        power = ((current / 100.0) * voltage).roundToInt()
 
         return FrameResult(
             state = currentState.copy(
@@ -459,7 +460,7 @@ class NinebotDecoder(
     private fun parseLiveData5(data: ByteArray, currentState: WheelState): FrameResult {
         voltage = ByteUtils.shortFromBytesLE(data, 0)
         current = ByteUtils.signedShortFromBytesLE(data, 2)
-        power = voltage * current
+        power = ((current / 100.0) * voltage).roundToInt()
 
         return FrameResult(
             state = currentState.copy(

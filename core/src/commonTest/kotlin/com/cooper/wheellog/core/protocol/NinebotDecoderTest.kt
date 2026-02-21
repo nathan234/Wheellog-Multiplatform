@@ -2,6 +2,7 @@ package com.cooper.wheellog.core.protocol
 
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.domain.WheelType
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -364,5 +365,170 @@ class NinebotDecoderTest {
     @Test
     fun `NinebotDecoder CELLS_FOR_WHEEL constant`() {
         assertEquals(15, NinebotDecoder.CELLS_FOR_WHEEL)
+    }
+
+    // ==================== Power Calculation Tests ====================
+    // Bug fix: power was voltage * current (both ×100 units) = 10000× too large.
+    // Correct formula: (current / 100.0) * voltage, matching legacy calculatePower().
+
+    @Test
+    fun `parseLiveData power is current div 100 times voltage`() {
+        // Build a complete Ninebot frame with known voltage and current in LiveData (0xB0)
+        // LiveData has 32 bytes of payload:
+        //   offset 8-9: battery (LE)
+        //   offset 10-11: speed (LE, signed)
+        //   offset 14-17: distance (LE int)
+        //   offset 22-23: temperature (LE)
+        //   offset 24-25: voltage (LE)
+        //   offset 26-27: current (LE, signed)
+        val voltage = 6700  // 67.00V in ×100 units
+        val current = 500   // 5.00A in ×100 units
+        val expectedPower = ((current / 100.0) * voltage).roundToInt()  // 33500, not 3350000
+
+        val payload = ByteArray(32)
+        // voltage at offset 24-25 (LE)
+        payload[24] = (voltage and 0xFF).toByte()
+        payload[25] = ((voltage shr 8) and 0xFF).toByte()
+        // current at offset 26-27 (LE, signed)
+        payload[26] = (current and 0xFF).toByte()
+        payload[27] = ((current shr 8) and 0xFF).toByte()
+
+        val frame = buildNinebotFrame(
+            source = 0x01,      // Controller
+            destination = 0x09, // App
+            parameter = 0xB0,   // LiveData
+            data = payload
+        )
+
+        val decoder = NinebotDecoder()
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNotNull(result, "LiveData frame should decode")
+        assertEquals(expectedPower, result.newState.power,
+            "Power should be (current/100)*voltage = $expectedPower, not ${voltage * current}")
+    }
+
+    @Test
+    fun `parseLiveData5 power matches parseLiveData formula`() {
+        // LiveData5 (0xBC) has voltage at offset 0-1 and current at offset 2-3
+        val voltage = 8400   // 84.00V
+        val current = -200   // -2.00A (regen)
+        val expectedPower = ((current / 100.0) * voltage).roundToInt()  // -16800
+
+        val payload = ByteArray(4)
+        // voltage at offset 0-1 (LE)
+        payload[0] = (voltage and 0xFF).toByte()
+        payload[1] = ((voltage shr 8) and 0xFF).toByte()
+        // current at offset 2-3 (LE, signed)
+        payload[2] = (current and 0xFF).toByte()
+        payload[3] = ((current shr 8) and 0xFF).toByte()
+
+        val frame = buildNinebotFrame(
+            source = 0x01,
+            destination = 0x09,
+            parameter = 0xBC,   // LiveData5
+            data = payload
+        )
+
+        val decoder = NinebotDecoder()
+        // Need to get past init states first - feed serial and version
+        feedNinebotInit(decoder)
+
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNotNull(result, "LiveData5 frame should decode")
+        assertEquals(expectedPower, result.newState.power,
+            "LiveData5 power should use same formula as LiveData")
+    }
+
+    @Test
+    fun `power is zero when current is zero`() {
+        val voltage = 6700
+        val current = 0
+        val expectedPower = 0
+
+        val payload = ByteArray(32)
+        payload[24] = (voltage and 0xFF).toByte()
+        payload[25] = ((voltage shr 8) and 0xFF).toByte()
+        // current defaults to 0
+
+        val frame = buildNinebotFrame(
+            source = 0x01,
+            destination = 0x09,
+            parameter = 0xB0,
+            data = payload
+        )
+
+        val decoder = NinebotDecoder()
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNotNull(result, "LiveData frame should decode")
+        assertEquals(expectedPower, result.newState.power,
+            "Power should be 0 when current is 0")
+    }
+
+    // ==================== Ninebot Test Helpers ====================
+
+    /**
+     * Build a raw Ninebot frame (55 AA header + encrypted body + CRC).
+     * Uses zero gamma (no encryption) for test simplicity.
+     */
+    private fun buildNinebotFrame(
+        source: Int,
+        destination: Int,
+        parameter: Int,
+        data: ByteArray
+    ): ByteArray {
+        val len = data.size + 2
+        // Build body: len + source + destination + parameter + data
+        val body = ByteArray(4 + data.size)
+        body[0] = len.toByte()
+        body[1] = source.toByte()
+        body[2] = destination.toByte()
+        body[3] = parameter.toByte()
+        data.copyInto(body, 4)
+
+        // CRC (sum XOR 0xFFFF)
+        var check = 0
+        for (byte in body) check += (byte.toInt() and 0xFF)
+        check = (check xor 0xFFFF) and 0xFFFF
+
+        val bodyWithCrc = ByteArray(body.size + 2)
+        body.copyInto(bodyWithCrc, 0)
+        bodyWithCrc[body.size] = (check and 0xFF).toByte()
+        bodyWithCrc[body.size + 1] = ((check shr 8) and 0xFF).toByte()
+
+        // XOR encrypt with zero gamma = no-op (first byte unchanged, rest XOR 0 = unchanged)
+        // No encryption needed for zero gamma
+
+        // Add header
+        val result = ByteArray(2 + bodyWithCrc.size)
+        result[0] = 0x55
+        result[1] = 0xAA.toByte()
+        bodyWithCrc.copyInto(result, 2)
+
+        return result
+    }
+
+    /**
+     * Feed serial number and firmware version to advance past init states.
+     */
+    private fun feedNinebotInit(decoder: NinebotDecoder) {
+        // Serial number (parameter 0x10, len=16 → len-2=14 chars)
+        val serialData = "NINEBOT1234567".encodeToByteArray()  // 14 chars -> len-2 = 14
+        val serialFrame = buildNinebotFrame(
+            source = 0x01,
+            destination = 0x09,
+            parameter = 0x10,
+            data = serialData
+        )
+        decoder.decode(serialFrame, WheelState(), config)
+
+        // Firmware version (parameter 0x1A)
+        val versionData = byteArrayOf(0x23, 0x10)  // version 1.2.3
+        val versionFrame = buildNinebotFrame(
+            source = 0x01,
+            destination = 0x09,
+            parameter = 0x1A,
+            data = versionData
+        )
+        decoder.decode(versionFrame, WheelState(), config)
     }
 }

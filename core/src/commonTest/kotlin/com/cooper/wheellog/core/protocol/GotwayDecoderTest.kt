@@ -699,7 +699,7 @@ class GotwayDecoderTest {
     //   Maximum allowed tilt angle: High → rollAngle=2
     //   Tilt back speed: Turn off      → tiltBackSpeed=0
     //   LED setting: LED0              → ledMode=0
-    //   Volume setting: 1              → beeperVolume=1 (write-only, no readback)
+    //   Volume setting: 1              → beeperVolume=1 (readback from FRAME_00 byte 17)
     //   Left/right tilt angle closed: 60° → cutoutAngle=60 (readback from FRAME_07 bytes 4-5)
 
     @Test
@@ -885,13 +885,13 @@ class GotwayDecoderTest {
     }
 
     @Test
-    fun `SetBeeperVolume 1 (Begode screenshot) sends W B 1 b`() {
+    fun `SetBeeperVolume 1 (Begode BLE capture) sends W B 1`() {
+        // Begode app sends exactly 3 bytes: 57 42 3x (no trailing "b")
         val commands = decoder.buildCommand(WheelCommand.SetBeeperVolume(1))
-        assertEquals(4, commands.size)
+        assertEquals(3, commands.size)
         assertEquals("W", (commands[0] as WheelCommand.SendBytes).data.decodeToString())
         assertEquals("B", (commands[1] as WheelCommand.SendDelayed).data.decodeToString())
         assertEquals("1", (commands[2] as WheelCommand.SendDelayed).data.decodeToString())
-        assertEquals("b", (commands[3] as WheelCommand.SendDelayed).data.decodeToString())
     }
 
     @Test
@@ -1671,6 +1671,45 @@ class GotwayDecoderTest {
             "Out-of-range step should not set cutoutAngle")
     }
 
+    // ==================== Beeper Volume Readback (FRAME_00 byte 17) ====================
+
+    @Test
+    fun `0x00 frame decodes beeperVolume from byte 17`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildLiveDataFrame(beeperVolume = 3)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(3, result.newState.beeperVolume)
+    }
+
+    @Test
+    fun `0x00 frame beeperVolume 7 matches BLE capture`() {
+        // BLE capture confirmed: after sending W, B, 7, FRAME_00 byte 17 = 0x07
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildLiveDataFrame(beeperVolume = 7)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(7, result.newState.beeperVolume)
+    }
+
+    @Test
+    fun `0x00 frame beeperVolume out of range is ignored`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildLiveDataFrame(beeperVolume = 15)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(-1, result.newState.beeperVolume)
+    }
+
     // ==================== Helpers ====================
 
     /**
@@ -1688,7 +1727,8 @@ class GotwayDecoderTest {
     private fun buildLiveDataFrame(
         voltage: Int = 6000,
         speed: Int = 0,
-        distance: Int = 0
+        distance: Int = 0,
+        beeperVolume: Int = 0
     ): ByteArray {
         val header = byteArrayOf(0x55, 0xAA.toByte())
         return header +
@@ -1698,7 +1738,7 @@ class GotwayDecoderTest {
             shortToBytesBE(distance) +
             shortToBytesBE(0) + // phaseCurrent
             shortToBytesBE(99) + // temperature
-            byteArrayOf(0, 0, 0, 0, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
+            byteArrayOf(0, 0, 0, beeperVolume.toByte(), 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
     }
 
     /**

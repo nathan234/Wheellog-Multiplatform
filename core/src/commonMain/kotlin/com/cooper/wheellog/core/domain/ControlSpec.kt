@@ -34,6 +34,7 @@ enum class SettingsCommandId {
         PEDAL_TILT -> state.pedalTilt.takeIf { it >= 0 }
         PEDAL_SENSITIVITY -> state.pedalSensitivity.takeIf { it >= 0 }
         SPEAKER_VOLUME -> state.speakerVolume.takeIf { it >= 0 }
+        BEEPER_VOLUME -> state.beeperVolume.takeIf { it >= 0 }
         LIGHT_BRIGHTNESS -> state.lightBrightness.takeIf { it >= 0 }
         else -> null
     }

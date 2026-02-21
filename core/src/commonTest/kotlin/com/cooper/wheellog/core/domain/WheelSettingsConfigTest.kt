@@ -392,9 +392,8 @@ class WheelSettingsConfigTest {
     }
 
     // ==================== Gotway Readback vs Write-Only (Begode App BLE Capture) ====================
-    // BLE capture of Begode app's settings tab confirmed: zero ATT Send requests.
-    // The Begode app persists all settings locally — it does not read them from the wheel.
-    // The 0x04 telemetry frame provides readback for some settings; others are write-only.
+    // The 0x04 telemetry frame provides readback for most settings.
+    // Beeper volume is read from FRAME_00 byte 17 (confirmed via BLE capture).
 
     @Test
     fun `Gotway settings with readback from 0x04 frame`() {
@@ -412,10 +411,16 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `Gotway write-only settings return null readback`() {
+    fun `Gotway beeperVolume defaults to unknown before readback`() {
         val state = WheelState()
         assertNull(SettingsCommandId.BEEPER_VOLUME.readInt(state),
-            "beeperVolume has no readback")
+            "beeperVolume should be null when -1 (unknown)")
+    }
+
+    @Test
+    fun `Gotway beeperVolume readback from FRAME_00 byte 17`() {
+        val state = WheelState(beeperVolume = 3)
+        assertEquals(3, SettingsCommandId.BEEPER_VOLUME.readInt(state))
     }
 
     @Test

@@ -230,6 +230,8 @@ class GotwayDecoder : WheelDecoder {
             ((ByteUtils.signedShortFromBytesBE(buff, 12).toFloat() / 333.87f) + 21.0f) * 100
         }.roundToInt()
 
+        val beeperVolume = buff[17].toInt() and 0xFF
+
         var hwPwm = ByteUtils.signedShortFromBytesBE(buff, 14) * 10
 
         // Apply direction/polarity settings
@@ -294,6 +296,7 @@ class GotwayDecoder : WheelDecoder {
             batteryLevel = battery,
             output = if (!truePWM) hwPwm else currentState.output,
             calculatedPwm = if (!truePWM) calculatedPwm else currentState.calculatedPwm,
+            beeperVolume = if (beeperVolume in 0..9) beeperVolume else currentState.beeperVolume,
             wheelType = WheelType.GOTWAY,
             model = model.ifEmpty { currentState.model }
         )
@@ -649,23 +652,23 @@ class GotwayDecoder : WheelDecoder {
                 listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
             }
             is WheelCommand.SetLedMode -> {
-                // Multi-step: W, then M 100ms later, digit 300ms later, b 100ms later
+                // Multi-step: W, then M 100ms later, digit 100ms later, b 100ms later
                 val param = byteArrayOf(((command.mode % 10) + 0x30).toByte())
                 listOf(
                     WheelCommand.SendBytes("W".encodeToByteArray()),
                     WheelCommand.SendDelayed("M".encodeToByteArray(), 100),
-                    WheelCommand.SendDelayed(param, 300),
+                    WheelCommand.SendDelayed(param, 100),
                     WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
                 )
             }
             is WheelCommand.SetBeeperVolume -> {
-                // Multi-step: W, then B 100ms later, digit 300ms later, b 100ms later
+                // Multi-step: W, then B 100ms later, digit 100ms later (no trailing b)
+                // Begode app BLE capture confirms 3 bytes only: 57 42 3x
                 val param = byteArrayOf(((command.volume % 10) + 0x30).toByte())
                 listOf(
                     WheelCommand.SendBytes("W".encodeToByteArray()),
                     WheelCommand.SendDelayed("B".encodeToByteArray(), 100),
-                    WheelCommand.SendDelayed(param, 300),
-                    WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
+                    WheelCommand.SendDelayed(param, 100)
                 )
             }
             is WheelCommand.SetCutoutAngle -> {
@@ -704,16 +707,16 @@ class GotwayDecoder : WheelDecoder {
                         WheelCommand.SendBytes("b".encodeToByteArray()),
                         WheelCommand.SendDelayed("W".encodeToByteArray(), 100),
                         WheelCommand.SendDelayed("Y".encodeToByteArray(), 100),
-                        WheelCommand.SendDelayed(hhh, 200),
+                        WheelCommand.SendDelayed(hhh, 100),
                         WheelCommand.SendDelayed(lll, 100),
-                        WheelCommand.SendDelayed("b".encodeToByteArray(), 200),
+                        WheelCommand.SendDelayed("b".encodeToByteArray(), 100),
                         WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
                     )
                 } else {
                     listOf(
                         WheelCommand.SendBytes("b".encodeToByteArray()),
                         WheelCommand.SendDelayed("\"".encodeToByteArray(), 100),
-                        WheelCommand.SendDelayed("b".encodeToByteArray(), 200),
+                        WheelCommand.SendDelayed("b".encodeToByteArray(), 100),
                         WheelCommand.SendDelayed("b".encodeToByteArray(), 100)
                     )
                 }

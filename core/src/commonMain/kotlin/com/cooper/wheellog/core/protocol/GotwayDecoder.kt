@@ -134,6 +134,8 @@ class GotwayDecoder : WheelDecoder {
                     val result = processFrame(buff, newState, config)
                     if (result != null) {
                         newState = result.state
+                        // OR semantics: sticky true once any frame produces new data.
+                        // Intentionally different from legacy which overwrites per-frame.
                         hasNewData = hasNewData || result.hasNewData
                         result.news?.let { news = it }
                         commands.addAll(result.commands)

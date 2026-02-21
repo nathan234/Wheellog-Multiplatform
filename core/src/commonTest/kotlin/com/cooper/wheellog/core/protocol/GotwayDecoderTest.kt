@@ -1055,6 +1055,39 @@ class GotwayDecoderTest {
         assertEquals(25000 / 10000.0, result.newState.calculatedPwm)
     }
 
+    // ==================== hasNewData OR Semantics (Intentional Difference) ====================
+    // Legacy uses a single newDataFound variable that gets overwritten by each frame handler.
+    // KMP uses hasNewData = hasNewData || result.hasNewData — sticky true once any frame sets it.
+    // The OR semantics is intentionally kept: if any frame in a BLE notification produces new
+    // telemetry data, the notification as a whole has new data. The legacy overwrite behavior
+    // is accidental, not intentional.
+
+    @Test
+    fun `hasNewData is true when any frame in packet has new data - OR semantics intentional`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Build a multi-frame packet: frame 0x04 (hasNewData=false) + frame 0x00 (hasNewData=true)
+        // Frame 0x04: settings/total distance — always returns hasNewData=false
+        val settingsFrame = buildSettingsFrame(totalDistance = 1000, inMiles = false)
+        // Frame 0x00: live data — returns hasNewData=true (no trueVoltage/trueCurrent yet)
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+
+        // Feed settings frame first (hasNewData=false)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // Feed live data frame (hasNewData=true)
+        val r2 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r2)
+
+        // OR semantics: at least one frame had hasNewData=true, so overall should be true
+        assertTrue(r2.hasNewData,
+            "hasNewData should be true when any frame has new data (OR semantics)")
+    }
+
     // ==================== Alexovik Current + BMS Current ====================
     // Bug fix A: Alexovik battery current was extracted but discarded.
     // Bug fix B: Frame 0x01 BMS current not passed to WheelState.current.

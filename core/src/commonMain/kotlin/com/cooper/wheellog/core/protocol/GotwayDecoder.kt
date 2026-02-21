@@ -322,6 +322,8 @@ class GotwayDecoder : WheelDecoder {
     ): FrameResult? {
         if (isAlexovikFW) return null
 
+        // Compute hasNewData BEFORE setting flag (matches legacy timing)
+        val hasNewData = bmsCurrent || (!trueCurrent && trueVoltage)
         trueVoltage = true
         val batVoltage = ByteUtils.shortFromBytesBE(buff, 6)
         val bmsNum = buff[19].toInt() and 0xFF
@@ -346,7 +348,7 @@ class GotwayDecoder : WheelDecoder {
             voltage = batVoltage * 10
         )
 
-        return FrameResult(newState, bmsCurrent || (!trueCurrent && trueVoltage))
+        return FrameResult(newState, hasNewData)
     }
 
     /**
@@ -462,6 +464,8 @@ class GotwayDecoder : WheelDecoder {
     ): FrameResult? {
         if (isAlexovikFW) return null
 
+        // Compute hasNewData BEFORE setting flag (matches legacy timing)
+        val hasNewData = trueCurrent && !bmsCurrent
         trueCurrent = true
         val batteryCurrent = ByteUtils.signedShortFromBytesBE(buff, 2)
         val motorTemp = ByteUtils.signedShortFromBytesBE(buff, 6)
@@ -490,7 +494,7 @@ class GotwayDecoder : WheelDecoder {
                 output = output,
                 calculatedPwm = calculatedPwm
             ),
-            hasNewData = trueCurrent && !bmsCurrent
+            hasNewData = hasNewData
         )
     }
 

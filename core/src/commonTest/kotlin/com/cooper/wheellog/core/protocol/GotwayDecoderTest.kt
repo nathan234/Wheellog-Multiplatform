@@ -1055,6 +1055,94 @@ class GotwayDecoderTest {
         assertEquals(25000 / 10000.0, result.newState.calculatedPwm)
     }
 
+    // ==================== hasNewData Timing ====================
+    // Bug fix: trueVoltage/trueCurrent flags were set BEFORE computing hasNewData,
+    // causing the first frame to fire hasNewData=true one frame too early.
+
+    @Test
+    fun `first frame 0x01 hasNewData is false - trueVoltage not yet set`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Send live data first (sets up state)
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        var state = WheelState()
+        val r1 = freshDecoder.decode(liveFrame, state, config)
+        assertNotNull(r1)
+        state = r1.newState
+
+        // First frame 0x01 - trueVoltage was false before this frame
+        // hasNewData should be computed as: bmsCurrent(false) || (!trueCurrent(false) && trueVoltage(false)) = false
+        val extFrame = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame, state, config)
+        assertNotNull(r2)
+        assertFalse(r2.hasNewData, "First frame 0x01 should have hasNewData=false")
+    }
+
+    @Test
+    fun `second frame 0x01 hasNewData reflects trueVoltage true`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        var state = WheelState()
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame, state, config)
+        if (r1 != null) state = r1.newState
+
+        // First frame 0x01 — sets trueVoltage=true
+        val extFrame1 = buildExtendedFrame(batVoltage = 6700)
+        val r2 = freshDecoder.decode(extFrame1, state, config)
+        if (r2 != null) state = r2.newState
+
+        // Second frame 0x01 — trueVoltage is now true, trueCurrent still false
+        // hasNewData = bmsCurrent(false) || (!trueCurrent(false) && trueVoltage(true)) = true
+        val extFrame2 = buildExtendedFrame(batVoltage = 6700)
+        val r3 = freshDecoder.decode(extFrame2, state, config)
+        assertNotNull(r3)
+        assertTrue(r3.hasNewData, "Second frame 0x01 should have hasNewData=true")
+    }
+
+    @Test
+    fun `first frame 0x07 hasNewData is false - trueCurrent not yet set`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        var state = WheelState()
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame, state, config)
+        if (r1 != null) state = r1.newState
+
+        // First frame 0x07 — trueCurrent was false before this frame
+        // hasNewData = trueCurrent(false) && !bmsCurrent(false) = false
+        val currentFrame = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
+        val r2 = freshDecoder.decode(currentFrame, state, config)
+        assertNotNull(r2)
+        assertFalse(r2.hasNewData, "First frame 0x07 should have hasNewData=false")
+    }
+
+    @Test
+    fun `second frame 0x07 hasNewData reflects trueCurrent true`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        var state = WheelState()
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        val r1 = freshDecoder.decode(liveFrame, state, config)
+        if (r1 != null) state = r1.newState
+
+        // First frame 0x07 — sets trueCurrent=true
+        val currentFrame1 = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
+        val r2 = freshDecoder.decode(currentFrame1, state, config)
+        if (r2 != null) state = r2.newState
+
+        // Second frame 0x07 — trueCurrent is now true, bmsCurrent still false
+        // hasNewData = trueCurrent(true) && !bmsCurrent(false) = true
+        val currentFrame2 = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
+        val r3 = freshDecoder.decode(currentFrame2, state, config)
+        assertNotNull(r3)
+        assertTrue(r3.hasNewData, "Second frame 0x07 should have hasNewData=true")
+    }
+
     // ==================== Helpers ====================
 
     /**
@@ -1214,6 +1302,40 @@ class GotwayDecoderTest {
         payload[4] = ((batVoltage shr 8) and 0xFF).toByte()
         payload[5] = (batVoltage and 0xFF).toByte()
         payload[16] = 0x01  // frame type at byte 18
+        payload[17] = 0x18  // padding
+        return header + payload + byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
+    }
+
+    /**
+     * Build a frame 0x07 (battery current / motor temperature).
+     * Layout:
+     * - Bytes 0-1: Header (55 AA)
+     * - Bytes 2-3: Battery current (BE, signed)
+     * - Bytes 4-5: padding
+     * - Bytes 6-7: Motor temperature (BE, signed)
+     * - Bytes 8-9: Hardware PWM (BE, signed)
+     * - Bytes 10-17: padding
+     * - Byte 18: Frame type (0x07)
+     * - Byte 19: padding (0x18)
+     * - Bytes 20-23: Footer (5A 5A 5A 5A)
+     */
+    private fun buildCurrentTempFrame(
+        batteryCurrent: Int = 0,
+        motorTemp: Int = 0,
+        hwPwm: Int = 0
+    ): ByteArray {
+        val header = byteArrayOf(0x55, 0xAA.toByte())
+        val payload = ByteArray(18)
+        // batteryCurrent at offset 2-3 in full frame = offset 0-1 in payload
+        payload[0] = ((batteryCurrent shr 8) and 0xFF).toByte()
+        payload[1] = (batteryCurrent and 0xFF).toByte()
+        // motorTemp at offset 6-7 in full frame = offset 4-5 in payload
+        payload[4] = ((motorTemp shr 8) and 0xFF).toByte()
+        payload[5] = (motorTemp and 0xFF).toByte()
+        // hwPwm at offset 8-9 in full frame = offset 6-7 in payload
+        payload[6] = ((hwPwm shr 8) and 0xFF).toByte()
+        payload[7] = (hwPwm and 0xFF).toByte()
+        payload[16] = 0x07  // frame type at byte 18
         payload[17] = 0x18  // padding
         return header + payload + byteArrayOf(0x5A, 0x5A, 0x5A, 0x5A)
     }

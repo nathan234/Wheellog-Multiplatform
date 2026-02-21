@@ -153,7 +153,13 @@ data class DecoderConfig(
      * 0 = 67.2V (16S), 1 = 84V (20S), 2 = 100.8V (24S),
      * 3 = 126V (28S), 4 = 134.4V (32S), 5 = 168V (40S), 6 = 151V (36S).
      */
-    val gotwayVoltage: Int = 0
+    val gotwayVoltage: Int = 0,
+
+    /**
+     * Whether to use hardware PWM from the wheel frame.
+     * When false, PWM is calculated from speed/voltage/powerFactor formula.
+     */
+    val hwPwmEnabled: Boolean = true
 )
 
 /**

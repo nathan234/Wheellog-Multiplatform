@@ -3,8 +3,10 @@ package com.cooper.wheellog.core.protocol
 import com.cooper.wheellog.core.domain.WheelState
 import com.cooper.wheellog.core.utils.ByteUtils
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -455,5 +457,171 @@ class VeteranDecoderComparisonTest {
         assertEquals(98.26, finalState.voltageV, 0.01, "Voltage should be 98.26V")
         assertEquals(6050, finalState.totalDistance.toInt(), "Total distance should be 6050m")
         assertEquals(97, finalState.batteryLevel, "Battery should be 97%")
+    }
+
+    // ==================== gotwayNegative (Config-driven) ====================
+
+    @Test
+    fun `speed is absolute when gotwayNegative is 0`() {
+        val cfg = defaultConfig.copy(gotwayNegative = 0)
+        val state = decodeVeteranFrameWithSpeed(rawSpeed = -274, config = cfg)
+        // abs(-274 * 10) = 2740
+        assertEquals(2740, state.speed, "Speed should be absolute with gotwayNegative=0")
+        assertTrue(state.phaseCurrent >= 0, "Phase current should also be absolute")
+    }
+
+    @Test
+    fun `speed sign preserved when gotwayNegative is 1`() {
+        val cfg = defaultConfig.copy(gotwayNegative = 1)
+        val state = decodeVeteranFrameWithSpeed(rawSpeed = -274, config = cfg)
+        // -274 * 10 * 1 = -2740
+        assertEquals(-2740, state.speed, "Speed sign should be preserved with gotwayNegative=1")
+    }
+
+    @Test
+    fun `speed sign inverted when gotwayNegative is negative 1`() {
+        val cfg = defaultConfig.copy(gotwayNegative = -1)
+        val state = decodeVeteranFrameWithSpeed(rawSpeed = -274, config = cfg)
+        // -274 * 10 * -1 = 2740
+        assertEquals(2740, state.speed, "Speed should be inverted with gotwayNegative=-1")
+    }
+
+    @Test
+    fun `phaseCurrent follows same sign rules as speed`() {
+        val cfg = defaultConfig.copy(gotwayNegative = -1)
+        val state = decodeVeteranFrameWithSpeed(rawSpeed = 100, rawPhaseCurrent = -500, config = cfg)
+        // phaseCurrent: -500 * 10 * -1 = 5000
+        assertEquals(5000, state.phaseCurrent, "Phase current should invert with gotwayNegative=-1")
+    }
+
+    // ==================== hwPwmEnabled ====================
+
+    @Test
+    fun `hwPwmEnabled true uses hardware PWM from frame`() {
+        val cfg = defaultConfig.copy(hwPwmEnabled = true)
+        val state = decodeVeteranFrameWithPwm(rawHwPwm = 3000, rawSpeed = 100, rawPhaseCurrent = 1000, config = cfg)
+        // hwPwm = 3000, calculatedPwm = 3000/10000 = 0.3
+        assertEquals(3000, state.output, "Output should be hardware PWM value")
+        assertEquals(0.3, state.calculatedPwm, 0.001)
+        // current = round(0.3 * 1000 * 10) = round(0.3 * 10000) = 3000
+        // phaseCurrent = abs(1000 * 10) = 10000 with gotwayNegative=0
+        val expectedCurrent = (0.3 * 10000).roundToInt()
+        assertEquals(expectedCurrent, state.current, "Current should be calculatedPwm * phaseCurrent")
+    }
+
+    @Test
+    fun `hwPwmEnabled false uses formula-based PWM`() {
+        val cfg = defaultConfig.copy(
+            hwPwmEnabled = false,
+            rotationSpeed = 500,
+            rotationVoltage = 840,
+            powerFactor = 100
+        )
+        val rawSpeed = 100 // speed = 100 * 10 = 1000 (after ×10 but before polarity)
+        val voltage = 9686  // 96.86V
+        val state = decodeVeteranFrameWithPwm(
+            rawHwPwm = 3000, // should be ignored
+            rawSpeed = rawSpeed,
+            rawPhaseCurrent = 1000,
+            rawVoltage = voltage,
+            config = cfg
+        )
+        // speed (after polarity with gotwayNegative=0) = abs(100*10) = 1000
+        // rotRatio = 500.0 / 840 = 0.5952...
+        // calculatedPwm = 1000.0 / (0.5952... * 9686 * 100) = 1000 / 576547.6... ≈ 0.001734
+        val rotRatio = 500.0 / 840
+        val expectedPwm = 1000.0 / (rotRatio * voltage * 100)
+        val expectedOutput = (expectedPwm * 10000).roundToInt()
+        assertEquals(expectedOutput, state.output,
+            "Output should use formula-based PWM, not hardware value 3000")
+        assertTrue(state.output != 3000, "Should NOT use hardware PWM")
+    }
+
+    // ==================== Helpers ====================
+
+    /**
+     * Build and decode a Veteran frame with given raw speed value.
+     * Returns the decoded WheelState.
+     */
+    private fun decodeVeteranFrameWithSpeed(
+        rawSpeed: Int,
+        rawPhaseCurrent: Int = 0,
+        config: DecoderConfig = defaultConfig
+    ): WheelState {
+        val vetDecoder = VeteranDecoder()
+        val frame = buildVeteranFrame(
+            rawVoltage = 9686,
+            rawSpeed = rawSpeed,
+            rawPhaseCurrent = rawPhaseCurrent,
+            mVer = 1
+        )
+        val result = vetDecoder.decode(frame, defaultState, config)
+        assertNotNull(result, "Veteran frame should decode")
+        return result.newState
+    }
+
+    /**
+     * Build and decode a Veteran frame with given PWM and speed values.
+     */
+    private fun decodeVeteranFrameWithPwm(
+        rawHwPwm: Int,
+        rawSpeed: Int,
+        rawPhaseCurrent: Int,
+        rawVoltage: Int = 9686,
+        config: DecoderConfig = defaultConfig
+    ): WheelState {
+        val vetDecoder = VeteranDecoder()
+        val frame = buildVeteranFrame(
+            rawVoltage = rawVoltage,
+            rawSpeed = rawSpeed,
+            rawPhaseCurrent = rawPhaseCurrent,
+            rawHwPwm = rawHwPwm,
+            mVer = 1
+        )
+        val result = vetDecoder.decode(frame, defaultState, config)
+        assertNotNull(result, "Veteran frame should decode")
+        return result.newState
+    }
+
+    /**
+     * Build a 36-byte Veteran frame.
+     * Layout: header(3) + len(1) + voltage(2) + speed(2) + distance(4) + totalDist(4)
+     *       + phaseCurrent(2) + temperature(2) + autoOffSec(2) + chargeMode(2)
+     *       + speedAlert(2) + speedTiltback(2) + version(2) + pedalsMode(2)
+     *       + pitchAngle(2) + hwPwm(2)
+     */
+    private fun buildVeteranFrame(
+        rawVoltage: Int = 9686,
+        rawSpeed: Int = 0,
+        rawPhaseCurrent: Int = 0,
+        rawHwPwm: Int = 0,
+        mVer: Int = 1
+    ): ByteArray {
+        val frame = ByteArray(36)
+        // Header: DC 5A 5C
+        frame[0] = 0xDC.toByte()
+        frame[1] = 0x5A
+        frame[2] = 0x5C
+        frame[3] = 32 // length
+        // Voltage at offset 4 (2 bytes BE)
+        frame[4] = ((rawVoltage shr 8) and 0xFF).toByte()
+        frame[5] = (rawVoltage and 0xFF).toByte()
+        // Speed at offset 6 (2 bytes BE, signed)
+        frame[6] = ((rawSpeed shr 8) and 0xFF).toByte()
+        frame[7] = (rawSpeed and 0xFF).toByte()
+        // Distance at offset 8 (4 bytes)
+        // TotalDistance at offset 12 (4 bytes)
+        // PhaseCurrent at offset 16 (2 bytes BE, signed)
+        frame[16] = ((rawPhaseCurrent shr 8) and 0xFF).toByte()
+        frame[17] = (rawPhaseCurrent and 0xFF).toByte()
+        // Temperature at offset 18 (2 bytes)
+        // Version at offset 28 (2 bytes BE) - encodes mVer
+        val ver = mVer * 1000
+        frame[28] = ((ver shr 8) and 0xFF).toByte()
+        frame[29] = (ver and 0xFF).toByte()
+        // hwPwm at offset 34 (2 bytes BE)
+        frame[34] = ((rawHwPwm shr 8) and 0xFF).toByte()
+        frame[35] = (rawHwPwm and 0xFF).toByte()
+        return frame
     }
 }

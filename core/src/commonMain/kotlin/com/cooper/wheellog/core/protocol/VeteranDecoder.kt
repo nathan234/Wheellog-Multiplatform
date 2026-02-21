@@ -206,7 +206,7 @@ class VeteranDecoder : WheelDecoder {
     ): WheelState? {
         if (buff.size < 36) return null
 
-        val veteranNegative = 1 // Could come from config
+        val veteranNegative = config.gotwayNegative
 
         val voltage = ByteUtils.shortFromBytesBE(buff, 4)
         var speed = ByteUtils.signedShortFromBytesBE(buff, 6) * 10
@@ -243,7 +243,18 @@ class VeteranDecoder : WheelDecoder {
         }
 
         // Calculate current and power
-        val calculatedPwm = hwPwm / 10000.0
+        val calculatedPwm: Double
+        val output: Int
+        if (config.hwPwmEnabled) {
+            output = hwPwm
+            calculatedPwm = hwPwm / 10000.0
+        } else {
+            val rotRatio = config.rotationSpeed.toDouble() / config.rotationVoltage
+            calculatedPwm = if (rotRatio * voltage * config.powerFactor != 0.0)
+                speed.toDouble() / (rotRatio * voltage * config.powerFactor)
+            else 0.0
+            output = (calculatedPwm * 10000).roundToInt()
+        }
         val current = (calculatedPwm * phaseCurrent).roundToInt()
         val power = ((current / 100.0) * voltage).roundToInt()
 
@@ -258,7 +269,7 @@ class VeteranDecoder : WheelDecoder {
             totalDistance = totalDistance,
             batteryLevel = battery,
             chargingStatus = chargeMode,
-            output = hwPwm,
+            output = output,
             calculatedPwm = calculatedPwm,
             angle = pitchAngle / 100.0,
             version = version,

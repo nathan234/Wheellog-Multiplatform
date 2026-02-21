@@ -34,6 +34,16 @@ Wheellog.Android/
                              #   receives data from phone via DataClient)
 ```
 
+### Module Dependencies
+
+```
+core  ← standalone KMP (no Android app deps)
+app   → core + shared
+shared ← standalone Android library (no core dep)
+wearos → shared only (NO core)
+iosApp → core framework
+```
+
 ## KMP Decoder Architecture
 
 All decoders are in `core/src/commonMain/.../protocol/` and implement the `WheelDecoder` interface. All are thread-safe (protected by Lock).
@@ -51,6 +61,47 @@ Some decoders have a paired `*Unpacker` for low-level frame reassembly; others h
 | InMotionV2Decoder | InMotionV2Unpacker | |
 
 Supporting files: `WheelDecoder.kt` (interface), `DefaultWheelDecoderFactory.kt` (creates decoder by wheel type), `AutoDetectDecoder.kt` (identifies wheel type from raw packets).
+
+### Command Support Matrix
+
+Which `WheelCommand` types each decoder supports in `buildCommand()`:
+
+| Category | Commands | KS | GW | VT | NB | NZ | IM1 | IM2 |
+|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Basic | Beep, Calibrate, PowerOff | Y | Y | Y* | - | Y | Y | Y |
+| Light | SetLight/Mode | Y | Y | Y | - | Y | Y | Y |
+| LED | SetLedMode, SetStrobeMode | Y | Y | - | - | Y | - | - |
+| LED | SetLed, SetLedColor | - | - | - | - | Y | Y | - |
+| Light ext | SetDrl, SetTailLight, SetLightBrightness | - | - | - | - | Y | - | Y |
+| Ride | SetPedalsMode | Y | Y | Y | - | - | - | - |
+| Ride | SetHandleButton, SetRideMode | - | - | - | - | Y | Y | Y |
+| Ride | SetTransportMode, SetGoHomeMode, SetFancierMode | - | - | - | - | - | - | Y |
+| Ride | SetRollAngleMode | - | Y | - | - | - | - | - |
+| Speed | SetMaxSpeed | - | Y | - | - | - | Y | Y |
+| Speed | SetAlarmSpeed/Enabled, SetLimitedMode/Speed | - | - | - | - | Y | - | - |
+| Speed | SetKingsongAlarms, RequestAlarmSettings | Y | - | - | - | - | - | - |
+| Pedal | SetPedalTilt, SetPedalSensitivity | - | - | - | - | Y* | Y | Y |
+| Audio | SetSpeakerVolume | - | - | - | - | Y | Y | Y |
+| Audio | SetBeeperVolume, SetMute | - | Y | - | - | - | - | Y |
+| Thermal | SetFan, SetFanQuiet | - | - | - | - | - | - | Y |
+| Other | SetLock, ResetTrip | - | - | Y* | - | Y | - | Y |
+| Other | SetAlarmMode, SetMilesMode, SetCutoutAngle | - | Y | - | - | - | - | - |
+| BMS | RequestBmsData | Y | - | - | - | - | - | - |
+
+Key: Y=supported, -=returns empty list, Y*=partial (VT Beep version-dependent, NZ PedalSensitivity only, VT ResetTrip only). NB has no buildCommand override.
+
+### DecoderConfig Field Impact
+
+| Field | Decoders | Purpose |
+|---|---|---|
+| `gotwayNegative` | GW only | Speed/current sign: 0=abs, 1=keep, -1=invert |
+| `useRatio` | GW only | Apply 0.875 scaling to speed/distance |
+| `gotwayVoltage` | GW only | Battery series (16S-40S) for % calculation |
+| `wheelPassword` | IM1 only | InMotion V1 authentication |
+| `useMph`, `useFahrenheit` | KS, GW, NZ | Unit conversion in decoded state |
+| `useCustomPercents`, `cellVoltageTiltback` | KS, GW, VT, NZ, IM2 | Custom battery % from cell voltage |
+| `rotationSpeed`, `rotationVoltage`, `powerFactor` | KS, GW, VT, IM2 | PWM/output calculation |
+| `batteryCapacity` | All (via EnergyCalculator) | Remaining range estimation |
 
 ### Decoder Data Flow
 
@@ -75,6 +126,26 @@ Lifecycle:
 4. **Ready** → `decoder.isReady()` returns true → `ConnectionState.Connected` → keep-alive starts
 5. **Keep-alive** → `decoder.getKeepAliveCommand()` sent at `keepAliveIntervalMs` interval
 6. **Disconnect** → `decoder.reset()` → timers stopped → state cleared
+
+### Unpacker Contract
+
+Decoders with paired unpackers follow this interaction pattern:
+
+1. **Feeding**: Decoder iterates `data` byte-by-byte → `unpacker.addChar(byte.toInt() and 0xFF)`
+2. **Frame ready**: `addChar()` returns `true` only when a complete valid frame is assembled
+3. **Retrieve**: `unpacker.getBuffer()` returns the reassembled frame for processing
+4. **Null = incomplete**: `decode()` returns `null` when data is incomplete — not an error. Decoders never throw
+5. **Reset coupling**: `decoder.reset()` must also call `unpacker.reset()`
+6. **Stateful**: Unpackers maintain internal state machines (UNKNOWN → COLLECTING → DONE)
+
+Decoders without unpackers (KS, VT, NZ) handle framing internally.
+
+### WheelState Conventions
+
+- **Internal units**: Speed/voltage/current/temp stored as `Int × 100`. Use computed properties for display (`speedKmh`, `voltageV`, etc.). Distance in meters.
+- **Default -1 = unknown**: Settings fields (`pedalsMode`, `lightMode`, `ledMode`, `maxSpeed`, `pedalTilt`, `pedalSensitivity`, `speakerVolume`, `lightBrightness`, `cutoutAngle`, `rollAngle`, `speedAlarms`) use -1 for "not yet read from wheel"
+- **Immutable + copy**: Decoders return `currentState.copy(field = newValue)`. SmartBms is mutable internally but exposed via immutable `BmsSnapshot`
+- **BMS accumulation**: `bms1`/`bms2` built across multiple frames. Cell voltages arrive separately (GW: frame 0x02/0x03, KS: via RequestBmsData)
 
 ## Decoder Mode (Android)
 
@@ -238,6 +309,26 @@ Frame builders (decoder-specific, in respective test files):
 - `buildLiveDataFrame()` / `buildGotwayLiveDataFrame()` — Gotway frame 0x00
 - `buildIM2Frame(flags, command, data)` — InMotion V2 message with escaping + checksum
 - `buildSettingsFrame(payload)` — InMotion V2 settings frame
+
+### Comparison Test Convention
+
+Comparison tests verify KMP decoders produce identical results to the legacy Java/Kotlin decoders:
+
+1. **Cite the legacy test file** in class KDoc
+2. **Cite specific test cases** in individual test comments
+3. **Use identical packet data** from legacy — do not fabricate new packets
+
+### Test Coverage
+
+| Decoder | Unit Test | Comparison Test |
+|---------|:---------:|:---------------:|
+| KS | - | Y |
+| GW | Y | Y |
+| VT | - | Y |
+| NB | Y | - |
+| NZ | - | Y |
+| IM1 | Y | Y |
+| IM2 | Y | - |
 
 ### iOS Testing on Simulator
 

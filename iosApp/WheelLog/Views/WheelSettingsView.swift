@@ -156,6 +156,9 @@ struct WheelSettingsContent: View {
                 if !editing, let value = sliderValues[key] {
                     UserDefaults.standard.set(value, forKey: persistKey)
                     executeCommand(control.commandId, intValue: Int32(value))
+                    // Clear local override so readback from wheel takes precedence.
+                    // The persisted value serves as fallback until readback arrives.
+                    sliderValues.removeValue(forKey: key)
                 }
             }
         )

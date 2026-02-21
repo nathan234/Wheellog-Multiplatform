@@ -6,7 +6,7 @@
 set -e
 
 # Set up environment that Xcode strips
-export JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home 2>/dev/null || echo /usr/local/java)}"
+export JAVA_HOME="${JAVA_HOME:-$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home 2>/dev/null || echo /usr/local/java)}"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 
 # Navigate to project root (parent of iosApp)

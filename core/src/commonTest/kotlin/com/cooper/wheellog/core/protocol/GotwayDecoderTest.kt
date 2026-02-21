@@ -700,7 +700,7 @@ class GotwayDecoderTest {
     //   Tilt back speed: Turn off      → tiltBackSpeed=0
     //   LED setting: LED0              → ledMode=0
     //   Volume setting: 1              → beeperVolume=1 (write-only, no readback)
-    //   Left/right tilt angle closed: 60° → cutoutAngle=60 (write-only, no readback)
+    //   Left/right tilt angle closed: 60° → cutoutAngle=60 (readback from FRAME_07 bytes 4-5)
 
     @Test
     fun `0x04 frame decodes pedalsMode matching Begode Strong setting`() {
@@ -938,7 +938,7 @@ class GotwayDecoderTest {
 
         assertNotNull(result)
         assertEquals(-1, result.newState.cutoutAngle,
-            "0xFF frame should not set cutoutAngle — standard firmware has no readback")
+            "0xFF frame should not set cutoutAngle — cutout angle is read from FRAME_07")
     }
 
     // ==================== SetCutoutAngle Command ====================
@@ -1613,6 +1613,64 @@ class GotwayDecoderTest {
         assertTrue(r3.hasNewData, "Second frame 0x07 should have hasNewData=true")
     }
 
+    // ==================== Cutout Angle Readback (FRAME_07 bytes 4-5) ====================
+
+    @Test
+    fun `0x07 frame decodes cutoutAngle from bytes 4-5 step 0 = 45 degrees`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // BLE capture: cutout angle set to 45° in Begode app
+        // FRAME_07: 55AAFF940000001F0000000000000000000007185A5A5A5A
+        //                   ^^^^ bytes 4-5 = 0x0000 = step 0
+        val frame = buildCurrentTempFrame(cutoutStep = 0)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(45, result.newState.cutoutAngle)
+    }
+
+    @Test
+    fun `0x07 frame decodes cutoutAngle from bytes 4-5 step 9 = 90 degrees`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // BLE capture: cutout angle set to 90° in Begode app
+        // FRAME_07: 55AAFFFC0009001F0000000000000000000007185A5A5A5A
+        //                   ^^^^ bytes 4-5 = 0x0009 = step 9
+        val frame = buildCurrentTempFrame(cutoutStep = 9)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(90, result.newState.cutoutAngle)
+    }
+
+    @Test
+    fun `0x07 frame decodes cutoutAngle step 3 = 60 degrees`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildCurrentTempFrame(cutoutStep = 3)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(60, result.newState.cutoutAngle,
+            "step 3 = 3*5 + 45 = 60°")
+    }
+
+    @Test
+    fun `0x07 frame with out-of-range cutout step sets cutoutAngle to -1`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        val frame = buildCurrentTempFrame(cutoutStep = 15)
+        val result = freshDecoder.decode(frame, WheelState(), config)
+
+        assertNotNull(result)
+        assertEquals(-1, result.newState.cutoutAngle,
+            "Out-of-range step should not set cutoutAngle")
+    }
+
     // ==================== Helpers ====================
 
     /**
@@ -1831,7 +1889,7 @@ class GotwayDecoderTest {
      * Layout:
      * - Bytes 0-1: Header (55 AA)
      * - Bytes 2-3: Battery current (BE, signed)
-     * - Bytes 4-5: padding
+     * - Bytes 4-5: Cutout angle step (BE, 0-9 → 45-90° in 5° increments)
      * - Bytes 6-7: Motor temperature (BE, signed)
      * - Bytes 8-9: Hardware PWM (BE, signed)
      * - Bytes 10-17: padding
@@ -1842,13 +1900,17 @@ class GotwayDecoderTest {
     private fun buildCurrentTempFrame(
         batteryCurrent: Int = 0,
         motorTemp: Int = 0,
-        hwPwm: Int = 0
+        hwPwm: Int = 0,
+        cutoutStep: Int = 0
     ): ByteArray {
         val header = byteArrayOf(0x55, 0xAA.toByte())
         val payload = ByteArray(18)
         // batteryCurrent at offset 2-3 in full frame = offset 0-1 in payload
         payload[0] = ((batteryCurrent shr 8) and 0xFF).toByte()
         payload[1] = (batteryCurrent and 0xFF).toByte()
+        // cutoutStep at offset 4-5 in full frame = offset 2-3 in payload
+        payload[2] = ((cutoutStep shr 8) and 0xFF).toByte()
+        payload[3] = (cutoutStep and 0xFF).toByte()
         // motorTemp at offset 6-7 in full frame = offset 4-5 in payload
         payload[4] = ((motorTemp shr 8) and 0xFF).toByte()
         payload[5] = (motorTemp and 0xFF).toByte()

@@ -331,10 +331,12 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `readInt returns null for cutoutAngle - no readback from standard firmware`() {
+    fun `readInt returns cutoutAngle from FRAME_07 bytes 4-5`() {
         val state = WheelState(cutoutAngle = 70)
-        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(state),
-            "cutoutAngle has no readback from standard Begode firmware")
+        assertEquals(70, SettingsCommandId.CUTOUT_ANGLE.readInt(state))
+
+        val stateUnknown = WheelState(cutoutAngle = -1)
+        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(stateUnknown))
     }
 
     @Test
@@ -411,10 +413,7 @@ class WheelSettingsConfigTest {
 
     @Test
     fun `Gotway write-only settings return null readback`() {
-        // These have no readback from any BLE frame on standard Begode firmware
-        val state = WheelState(cutoutAngle = 60)
-        assertNull(SettingsCommandId.CUTOUT_ANGLE.readInt(state),
-            "cutoutAngle has no readback — Begode app persists locally")
+        val state = WheelState()
         assertNull(SettingsCommandId.BEEPER_VOLUME.readInt(state),
             "beeperVolume has no readback")
     }

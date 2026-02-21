@@ -450,7 +450,11 @@ class GotwayDecoder : WheelDecoder {
     }
 
     /**
-     * Frame type 0x07: Current and motor temperature
+     * Frame type 0x07: Current, motor temperature, and cutout angle
+     *
+     * Bytes 4-5 contain the cutout angle as a step value (0-9),
+     * where angle = step * 5 + 45 (range 45-90° in 5° increments).
+     * Discovered via BLE capture comparison at different angle settings.
      */
     private fun processCurrentTempFrame(
         buff: ByteArray,
@@ -464,6 +468,8 @@ class GotwayDecoder : WheelDecoder {
         val hasNewData = trueCurrent && !bmsCurrent
         trueCurrent = true
         val batteryCurrent = ByteUtils.signedShortFromBytesBE(buff, 2)
+        val cutoutStep = ByteUtils.shortFromBytesBE(buff, 4) // 0-9 → 45-90° in 5° increments
+        val cutoutAngle = if (cutoutStep in 0..9) cutoutStep * 5 + 45 else -1
         val motorTemp = ByteUtils.signedShortFromBytesBE(buff, 6)
         var hwPWMb = ByteUtils.signedShortFromBytesBE(buff, 8)
 
@@ -488,7 +494,8 @@ class GotwayDecoder : WheelDecoder {
                 current = current,
                 temperature2 = motorTemp * 100,
                 output = output,
-                calculatedPwm = calculatedPwm
+                calculatedPwm = calculatedPwm,
+                cutoutAngle = cutoutAngle
             ),
             hasNewData = hasNewData
         )
@@ -505,8 +512,7 @@ class GotwayDecoder : WheelDecoder {
      * - Bytes 6-17: PID tuning parameters (not stored in WheelState)
      *
      * Note: Standard Begode firmware does not send this frame.
-     * The cutout angle (45-90°) on standard firmware has no readback —
-     * it is set via the W/X/digit command sequence only.
+     * The standard cutout angle (45-90°) is read from FRAME_07 bytes 4-5.
      */
     private fun processSettingsFrame(buff: ByteArray, currentState: WheelState): FrameResult {
         return FrameResult(

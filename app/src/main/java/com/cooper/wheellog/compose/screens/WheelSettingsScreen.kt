@@ -62,7 +62,8 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                 },
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { contentPadding ->
         if (sections.isEmpty()) {
             Column(

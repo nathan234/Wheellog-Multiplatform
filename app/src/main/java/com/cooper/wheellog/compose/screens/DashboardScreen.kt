@@ -75,7 +75,7 @@ fun DashboardScreen(
 
     val displaySpeed = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
     val speedUnit = DisplayUtils.speedUnit(useMph)
-    val maxSpeed = if (useMph) 31.0 else 50.0
+    val maxSpeed = viewModel.appConfig.maxSpeed.toDouble()
 
     val title = wheelState.displayName
 
@@ -85,7 +85,8 @@ fun DashboardScreen(
                 title = { Text(title) },
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { contentPadding ->
     Column(
         modifier = Modifier
@@ -140,12 +141,11 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             val speedVal = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
-            val speedMax = if (useMph) 31.0 else 50.0
             GaugeTile(
                 label = "Speed",
                 value = String.format(Locale.US, "%.1f", speedVal),
                 unit = speedUnit,
-                progress = (speedVal / speedMax).toFloat(),
+                progress = (speedVal / maxSpeed).toFloat(),
                 color = tileColor(MetricType.SPEED, wheelState.speedKmh),
                 sparklineData = sparkline(MetricType.SPEED),
                 onClick = { onNavigateToMetric("speed") },
@@ -222,7 +222,7 @@ fun DashboardScreen(
                 label = "GPS Speed",
                 value = gpsDisplay,
                 unit = speedUnit,
-                progress = (gpsVal / (if (useMph) 31.0 else 50.0)).toFloat(),
+                progress = (gpsVal / maxSpeed).toFloat(),
                 color = tileColor(MetricType.GPS_SPEED, gpsSpeed),
                 sparklineData = sparkline(MetricType.GPS_SPEED),
                 onClick = { onNavigateToMetric("gps_speed") },

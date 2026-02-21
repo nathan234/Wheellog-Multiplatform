@@ -149,7 +149,8 @@ fun TripDetailScreen(
                 },
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         when (val s = state) {
             is TripDetailState.Loading -> {

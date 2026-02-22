@@ -208,8 +208,11 @@ struct TripDetailView: View {
                 RuleMark(x: .value("Time", selected.timestamp))
                     .foregroundStyle(.gray.opacity(0.5))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .annotation(position: annotationPosition(for: selected), spacing: 8) {
-                        annotationContent(for: selected)
+                    .annotation(position: chartAnnotationPosition(for: selected, in: samples), spacing: 8) {
+                        ChartAnnotationContent(
+                            sample: selected,
+                            visibleSeries: mainChartVisibleSeries(for: selected)
+                        )
                     }
             }
         }
@@ -230,21 +233,7 @@ struct TripDetailView: View {
                 Rectangle()
                     .fill(Color.clear)
                     .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let originX = geometry[proxy.plotAreaFrame].origin.x
-                                let locationX = value.location.x - originX
-                                if let date: Date = proxy.value(atX: locationX) {
-                                    selectedSample = samples.min(by: {
-                                        abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date))
-                                    })
-                                }
-                            }
-                            .onEnded { _ in
-                                selectedSample = nil
-                            }
-                    )
+                    .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
             }
         }
         .frame(height: 250)
@@ -258,62 +247,27 @@ struct TripDetailView: View {
         return 15
     }
 
-    private func annotationPosition(for sample: TelemetrySample) -> AnnotationPosition {
-        guard let first = samples.first?.timestamp,
-              let last = samples.last?.timestamp else { return .top }
-        let range = last.timeIntervalSince(first)
-        guard range > 0 else { return .top }
-        let position = sample.timestamp.timeIntervalSince(first) / range
-        return position > 0.75 ? .topLeading : .topTrailing
-    }
-
-    private func annotationContent(for selected: TelemetrySample) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            if showSpeed {
-                HStack(spacing: 4) {
-                    Circle().fill(.blue).frame(width: 6, height: 6)
-                    Text(String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit))
-                }
-            }
-            if showGpsSpeed {
-                HStack(spacing: 4) {
-                    Circle().fill(.cyan).frame(width: 6, height: 6)
-                    Text(String(format: "GPS %.1f %@", displaySpeed(selected.gpsSpeed), speedUnit))
-                }
-            }
-            if showCurrent {
-                HStack(spacing: 4) {
-                    Circle().fill(.orange).frame(width: 6, height: 6)
-                    Text(String(format: "%.1f A", selected.current))
-                }
-            }
-            if showPower {
-                HStack(spacing: 4) {
-                    Circle().fill(.green).frame(width: 6, height: 6)
-                    Text(String(format: "%.0f W", selected.power))
-                }
-            }
-            if showTemperature {
-                HStack(spacing: 4) {
-                    Circle().fill(.red).frame(width: 6, height: 6)
-                    Text(String(format: "%.0f%@", displayTemp(selected.temperature), tempUnit))
-                }
-            }
-            if showPwm {
-                HStack(spacing: 4) {
-                    Circle().fill(.pink).frame(width: 6, height: 6)
-                    Text(String(format: "%.1f%%", selected.pwmPercent))
-                }
-            }
-            Text(selected.timestamp, format: .dateTime.hour().minute().second())
-                .foregroundColor(.secondary)
+    private func mainChartVisibleSeries(for selected: TelemetrySample) -> [(label: String, color: Color, value: String)] {
+        var series: [(label: String, color: Color, value: String)] = []
+        if showSpeed {
+            series.append(("Speed", .blue, String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit)))
         }
-        .font(.caption)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color(.systemBackground))
-        .cornerRadius(6)
-        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+        if showGpsSpeed {
+            series.append(("GPS", .cyan, String(format: "GPS %.1f %@", displaySpeed(selected.gpsSpeed), speedUnit)))
+        }
+        if showCurrent {
+            series.append(("Current", .orange, String(format: "%.1f A", selected.current)))
+        }
+        if showPower {
+            series.append(("Power", .green, String(format: "%.0f W", selected.power)))
+        }
+        if showTemperature {
+            series.append(("Temp", .red, String(format: "%.0f%@", displayTemp(selected.temperature), tempUnit)))
+        }
+        if showPwm {
+            series.append(("PWM", .pink, String(format: "%.1f%%", selected.pwmPercent)))
+        }
+        return series
     }
 
     // MARK: - Voltage Chart

@@ -31,6 +31,7 @@
 		C1000001221F000000001C /* MetricDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1000001221F000000000C /* MetricDetailView.swift */; };
 		D1000001221F000000001D /* WheelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1000001221F000000000D /* WheelSettingsView.swift */; };
 		F1000001221F000000001F /* TripDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000001221F000000000F /* TripDetailView.swift */; };
+		G1000001221F0000000020 /* ChartHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = G1000001221F0000000010 /* ChartHelpers.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +61,7 @@
 		C1000001221F000000000C /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
 		D1000001221F000000000D /* WheelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelSettingsView.swift; sourceTree = "<group>"; };
 		F1000001221F000000000F /* TripDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripDetailView.swift; sourceTree = "<group>"; };
+		G1000001221F0000000010 /* ChartHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChartHelpers.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +137,7 @@
 				A1000001221F0000000019 /* ConnectionBanner.swift */,
 				A1000001221F000000001C /* SettingsView.swift */,
 				B1000001221F0000000008 /* ChartView.swift */,
+				G1000001221F0000000010 /* ChartHelpers.swift */,
 				B1000001221F0000000009 /* RidesView.swift */,
 				B1000001221F000000000A /* SmartBmsView.swift */,
 				C1000001221F000000000B /* GaugeTileView.swift */,
@@ -260,6 +263,7 @@
 				C1000001221F000000001C /* MetricDetailView.swift in Sources */,
 				D1000001221F000000001D /* WheelSettingsView.swift in Sources */,
 				F1000001221F000000001F /* TripDetailView.swift in Sources */,
+				G1000001221F0000000020 /* ChartHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

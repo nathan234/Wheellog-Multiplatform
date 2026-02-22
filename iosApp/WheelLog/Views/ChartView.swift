@@ -159,47 +159,11 @@ struct TelemetryChartView: View {
                             RuleMark(x: .value("Time", selected.timestamp))
                                 .foregroundStyle(.gray.opacity(0.5))
                                 .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                                .annotation(position: mainChartAnnotationPosition(for: selected), spacing: 8) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        if showSpeed {
-                                            HStack(spacing: 4) {
-                                                Circle().fill(.blue).frame(width: 6, height: 6)
-                                                Text(String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit))
-                                            }
-                                        }
-                                        if showGpsSpeed {
-                                            HStack(spacing: 4) {
-                                                Circle().fill(.cyan).frame(width: 6, height: 6)
-                                                Text(String(format: "GPS %.1f %@", displaySpeed(selected.gpsSpeed), speedUnit))
-                                            }
-                                        }
-                                        if showCurrent {
-                                            HStack(spacing: 4) {
-                                                Circle().fill(.orange).frame(width: 6, height: 6)
-                                                Text(String(format: "%.1f A", selected.current))
-                                            }
-                                        }
-                                        if showPower {
-                                            HStack(spacing: 4) {
-                                                Circle().fill(.green).frame(width: 6, height: 6)
-                                                Text(String(format: "%.0f W", selected.power))
-                                            }
-                                        }
-                                        if showTemperature {
-                                            HStack(spacing: 4) {
-                                                Circle().fill(.red).frame(width: 6, height: 6)
-                                                Text(String(format: "%.0f%@", displayTemp(selected.temperature), tempUnit))
-                                            }
-                                        }
-                                        Text(selected.timestamp, format: .dateTime.hour().minute().second())
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(.systemBackground))
-                                    .cornerRadius(6)
-                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                .annotation(position: chartAnnotationPosition(for: selected, in: chartSamples), spacing: 8) {
+                                    ChartAnnotationContent(
+                                        sample: selected,
+                                        visibleSeries: mainChartVisibleSeries(for: selected)
+                                    )
                                 }
                         }
                     }
@@ -220,19 +184,7 @@ struct TelemetryChartView: View {
                             Rectangle()
                                 .fill(Color.clear)
                                 .contentShape(Rectangle())
-                                .gesture(
-                                    DragGesture(minimumDistance: 0)
-                                        .onChanged { value in
-                                            let originX = geometry[proxy.plotAreaFrame].origin.x
-                                            let locationX = value.location.x - originX
-                                            if let date: Date = proxy.value(atX: locationX) {
-                                                selectedSample = nearestSample(to: date, in: chartSamples)
-                                            }
-                                        }
-                                        .onEnded { _ in
-                                            selectedSample = nil
-                                        }
-                                )
+                                .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: chartSamples) { selectedSample = $0 })
                         }
                     }
                     .frame(height: 250)
@@ -248,31 +200,25 @@ struct TelemetryChartView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func mainChartAnnotationPosition(for sample: TelemetrySample) -> AnnotationPosition {
-        guard let first = chartSamples.first?.timestamp,
-              let last = chartSamples.last?.timestamp else { return .top }
-        let range = last.timeIntervalSince(first)
-        guard range > 0 else { return .top }
-        let position = sample.timestamp.timeIntervalSince(first) / range
-        return position > 0.75 ? .topLeading : .topTrailing
+    private func mainChartVisibleSeries(for selected: TelemetrySample) -> [(label: String, color: Color, value: String)] {
+        var series: [(label: String, color: Color, value: String)] = []
+        if showSpeed {
+            series.append(("Speed", .blue, String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit)))
+        }
+        if showGpsSpeed {
+            series.append(("GPS", .cyan, String(format: "GPS %.1f %@", displaySpeed(selected.gpsSpeed), speedUnit)))
+        }
+        if showCurrent {
+            series.append(("Current", .orange, String(format: "%.1f A", selected.current)))
+        }
+        if showPower {
+            series.append(("Power", .green, String(format: "%.0f W", selected.power)))
+        }
+        if showTemperature {
+            series.append(("Temp", .red, String(format: "%.0f%@", displayTemp(selected.temperature), tempUnit)))
+        }
+        return series
     }
-}
-
-// MARK: - Shared Helpers
-
-private func nearestSample(to date: Date, in samples: [TelemetrySample]) -> TelemetrySample? {
-    samples.min(by: {
-        abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date))
-    })
-}
-
-private func annotationPosition(for sample: TelemetrySample, in samples: [TelemetrySample]) -> AnnotationPosition {
-    guard let first = samples.first?.timestamp,
-          let last = samples.last?.timestamp else { return .top }
-    let range = last.timeIntervalSince(first)
-    guard range > 0 else { return .top }
-    let position = sample.timestamp.timeIntervalSince(first) / range
-    return position > 0.75 ? .topLeading : .topTrailing
 }
 
 // MARK: - Voltage Chart with press-and-hold selection
@@ -307,20 +253,11 @@ struct VoltageChartView: View {
                     RuleMark(x: .value("Time", selected.timestamp))
                         .foregroundStyle(.gray.opacity(0.5))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .annotation(position: annotationPosition(for: selected, in: samples), spacing: 8) {
-                            VStack(spacing: 2) {
-                                Text(String(format: "%.2f V", selected.voltage))
-                                    .font(.caption)
-                                    .fontWeight(.bold)
-                                Text(selected.timestamp, format: .dateTime.hour().minute().second())
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(.systemBackground))
-                            .cornerRadius(6)
-                            .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                        .annotation(position: chartAnnotationPosition(for: selected, in: samples), spacing: 8) {
+                            ChartAnnotationContent(
+                                sample: selected,
+                                visibleSeries: [("Voltage", .purple, String(format: "%.2f V", selected.voltage))]
+                            )
                         }
 
                     PointMark(
@@ -348,19 +285,7 @@ struct VoltageChartView: View {
                     Rectangle()
                         .fill(Color.clear)
                         .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    let originX = geometry[proxy.plotAreaFrame].origin.x
-                                    let locationX = value.location.x - originX
-                                    if let date: Date = proxy.value(atX: locationX) {
-                                        selectedSample = nearestSample(to: date, in: samples)
-                                    }
-                                }
-                                .onEnded { _ in
-                                    selectedSample = nil
-                                }
-                        )
+                        .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
                 }
             }
             .frame(height: 200)

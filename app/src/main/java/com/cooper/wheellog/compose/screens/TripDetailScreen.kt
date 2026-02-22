@@ -33,47 +33,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.MarkerSeriesInfo
+import com.cooper.wheellog.compose.components.SeriesInfo
+import com.cooper.wheellog.compose.components.SPEED_COLOR
+import com.cooper.wheellog.compose.components.GPS_SPEED_COLOR
+import com.cooper.wheellog.compose.components.CURRENT_COLOR
+import com.cooper.wheellog.compose.components.POWER_COLOR
+import com.cooper.wheellog.compose.components.TEMP_COLOR
+import com.cooper.wheellog.compose.components.PWM_COLOR
+import com.cooper.wheellog.compose.components.VOLTAGE_COLOR
 import com.cooper.wheellog.compose.components.ToggleChip
+import com.cooper.wheellog.compose.components.VicoLineChart
 import com.cooper.wheellog.compose.components.rememberChartMarker
 import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.core.utils.DisplayUtils
 import com.cooper.wheellog.data.TripDataDbEntry
-import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
-import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.compose.common.fill
-import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
-import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
-import com.patrykandpatrick.vico.core.cartesian.marker.CartesianMarker
-import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.cooper.wheellog.core.logging.CsvParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
-
-private val SPEED_COLOR = Color(0xFF2196F3)
-private val GPS_SPEED_COLOR = Color(0xFF00BCD4)
-private val CURRENT_COLOR = Color(0xFFFF9800)
-private val POWER_COLOR = Color(0xFF4CAF50)
-private val TEMP_COLOR = Color(0xFFF44336)
-private val PWM_COLOR = Color(0xFFE91E63)
-private val VOLTAGE_COLOR = Color(0xFF9C27B0)
 
 private sealed class TripDetailState {
     data object Loading : TripDetailState()
@@ -222,30 +207,30 @@ fun TripDetailScreen(
                     val tempUnit = if (useFahrenheit) "\u00B0F" else "\u00B0C"
 
                     // Build visible series
-                    val visibleSeries = mutableListOf<TripSeriesInfo>()
+                    val visibleSeries = mutableListOf<SeriesInfo>()
                     val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
                     if (showSpeed) {
-                        visibleSeries += TripSeriesInfo(SPEED_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) })
+                        visibleSeries += SeriesInfo(SPEED_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) })
                         visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
                     }
                     if (showGpsSpeed) {
-                        visibleSeries += TripSeriesInfo(GPS_SPEED_COLOR, s.samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
+                        visibleSeries += SeriesInfo(GPS_SPEED_COLOR, s.samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
                         visibleMarkerInfo += MarkerSeriesInfo("GPS", speedUnit, 1)
                     }
                     if (showCurrent) {
-                        visibleSeries += TripSeriesInfo(CURRENT_COLOR, s.samples.map { it.currentA })
+                        visibleSeries += SeriesInfo(CURRENT_COLOR, s.samples.map { it.currentA })
                         visibleMarkerInfo += MarkerSeriesInfo("Current", "A", 1)
                     }
                     if (showPower) {
-                        visibleSeries += TripSeriesInfo(POWER_COLOR, s.samples.map { it.powerW })
+                        visibleSeries += SeriesInfo(POWER_COLOR, s.samples.map { it.powerW })
                         visibleMarkerInfo += MarkerSeriesInfo("Power", "W", 0)
                     }
                     if (showTemperature) {
-                        visibleSeries += TripSeriesInfo(TEMP_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.temperatureC, MetricType.TEMPERATURE, useMph, useFahrenheit) })
+                        visibleSeries += SeriesInfo(TEMP_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.temperatureC, MetricType.TEMPERATURE, useMph, useFahrenheit) })
                         visibleMarkerInfo += MarkerSeriesInfo("Temp", tempUnit, 0)
                     }
                     if (showPwm) {
-                        visibleSeries += TripSeriesInfo(PWM_COLOR, s.samples.map { it.pwmPercent })
+                        visibleSeries += SeriesInfo(PWM_COLOR, s.samples.map { it.pwmPercent })
                         visibleMarkerInfo += MarkerSeriesInfo("PWM", "%", 1)
                     }
 
@@ -253,7 +238,7 @@ fun TripDetailScreen(
 
                     if (visibleSeries.isNotEmpty()) {
                         val marker = rememberChartMarker(s.samples, visibleMarkerInfo, timeFormatPattern)
-                        TripLineChart(
+                        VicoLineChart(
                             samples = s.samples,
                             seriesList = visibleSeries,
                             modifier = Modifier
@@ -277,10 +262,10 @@ fun TripDetailScreen(
                     val voltageMarker = rememberChartMarker(
                         s.samples, listOf(MarkerSeriesInfo("Voltage", "V", 1)), timeFormatPattern
                     )
-                    TripLineChart(
+                    VicoLineChart(
                         samples = s.samples,
                         seriesList = listOf(
-                            TripSeriesInfo(VOLTAGE_COLOR, s.samples.map { it.voltageV })
+                            SeriesInfo(VOLTAGE_COLOR, s.samples.map { it.voltageV })
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -381,62 +366,5 @@ private fun SummaryItem(label: String, value: String) {
             fontWeight = FontWeight.Medium
         )
     }
-}
-
-// --- Chart ---
-
-private data class TripSeriesInfo(
-    val color: Color,
-    val values: List<Double>
-)
-
-@Composable
-private fun TripLineChart(
-    samples: List<TelemetrySample>,
-    seriesList: List<TripSeriesInfo>,
-    modifier: Modifier = Modifier,
-    marker: CartesianMarker? = null,
-) {
-    if (samples.isEmpty() || seriesList.isEmpty()) return
-
-    val modelProducer = remember { CartesianChartModelProducer() }
-
-    LaunchedEffect(samples, seriesList.map { it.values.hashCode() }) {
-        modelProducer.runTransaction {
-            lineSeries {
-                for (info in seriesList) {
-                    series(y = info.values)
-                }
-            }
-        }
-    }
-
-    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
-    val bottomAxisFormatter = remember(samples.size) {
-        CartesianValueFormatter { _, value, _ ->
-            val index = value.toInt().coerceIn(0, samples.lastIndex)
-            timeFormat.format(Date(samples[index].timestampMs))
-        }
-    }
-
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberLineCartesianLayer(
-                LineCartesianLayer.LineProvider.series(
-                    seriesList.map { info ->
-                        LineCartesianLayer.rememberLine(
-                            fill = LineCartesianLayer.LineFill.single(fill(info.color)),
-                            areaFill = null,
-                        )
-                    }
-                )
-            ),
-            startAxis = VerticalAxis.rememberStart(),
-            bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
-            marker = marker,
-        ),
-        modelProducer = modelProducer,
-        modifier = modifier,
-    )
 }
 

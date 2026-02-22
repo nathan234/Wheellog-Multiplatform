@@ -28,11 +28,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.MarkerSeriesInfo
+import com.cooper.wheellog.compose.components.metricColor
 import com.cooper.wheellog.compose.components.rememberChartMarker
 import com.cooper.wheellog.core.telemetry.ChartTimeRange
 import com.cooper.wheellog.core.telemetry.MetricType
@@ -234,11 +234,3 @@ private fun StatItem(label: String, value: String, unit: String) {
     }
 }
 
-internal fun metricColor(metric: MetricType): Color = when (metric) {
-    MetricType.SPEED -> Color(0xFF2196F3)
-    MetricType.BATTERY -> Color(0xFF4CAF50)
-    MetricType.POWER -> Color(0xFFFF9800)
-    MetricType.PWM -> Color(0xFF9C27B0)
-    MetricType.TEMPERATURE -> Color(0xFFF44336)
-    MetricType.GPS_SPEED -> Color(0xFF00BCD4)
-}

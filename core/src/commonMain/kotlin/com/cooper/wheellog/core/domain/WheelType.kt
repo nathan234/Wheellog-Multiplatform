@@ -77,6 +77,17 @@ enum class AlarmType(val value: Int) {
         WHEEL -> "Wheel"
     }
 
+    val alarmMessage: String get() = when (this) {
+        SPEED1 -> "Speed alarm 1 triggered"
+        SPEED2 -> "Speed alarm 2 triggered"
+        SPEED3 -> "Speed alarm 3 triggered"
+        CURRENT -> "Current alarm triggered"
+        TEMPERATURE -> "Temperature alarm triggered"
+        PWM -> "PWM alarm triggered"
+        BATTERY -> "Low battery alarm triggered"
+        WHEEL -> "Wheel alarm triggered"
+    }
+
     companion object {
         fun fromValue(value: Int): AlarmType? = entries.find { it.value == value }
     }

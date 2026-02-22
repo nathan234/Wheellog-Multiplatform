@@ -58,8 +58,8 @@ class WheelManager: ObservableObject {
     }
 
     // Alarm action (Feature 1)
-    @Published var alarmAction: AlarmAction = AlarmAction(rawValue: UserDefaults.standard.integer(forKey: PreferenceKeys.shared.ALARM_ACTION)) ?? .phoneOnly {
-        didSet { UserDefaults.standard.set(alarmAction.rawValue, forKey: PreferenceKeys.shared.ALARM_ACTION) }
+    @Published var alarmAction: WheelLogCore.AlarmAction = WheelLogCore.AlarmAction.companion.fromValue(value: Int32(UserDefaults.standard.integer(forKey: PreferenceKeys.shared.ALARM_ACTION))) {
+        didSet { UserDefaults.standard.set(alarmAction.value, forKey: PreferenceKeys.shared.ALARM_ACTION) }
     }
     @Published private(set) var activeAlarms: Set<AlarmType> = []
 

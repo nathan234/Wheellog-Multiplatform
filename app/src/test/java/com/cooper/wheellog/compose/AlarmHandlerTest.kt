@@ -5,6 +5,7 @@ import com.cooper.wheellog.core.alarm.PreWarning
 import com.cooper.wheellog.core.alarm.PreWarningType
 import com.cooper.wheellog.core.alarm.TriggeredAlarm
 import com.cooper.wheellog.core.alarm.VibrationPatterns
+import com.cooper.wheellog.core.domain.AlarmAction
 import com.cooper.wheellog.core.domain.AlarmType
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test

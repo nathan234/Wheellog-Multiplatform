@@ -3,20 +3,6 @@ import AVFoundation
 import UIKit
 import WheelLogCore
 
-enum AlarmAction: Int, CaseIterable {
-    case phoneOnly = 0
-    case phoneAndWheel = 1
-    case all = 2
-
-    var label: String {
-        switch self {
-        case .phoneOnly: return "Phone Only"
-        case .phoneAndWheel: return "Phone + Wheel"
-        case .all: return "All"
-        }
-    }
-}
-
 @MainActor
 class AlarmManager: ObservableObject {
 
@@ -42,7 +28,7 @@ class AlarmManager: ObservableObject {
 
     // MARK: - KMP Alarm Check
 
-    func checkAlarms(state: WheelState, config: AlarmConfig, enabled: Bool, action: AlarmAction) {
+    func checkAlarms(state: WheelState, config: AlarmConfig, enabled: Bool, action: WheelLogCore.AlarmAction) {
         guard enabled else {
             if !activeAlarms.isEmpty {
                 activeAlarms = []
@@ -68,7 +54,7 @@ class AlarmManager: ObservableObject {
 
     // MARK: - Process Result
 
-    private func processAlarmResult(_ result: AlarmResult, action: AlarmAction) {
+    private func processAlarmResult(_ result: AlarmResult, action: WheelLogCore.AlarmAction) {
         var newActive: Set<AlarmType> = []
 
         for alarm in result.triggeredAlarms {
@@ -92,7 +78,7 @@ class AlarmManager: ObservableObject {
 
     // MARK: - Fire Alarm
 
-    private func fireAlarm(type: AlarmType, action: AlarmAction, toneDurationMs: Int) {
+    private func fireAlarm(type: AlarmType, action: WheelLogCore.AlarmAction, toneDurationMs: Int) {
         // Audio beep with KMP-computed duration
         let frequency: Float
         switch type {
@@ -124,8 +110,7 @@ class AlarmManager: ObservableObject {
         }
 
         // Notification callback (for background mode)
-        let message = alarmMessage(for: type)
-        onAlarmFired?(type, message)
+        onAlarmFired?(type, type.alarmMessage)
     }
 
     // MARK: - Pre-Warning
@@ -135,20 +120,6 @@ class AlarmManager: ObservableObject {
         // Distinct advisory tone: lower volume, shorter, different frequency
         let frequency: Float = type == .pwm ? 700 : 500
         generateTone(frequency: frequency, duration: 0.1)
-    }
-
-    private func alarmMessage(for type: AlarmType) -> String {
-        switch type {
-        case .speed1: return "Speed alarm 1 triggered"
-        case .speed2: return "Speed alarm 2 triggered"
-        case .speed3: return "Speed alarm 3 triggered"
-        case .current: return "Current alarm triggered"
-        case .temperature: return "Temperature alarm triggered"
-        case .pwm: return "PWM alarm triggered"
-        case .battery: return "Low battery alarm triggered"
-        case .wheel: return "Wheel alarm triggered"
-        default: return "Alarm triggered"
-        }
     }
 
     // MARK: - Audio

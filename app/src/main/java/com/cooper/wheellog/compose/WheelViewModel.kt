@@ -18,6 +18,7 @@ import com.cooper.wheellog.core.service.BleManager
 import com.cooper.wheellog.core.service.ConnectionState
 import com.cooper.wheellog.core.service.DemoDataProvider
 import com.cooper.wheellog.core.service.WheelConnectionManager
+import com.cooper.wheellog.core.domain.AlarmAction
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelProfile

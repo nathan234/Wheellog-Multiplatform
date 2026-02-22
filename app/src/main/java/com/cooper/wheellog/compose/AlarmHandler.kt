@@ -2,17 +2,8 @@ package com.cooper.wheellog.compose
 
 import com.cooper.wheellog.core.alarm.AlarmResult
 import com.cooper.wheellog.core.alarm.VibrationPatterns
+import com.cooper.wheellog.core.domain.AlarmAction
 import com.cooper.wheellog.core.domain.AlarmType
-
-enum class AlarmAction(val value: Int) {
-    PHONE_ONLY(0),
-    PHONE_AND_WHEEL(1),
-    ALL(2);
-
-    companion object {
-        fun fromValue(value: Int) = entries.firstOrNull { it.value == value } ?: PHONE_ONLY
-    }
-}
 
 class AlarmHandler(
     private val vibrate: (pattern: LongArray) -> Unit,

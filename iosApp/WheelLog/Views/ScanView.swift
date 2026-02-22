@@ -223,6 +223,12 @@ struct ScanView: View {
                             }
                         }
                     }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            let device = myWheels[index]
+                            wheelManager.forgetProfile(address: device.address)
+                        }
+                    }
                 } header: {
                     Text(ScanLabels.shared.MY_WHEELS)
                 }

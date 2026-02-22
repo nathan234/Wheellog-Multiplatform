@@ -6,15 +6,16 @@ import WheelLogCore
 //
 // Shared sections (in order):
 //  1. Alarm banner
-//  2. Speed gauge (tappable → metric detail)
-//  3. 2x3 Gauge Tile Grid: Speed, Battery, Power, PWM, Temp, GPS Speed
-//  4. Stats: Voltage, Current, Trip Distance, Total Distance
-//  5. Wheel settings (conditional on pedalsMode >= 0; tappable → WheelSettingsView)
-//  6. Wheel info: Name, Model, Type, Firmware
-//  7. Demo/Test mode badge (iOS has both Demo + Test badges)
-//  8. Controls: Horn, Light (Android also has Settings button)
-//  9. Record/BMS/Chart row (button order differs: Android=Record,Chart,BMS; iOS=Record,BMS,Chart)
-// 10. Disconnect button
+//  2. Speed display mode picker (Wheel/GPS/Both)
+//  3. Speed gauge (tappable → metric detail)
+//  4. 2x3 Gauge Tile Grid: Speed, Battery, Power, PWM, Temp, GPS Speed
+//  5. Stats: Voltage, Current, Trip Distance, Total Distance
+//  6. Wheel settings (conditional on pedalsMode >= 0; tappable → WheelSettingsView)
+//  7. Wheel info: Name, Model, Type, Firmware
+//  8. Demo/Test mode badge (iOS has both Demo + Test badges)
+//  9. Controls: Horn, Light (Android also has Settings button)
+// 10. Record/BMS/Chart row (button order differs: Android=Record,Chart,BMS; iOS=Record,BMS,Chart)
+// 11. Disconnect button
 
 struct DashboardView: View {
     @EnvironmentObject var wheelManager: WheelManager
@@ -32,6 +33,12 @@ struct DashboardView: View {
 
     private var maxSpeed: Double {
         DisplayUtils.shared.maxSpeedDefault(useMph: wheelManager.useMph)
+    }
+
+    private var gpsDisplaySpeed: Double {
+        let gpsSpeedRaw = wheelManager.locationManager.currentLocation?.speed ?? 0
+        let gpsKmh = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, gpsSpeedRaw))
+        return DisplayUtils.shared.convertSpeed(kmh: gpsKmh, useMph: wheelManager.useMph)
     }
 
     // MARK: - Tile Helpers
@@ -62,12 +69,23 @@ struct DashboardView: View {
                     AlarmBannerView(activeAlarms: wheelManager.activeAlarms)
                 }
 
+                // Speed display mode picker
+                Picker("Speed Source", selection: $wheelManager.speedDisplayMode) {
+                    Text("Wheel").tag(SpeedDisplayMode.wheel)
+                    Text("GPS").tag(SpeedDisplayMode.gps)
+                    Text("Both").tag(SpeedDisplayMode.both)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
                 // Speed gauge (tappable)
                 Button(action: { selectedMetric = "speed" }) {
                     SpeedGaugeView(
                         speed: displaySpeed,
                         maxSpeed: maxSpeed,
-                        unitLabel: speedUnit
+                        unitLabel: speedUnit,
+                        gpsSpeed: gpsDisplaySpeed,
+                        mode: wheelManager.speedDisplayMode
                     )
                     .frame(height: 250)
                     .padding(.top)

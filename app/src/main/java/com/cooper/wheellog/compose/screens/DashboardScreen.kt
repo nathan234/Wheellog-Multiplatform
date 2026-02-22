@@ -32,9 +32,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,6 +50,7 @@ import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.compose.components.AlarmBanner
 import com.cooper.wheellog.compose.components.ConnectionBanner
 import com.cooper.wheellog.compose.components.GaugeTile
+import com.cooper.wheellog.compose.components.SpeedDisplayMode
 import com.cooper.wheellog.compose.components.SpeedGauge
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.telemetry.ColorZone
@@ -58,15 +64,16 @@ import java.util.Locale
 // Shared sections (in order):
 //  1. Connection banner (Android only — iOS uses system indicator)
 //  2. Alarm banner
-//  3. Speed gauge (tappable → metric detail)
-//  4. 2x3 Gauge Tile Grid: Speed, Battery, Power, PWM, Temp, GPS Speed
-//  5. Stats: Voltage, Current, Trip Distance, Total Distance
-//  6. Wheel settings (conditional on pedalsMode >= 0)
-//  7. Wheel info: Name, Model, Type, Firmware
-//  8. Demo mode badge (iOS also has Test mode badge)
-//  9. Controls: Horn, Light, Settings (Android) / Horn, Light (iOS)
-// 10. Record/Chart/BMS row
-// 11. Disconnect button
+//  3. Speed display mode picker (Wheel/GPS/Both)
+//  4. Speed gauge (tappable → metric detail)
+//  5. 2x3 Gauge Tile Grid: Speed, Battery, Power, PWM, Temp, GPS Speed
+//  6. Stats: Voltage, Current, Trip Distance, Total Distance
+//  7. Wheel settings (conditional on pedalsMode >= 0)
+//  8. Wheel info: Name, Model, Type, Firmware
+//  9. Demo mode badge (iOS also has Test mode badge)
+// 10. Controls: Horn, Light, Settings (Android) / Horn, Light (iOS)
+// 11. Record/Chart/BMS row
+// 12. Disconnect button
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,8 +96,13 @@ fun DashboardScreen(
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
     val displaySpeed = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
+    val displayGpsSpeed = DisplayUtils.convertSpeed(gpsSpeed, useMph)
     val speedUnit = DisplayUtils.speedUnit(useMph)
     val maxSpeed = DisplayUtils.maxSpeedDefault(useMph)
+
+    var speedDisplayMode by remember {
+        mutableStateOf(SpeedDisplayMode.entries[viewModel.appConfig.speedDisplayModeInt.coerceIn(0, 2)])
+    }
 
     val title = wheelState.displayName
 
@@ -114,11 +126,41 @@ fun DashboardScreen(
         // Alarm banner
         AlarmBanner(activeAlarms = activeAlarms)
 
+        // Speed display mode picker
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+        ) {
+            for (mode in SpeedDisplayMode.entries) {
+                val label = when (mode) {
+                    SpeedDisplayMode.WHEEL -> "Wheel"
+                    SpeedDisplayMode.GPS -> "GPS"
+                    SpeedDisplayMode.BOTH -> "Both"
+                }
+                FilterChip(
+                    selected = speedDisplayMode == mode,
+                    onClick = {
+                        speedDisplayMode = mode
+                        viewModel.appConfig.speedDisplayModeInt = mode.ordinal
+                    },
+                    label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                )
+            }
+        }
+
         // Speed gauge (tappable — navigates to speed metric chart)
         SpeedGauge(
             speed = displaySpeed,
             maxSpeed = maxSpeed,
             unitLabel = speedUnit,
+            gpsSpeed = displayGpsSpeed,
+            mode = speedDisplayMode,
             modifier = Modifier
                 .height(250.dp)
                 .padding(top = 8.dp)

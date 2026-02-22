@@ -62,6 +62,7 @@ import java.util.Date
 import java.util.Locale
 
 private val SPEED_COLOR = Color(0xFF2196F3)
+private val GPS_SPEED_COLOR = Color(0xFF00BCD4)
 private val CURRENT_COLOR = Color(0xFFFF9800)
 private val POWER_COLOR = Color(0xFF4CAF50)
 private val TEMP_COLOR = Color(0xFFF44336)
@@ -79,6 +80,7 @@ fun ChartScreen(
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
     var showSpeed by remember { mutableStateOf(true) }
+    var showGpsSpeed by remember { mutableStateOf(false) }
     var showCurrent by remember { mutableStateOf(true) }
     var showPower by remember { mutableStateOf(false) }
     var showTemperature by remember { mutableStateOf(false) }
@@ -122,7 +124,8 @@ fun ChartScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item { ToggleChip("Speed", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
+                item { ToggleChip("Wheel", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
+                item { ToggleChip("GPS", GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
                 item { ToggleChip("Current", CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
                 item { ToggleChip("Power", POWER_COLOR, showPower, { showPower = !showPower }) }
                 item { ToggleChip("Temp", TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
@@ -160,7 +163,11 @@ fun ChartScreen(
                 val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
                 if (showSpeed) {
                     visibleSeries += SeriesInfo(SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.speedKmh, useMph) })
-                    visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
+                    visibleMarkerInfo += MarkerSeriesInfo("Wheel", speedUnit, 1)
+                }
+                if (showGpsSpeed) {
+                    visibleSeries += SeriesInfo(GPS_SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
+                    visibleMarkerInfo += MarkerSeriesInfo("GPS", speedUnit, 1)
                 }
                 if (showCurrent) {
                     visibleSeries += SeriesInfo(CURRENT_COLOR, samples.map { it.currentA })

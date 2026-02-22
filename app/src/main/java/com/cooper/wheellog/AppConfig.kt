@@ -58,6 +58,10 @@ class AppConfig(var context: Context): KoinComponent {
         get() = getValue("use_compose_ui", false)
         set(value) = setValue("use_compose_ui", value)
 
+    var speedDisplayModeInt: Int
+        get() = getValue("speed_display_mode", 0)
+        set(value) = setValue("speed_display_mode", value)
+
     var decoderModeInt: Int
         get() = getValue(R.string.decoder_mode, 0)
         set(value) = setValue(R.string.decoder_mode, value)

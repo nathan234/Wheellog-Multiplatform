@@ -1,24 +1,49 @@
 import SwiftUI
 
+enum SpeedDisplayMode: Int, CaseIterable {
+    case wheel = 0
+    case gps = 1
+    case both = 2
+}
+
+private let gpsCyan = Color(red: 0, green: 0.737, blue: 0.831) // #00BCD4
+
 struct SpeedGaugeView: View {
     let speed: Double
     let maxSpeed: Double
     let unitLabel: String
+    var gpsSpeed: Double = 0
+    var mode: SpeedDisplayMode = .wheel
 
-    init(speed: Double, maxSpeed: Double = 50.0, unitLabel: String = "km/h") {
+    init(speed: Double, maxSpeed: Double = 50.0, unitLabel: String = "km/h",
+         gpsSpeed: Double = 0, mode: SpeedDisplayMode = .wheel) {
         self.speed = speed
         self.maxSpeed = maxSpeed
         self.unitLabel = unitLabel
+        self.gpsSpeed = gpsSpeed
+        self.mode = mode
+    }
+
+    private var arcSpeed: Double {
+        switch mode {
+        case .wheel, .both: return speed
+        case .gps: return gpsSpeed
+        }
     }
 
     private var speedProgress: Double {
-        min(speed / maxSpeed, 1.0)
+        min(arcSpeed / maxSpeed, 1.0)
     }
 
-    private var speedColor: Color {
-        if speedProgress < 0.5 { return .green }
-        if speedProgress < 0.75 { return .orange }
-        return .red
+    private var arcColor: Color {
+        switch mode {
+        case .gps:
+            return gpsCyan
+        case .wheel, .both:
+            if speedProgress < 0.5 { return .green }
+            if speedProgress < 0.75 { return .orange }
+            return .red
+        }
     }
 
     var body: some View {
@@ -41,7 +66,7 @@ struct SpeedGaugeView: View {
                 Circle()
                     .trim(from: 0.15, to: 0.15 + (0.7 * speedProgress))
                     .stroke(
-                        speedColor,
+                        arcColor,
                         style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(90))
@@ -63,9 +88,23 @@ struct SpeedGaugeView: View {
 
                 // Center content
                 VStack(spacing: 4) {
-                    Text(String(format: "%.1f", speed))
-                        .font(.system(size: size * 0.18, weight: .bold, design: .rounded))
-                        .foregroundColor(speedColor)
+                    switch mode {
+                    case .wheel:
+                        Text(String(format: "%.1f", speed))
+                            .font(.system(size: size * 0.18, weight: .bold, design: .rounded))
+                            .foregroundColor(arcColor)
+                    case .gps:
+                        Text(gpsSpeed > 0 ? String(format: "%.1f", gpsSpeed) : "\u{2014}")
+                            .font(.system(size: size * 0.18, weight: .bold, design: .rounded))
+                            .foregroundColor(gpsCyan)
+                    case .both:
+                        Text(String(format: "%.1f", speed))
+                            .font(.system(size: size * 0.18, weight: .bold, design: .rounded))
+                            .foregroundColor(arcColor)
+                        Text(gpsSpeed > 0 ? String(format: "GPS %.1f", gpsSpeed) : "GPS \u{2014}")
+                            .font(.system(size: size * 0.06, weight: .medium))
+                            .foregroundColor(gpsCyan)
+                    }
 
                     Text(unitLabel)
                         .font(.system(size: size * 0.06))
@@ -83,10 +122,10 @@ struct SpeedGaugeView: View {
         SpeedGaugeView(speed: 0)
             .frame(height: 200)
 
-        SpeedGaugeView(speed: 25)
+        SpeedGaugeView(speed: 25, gpsSpeed: 22, mode: .both)
             .frame(height: 200)
 
-        SpeedGaugeView(speed: 45)
+        SpeedGaugeView(speed: 45, gpsSpeed: 43, mode: .gps)
             .frame(height: 200)
     }
     .padding()

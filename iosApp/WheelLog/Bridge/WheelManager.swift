@@ -30,6 +30,10 @@ class WheelManager: ObservableObject {
     }
     @Published var isLightOn: Bool = false
 
+    @Published var speedDisplayMode: SpeedDisplayMode = SpeedDisplayMode(rawValue: UserDefaults.standard.integer(forKey: "speed_display_mode")) ?? .wheel {
+        didSet { UserDefaults.standard.set(speedDisplayMode.rawValue, forKey: "speed_display_mode") }
+    }
+
     // Alarm settings (persisted to UserDefaults, stored in km/h and °C internally)
     @Published var alarmsEnabled: Bool = UserDefaults.standard.bool(forKey: "alarms_enabled") {
         didSet { UserDefaults.standard.set(alarmsEnabled, forKey: "alarms_enabled") }

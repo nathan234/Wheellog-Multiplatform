@@ -44,6 +44,7 @@ extension WheelLogCore.TelemetrySample: @retroactive Identifiable {
     // Convenience accessors matching old Swift field names
     var timestamp: Date { Date(timeIntervalSince1970: Double(timestampMs) / 1000.0) }
     var speed: Double { speedKmh }
+    var gpsSpeed: Double { gpsSpeedKmh }
     var voltage: Double { voltageV }
     var current: Double { currentA }
     var power: Double { powerW }

@@ -35,24 +35,39 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
+enum class SpeedDisplayMode { WHEEL, GPS, BOTH }
+
+private val GPS_CYAN = Color(0xFF00BCD4)
+
 @Composable
 fun SpeedGauge(
     speed: Double,
     maxSpeed: Double,
     unitLabel: String = "km/h",
+    gpsSpeed: Double = 0.0,
+    mode: SpeedDisplayMode = SpeedDisplayMode.WHEEL,
     modifier: Modifier = Modifier
 ) {
-    val progress = (speed / maxSpeed).toFloat().coerceIn(0f, 1f)
+    // Determine which speed drives the arc
+    val arcSpeed = when (mode) {
+        SpeedDisplayMode.WHEEL -> speed
+        SpeedDisplayMode.GPS -> gpsSpeed
+        SpeedDisplayMode.BOTH -> speed
+    }
+    val progress = (arcSpeed / maxSpeed).toFloat().coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
         animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "speed_progress"
     )
 
-    val speedColor = when (MetricType.SPEED.colorZone(progress.toDouble())) {
-        ColorZone.GREEN -> Color(0xFF4CAF50)
-        ColorZone.ORANGE -> Color(0xFFFF9800)
-        ColorZone.RED -> Color(0xFFF44336)
+    val arcColor = when (mode) {
+        SpeedDisplayMode.GPS -> GPS_CYAN
+        else -> when (MetricType.SPEED.colorZone(progress.toDouble())) {
+            ColorZone.GREEN -> Color(0xFF4CAF50)
+            ColorZone.ORANGE -> Color(0xFFFF9800)
+            ColorZone.RED -> Color(0xFFF44336)
+        }
     }
 
     val textMeasurer = rememberTextMeasurer()
@@ -90,7 +105,7 @@ fun SpeedGauge(
 
             // Progress arc
             drawArc(
-                color = speedColor,
+                color = arcColor,
                 startAngle = startAngle,
                 sweepAngle = sweepAngle * animatedProgress,
                 useCenter = false,
@@ -127,13 +142,44 @@ fun SpeedGauge(
 
         // Center content
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = String.format(Locale.US, "%.1f", speed),
-                style = MaterialTheme.typography.displayMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = speedColor
-                )
-            )
+            when (mode) {
+                SpeedDisplayMode.WHEEL -> {
+                    Text(
+                        text = String.format(Locale.US, "%.1f", speed),
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = arcColor
+                        )
+                    )
+                }
+                SpeedDisplayMode.GPS -> {
+                    val gpsText = if (gpsSpeed > 0) String.format(Locale.US, "%.1f", gpsSpeed) else "\u2014"
+                    Text(
+                        text = gpsText,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = GPS_CYAN
+                        )
+                    )
+                }
+                SpeedDisplayMode.BOTH -> {
+                    Text(
+                        text = String.format(Locale.US, "%.1f", speed),
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = arcColor
+                        )
+                    )
+                    val gpsText = if (gpsSpeed > 0) String.format(Locale.US, "GPS %.1f", gpsSpeed) else "GPS \u2014"
+                    Text(
+                        text = gpsText,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = GPS_CYAN
+                        )
+                    )
+                }
+            }
             Text(
                 text = unitLabel,
                 style = MaterialTheme.typography.bodySmall,

@@ -6,6 +6,7 @@ struct TelemetryChartView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
     @State private var showSpeed = true
+    @State private var showGpsSpeed = false
     @State private var showCurrent = true
     @State private var showPower = false
     @State private var showTemperature = false
@@ -79,7 +80,8 @@ struct TelemetryChartView: View {
                 // Toggle chips
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ToggleChip(label: "Speed", color: .blue, isOn: $showSpeed)
+                        ToggleChip(label: "Wheel", color: .blue, isOn: $showSpeed)
+                        ToggleChip(label: "GPS", color: .cyan, isOn: $showGpsSpeed)
                         ToggleChip(label: "Current", color: .orange, isOn: $showCurrent)
                         ToggleChip(label: "Power", color: .green, isOn: $showPower)
                         ToggleChip(label: "Temp", color: .red, isOn: $showTemperature)
@@ -107,9 +109,19 @@ struct TelemetryChartView: View {
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
                                     y: .value("Speed", displaySpeed(sample.speed)),
-                                    series: .value("Series", "Speed")
+                                    series: .value("Series", "Wheel")
                                 )
                                 .foregroundStyle(.blue)
+                            }
+                        }
+                        if showGpsSpeed {
+                            ForEach(chartSamples) { sample in
+                                LineMark(
+                                    x: .value("Time", sample.timestamp),
+                                    y: .value("GPS", displaySpeed(sample.gpsSpeed)),
+                                    series: .value("Series", "GPS")
+                                )
+                                .foregroundStyle(.cyan)
                             }
                         }
                         if showCurrent {
@@ -153,6 +165,12 @@ struct TelemetryChartView: View {
                                             HStack(spacing: 4) {
                                                 Circle().fill(.blue).frame(width: 6, height: 6)
                                                 Text(String(format: "%.1f %@", displaySpeed(selected.speed), speedUnit))
+                                            }
+                                        }
+                                        if showGpsSpeed {
+                                            HStack(spacing: 4) {
+                                                Circle().fill(.cyan).frame(width: 6, height: 6)
+                                                Text(String(format: "GPS %.1f %@", displaySpeed(selected.gpsSpeed), speedUnit))
                                             }
                                         }
                                         if showCurrent {

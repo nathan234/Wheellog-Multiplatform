@@ -13,7 +13,7 @@ struct TelemetryChartView: View {
 
     private var chartSamples: [TelemetrySample] {
         if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
-            return chartSamples
+            return wheelManager.telemetryBuffer.samples
         } else {
             return wheelManager.telemetryHistory.samples
         }

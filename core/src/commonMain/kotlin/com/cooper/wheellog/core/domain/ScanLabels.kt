@@ -11,4 +11,7 @@ object ScanLabels {
     const val RECONNECTING = "Reconnecting..."
     const val CONNECTION_FAILED = "Connection failed"
     const val UNKNOWN_DEVICE = "Unknown Device"
+    const val RESCAN = "Rescan"
+    const val SCAN = "Scan"
+    const val FORGET = "Forget"
 }

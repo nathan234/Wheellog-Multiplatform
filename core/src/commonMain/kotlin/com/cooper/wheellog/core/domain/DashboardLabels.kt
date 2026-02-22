@@ -39,4 +39,7 @@ object DashboardLabels {
     const val DISCONNECT = "Disconnect"
     const val STOP_DEMO = "Stop Demo"
     const val STOP_TEST = "Stop Test"
+
+    // Wheel settings
+    const val WHEEL_SETTINGS = "Wheel Settings"
 }

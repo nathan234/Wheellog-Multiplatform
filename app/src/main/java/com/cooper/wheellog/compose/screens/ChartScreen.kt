@@ -109,8 +109,8 @@ fun ChartScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 item { ToggleChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
-                item { ToggleChip("GPS", GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
-                item { ToggleChip("Current", CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
+                item { ToggleChip(ChartLabels.GPS, GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
+                item { ToggleChip(ChartLabels.CURRENT, CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
                 item { ToggleChip(MetricType.POWER.label, POWER_COLOR, showPower, { showPower = !showPower }) }
                 item { ToggleChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
             }
@@ -151,11 +151,11 @@ fun ChartScreen(
                 }
                 if (showGpsSpeed) {
                     visibleSeries += SeriesInfo(GPS_SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
-                    visibleMarkerInfo += MarkerSeriesInfo("GPS", speedUnit, 1)
+                    visibleMarkerInfo += MarkerSeriesInfo(ChartLabels.GPS, speedUnit, 1)
                 }
                 if (showCurrent) {
                     visibleSeries += SeriesInfo(CURRENT_COLOR, samples.map { it.currentA })
-                    visibleMarkerInfo += MarkerSeriesInfo("Current", "A", 1)
+                    visibleMarkerInfo += MarkerSeriesInfo(ChartLabels.CURRENT, "A", 1)
                 }
                 if (showPower) {
                     visibleSeries += SeriesInfo(POWER_COLOR, samples.map { it.powerW })

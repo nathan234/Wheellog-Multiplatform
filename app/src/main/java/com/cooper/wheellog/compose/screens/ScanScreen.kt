@@ -309,8 +309,8 @@ private fun ScanButton(
                 Text(
                     text = when {
                         isScanning -> CommonLabels.CANCEL
-                        hasDevices -> "Rescan"
-                        else -> "Scan"
+                        hasDevices -> ScanLabels.RESCAN
+                        else -> ScanLabels.SCAN
                     },
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
@@ -346,7 +346,7 @@ private fun SwipeToDismissDeviceRow(
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Text(
-                    text = "Forget",
+                    text = ScanLabels.FORGET,
                     color = Color.White,
                     fontWeight = FontWeight.Bold
                 )

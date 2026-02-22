@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
 import com.cooper.wheellog.core.domain.CommonLabels
+import com.cooper.wheellog.core.domain.DashboardLabels
 import com.cooper.wheellog.compose.components.SectionCard
 import com.cooper.wheellog.core.domain.ControlSpec
 import com.cooper.wheellog.core.domain.SettingsCommandId
@@ -68,10 +69,10 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Wheel Settings") },
+                title = { Text(DashboardLabels.WHEEL_SETTINGS) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CommonLabels.BACK)
                     }
                 },
             )

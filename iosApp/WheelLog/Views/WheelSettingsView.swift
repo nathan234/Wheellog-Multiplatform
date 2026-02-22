@@ -243,7 +243,7 @@ struct WheelSettingsView: View {
         Form {
             WheelSettingsContent()
         }
-        .navigationTitle("Wheel Settings")
+        .navigationTitle(DashboardLabels.shared.WHEEL_SETTINGS)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

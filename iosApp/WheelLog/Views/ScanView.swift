@@ -91,7 +91,7 @@ struct ScanView: View {
                 VStack(spacing: hasDevices ? 4 : 8) {
                     Image(systemName: isScanning ? "stop.fill" : (hasDevices ? "arrow.clockwise" : "antenna.radiowaves.left.and.right"))
                         .font(.system(size: hasDevices ? 24 : 40, weight: .medium))
-                    Text(isScanning ? CommonLabels.shared.CANCEL : (hasDevices ? "Rescan" : "Scan"))
+                    Text(isScanning ? CommonLabels.shared.CANCEL : (hasDevices ? ScanLabels.shared.RESCAN : ScanLabels.shared.SCAN))
                         .font(hasDevices ? .body : .title2)
                         .fontWeight(.semibold)
                 }

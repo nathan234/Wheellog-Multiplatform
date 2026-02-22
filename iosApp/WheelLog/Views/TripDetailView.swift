@@ -129,8 +129,8 @@ struct TripDetailView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ToggleChip(label: MetricType.speed.label, color: .blue, isOn: $showSpeed)
-                ToggleChip(label: "GPS", color: .cyan, isOn: $showGpsSpeed)
-                ToggleChip(label: "Current", color: .orange, isOn: $showCurrent)
+                ToggleChip(label: ChartLabels.shared.GPS, color: .cyan, isOn: $showGpsSpeed)
+                ToggleChip(label: ChartLabels.shared.CURRENT, color: .orange, isOn: $showCurrent)
                 ToggleChip(label: MetricType.power.label, color: .green, isOn: $showPower)
                 ToggleChip(label: MetricType.temperature.label, color: .red, isOn: $showTemperature)
                 ToggleChip(label: MetricType.pwm.label, color: .pink, isOn: $showPwm)

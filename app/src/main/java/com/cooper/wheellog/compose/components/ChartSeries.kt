@@ -25,13 +25,13 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-val SPEED_COLOR = Color(0xFF2196F3)
-val GPS_SPEED_COLOR = Color(0xFF00BCD4)
-val CURRENT_COLOR = Color(0xFFFF9800)
-val POWER_COLOR = Color(0xFF4CAF50)
-val TEMP_COLOR = Color(0xFFF44336)
-val PWM_COLOR = Color(0xFFE91E63)
-val VOLTAGE_COLOR = Color(0xFF9C27B0)
+val SPEED_COLOR = Color(MetricType.SPEED.colorHex)
+val GPS_SPEED_COLOR = Color(MetricType.GPS_SPEED.colorHex)
+val CURRENT_COLOR = Color(MetricType.CURRENT_COLOR_HEX)
+val POWER_COLOR = Color(MetricType.POWER.colorHex)
+val TEMP_COLOR = Color(MetricType.TEMPERATURE.colorHex)
+val PWM_COLOR = Color(MetricType.PWM.colorHex)
+val VOLTAGE_COLOR = Color(MetricType.VOLTAGE_COLOR_HEX)
 
 data class SeriesInfo(
     val color: Color,

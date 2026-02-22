@@ -116,7 +116,7 @@
             android:foregroundServiceType="connectedDevice"
             android:exported="false" />
         <service android:name=".compose.WheelService"
-            android:foregroundServiceType="connectedDevice"
+            android:foregroundServiceType="connectedDevice|location"
             android:exported="false" />
         <service android:name=".LoggingService"
             android:foregroundServiceType="location"

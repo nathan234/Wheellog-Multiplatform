@@ -548,6 +548,9 @@ class WheelManager: ObservableObject {
             // Load telemetry history for this wheel
             telemetryHistory.loadForWheel(address: address)
 
+            // Start GPS tracking for speed tile / telemetry
+            locationManager.startTracking()
+
             // Auto-start logging if enabled
             if autoStartLogging && !isLogging {
                 startLogging()
@@ -567,6 +570,7 @@ class WheelManager: ObservableObject {
                 stopLogging()
             }
 
+            locationManager.stopTracking()
             telemetryHistory.save()
             telemetryBuffer.clear()
         }
@@ -576,6 +580,7 @@ class WheelManager: ObservableObject {
             if isLogging {
                 stopLogging()
             }
+            locationManager.stopTracking()
             telemetryHistory.save()
             telemetryBuffer.clear()
         }
@@ -820,9 +825,6 @@ class WheelManager: ObservableObject {
     // MARK: - Ride Logging (Feature 3)
 
     func startLogging() {
-        if logGPS {
-            locationManager.startTracking()
-        }
         if rideLogger.startLogging(includeGPS: logGPS) {
             isLogging = true
         }
@@ -832,7 +834,6 @@ class WheelManager: ObservableObject {
         if let metadata = rideLogger.stopLogging(currentDistance: wheelState.totalDistanceKm) {
             rideStore.addRide(metadata)
         }
-        locationManager.stopTracking()
         isLogging = false
     }
 

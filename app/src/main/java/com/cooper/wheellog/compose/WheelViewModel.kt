@@ -234,6 +234,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
         service.onLightToggleRequested = ::toggleLight
         service.onLogToggleRequested = ::toggleLogging
+        service.onGpsSpeedUpdate = ::updateGpsSpeed
 
         stateCollectionJob = viewModelScope.launch {
             cm.wheelState.collect { _realWheelState.value = it }
@@ -247,10 +248,18 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
                 if (state is ConnectionState.Connected) {
                     autoSaveProfile(state.address)
                     initHistoryForWheel(state.address)
+                    wheelService?.startLocationTracking()
                 }
                 // Start reconnect-after-loss when connection drops
                 if (state is ConnectionState.ConnectionLost && appConfig.useReconnect) {
                     autoConnectManager?.startReconnecting(state.address)
+                }
+                // Stop GPS when disconnected
+                if (state is ConnectionState.ConnectionLost ||
+                    state is ConnectionState.Disconnected ||
+                    state is ConnectionState.Failed
+                ) {
+                    wheelService?.stopLocationTracking()
                 }
             }
         }
@@ -263,6 +272,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         connectionCollectionJob = null
         autoConnectManager?.destroy()
         autoConnectManager = null
+        wheelService?.onGpsSpeedUpdate = null
         wheelService?.onLightToggleRequested = null
         wheelService?.onLogToggleRequested = null
         wheelService = null
@@ -345,6 +355,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         appConfig.lastMac = ""
         autoConnectManager?.stop()
         if (rideLogger.isLogging) stopLogging()
+        wheelService?.stopLocationTracking()
         telemetryHistory?.save()
         viewModelScope.launch {
             connectionManager?.disconnect()

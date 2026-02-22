@@ -6,10 +6,14 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.cooper.wheellog.R
 import com.cooper.wheellog.core.protocol.DefaultWheelDecoderFactory
 import com.cooper.wheellog.core.service.BleManager
@@ -33,6 +37,9 @@ class WheelService : Service() {
 
     var onLightToggleRequested: (() -> Unit)? = null
     var onLogToggleRequested: (() -> Unit)? = null
+    var onGpsSpeedUpdate: ((Float) -> Unit)? = null
+
+    private var locationListener: LocationListener? = null
 
     inner class LocalBinder : Binder() {
         val service get() = this@WheelService
@@ -89,6 +96,7 @@ class WheelService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        stopLocationTracking()
         // Disconnect BLE before cancelling scope to ensure the GATT connection
         // is released even if the ViewModel's coroutine was cancelled first.
         runBlocking { connectionManager.disconnect() }
@@ -97,6 +105,32 @@ class WheelService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
         }
         super.onDestroy()
+    }
+
+    fun startLocationTracking() {
+        if (locationListener != null) return // already tracking
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val lm = getSystemService(LocationManager::class.java) ?: return
+        val listener = LocationListener { location ->
+            onGpsSpeedUpdate?.invoke(location.speed)
+        }
+        lm.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            1000L,  // 1 second
+            1f,     // 1 meter
+            listener
+        )
+        locationListener = listener
+    }
+
+    fun stopLocationTracking() {
+        val listener = locationListener ?: return
+        val lm = getSystemService(LocationManager::class.java) ?: return
+        lm.removeUpdates(listener)
+        locationListener = null
     }
 
     fun shutdown() {

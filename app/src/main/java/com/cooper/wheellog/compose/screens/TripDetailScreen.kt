@@ -68,6 +68,7 @@ import java.util.Date
 import java.util.Locale
 
 private val SPEED_COLOR = Color(0xFF2196F3)
+private val GPS_SPEED_COLOR = Color(0xFF00BCD4)
 private val CURRENT_COLOR = Color(0xFFFF9800)
 private val POWER_COLOR = Color(0xFF4CAF50)
 private val TEMP_COLOR = Color(0xFFF44336)
@@ -97,6 +98,7 @@ fun TripDetailScreen(
     var state by remember { mutableStateOf<TripDetailState>(TripDetailState.Loading) }
 
     var showSpeed by remember { mutableStateOf(true) }
+    var showGpsSpeed by remember { mutableStateOf(false) }
     var showCurrent by remember { mutableStateOf(true) }
     var showPower by remember { mutableStateOf(false) }
     var showTemperature by remember { mutableStateOf(false) }
@@ -209,6 +211,7 @@ fun TripDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         item { ToggleChip("Speed", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
+                        item { ToggleChip("GPS", GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
                         item { ToggleChip("Current", CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
                         item { ToggleChip("Power", POWER_COLOR, showPower, { showPower = !showPower }) }
                         item { ToggleChip("Temp", TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
@@ -224,6 +227,10 @@ fun TripDetailScreen(
                     if (showSpeed) {
                         visibleSeries += TripSeriesInfo(SPEED_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) })
                         visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
+                    }
+                    if (showGpsSpeed) {
+                        visibleSeries += TripSeriesInfo(GPS_SPEED_COLOR, s.samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
+                        visibleMarkerInfo += MarkerSeriesInfo("GPS", speedUnit, 1)
                     }
                     if (showCurrent) {
                         visibleSeries += TripSeriesInfo(CURRENT_COLOR, s.samples.map { it.currentA })

@@ -124,7 +124,7 @@ fun ChartScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item { ToggleChip("Wheel", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
+                item { ToggleChip("Speed", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
                 item { ToggleChip("GPS", GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
                 item { ToggleChip("Current", CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
                 item { ToggleChip("Power", POWER_COLOR, showPower, { showPower = !showPower }) }
@@ -163,7 +163,7 @@ fun ChartScreen(
                 val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
                 if (showSpeed) {
                     visibleSeries += SeriesInfo(SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.speedKmh, useMph) })
-                    visibleMarkerInfo += MarkerSeriesInfo("Wheel", speedUnit, 1)
+                    visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
                 }
                 if (showGpsSpeed) {
                     visibleSeries += SeriesInfo(GPS_SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })

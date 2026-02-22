@@ -135,7 +135,7 @@ fun DashboardScreen(
         ) {
             for (mode in SpeedDisplayMode.entries) {
                 val label = when (mode) {
-                    SpeedDisplayMode.WHEEL -> "Wheel"
+                    SpeedDisplayMode.WHEEL -> "Speed"
                     SpeedDisplayMode.GPS -> "GPS"
                     SpeedDisplayMode.BOTH -> "Both"
                 }

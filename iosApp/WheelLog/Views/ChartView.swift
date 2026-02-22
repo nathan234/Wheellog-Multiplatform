@@ -80,7 +80,7 @@ struct TelemetryChartView: View {
                 // Toggle chips
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ToggleChip(label: "Wheel", color: .blue, isOn: $showSpeed)
+                        ToggleChip(label: "Speed", color: .blue, isOn: $showSpeed)
                         ToggleChip(label: "GPS", color: .cyan, isOn: $showGpsSpeed)
                         ToggleChip(label: "Current", color: .orange, isOn: $showCurrent)
                         ToggleChip(label: "Power", color: .green, isOn: $showPower)
@@ -109,7 +109,7 @@ struct TelemetryChartView: View {
                                 LineMark(
                                     x: .value("Time", sample.timestamp),
                                     y: .value("Speed", displaySpeed(sample.speed)),
-                                    series: .value("Series", "Wheel")
+                                    series: .value("Series", "Speed")
                                 )
                                 .foregroundStyle(.blue)
                             }

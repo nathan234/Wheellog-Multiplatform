@@ -71,7 +71,7 @@ struct DashboardView: View {
 
                 // Speed display mode picker
                 Picker("Speed Source", selection: $wheelManager.speedDisplayMode) {
-                    Text("Wheel").tag(SpeedDisplayMode.wheel)
+                    Text("Speed").tag(SpeedDisplayMode.wheel)
                     Text("GPS").tag(SpeedDisplayMode.gps)
                     Text("Both").tag(SpeedDisplayMode.both)
                 }

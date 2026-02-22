@@ -153,7 +153,7 @@ Wheellog.Android/
 ├── core/                    # Kotlin Multiplatform shared module
 │   └── src/
 │       ├── commonMain/      # Protocol decoders, wheel state, settings config, connection manager
-│       ├── commonTest/      # 580+ unit tests for all shared code
+│       ├── commonTest/      # Unit tests for all shared code
 │       ├── androidMain/     # Android BLE implementation
 │       └── iosMain/         # iOS CoreBluetooth implementation + Swift bridge helper
 ├── app/                     # Android app (Jetpack Compose)

@@ -23,10 +23,10 @@ struct ScanView: View {
                 Spacer()
                 ProgressView()
                     .scaleEffect(1.5)
-                Text("Reconnecting...")
+                Text(ScanLabels.shared.RECONNECTING)
                     .font(.title3)
                     .foregroundColor(.secondary)
-                Button("Cancel") {
+                Button(CommonLabels.shared.CANCEL) {
                     wheelManager.disconnect()
                 }
                 .foregroundColor(.red)
@@ -39,7 +39,7 @@ struct ScanView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Text("WheelLog")
+                    Text(ScanLabels.shared.APP_NAME)
                         .font(.largeTitle)
                         .fontWeight(.bold)
                     Spacer()
@@ -91,7 +91,7 @@ struct ScanView: View {
                 VStack(spacing: hasDevices ? 4 : 8) {
                     Image(systemName: isScanning ? "stop.fill" : (hasDevices ? "arrow.clockwise" : "antenna.radiowaves.left.and.right"))
                         .font(.system(size: hasDevices ? 24 : 40, weight: .medium))
-                    Text(isScanning ? "Cancel" : (hasDevices ? "Rescan" : "Scan"))
+                    Text(isScanning ? CommonLabels.shared.CANCEL : (hasDevices ? "Rescan" : "Scan"))
                         .font(hasDevices ? .body : .title2)
                         .fontWeight(.semibold)
                 }
@@ -108,11 +108,11 @@ struct ScanView: View {
             Spacer()
 
             if wheelManager.isScanning {
-                Text("Searching for nearby wheels...")
+                Text(ScanLabels.shared.SEARCHING)
                     .font(.body)
                     .foregroundColor(.secondary)
             } else {
-                Text("Tap to search for nearby wheels")
+                Text(ScanLabels.shared.TAP_TO_SEARCH)
                     .font(.body)
                     .foregroundColor(.secondary)
             }
@@ -132,7 +132,7 @@ struct ScanView: View {
                 Button(action: { wheelManager.startMockMode() }) {
                     HStack {
                         Image(systemName: "play.circle.fill")
-                        Text("Start Demo Mode")
+                        Text(ScanLabels.shared.START_DEMO)
                     }
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
@@ -218,7 +218,7 @@ struct ScanView: View {
                         }
                     }
                 } header: {
-                    Text("My Wheels")
+                    Text(ScanLabels.shared.MY_WHEELS)
                 }
             }
 
@@ -245,10 +245,10 @@ struct ScanView: View {
                         }
                     }
                 } header: {
-                    Text("New Devices")
+                    Text(ScanLabels.shared.NEW_DEVICES)
                 } footer: {
                     if wheelManager.isScanning {
-                        Text("Scanning for devices...")
+                        Text(ScanLabels.shared.SCANNING)
                     }
                 }
             }
@@ -347,7 +347,7 @@ struct DeviceRow: View {
                         .padding(.top, 2)
                 }
                 if isFailed {
-                    Text("Connection failed")
+                    Text(ScanLabels.shared.CONNECTION_FAILED)
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.red)
@@ -362,7 +362,7 @@ struct DeviceRow: View {
                     ProgressView()
                         .tint(.blue)
                     if let onCancel = onCancel {
-                        Button("Cancel", action: onCancel)
+                        Button(CommonLabels.shared.CANCEL, action: onCancel)
                             .font(.body)
                             .fontWeight(.medium)
                             .foregroundColor(.red)

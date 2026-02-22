@@ -54,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.CommonLabels
+import com.cooper.wheellog.core.domain.ScanLabels
 import com.cooper.wheellog.core.utils.DisplayUtils
 
 @Composable
@@ -73,13 +75,13 @@ fun AutoConnectScreen(onCancel: () -> Unit) {
         )
         Spacer(Modifier.height(24.dp))
         Text(
-            text = "Reconnecting...",
+            text = ScanLabels.RECONNECTING,
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(16.dp))
         TextButton(onClick = onCancel) {
-            Text("Cancel", color = Color(0xFFF44336), fontWeight = FontWeight.Medium)
+            Text(CommonLabels.CANCEL, color = Color(0xFFF44336), fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -106,7 +108,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
     ) {
         // Header
         Text(
-            text = "WheelLog",
+            text = ScanLabels.APP_NAME,
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(16.dp)
@@ -132,7 +134,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
                 if (myWheels.isNotEmpty()) {
                     item {
                         Text(
-                            text = "My Wheels",
+                            text = ScanLabels.MY_WHEELS,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -166,7 +168,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
                 if (newDevices.isNotEmpty()) {
                     item {
                         Text(
-                            text = "New Devices",
+                            text = ScanLabels.NEW_DEVICES,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -193,7 +195,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
                 if (isScanning) {
                     item {
                         Text(
-                            text = "Scanning for devices...",
+                            text = ScanLabels.SCANNING,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(16.dp)
@@ -211,7 +213,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = if (isScanning) "Searching for nearby wheels..." else "Tap to search for nearby wheels",
+                    text = if (isScanning) ScanLabels.SEARCHING else ScanLabels.TAP_TO_SEARCH,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -228,7 +230,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Start Demo Mode")
+                    Text(ScanLabels.START_DEMO)
                 }
             }
         }
@@ -306,7 +308,7 @@ private fun ScanButton(
                 )
                 Text(
                     text = when {
-                        isScanning -> "Cancel"
+                        isScanning -> CommonLabels.CANCEL
                         hasDevices -> "Rescan"
                         else -> "Scan"
                     },
@@ -389,7 +391,7 @@ private fun DeviceRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = displayNameOverride?.ifEmpty { null }
-                    ?: device.name.ifEmpty { "Unknown Device" },
+                    ?: device.name.ifEmpty { ScanLabels.UNKNOWN_DEVICE },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
@@ -409,7 +411,7 @@ private fun DeviceRow(
             }
             if (isFailed) {
                 Text(
-                    text = "Connection failed",
+                    text = ScanLabels.CONNECTION_FAILED,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFFF44336),
@@ -431,7 +433,7 @@ private fun DeviceRow(
                         onClick = onCancel,
                         colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
                     ) {
-                        Text("Cancel", fontWeight = FontWeight.Medium)
+                        Text(CommonLabels.CANCEL, fontWeight = FontWeight.Medium)
                     }
                 }
             }

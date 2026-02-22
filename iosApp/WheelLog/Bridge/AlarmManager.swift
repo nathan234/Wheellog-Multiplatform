@@ -22,7 +22,7 @@ class AlarmManager: ObservableObject {
     private let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
     private let notificationFeedback = UINotificationFeedbackGenerator()
 
-    nonisolated init() {
+    init() {
         kmpChecker = WheelConnectionManagerHelper.shared.createAlarmChecker()
     }
 

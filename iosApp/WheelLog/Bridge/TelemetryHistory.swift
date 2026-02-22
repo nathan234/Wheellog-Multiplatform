@@ -80,6 +80,6 @@ class TelemetryHistoryBridge: ObservableObject {
             return
         }
         let kmpSamples = history.samplesForRange(range: timeRange)
-        samples = kmpSamples.compactMap { $0 as? WheelLogCore.TelemetrySample }
+        samples = kmpSamples.compactMap { $0 }
     }
 }

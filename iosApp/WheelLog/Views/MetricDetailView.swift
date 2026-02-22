@@ -66,9 +66,9 @@ struct MetricDetailView: View {
                     get: { wheelManager.telemetryHistory.timeRange },
                     set: { wheelManager.telemetryHistory.setTimeRange($0) }
                 )) {
-                    Text("5m").tag(ChartTimeRange.fiveMinutes)
-                    Text("1h").tag(ChartTimeRange.oneHour)
-                    Text("24h").tag(ChartTimeRange.twentyFourHours)
+                    Text(ChartTimeRange.fiveMinutes.label).tag(ChartTimeRange.fiveMinutes)
+                    Text(ChartTimeRange.oneHour.label).tag(ChartTimeRange.oneHour)
+                    Text(ChartTimeRange.twentyFourHours.label).tag(ChartTimeRange.twentyFourHours)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -125,11 +125,11 @@ struct MetricDetailView: View {
                     }
                 }()
                 HStack(spacing: 0) {
-                    StatBlock(label: "Min", value: formatValue(convertValue(stats.min)), unit: displayUnit)
+                    StatBlock(label: CommonLabels.shared.MIN, value: formatValue(convertValue(stats.min)), unit: displayUnit)
                     Divider().frame(height: 40)
-                    StatBlock(label: "Avg", value: formatValue(convertValue(stats.avg)), unit: displayUnit)
+                    StatBlock(label: CommonLabels.shared.AVG, value: formatValue(convertValue(stats.avg)), unit: displayUnit)
                     Divider().frame(height: 40)
-                    StatBlock(label: "Max", value: formatValue(convertValue(stats.max)), unit: displayUnit)
+                    StatBlock(label: CommonLabels.shared.MAX, value: formatValue(convertValue(stats.max)), unit: displayUnit)
                 }
                 .padding()
                 .background(Color(UIColor.secondarySystemGroupedBackground))

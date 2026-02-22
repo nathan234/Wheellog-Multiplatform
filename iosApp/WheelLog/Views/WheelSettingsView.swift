@@ -29,8 +29,8 @@ struct WheelSettingsContent: View {
             isPresented: $showConfirmation,
             presenting: pendingAction
         ) { action in
-            Button("Cancel", role: .cancel) { pendingAction = nil }
-            Button("Confirm", role: .destructive) {
+            Button(CommonLabels.shared.CANCEL, role: .cancel) { pendingAction = nil }
+            Button(CommonLabels.shared.CONFIRM, role: .destructive) {
                 executeAction(action)
                 pendingAction = nil
             }

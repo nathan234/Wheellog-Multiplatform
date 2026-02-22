@@ -4,7 +4,7 @@ import WheelLogCore
 /// Convenience accessor for KMP BmsSnapshot cells (KotlinArray<KotlinDouble> → [Double]).
 extension BmsSnapshot {
     var cellValues: [Double] {
-        (0..<Int(cellNum)).map { (cells.get(index: Int32($0)) as! NSNumber).doubleValue }
+        (0..<Int(cellNum)).map { (cells.get(index: Int32($0))!).doubleValue }
     }
 }
 
@@ -14,23 +14,23 @@ struct SmartBmsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("BMS 1")
+                Text(BmsLabels.shared.BMS_1)
                     .font(.headline)
                 if let bms = wheelManager.wheelState.bms1 {
                     BmsBlock(bms: bms)
                 } else {
-                    Text("No BMS 1 data")
+                    Text(BmsLabels.shared.NO_BMS_1)
                         .foregroundColor(.secondary)
                 }
 
                 Divider()
 
-                Text("BMS 2")
+                Text(BmsLabels.shared.BMS_2)
                     .font(.headline)
                 if let bms = wheelManager.wheelState.bms2 {
                     BmsBlock(bms: bms)
                 } else {
-                    Text("No BMS 2 data")
+                    Text(BmsLabels.shared.NO_BMS_2)
                         .foregroundColor(.secondary)
                 }
             }
@@ -47,26 +47,26 @@ private struct BmsBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if !bms.serialNumber.isEmpty {
-                Text("Serial: \(bms.serialNumber)")
+                Text("\(BmsLabels.shared.SERIAL): \(bms.serialNumber)")
             }
-            Text("Voltage: \(DisplayUtils.shared.formatBmsVoltage(voltage: bms.voltage))")
-            Text("Current: \(DisplayUtils.shared.formatBmsCurrent(current: bms.current))")
+            Text("\(BmsLabels.shared.VOLTAGE): \(DisplayUtils.shared.formatBmsVoltage(voltage: bms.voltage))")
+            Text("\(BmsLabels.shared.CURRENT): \(DisplayUtils.shared.formatBmsCurrent(current: bms.current))")
             if bms.remCap > 0 {
-                Text("Remaining: \(bms.remCap) / \(bms.factoryCap) mAh (\(bms.remPerc)%)")
+                Text("\(BmsLabels.shared.REMAINING): \(bms.remCap) / \(bms.factoryCap) mAh (\(bms.remPerc)%)")
             }
-            Text("Temp 1: \(DisplayUtils.shared.formatBmsTemperature(celsius: bms.temp1))")
-            Text("Temp 2: \(DisplayUtils.shared.formatBmsTemperature(celsius: bms.temp2))")
+            Text("\(BmsLabels.shared.TEMP_1): \(DisplayUtils.shared.formatBmsTemperature(celsius: bms.temp1))")
+            Text("\(BmsLabels.shared.TEMP_2): \(DisplayUtils.shared.formatBmsTemperature(celsius: bms.temp2))")
             if bms.health > 0 {
-                Text("Health: \(bms.health)%")
+                Text("\(BmsLabels.shared.HEALTH): \(bms.health)%")
             }
-            Text("Max Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.maxCell, cellNum: bms.maxCellNum))")
-            Text("Min Cell: \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.minCell, cellNum: bms.minCellNum))")
-            Text("Cell Diff: \(DisplayUtils.shared.formatBmsCell(voltage: bms.cellDiff))")
-            Text("Avg Cell: \(DisplayUtils.shared.formatBmsCell(voltage: bms.avgCell))")
+            Text("\(BmsLabels.shared.MAX_CELL): \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.maxCell, cellNum: bms.maxCellNum))")
+            Text("\(BmsLabels.shared.MIN_CELL): \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.minCell, cellNum: bms.minCellNum))")
+            Text("\(BmsLabels.shared.CELL_DIFF): \(DisplayUtils.shared.formatBmsCell(voltage: bms.cellDiff))")
+            Text("\(BmsLabels.shared.AVG_CELL): \(DisplayUtils.shared.formatBmsCell(voltage: bms.avgCell))")
 
             if bms.cellNum > 0 {
                 Divider()
-                Text("Cells (\(bms.cellNum)):")
+                Text("\(BmsLabels.shared.CELLS) (\(bms.cellNum)):")
                     .font(.subheadline)
                     .fontWeight(.medium)
                 ForEach(0..<Int(bms.cellNum), id: \.self) { i in

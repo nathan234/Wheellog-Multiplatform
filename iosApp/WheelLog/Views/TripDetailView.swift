@@ -85,23 +85,23 @@ struct TripDetailView: View {
     private var summaryCard: some View {
         VStack(spacing: 8) {
             HStack {
-                summaryItem(label: "Duration", value: DisplayUtils.shared.formatDurationCompact(seconds: Int32(ride.duration)))
+                summaryItem(label: RidesLabels.shared.DURATION, value: DisplayUtils.shared.formatDurationCompact(seconds: Int32(ride.duration)))
                 Spacer()
-                summaryItem(label: "Distance", value: DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))
+                summaryItem(label: RidesLabels.shared.DISTANCE, value: DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))
             }
             HStack {
-                summaryItem(label: "Max Speed", value: DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0))
+                summaryItem(label: RidesLabels.shared.MAX_SPEED, value: DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0))
                 Spacer()
-                summaryItem(label: "Avg Speed", value: DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0))
+                summaryItem(label: RidesLabels.shared.AVG_SPEED, value: DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0))
             }
             if ride.maxPower > 0 || ride.consumptionWhPerKm > 0 {
                 HStack {
                     if ride.maxPower > 0 {
-                        summaryItem(label: "Max Power", value: "\(Int(ride.maxPower)) W")
+                        summaryItem(label: RidesLabels.shared.MAX_POWER, value: "\(Int(ride.maxPower)) W")
                     }
                     Spacer()
                     if ride.consumptionWhPerKm > 0 {
-                        summaryItem(label: "Energy", value: DisplayUtils.shared.formatEnergyConsumption(whPerKm: ride.consumptionWhPerKm, useMph: wheelManager.useMph, decimals: 1))
+                        summaryItem(label: RidesLabels.shared.ENERGY, value: DisplayUtils.shared.formatEnergyConsumption(whPerKm: ride.consumptionWhPerKm, useMph: wheelManager.useMph, decimals: 1))
                     }
                 }
             }
@@ -128,12 +128,12 @@ struct TripDetailView: View {
     private var toggleChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ToggleChip(label: "Speed", color: .blue, isOn: $showSpeed)
+                ToggleChip(label: MetricType.speed.label, color: .blue, isOn: $showSpeed)
                 ToggleChip(label: "GPS", color: .cyan, isOn: $showGpsSpeed)
                 ToggleChip(label: "Current", color: .orange, isOn: $showCurrent)
-                ToggleChip(label: "Power", color: .green, isOn: $showPower)
-                ToggleChip(label: "Temp", color: .red, isOn: $showTemperature)
-                ToggleChip(label: "PWM", color: .pink, isOn: $showPwm)
+                ToggleChip(label: MetricType.power.label, color: .green, isOn: $showPower)
+                ToggleChip(label: MetricType.temperature.label, color: .red, isOn: $showTemperature)
+                ToggleChip(label: MetricType.pwm.label, color: .pink, isOn: $showPwm)
             }
             .padding(.horizontal)
         }
@@ -294,7 +294,7 @@ struct TripDetailView: View {
         do {
             let csvContent = try String(contentsOf: fileURL, encoding: .utf8)
             let kmpSamples = CsvParser.shared.parse(csvContent: csvContent)
-            let parsed = kmpSamples.compactMap { $0 as? WheelLogCore.TelemetrySample }
+            let parsed = kmpSamples.compactMap { $0 }
             if parsed.isEmpty {
                 errorMessage = "No data in CSV file"
             } else {

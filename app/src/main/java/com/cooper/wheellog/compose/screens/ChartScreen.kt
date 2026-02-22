@@ -33,7 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.ChartLabels
+import com.cooper.wheellog.core.domain.CommonLabels
 import com.cooper.wheellog.core.telemetry.ChartTimeRange
+import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.telemetry.TelemetrySample
 import com.cooper.wheellog.compose.components.MarkerSeriesInfo
 import com.cooper.wheellog.compose.components.SeriesInfo
@@ -69,10 +72,10 @@ fun ChartScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Telemetry Chart") },
+                title = { Text(ChartLabels.TITLE) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CommonLabels.BACK)
                     }
                 },
             )
@@ -105,11 +108,11 @@ fun ChartScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item { ToggleChip("Speed", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
+                item { ToggleChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
                 item { ToggleChip("GPS", GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
                 item { ToggleChip("Current", CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
-                item { ToggleChip("Power", POWER_COLOR, showPower, { showPower = !showPower }) }
-                item { ToggleChip("Temp", TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
+                item { ToggleChip(MetricType.POWER.label, POWER_COLOR, showPower, { showPower = !showPower }) }
+                item { ToggleChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
             }
 
             if (samples.isEmpty()) {
@@ -129,7 +132,7 @@ fun ChartScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "Waiting for data...",
+                            ChartLabels.WAITING,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -144,7 +147,7 @@ fun ChartScreen(
                 val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
                 if (showSpeed) {
                     visibleSeries += SeriesInfo(SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.speedKmh, useMph) })
-                    visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
+                    visibleMarkerInfo += MarkerSeriesInfo(MetricType.SPEED.label, speedUnit, 1)
                 }
                 if (showGpsSpeed) {
                     visibleSeries += SeriesInfo(GPS_SPEED_COLOR, samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
@@ -156,11 +159,11 @@ fun ChartScreen(
                 }
                 if (showPower) {
                     visibleSeries += SeriesInfo(POWER_COLOR, samples.map { it.powerW })
-                    visibleMarkerInfo += MarkerSeriesInfo("Power", "W", 0)
+                    visibleMarkerInfo += MarkerSeriesInfo(MetricType.POWER.label, "W", 0)
                 }
                 if (showTemperature) {
                     visibleSeries += SeriesInfo(TEMP_COLOR, samples.map { DisplayUtils.convertTemp(it.temperatureC, useFahrenheit) })
-                    visibleMarkerInfo += MarkerSeriesInfo("Temp", tempUnit, 0)
+                    visibleMarkerInfo += MarkerSeriesInfo(MetricType.TEMPERATURE.label, tempUnit, 0)
                 }
 
                 val timeFormatPattern = if (selectedRange == ChartTimeRange.FIVE_MINUTES) "mm:ss" else "HH:mm"
@@ -184,14 +187,14 @@ fun ChartScreen(
 
                 // Voltage chart
                 Text(
-                    "Voltage",
+                    ChartLabels.VOLTAGE,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = VOLTAGE_COLOR,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 val voltageMarker = rememberChartMarker(
-                    samples, listOf(MarkerSeriesInfo("Voltage", "V", 1)), timeFormatPattern
+                    samples, listOf(MarkerSeriesInfo(ChartLabels.VOLTAGE, "V", 1)), timeFormatPattern
                 )
                 VicoLineChart(
                     samples = samples,

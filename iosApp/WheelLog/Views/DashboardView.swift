@@ -57,7 +57,7 @@ struct DashboardView: View {
 
     private func sparkline(metric: MetricType) -> [Double] {
         let values = wheelManager.telemetryBuffer.buffer.valuesFor(metric: metric)
-        let arr = values.compactMap { ($0 as? NSNumber)?.doubleValue }
+        let arr = values.compactMap { ($0 as NSNumber).doubleValue }
         return Array(arr.suffix(20))
     }
 
@@ -71,9 +71,9 @@ struct DashboardView: View {
 
                 // Speed display mode picker
                 Picker("Speed Source", selection: $wheelManager.speedDisplayMode) {
-                    Text("Speed").tag(SpeedDisplayMode.wheel)
-                    Text("GPS").tag(SpeedDisplayMode.gps)
-                    Text("Both").tag(SpeedDisplayMode.both)
+                    Text(DashboardLabels.shared.SPEED_SOURCE_SPEED).tag(SpeedDisplayMode.wheel)
+                    Text(DashboardLabels.shared.SPEED_SOURCE_GPS).tag(SpeedDisplayMode.gps)
+                    Text(DashboardLabels.shared.SPEED_SOURCE_BOTH).tag(SpeedDisplayMode.both)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -99,7 +99,7 @@ struct DashboardView: View {
                     // Speed tile
                     let speedVal = displaySpeed
                     GaugeTileView(
-                        label: "Speed",
+                        label: MetricType.speed.label,
                         value: String(format: "%.1f", speedVal),
                         unit: speedUnit,
                         progress: speedVal / maxSpeed,
@@ -111,7 +111,7 @@ struct DashboardView: View {
                     // Battery tile
                     let batteryVal = Double(wheelManager.wheelState.batteryLevel)
                     GaugeTileView(
-                        label: "Battery",
+                        label: MetricType.battery.label,
                         value: "\(wheelManager.wheelState.batteryLevel)",
                         unit: "%",
                         progress: batteryVal / 100.0,
@@ -124,7 +124,7 @@ struct DashboardView: View {
                     let powerVal = wheelManager.wheelState.powerW
                     let powerMax = wheelManager.telemetryBuffer.buffer.effectiveMax(metric: .power)
                     GaugeTileView(
-                        label: "Power",
+                        label: MetricType.power.label,
                         value: String(format: "%.0f", powerVal),
                         unit: "W",
                         progress: powerMax > 0 ? abs(powerVal) / powerMax : 0,
@@ -136,7 +136,7 @@ struct DashboardView: View {
                     // PWM tile
                     let pwmVal = wheelManager.wheelState.pwmPercent
                     GaugeTileView(
-                        label: "PWM",
+                        label: MetricType.pwm.label,
                         value: String(format: "%.1f", pwmVal),
                         unit: "%",
                         progress: pwmVal / 100.0,
@@ -150,7 +150,7 @@ struct DashboardView: View {
                     let tempDisplay = DisplayUtils.shared.convertTemp(celsius: tempC, useFahrenheit: wheelManager.useFahrenheit)
                     let tempUnit = DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
                     GaugeTileView(
-                        label: "Temp",
+                        label: MetricType.temperature.label,
                         value: String(format: "%.0f", tempDisplay),
                         unit: tempUnit,
                         progress: tempC / 80.0,
@@ -164,7 +164,7 @@ struct DashboardView: View {
                     let gpsKmh = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, gpsSpeedRaw))
                     let gpsDisplay = DisplayUtils.shared.convertSpeed(kmh: gpsKmh, useMph: wheelManager.useMph)
                     GaugeTileView(
-                        label: "GPS Speed",
+                        label: MetricType.gpsSpeed.label,
                         value: gpsKmh > 0 ? String(format: "%.1f", gpsDisplay) : "\u{2014}",
                         unit: speedUnit,
                         progress: gpsDisplay / maxSpeed,
@@ -177,10 +177,10 @@ struct DashboardView: View {
 
                 // Compact stats row
                 VStack(spacing: 12) {
-                    StatRow(label: "Voltage", value: String(format: "%.1f V", wheelManager.wheelState.voltageV))
-                    StatRow(label: "Current", value: String(format: "%.1f A", wheelManager.wheelState.currentA))
-                    StatRow(label: "Trip Distance", value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.wheelDistanceKm, useMph: wheelManager.useMph, decimals: 2))
-                    StatRow(label: "Total Distance", value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.totalDistanceKm, useMph: wheelManager.useMph, decimals: 1))
+                    StatRow(label: DashboardLabels.shared.VOLTAGE, value: String(format: "%.1f V", wheelManager.wheelState.voltageV))
+                    StatRow(label: DashboardLabels.shared.CURRENT, value: String(format: "%.1f A", wheelManager.wheelState.currentA))
+                    StatRow(label: DashboardLabels.shared.TRIP_DISTANCE, value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.wheelDistanceKm, useMph: wheelManager.useMph, decimals: 2))
+                    StatRow(label: DashboardLabels.shared.TOTAL_DISTANCE, value: DisplayUtils.shared.formatDistance(km: wheelManager.wheelState.totalDistanceKm, useMph: wheelManager.useMph, decimals: 1))
                 }
                 .padding()
                 .background(Color(UIColor.secondarySystemGroupedBackground))
@@ -191,10 +191,10 @@ struct DashboardView: View {
                 if wheelManager.wheelState.pedalsMode >= 0 {
                     NavigationLink(destination: WheelSettingsView()) {
                         VStack(spacing: 12) {
-                            StatRow(label: "Pedals Mode", value: DisplayUtils.shared.pedalsModeText(mode: wheelManager.wheelState.pedalsMode))
-                            StatRow(label: "Tilt-Back Speed", value: DisplayUtils.shared.tiltBackSpeedText(speed: wheelManager.wheelState.tiltBackSpeed, useMph: wheelManager.useMph))
-                            StatRow(label: "Light", value: DisplayUtils.shared.lightModeText(mode: wheelManager.wheelState.lightMode))
-                            StatRow(label: "LED Mode", value: "\(wheelManager.wheelState.ledMode)")
+                            StatRow(label: DashboardLabels.shared.PEDALS_MODE, value: DisplayUtils.shared.pedalsModeText(mode: wheelManager.wheelState.pedalsMode))
+                            StatRow(label: DashboardLabels.shared.TILT_BACK_SPEED, value: DisplayUtils.shared.tiltBackSpeedText(speed: wheelManager.wheelState.tiltBackSpeed, useMph: wheelManager.useMph))
+                            StatRow(label: DashboardLabels.shared.LIGHT, value: DisplayUtils.shared.lightModeText(mode: wheelManager.wheelState.lightMode))
+                            StatRow(label: DashboardLabels.shared.LED_MODE, value: "\(wheelManager.wheelState.ledMode)")
                         }
                         .padding()
                         .background(Color(UIColor.secondarySystemGroupedBackground))
@@ -208,14 +208,14 @@ struct DashboardView: View {
                 if !wheelManager.wheelState.name.isEmpty || !wheelManager.wheelState.model.isEmpty {
                     VStack(spacing: 12) {
                         if !wheelManager.wheelState.name.isEmpty {
-                            StatRow(label: "Name", value: wheelManager.wheelState.name)
+                            StatRow(label: DashboardLabels.shared.NAME, value: wheelManager.wheelState.name)
                         }
                         if !wheelManager.wheelState.model.isEmpty {
-                            StatRow(label: "Model", value: wheelManager.wheelState.model)
+                            StatRow(label: DashboardLabels.shared.MODEL, value: wheelManager.wheelState.model)
                         }
-                        StatRow(label: "Type", value: wheelManager.wheelState.wheelType.name)
+                        StatRow(label: DashboardLabels.shared.TYPE, value: wheelManager.wheelState.wheelType.name)
                         if !wheelManager.wheelState.version.isEmpty {
-                            StatRow(label: "Firmware", value: wheelManager.wheelState.version)
+                            StatRow(label: DashboardLabels.shared.FIRMWARE, value: wheelManager.wheelState.version)
                         }
                     }
                     .padding()
@@ -228,7 +228,7 @@ struct DashboardView: View {
                 if wheelManager.isMockMode {
                     HStack {
                         Image(systemName: "info.circle.fill")
-                        Text("Demo Mode - Simulated Data")
+                        Text(DashboardLabels.shared.DEMO_MODE_BADGE)
                     }
                     .font(.caption)
                     .foregroundColor(.orange)
@@ -239,7 +239,7 @@ struct DashboardView: View {
                 } else if wheelManager.isTestMode {
                     HStack {
                         Image(systemName: "testtube.2")
-                        Text("Test Mode - KMP Decoder")
+                        Text(DashboardLabels.shared.TEST_MODE_BADGE)
                     }
                     .font(.caption)
                     .foregroundColor(.blue)
@@ -255,7 +255,7 @@ struct DashboardView: View {
                         Button(action: { wheelManager.wheelBeep() }) {
                             HStack {
                                 Image(systemName: "speaker.wave.2.fill")
-                                Text("Horn")
+                                Text(DashboardLabels.shared.HORN)
                             }
                             .fontWeight(.medium)
                             .foregroundColor(.white)
@@ -268,7 +268,7 @@ struct DashboardView: View {
                         Button(action: { wheelManager.toggleLight() }) {
                             HStack {
                                 Image(systemName: wheelManager.isLightOn ? "lightbulb.fill" : "lightbulb")
-                                Text("Light")
+                                Text(DashboardLabels.shared.LIGHT)
                             }
                             .fontWeight(.medium)
                             .foregroundColor(.white)
@@ -293,7 +293,7 @@ struct DashboardView: View {
                         }) {
                             HStack {
                                 Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
-                                Text(wheelManager.isLogging ? "Stop" : "Record")
+                                Text(wheelManager.isLogging ? DashboardLabels.shared.STOP : DashboardLabels.shared.RECORD)
                             }
                             .fontWeight(.medium)
                             .foregroundColor(.white)
@@ -307,7 +307,7 @@ struct DashboardView: View {
                     Button(action: { showBms = true }) {
                         HStack {
                             Image(systemName: "battery.100")
-                            Text("BMS")
+                            Text(DashboardLabels.shared.BMS)
                         }
                         .fontWeight(.medium)
                         .foregroundColor(.white)
@@ -320,7 +320,7 @@ struct DashboardView: View {
                     Button(action: { showChart = true }) {
                         HStack {
                             Image(systemName: "chart.xyaxis.line")
-                            Text("Chart")
+                            Text(DashboardLabels.shared.CHART)
                         }
                         .fontWeight(.medium)
                         .foregroundColor(.white)
@@ -376,9 +376,9 @@ struct DashboardView: View {
     }
 
     private var buttonLabel: String {
-        if wheelManager.isMockMode { return "Stop Demo" }
-        if wheelManager.isTestMode { return "Stop Test" }
-        return "Disconnect"
+        if wheelManager.isMockMode { return DashboardLabels.shared.STOP_DEMO }
+        if wheelManager.isTestMode { return DashboardLabels.shared.STOP_TEST }
+        return DashboardLabels.shared.DISCONNECT
     }
 
     private var buttonColor: Color {
@@ -403,7 +403,7 @@ struct AlarmBannerView: View {
     var body: some View {
         HStack {
             Image(systemName: "exclamationmark.triangle.fill")
-            Text("ALARM: \(alarmText)")
+            Text("\(CommonLabels.shared.ALARM_PREFIX)\(alarmText)")
                 .fontWeight(.bold)
         }
         .font(.subheadline)

@@ -33,7 +33,7 @@ class TelemetryBuffer: ObservableObject {
     var buffer: WheelLogCore.TelemetryBuffer { kmpBuffer }
 
     private func syncSamples() {
-        samples = kmpBuffer.samples.compactMap { $0 as? WheelLogCore.TelemetrySample }
+        samples = kmpBuffer.samples.compactMap { $0 }
     }
 }
 

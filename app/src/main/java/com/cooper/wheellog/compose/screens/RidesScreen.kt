@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.RidesLabels
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.core.utils.DisplayUtils
 import com.cooper.wheellog.core.utils.PlatformDateFormatter
@@ -68,7 +69,7 @@ fun RidesScreen(
             .padding(top = 16.dp)
     ) {
         Text(
-            "Rides",
+            RidesLabels.TITLE,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -88,13 +89,13 @@ fun RidesScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "No Rides Recorded",
+                    RidesLabels.EMPTY_TITLE,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Connect to your wheel and start logging",
+                    RidesLabels.EMPTY_SUBTITLE,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

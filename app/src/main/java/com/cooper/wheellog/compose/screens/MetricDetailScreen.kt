@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.CommonLabels
 import com.cooper.wheellog.compose.components.MarkerSeriesInfo
 import com.cooper.wheellog.compose.components.metricColor
 import com.cooper.wheellog.compose.components.rememberChartMarker
@@ -91,7 +92,7 @@ fun MetricDetailScreen(
                 title = { Text(metric.label) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CommonLabels.BACK)
                     }
                 },
             )
@@ -202,9 +203,9 @@ fun MetricDetailScreen(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    StatItem("Min", metric.formatValue(DisplayUtils.convertMetricValue(stats.min, metric, useMph, useFahrenheit)), displayUnit)
-                    StatItem("Avg", metric.formatValue(DisplayUtils.convertMetricValue(stats.avg, metric, useMph, useFahrenheit)), displayUnit)
-                    StatItem("Max", metric.formatValue(DisplayUtils.convertMetricValue(stats.max, metric, useMph, useFahrenheit)), displayUnit)
+                    StatItem(CommonLabels.MIN, metric.formatValue(DisplayUtils.convertMetricValue(stats.min, metric, useMph, useFahrenheit)), displayUnit)
+                    StatItem(CommonLabels.AVG, metric.formatValue(DisplayUtils.convertMetricValue(stats.avg, metric, useMph, useFahrenheit)), displayUnit)
+                    StatItem(CommonLabels.MAX, metric.formatValue(DisplayUtils.convertMetricValue(stats.max, metric, useMph, useFahrenheit)), displayUnit)
                 }
             }
 

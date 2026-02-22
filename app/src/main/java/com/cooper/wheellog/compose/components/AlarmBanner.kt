@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cooper.wheellog.core.domain.AlarmType
+import com.cooper.wheellog.core.domain.CommonLabels
 
 @Composable
 fun AlarmBanner(
@@ -67,7 +68,7 @@ fun AlarmBanner(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "ALARM: $alarmText",
+            text = "${CommonLabels.ALARM_PREFIX}$alarmText",
             color = Color.White,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp

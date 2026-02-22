@@ -12,7 +12,7 @@ struct RidesView: View {
                 rideList
             }
         }
-        .navigationTitle("Rides")
+        .navigationTitle(RidesLabels.shared.TITLE)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if wheelManager.connectionState.isConnected {
@@ -32,10 +32,10 @@ struct RidesView: View {
             Image(systemName: "road.lanes")
                 .font(.system(size: 60))
                 .foregroundColor(.secondary)
-            Text("No Rides Recorded")
+            Text(RidesLabels.shared.EMPTY_TITLE)
                 .font(.title2)
                 .fontWeight(.medium)
-            Text("Connect to your wheel and start logging")
+            Text(RidesLabels.shared.EMPTY_SUBTITLE)
                 .font(.body)
                 .foregroundColor(.secondary)
             Spacer()

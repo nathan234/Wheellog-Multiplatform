@@ -53,6 +53,8 @@ import com.cooper.wheellog.compose.components.GaugeTile
 import com.cooper.wheellog.compose.components.SpeedDisplayMode
 import com.cooper.wheellog.compose.components.SpeedGauge
 import com.cooper.wheellog.compose.components.StatRow
+import com.cooper.wheellog.core.domain.CommonLabels
+import com.cooper.wheellog.core.domain.DashboardLabels
 import com.cooper.wheellog.core.domain.PreferenceKeys
 import com.cooper.wheellog.core.telemetry.ColorZone
 import com.cooper.wheellog.core.telemetry.MetricType
@@ -136,9 +138,9 @@ fun DashboardScreen(
         ) {
             for (mode in SpeedDisplayMode.entries) {
                 val label = when (mode) {
-                    SpeedDisplayMode.WHEEL -> "Speed"
-                    SpeedDisplayMode.GPS -> "GPS"
-                    SpeedDisplayMode.BOTH -> "Both"
+                    SpeedDisplayMode.WHEEL -> DashboardLabels.SPEED_SOURCE_SPEED
+                    SpeedDisplayMode.GPS -> DashboardLabels.SPEED_SOURCE_GPS
+                    SpeedDisplayMode.BOTH -> DashboardLabels.SPEED_SOURCE_BOTH
                 }
                 FilterChip(
                     selected = speedDisplayMode == mode,
@@ -198,7 +200,7 @@ fun DashboardScreen(
         ) {
             val speedVal = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
             GaugeTile(
-                label = "Speed",
+                label = MetricType.SPEED.label,
                 value = String.format(Locale.US, "%.1f", speedVal),
                 unit = speedUnit,
                 progress = (speedVal / maxSpeed).toFloat(),
@@ -209,7 +211,7 @@ fun DashboardScreen(
             )
             val batteryVal = wheelState.batteryLevel.toDouble()
             GaugeTile(
-                label = "Battery",
+                label = MetricType.BATTERY.label,
                 value = "${wheelState.batteryLevel}",
                 unit = "%",
                 progress = (batteryVal / MetricType.BATTERY.maxValue).toFloat(),
@@ -230,7 +232,7 @@ fun DashboardScreen(
             val powerVal = wheelState.powerW
             val powerMax = buffer.effectiveMax(MetricType.POWER)
             GaugeTile(
-                label = "Power",
+                label = MetricType.POWER.label,
                 value = String.format(Locale.US, "%.0f", powerVal),
                 unit = "W",
                 progress = if (powerMax > 0) (kotlin.math.abs(powerVal) / powerMax).toFloat() else 0f,
@@ -241,7 +243,7 @@ fun DashboardScreen(
             )
             val pwmVal = wheelState.pwmPercent
             GaugeTile(
-                label = "PWM",
+                label = MetricType.PWM.label,
                 value = String.format(Locale.US, "%.1f", pwmVal),
                 unit = "%",
                 progress = (pwmVal / MetricType.PWM.maxValue).toFloat(),
@@ -263,7 +265,7 @@ fun DashboardScreen(
             val tempDisplay = DisplayUtils.convertTemp(tempC, useFahrenheit)
             val tempUnit = DisplayUtils.temperatureUnit(useFahrenheit)
             GaugeTile(
-                label = "Temp",
+                label = MetricType.TEMPERATURE.label,
                 value = String.format(Locale.US, "%.0f", tempDisplay),
                 unit = tempUnit,
                 progress = (tempC / MetricType.TEMPERATURE.maxValue).toFloat(),
@@ -275,7 +277,7 @@ fun DashboardScreen(
             val gpsVal = DisplayUtils.convertSpeed(gpsSpeed, useMph)
             val gpsDisplay = if (gpsSpeed > 0) String.format(Locale.US, "%.1f", gpsVal) else "\u2014"
             GaugeTile(
-                label = "GPS Speed",
+                label = MetricType.GPS_SPEED.label,
                 value = gpsDisplay,
                 unit = speedUnit,
                 progress = (gpsVal / maxSpeed).toFloat(),
@@ -288,19 +290,19 @@ fun DashboardScreen(
 
         // Compact stats row: Voltage, Current, Trip Dist, Total Dist
         StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
-            StatRow(label = "Voltage", value = String.format(Locale.US, "%.1f V", wheelState.voltageV))
-            StatRow(label = "Current", value = String.format(Locale.US, "%.1f A", wheelState.currentA))
-            StatRow(label = "Trip Distance", value = DisplayUtils.formatDistance(wheelState.wheelDistanceKm, useMph))
-            StatRow(label = "Total Distance", value = DisplayUtils.formatDistance(wheelState.totalDistanceKm, useMph, decimals = 1))
+            StatRow(label = DashboardLabels.VOLTAGE, value = String.format(Locale.US, "%.1f V", wheelState.voltageV))
+            StatRow(label = DashboardLabels.CURRENT, value = String.format(Locale.US, "%.1f A", wheelState.currentA))
+            StatRow(label = DashboardLabels.TRIP_DISTANCE, value = DisplayUtils.formatDistance(wheelState.wheelDistanceKm, useMph))
+            StatRow(label = DashboardLabels.TOTAL_DISTANCE, value = DisplayUtils.formatDistance(wheelState.totalDistanceKm, useMph, decimals = 1))
         }
 
         // Wheel settings (only when received)
         if (wheelState.pedalsMode >= 0) {
             StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
-                StatRow(label = "Pedals Mode", value = DisplayUtils.pedalsModeText(wheelState.pedalsMode))
-                StatRow(label = "Tilt-Back Speed", value = DisplayUtils.tiltBackSpeedText(wheelState.tiltBackSpeed, useMph))
-                StatRow(label = "Light", value = DisplayUtils.lightModeText(wheelState.lightMode))
-                StatRow(label = "LED Mode", value = "${wheelState.ledMode}")
+                StatRow(label = DashboardLabels.PEDALS_MODE, value = DisplayUtils.pedalsModeText(wheelState.pedalsMode))
+                StatRow(label = DashboardLabels.TILT_BACK_SPEED, value = DisplayUtils.tiltBackSpeedText(wheelState.tiltBackSpeed, useMph))
+                StatRow(label = DashboardLabels.LIGHT, value = DisplayUtils.lightModeText(wheelState.lightMode))
+                StatRow(label = DashboardLabels.LED_MODE, value = "${wheelState.ledMode}")
             }
         }
 
@@ -308,14 +310,14 @@ fun DashboardScreen(
         if (wheelState.name.isNotEmpty() || wheelState.model.isNotEmpty()) {
             StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
                 if (wheelState.name.isNotEmpty()) {
-                    StatRow(label = "Name", value = wheelState.name)
+                    StatRow(label = DashboardLabels.NAME, value = wheelState.name)
                 }
                 if (wheelState.model.isNotEmpty()) {
-                    StatRow(label = "Model", value = wheelState.model)
+                    StatRow(label = DashboardLabels.MODEL, value = wheelState.model)
                 }
-                StatRow(label = "Type", value = wheelState.wheelType.name)
+                StatRow(label = DashboardLabels.TYPE, value = wheelState.wheelType.name)
                 if (wheelState.version.isNotEmpty()) {
-                    StatRow(label = "Firmware", value = wheelState.version)
+                    StatRow(label = DashboardLabels.FIRMWARE, value = wheelState.version)
                 }
             }
         }
@@ -323,7 +325,7 @@ fun DashboardScreen(
         // Demo mode badge
         if (isDemo) {
             ModeBadge(
-                text = "Demo Mode - Simulated Data",
+                text = DashboardLabels.DEMO_MODE_BADGE,
                 color = Color(0xFFFF9800)
             )
         }
@@ -344,7 +346,7 @@ fun DashboardScreen(
                 ) {
                     Icon(Icons.Default.Campaign, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("Horn")
+                    Text(DashboardLabels.HORN)
                 }
                 Button(
                     onClick = { viewModel.toggleLight() },
@@ -359,7 +361,7 @@ fun DashboardScreen(
                         contentDescription = null
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text("Light")
+                    Text(DashboardLabels.LIGHT)
                 }
                 Button(
                     onClick = onNavigateToWheelSettings,
@@ -395,7 +397,7 @@ fun DashboardScreen(
                         contentDescription = null
                     )
                     Spacer(Modifier.width(4.dp))
-                    Text(if (isLogging) "Stop" else "Record")
+                    Text(if (isLogging) DashboardLabels.STOP else DashboardLabels.RECORD)
                 }
             }
 
@@ -407,7 +409,7 @@ fun DashboardScreen(
             ) {
                 Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("Chart")
+                Text(DashboardLabels.CHART)
             }
 
             Button(
@@ -418,7 +420,7 @@ fun DashboardScreen(
             ) {
                 Icon(Icons.Default.BatteryFull, contentDescription = null)
                 Spacer(Modifier.width(4.dp))
-                Text("BMS")
+                Text(DashboardLabels.BMS)
             }
         }
 
@@ -435,7 +437,7 @@ fun DashboardScreen(
                 .padding(bottom = 20.dp)
         ) {
             Text(
-                text = if (isDemo) "Stop Demo" else "Disconnect",
+                text = if (isDemo) DashboardLabels.STOP_DEMO else DashboardLabels.DISCONNECT,
                 fontWeight = FontWeight.Medium
             )
         }

@@ -37,6 +37,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.ChartLabels
+import com.cooper.wheellog.core.domain.CommonLabels
+import com.cooper.wheellog.core.domain.RidesLabels
 import com.cooper.wheellog.compose.components.MarkerSeriesInfo
 import com.cooper.wheellog.compose.components.SeriesInfo
 import com.cooper.wheellog.compose.components.SPEED_COLOR
@@ -133,7 +136,7 @@ fun TripDetailScreen(
                 title = { Text(titleDate) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CommonLabels.BACK)
                     }
                 },
             )
@@ -195,12 +198,12 @@ fun TripDetailScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { ToggleChip("Speed", SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
+                        item { ToggleChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
                         item { ToggleChip("GPS", GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
                         item { ToggleChip("Current", CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
-                        item { ToggleChip("Power", POWER_COLOR, showPower, { showPower = !showPower }) }
-                        item { ToggleChip("Temp", TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
-                        item { ToggleChip("PWM", PWM_COLOR, showPwm, { showPwm = !showPwm }) }
+                        item { ToggleChip(MetricType.POWER.label, POWER_COLOR, showPower, { showPower = !showPower }) }
+                        item { ToggleChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
+                        item { ToggleChip(MetricType.PWM.label, PWM_COLOR, showPwm, { showPwm = !showPwm }) }
                     }
 
                     val speedUnit = if (useMph) "mph" else "km/h"
@@ -211,7 +214,7 @@ fun TripDetailScreen(
                     val visibleMarkerInfo = mutableListOf<MarkerSeriesInfo>()
                     if (showSpeed) {
                         visibleSeries += SeriesInfo(SPEED_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.speedKmh, MetricType.SPEED, useMph, useFahrenheit) })
-                        visibleMarkerInfo += MarkerSeriesInfo("Speed", speedUnit, 1)
+                        visibleMarkerInfo += MarkerSeriesInfo(MetricType.SPEED.label, speedUnit, 1)
                     }
                     if (showGpsSpeed) {
                         visibleSeries += SeriesInfo(GPS_SPEED_COLOR, s.samples.map { DisplayUtils.convertSpeed(it.gpsSpeedKmh, useMph) })
@@ -223,15 +226,15 @@ fun TripDetailScreen(
                     }
                     if (showPower) {
                         visibleSeries += SeriesInfo(POWER_COLOR, s.samples.map { it.powerW })
-                        visibleMarkerInfo += MarkerSeriesInfo("Power", "W", 0)
+                        visibleMarkerInfo += MarkerSeriesInfo(MetricType.POWER.label, "W", 0)
                     }
                     if (showTemperature) {
                         visibleSeries += SeriesInfo(TEMP_COLOR, s.samples.map { DisplayUtils.convertMetricValue(it.temperatureC, MetricType.TEMPERATURE, useMph, useFahrenheit) })
-                        visibleMarkerInfo += MarkerSeriesInfo("Temp", tempUnit, 0)
+                        visibleMarkerInfo += MarkerSeriesInfo(MetricType.TEMPERATURE.label, tempUnit, 0)
                     }
                     if (showPwm) {
                         visibleSeries += SeriesInfo(PWM_COLOR, s.samples.map { it.pwmPercent })
-                        visibleMarkerInfo += MarkerSeriesInfo("PWM", "%", 1)
+                        visibleMarkerInfo += MarkerSeriesInfo(MetricType.PWM.label, "%", 1)
                     }
 
                     val timeFormatPattern = "HH:mm"
@@ -253,14 +256,14 @@ fun TripDetailScreen(
 
                     // Voltage chart
                     Text(
-                        "Voltage",
+                        ChartLabels.VOLTAGE,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = VOLTAGE_COLOR,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     val voltageMarker = rememberChartMarker(
-                        s.samples, listOf(MarkerSeriesInfo("Voltage", "V", 1)), timeFormatPattern
+                        s.samples, listOf(MarkerSeriesInfo(ChartLabels.VOLTAGE, "V", 1)), timeFormatPattern
                     )
                     VicoLineChart(
                         samples = s.samples,
@@ -301,16 +304,16 @@ private fun TripSummaryCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    SummaryItem("Duration", durationStr)
-                    SummaryItem("Distance", distStr)
+                    SummaryItem(RidesLabels.DURATION, durationStr)
+                    SummaryItem(RidesLabels.DISTANCE, distStr)
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    SummaryItem("Max Speed", maxSpeedStr)
-                    SummaryItem("Avg Speed", avgSpeedStr)
+                    SummaryItem(RidesLabels.MAX_SPEED, maxSpeedStr)
+                    SummaryItem(RidesLabels.AVG_SPEED, avgSpeedStr)
                 }
                 if (trip.maxPower > 0 || trip.consumptionByKm > 0) {
                     Spacer(Modifier.height(8.dp))
@@ -319,10 +322,10 @@ private fun TripSummaryCard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         if (trip.maxPower > 0) {
-                            SummaryItem("Max Power", "${trip.maxPower.toInt()} W")
+                            SummaryItem(RidesLabels.MAX_POWER, "${trip.maxPower.toInt()} W")
                         }
                         if (trip.consumptionByKm > 0) {
-                            SummaryItem("Energy", DisplayUtils.formatEnergyConsumption(trip.consumptionByKm.toDouble(), useMph))
+                            SummaryItem(RidesLabels.ENERGY, DisplayUtils.formatEnergyConsumption(trip.consumptionByKm.toDouble(), useMph))
                         }
                     }
                 }
@@ -335,16 +338,16 @@ private fun TripSummaryCard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem("Duration", DisplayUtils.formatDurationShort(durationMin))
-                        SummaryItem("Max Speed", DisplayUtils.formatSpeed(stats.maxSpeedKmh, useMph))
+                        SummaryItem(RidesLabels.DURATION, DisplayUtils.formatDurationShort(durationMin))
+                        SummaryItem(RidesLabels.MAX_SPEED, DisplayUtils.formatSpeed(stats.maxSpeedKmh, useMph))
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        SummaryItem("Avg Speed", DisplayUtils.formatSpeed(stats.avgSpeedKmh, useMph))
-                        SummaryItem("Max Power", "${stats.maxPowerW.toInt()} W")
+                        SummaryItem(RidesLabels.AVG_SPEED, DisplayUtils.formatSpeed(stats.avgSpeedKmh, useMph))
+                        SummaryItem(RidesLabels.MAX_POWER, "${stats.maxPowerW.toInt()} W")
                     }
                 }
             }

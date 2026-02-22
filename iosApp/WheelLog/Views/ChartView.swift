@@ -70,9 +70,9 @@ struct TelemetryChartView: View {
                     get: { wheelManager.telemetryHistory.timeRange },
                     set: { wheelManager.telemetryHistory.setTimeRange($0) }
                 )) {
-                    Text("5m").tag(ChartTimeRange.fiveMinutes)
-                    Text("1h").tag(ChartTimeRange.oneHour)
-                    Text("24h").tag(ChartTimeRange.twentyFourHours)
+                    Text(ChartTimeRange.fiveMinutes.label).tag(ChartTimeRange.fiveMinutes)
+                    Text(ChartTimeRange.oneHour.label).tag(ChartTimeRange.oneHour)
+                    Text(ChartTimeRange.twentyFourHours.label).tag(ChartTimeRange.twentyFourHours)
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
@@ -80,11 +80,11 @@ struct TelemetryChartView: View {
                 // Toggle chips
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ToggleChip(label: "Speed", color: .blue, isOn: $showSpeed)
+                        ToggleChip(label: MetricType.speed.label, color: .blue, isOn: $showSpeed)
                         ToggleChip(label: "GPS", color: .cyan, isOn: $showGpsSpeed)
                         ToggleChip(label: "Current", color: .orange, isOn: $showCurrent)
-                        ToggleChip(label: "Power", color: .green, isOn: $showPower)
-                        ToggleChip(label: "Temp", color: .red, isOn: $showTemperature)
+                        ToggleChip(label: MetricType.power.label, color: .green, isOn: $showPower)
+                        ToggleChip(label: MetricType.temperature.label, color: .red, isOn: $showTemperature)
                     }
                     .padding(.horizontal)
                 }
@@ -95,7 +95,7 @@ struct TelemetryChartView: View {
                         Image(systemName: "chart.xyaxis.line")
                             .font(.system(size: 48))
                             .foregroundColor(.secondary)
-                        Text("Waiting for data...")
+                        Text(ChartLabels.shared.WAITING)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         Spacer()
@@ -196,7 +196,7 @@ struct TelemetryChartView: View {
             }
             .padding(.vertical)
         }
-        .navigationTitle("Telemetry Chart")
+        .navigationTitle(ChartLabels.shared.TITLE)
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -233,7 +233,7 @@ struct VoltageChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Voltage")
+            Text(ChartLabels.shared.VOLTAGE)
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .foregroundColor(.purple)

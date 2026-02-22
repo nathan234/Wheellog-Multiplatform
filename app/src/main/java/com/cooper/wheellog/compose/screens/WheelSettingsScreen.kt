@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.CommonLabels
 import com.cooper.wheellog.compose.components.SectionCard
 import com.cooper.wheellog.core.domain.ControlSpec
 import com.cooper.wheellog.core.domain.SettingsCommandId
@@ -140,10 +141,10 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                                     pendingAction = null
                                 },
                                 colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
-                            ) { Text("Confirm") }
+                            ) { Text(CommonLabels.CONFIRM) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { pendingAction = null }) { Text("Cancel") }
+                            TextButton(onClick = { pendingAction = null }) { Text(CommonLabels.CANCEL) }
                         }
                     )
                 }
@@ -160,10 +161,10 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                                     pendingAction = null
                                 },
                                 colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
-                            ) { Text("Confirm") }
+                            ) { Text(CommonLabels.CONFIRM) }
                         },
                         dismissButton = {
-                            TextButton(onClick = { pendingAction = null }) { Text("Cancel") }
+                            TextButton(onClick = { pendingAction = null }) { Text(CommonLabels.CANCEL) }
                         }
                     )
                 }

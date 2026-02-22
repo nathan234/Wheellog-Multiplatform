@@ -25,7 +25,7 @@ Configurable speed, current, temperature, and low-battery alarms with audio beep
 Record rides to CSV with optional GPS coordinates. Auto-start logging on connect, browse past rides, and share CSV files directly from the app.
 
 ### Real-Time Charts
-Scrolling 60-second telemetry chart with toggleable series for speed, current, power, and temperature. Built with Swift Charts on iOS.
+Telemetry charts with selectable time ranges (5 min, 1 hour, 24 hours) and toggleable series for speed, GPS speed, current, power, temperature, and voltage. Tap and hold to scrub through data points. Browse past rides with full chart replay from CSV logs. Built with Vico on Android and Swift Charts on iOS.
 
 ### Wheel Settings
 Per-wheel-type control panels defined once in KMP (`WheelSettingsConfig`) and rendered natively on both platforms. Supports lighting, ride modes, speed limits, alarms, audio, thermal controls, and dangerous actions (calibrate, power off, lock) with confirmation dialogs.

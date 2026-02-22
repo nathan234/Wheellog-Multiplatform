@@ -537,7 +537,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         val sdf = SimpleDateFormat("yyyy_MM_dd_HH_mm_ss", Locale.US)
         val fileName = "${sdf.format(Date())}.csv"
         val filePath = File(ridesDir, fileName).absolutePath
-        val includeGps = appConfig.logLocationData
+        val includeGps = getGlobalBool(PreferenceKeys.LOG_LOCATION_DATA, false)
 
         val now = System.currentTimeMillis()
         if (rideLogger.start(filePath, includeGps, now)) {

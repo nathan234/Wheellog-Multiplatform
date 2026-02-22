@@ -296,8 +296,8 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             HorizontalDivider()
             SettingsToggle(
                 label = "Include GPS",
-                checked = appConfig.useGps,
-                onCheckedChange = { appConfig.useGps = it }
+                checked = viewModel.getGlobalBool(PreferenceKeys.LOG_LOCATION_DATA, false),
+                onCheckedChange = { viewModel.setGlobalBool(PreferenceKeys.LOG_LOCATION_DATA, it) }
             )
             Text(
                 "GPS requires location permission. Logs are saved as CSV files.",

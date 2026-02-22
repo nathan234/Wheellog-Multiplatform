@@ -291,11 +291,46 @@ actual class BleManager {
         discoveredServiceUuids.clear()
         expectedServiceCount = 0
 
-        // Discover only the services used by supported wheels
+        // Fast path: CoreBluetooth caches services + characteristics for previously
+        // connected peripherals. If the cache is populated, skip discovery entirely.
+        if (tryUseCachedServices(peripheral)) {
+            Logger.d("BleManager", "Using cached services — skipping discovery")
+            return
+        }
+
+        // Cache miss — discover from scratch
         peripheral.discoverServices(serviceUUIDs = wheelServiceUUIDs())
 
         // Safety timeout — if service/characteristic discovery doesn't complete
         // within 15 seconds, fail the connection instead of hanging forever.
+        startDiscoveryTimeout(peripheral)
+    }
+
+    /**
+     * Check if CoreBluetooth has cached services and characteristics from a previous connection.
+     * If so, skip discovery and go directly to the completion path.
+     */
+    private fun tryUseCachedServices(peripheral: CBPeripheral): Boolean {
+        val cachedServices = peripheral.services ?: return false
+        if (cachedServices.isEmpty()) return false
+
+        val targetUuids = wheelServiceUUIDs().map { it.UUIDString.lowercase() }.toSet()
+
+        // Check that at least one target service is cached WITH its characteristics
+        val hasMatchWithCharacteristics = cachedServices.any { svc ->
+            val cbService = svc as? CBService ?: return@any false
+            cbService.UUID.UUIDString.lowercase() in targetUuids &&
+                !cbService.characteristics.isNullOrEmpty()
+        }
+
+        if (!hasMatchWithCharacteristics) return false
+
+        // Cache hit — complete connection immediately
+        completeServiceDiscovery(peripheral)
+        return true
+    }
+
+    private fun startDiscoveryTimeout(peripheral: CBPeripheral) {
         serviceDiscoveryTimeoutJob?.cancel()
         serviceDiscoveryTimeoutJob = scope.launch {
             delay(15_000)
@@ -419,43 +454,52 @@ actual class BleManager {
             discoveredServiceUuids.size >= expectedServiceCount
 
         if (allServicesDiscovered) {
-            serviceDiscoveryTimeoutJob?.cancel()
-            serviceDiscoveryTimeoutJob = null
-            // Build complete DiscoveredServices (expand short CoreBluetooth UUIDs to 128-bit)
-            val discoveredServices = peripheral.services?.mapNotNull { svc ->
-                (svc as? CBService)?.let { cbService ->
-                    DiscoveredService(
-                        uuid = expandCoreBluetoothUuid(cbService.UUID.UUIDString),
-                        characteristics = cbService.characteristics?.mapNotNull { char ->
-                            (char as? CBCharacteristic)?.let {
-                                expandCoreBluetoothUuid(it.UUID.UUIDString)
-                            }
-                        } ?: emptyList()
-                    )
-                }
-            } ?: emptyList()
+            completeServiceDiscovery(peripheral)
+        }
+    }
 
-            // Invoke callback — this triggers wheel type detection and configureForWheel()
-            onServicesDiscoveredCallback?.invoke(
-                DiscoveredServices(discoveredServices),
-                peripheral.name
-            )
+    /**
+     * Shared completion path for service/characteristic discovery.
+     * Called from both the cache-hit fast path and the normal discovery callback path.
+     */
+    private fun completeServiceDiscovery(peripheral: CBPeripheral) {
+        serviceDiscoveryTimeoutJob?.cancel()
+        serviceDiscoveryTimeoutJob = null
 
-            // Now that UUIDs are configured (via callback → Swift → configureForWheel),
-            // match and subscribe to the correct characteristics
-            setupCharacteristics(peripheral)
-
-            // Connection complete
-            val address = peripheral.identifier.UUIDString
-            _connectionState.value = ConnectionState.Connected(
-                address = address,
-                wheelName = peripheral.name ?: "Unknown"
-            )
-
-            continuationLock.withLock {
-                connectionContinuation?.resume(Result.success(BleConnection(peripheral))) {}
-                connectionContinuation = null
+        // Build complete DiscoveredServices (expand short CoreBluetooth UUIDs to 128-bit)
+        val discoveredServices = peripheral.services?.mapNotNull { svc ->
+            (svc as? CBService)?.let { cbService ->
+                DiscoveredService(
+                    uuid = expandCoreBluetoothUuid(cbService.UUID.UUIDString),
+                    characteristics = cbService.characteristics?.mapNotNull { char ->
+                        (char as? CBCharacteristic)?.let {
+                            expandCoreBluetoothUuid(it.UUID.UUIDString)
+                        }
+                    } ?: emptyList()
+                )
             }
+        } ?: emptyList()
+
+        // Invoke callback — this triggers wheel type detection and configureForWheel()
+        onServicesDiscoveredCallback?.invoke(
+            DiscoveredServices(discoveredServices),
+            peripheral.name
+        )
+
+        // Now that UUIDs are configured (via callback → Swift → configureForWheel),
+        // match and subscribe to the correct characteristics
+        setupCharacteristics(peripheral)
+
+        // Connection complete
+        val address = peripheral.identifier.UUIDString
+        _connectionState.value = ConnectionState.Connected(
+            address = address,
+            wheelName = peripheral.name ?: "Unknown"
+        )
+
+        continuationLock.withLock {
+            connectionContinuation?.resume(Result.success(BleConnection(peripheral))) {}
+            connectionContinuation = null
         }
     }
 

@@ -177,17 +177,29 @@ struct ScanView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// Saved wheels — always visible. Uses live scan data if available, otherwise a placeholder.
     private var myWheels: [DiscoveredDevice] {
-        wheelManager.discoveredDevices.filter { wheelManager.savedAddresses.contains($0.address) }
+        let discovered = Dictionary(
+            wheelManager.discoveredDevices.map { ($0.address, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return wheelManager.savedAddresses.map { address in
+            discovered[address] ?? DiscoveredDevice(
+                address: address,
+                name: wheelManager.getSavedDisplayName(address: address) ?? ScanLabels.shared.UNKNOWN_DEVICE,
+                rssi: -100
+            )
+        }
     }
 
+    /// New devices — discovered devices that are NOT in the saved list.
     private var newDevices: [DiscoveredDevice] {
         wheelManager.discoveredDevices.filter { !wheelManager.savedAddresses.contains($0.address) }
     }
 
     private var deviceList: some View {
         List {
-            // "My Wheels" section — only shown if saved devices are advertising
+            // "My Wheels" section — always shown if saved wheels exist
             if !myWheels.isEmpty {
                 Section {
                     ForEach(myWheels) { device in
@@ -211,18 +223,12 @@ struct ScanView: View {
                             }
                         }
                     }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            let device = myWheels[index]
-                            wheelManager.forgetProfile(address: device.address)
-                        }
-                    }
                 } header: {
                     Text(ScanLabels.shared.MY_WHEELS)
                 }
             }
 
-            // "New Devices" section
+            // "New Devices" section — discovered devices not in saved list
             if !newDevices.isEmpty {
                 Section {
                     ForEach(newDevices) { device in

@@ -42,4 +42,5 @@ object DashboardLabels {
 
     // Wheel settings
     const val WHEEL_SETTINGS = "Wheel Settings"
+    const val WHEEL_SETTINGS_EMPTY = "Connect to a wheel to see its settings."
 }

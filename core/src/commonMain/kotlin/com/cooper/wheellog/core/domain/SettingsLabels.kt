@@ -49,4 +49,13 @@ object SettingsLabels {
     const val AUTO_RECONNECT = "Auto Reconnect"
     const val SHOW_UNKNOWN_DEVICES = "Show Unknown Devices"
     const val RECONNECT_HINT = "Automatically reconnect to the last wheel on startup."
+
+    // Pre-warning
+    const val PRE_WARNING_HINT = "Advisory tones before full alarms. Set warning period > 0 to enable."
+
+    // About / meta
+    const val TITLE = "Settings"
+    const val VERSION = "Version"
+    const val CLOSE_APP = "Close App"
+    const val GITHUB_REPOSITORY = "GitHub Repository"
 }

@@ -98,7 +98,7 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            "Settings",
+            SettingsLabels.TITLE,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
@@ -356,7 +356,7 @@ fun SettingsScreen(viewModel: WheelViewModel) {
 
         // About section
         SettingsSection(title = SettingsLabels.SECTION_ABOUT) {
-            StatRow(label = "Version", value = BuildConfig.VERSION_NAME)
+            StatRow(label = SettingsLabels.VERSION, value = BuildConfig.VERSION_NAME)
             StatRow(label = "Build Date", value = BuildConfig.BUILD_DATE)
             HorizontalDivider()
             Row(
@@ -371,7 +371,7 @@ fun SettingsScreen(viewModel: WheelViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("GitHub Repository")
+                Text(SettingsLabels.GITHUB_REPOSITORY)
                 Text(
                     "Open",
                     color = MaterialTheme.colorScheme.primary,
@@ -390,7 +390,7 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF44336))
         ) {
-            Text("Close App")
+            Text(SettingsLabels.CLOSE_APP)
         }
 
         Spacer(Modifier.height(16.dp))

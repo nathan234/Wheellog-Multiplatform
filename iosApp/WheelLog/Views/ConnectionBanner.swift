@@ -1,4 +1,5 @@
 import SwiftUI
+import WheelLogCore
 
 struct ConnectionBanner: View {
     @EnvironmentObject var wheelManager: WheelManager
@@ -14,7 +15,7 @@ struct ConnectionBanner: View {
 
                 // Cancel button for reconnection (Feature 2)
                 if isReconnecting {
-                    Button("Cancel") {
+                    Button(CommonLabels.shared.CANCEL) {
                         wheelManager.stopReconnecting()
                     }
                     .font(.subheadline)

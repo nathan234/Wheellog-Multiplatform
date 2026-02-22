@@ -22,6 +22,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.RidesLabels
+import com.cooper.wheellog.core.domain.ScanLabels
+import com.cooper.wheellog.core.domain.SettingsLabels
 import com.cooper.wheellog.compose.SmartBmsScreen
 import com.cooper.wheellog.compose.screens.ChartScreen
 import com.cooper.wheellog.compose.screens.DashboardScreen
@@ -34,9 +37,9 @@ import com.cooper.wheellog.compose.screens.WheelSettingsScreen
 import com.cooper.wheellog.compose.screens.SettingsScreen
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
-    data object Devices : Screen("devices", "Devices", Icons.Default.Bluetooth)
-    data object Rides : Screen("rides", "Rides", Icons.Default.Route)
-    data object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+    data object Devices : Screen("devices", ScanLabels.TITLE, Icons.Default.Bluetooth)
+    data object Rides : Screen("rides", RidesLabels.TITLE, Icons.Default.Route)
+    data object Settings : Screen("settings", SettingsLabels.TITLE, Icons.Default.Settings)
 }
 
 private val bottomTabs = listOf(Screen.Devices, Screen.Rides, Screen.Settings)

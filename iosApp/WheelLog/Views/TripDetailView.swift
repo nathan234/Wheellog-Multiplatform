@@ -38,7 +38,7 @@ struct TripDetailView: View {
     var body: some View {
         Group {
             if isLoading {
-                ProgressView("Loading ride data...")
+                ProgressView(RidesLabels.shared.LOADING)
             } else if let error = errorMessage {
                 VStack(spacing: 12) {
                     Spacer()

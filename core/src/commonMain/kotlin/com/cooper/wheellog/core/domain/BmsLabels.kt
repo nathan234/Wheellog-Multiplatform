@@ -1,6 +1,7 @@
 package com.cooper.wheellog.core.domain
 
 object BmsLabels {
+    const val TITLE = "Battery"
     const val BMS_1 = "BMS 1"
     const val BMS_2 = "BMS 2"
     const val NO_BMS_1 = "No BMS 1 data"

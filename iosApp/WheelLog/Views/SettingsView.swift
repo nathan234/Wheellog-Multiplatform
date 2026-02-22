@@ -82,7 +82,7 @@ struct SettingsView: View {
                 } header: {
                     Text(SettingsLabels.shared.SECTION_PRE_WARNINGS)
                 } footer: {
-                    Text("Advisory tones before full alarms. Set warning period > 0 to enable.")
+                    Text(SettingsLabels.shared.PRE_WARNING_HINT)
                 }
             }
 
@@ -202,12 +202,12 @@ struct SettingsView: View {
             // MARK: - About
             Section(SettingsLabels.shared.SECTION_ABOUT) {
                 HStack {
-                    Text("Version")
+                    Text(SettingsLabels.shared.VERSION)
                     Spacer()
                     Text(appVersion)
                         .foregroundColor(.secondary)
                 }
-                Link("GitHub Repository", destination: URL(string: AppConstants.shared.GITHUB_REPO_URL)!)
+                Link(SettingsLabels.shared.GITHUB_REPOSITORY, destination: URL(string: AppConstants.shared.GITHUB_REPO_URL)!)
             }
 
             // MARK: - Close App
@@ -218,7 +218,7 @@ struct SettingsView: View {
                 }) {
                     HStack {
                         Spacer()
-                        Text("Close App")
+                        Text(SettingsLabels.shared.CLOSE_APP)
                             .fontWeight(.medium)
                         Spacer()
                     }
@@ -226,7 +226,7 @@ struct SettingsView: View {
                 .foregroundColor(.red)
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle(SettingsLabels.shared.TITLE)
         .navigationBarTitleDisplayMode(.inline)
     }
 

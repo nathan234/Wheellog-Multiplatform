@@ -55,6 +55,7 @@ import com.cooper.wheellog.compose.components.SpeedGauge
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.CommonLabels
 import com.cooper.wheellog.core.domain.DashboardLabels
+import com.cooper.wheellog.core.domain.SettingsLabels
 import com.cooper.wheellog.core.domain.PreferenceKeys
 import com.cooper.wheellog.core.telemetry.ColorZone
 import com.cooper.wheellog.core.telemetry.MetricType
@@ -371,7 +372,7 @@ fun DashboardScreen(
                 ) {
                     Icon(Icons.Default.Tune, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
-                    Text("Settings")
+                    Text(SettingsLabels.TITLE)
                 }
             }
         }

@@ -88,7 +88,7 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "Connect to a wheel to see its settings.",
+                    DashboardLabels.WHEEL_SETTINGS_EMPTY,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

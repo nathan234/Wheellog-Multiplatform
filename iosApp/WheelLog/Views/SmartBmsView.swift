@@ -36,7 +36,7 @@ struct SmartBmsView: View {
             }
             .padding()
         }
-        .navigationTitle("Battery")
+        .navigationTitle(BmsLabels.shared.TITLE)
         .navigationBarTitleDisplayMode(.inline)
     }
 }

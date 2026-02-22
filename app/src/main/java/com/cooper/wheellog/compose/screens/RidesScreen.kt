@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.cooper.wheellog.compose.WheelViewModel
+import com.cooper.wheellog.core.domain.CommonLabels
 import com.cooper.wheellog.core.domain.RidesLabels
 import com.cooper.wheellog.data.TripDataDbEntry
 import com.cooper.wheellog.core.utils.DisplayUtils
@@ -135,7 +136,7 @@ fun RidesScreen(
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Delete",
+                                    contentDescription = CommonLabels.DELETE,
                                     tint = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
@@ -160,7 +161,7 @@ fun RidesScreen(
                                         putExtra(Intent.EXTRA_STREAM, uri)
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share ride"))
+                                    context.startActivity(Intent.createChooser(shareIntent, RidesLabels.SHARE_RIDE))
                                 }
                             }
                         )
@@ -229,7 +230,7 @@ private fun RideRow(
         IconButton(onClick = onShare) {
             Icon(
                 Icons.Default.Share,
-                contentDescription = "Share",
+                contentDescription = CommonLabels.SHARE,
                 tint = MaterialTheme.colorScheme.primary
             )
         }

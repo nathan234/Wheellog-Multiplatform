@@ -8,4 +8,6 @@ object CommonLabels {
     const val AVG = "Avg"
     const val MAX = "Max"
     const val ALARM_PREFIX = "ALARM: "
+    const val DELETE = "Delete"
+    const val SHARE = "Share"
 }

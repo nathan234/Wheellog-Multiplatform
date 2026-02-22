@@ -1,6 +1,7 @@
 package com.cooper.wheellog.core.domain
 
 object ScanLabels {
+    const val TITLE = "Devices"
     const val APP_NAME = "WheelLog"
     const val MY_WHEELS = "My Wheels"
     const val NEW_DEVICES = "New Devices"

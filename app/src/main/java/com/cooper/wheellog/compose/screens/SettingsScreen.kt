@@ -53,6 +53,7 @@ import com.cooper.wheellog.compose.components.SectionCard
 import com.cooper.wheellog.compose.components.StatRow
 import com.cooper.wheellog.core.domain.AppConstants
 import com.cooper.wheellog.core.domain.ControlSpec
+import com.cooper.wheellog.core.domain.PreferenceKeys
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelSettingsConfig
 import com.cooper.wheellog.core.utils.DisplayUtils
@@ -63,8 +64,8 @@ fun SettingsScreen(viewModel: WheelViewModel) {
     val appConfig = viewModel.appConfig
     val wheelState by viewModel.wheelState.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
-    val useMph = appConfig.useMph
-    val useFahrenheit = appConfig.useFahrenheit
+    val useMph = viewModel.getGlobalBool(PreferenceKeys.USE_MPH, false)
+    val useFahrenheit = viewModel.getGlobalBool(PreferenceKeys.USE_FAHRENHEIT, false)
     val context = LocalContext.current
 
     // Wheel settings config-driven state
@@ -105,31 +106,33 @@ fun SettingsScreen(viewModel: WheelViewModel) {
             SettingsToggle(
                 label = "Use Miles per Hour",
                 checked = useMph,
-                onCheckedChange = { appConfig.useMph = it }
+                onCheckedChange = { viewModel.setGlobalBool(PreferenceKeys.USE_MPH, it) }
             )
             HorizontalDivider()
             SettingsToggle(
                 label = "Use Fahrenheit",
                 checked = useFahrenheit,
-                onCheckedChange = { appConfig.useFahrenheit = it }
+                onCheckedChange = { viewModel.setGlobalBool(PreferenceKeys.USE_FAHRENHEIT, it) }
             )
         }
 
         // Alarms section
+        val alarmsEnabled = viewModel.getPerWheelBool(PreferenceKeys.ALARMS_ENABLED, false)
+        val pwmBasedAlarms = viewModel.getPerWheelBool(PreferenceKeys.ALTERED_ALARMS, true)
         SettingsSection(title = "Speed & Safety Alarms") {
             SettingsToggle(
                 label = "Enable Alarms",
-                checked = appConfig.alarmsEnabled,
-                onCheckedChange = { appConfig.alarmsEnabled = it }
+                checked = alarmsEnabled,
+                onCheckedChange = { viewModel.setPerWheelBool(PreferenceKeys.ALARMS_ENABLED, it) }
             )
 
-            if (appConfig.alarmsEnabled) {
+            if (alarmsEnabled) {
                 HorizontalDivider()
 
                 // Alarm Action picker
                 val alarmActionLabels = listOf("Phone Only", "Phone + Wheel", "All")
                 var alarmActionExpanded by remember { mutableStateOf(false) }
-                val selectedAction = AlarmAction.fromValue(appConfig.alarmAction)
+                val selectedAction = AlarmAction.fromValue(viewModel.getGlobalInt(PreferenceKeys.ALARM_ACTION, 0))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -157,7 +160,7 @@ fun SettingsScreen(viewModel: WheelViewModel) {
                                 DropdownMenuItem(
                                     text = { Text(label) },
                                     onClick = {
-                                        appConfig.alarmAction = index
+                                        viewModel.setGlobalInt(PreferenceKeys.ALARM_ACTION, index)
                                         alarmActionExpanded = false
                                     }
                                 )
@@ -170,8 +173,8 @@ fun SettingsScreen(viewModel: WheelViewModel) {
 
                 SettingsToggle(
                     label = "PWM-Based Alarms",
-                    checked = appConfig.pwmBasedAlarms,
-                    onCheckedChange = { appConfig.pwmBasedAlarms = it }
+                    checked = pwmBasedAlarms,
+                    onCheckedChange = { viewModel.setPerWheelBool(PreferenceKeys.ALTERED_ALARMS, it) }
                 )
                 Text(
                     "PWM alarms trigger based on motor load instead of speed.",
@@ -182,73 +185,81 @@ fun SettingsScreen(viewModel: WheelViewModel) {
 
                 HorizontalDivider()
 
-                if (appConfig.pwmBasedAlarms) {
+                if (pwmBasedAlarms) {
+                    val alarmFactor1 = viewModel.getPerWheelInt(PreferenceKeys.ALARM_FACTOR_1, 80)
+                    val alarmFactor2 = viewModel.getPerWheelInt(PreferenceKeys.ALARM_FACTOR_2, 95)
                     AlarmSlider(
                         label = "Alarm Start (Factor 1)",
-                        value = appConfig.alarmFactor1.toFloat(),
+                        value = alarmFactor1.toFloat(),
                         range = 0f..100f,
-                        displayValue = appConfig.alarmFactor1,
+                        displayValue = alarmFactor1,
                         unit = "%",
-                        onValueChange = { appConfig.alarmFactor1 = it.toInt() }
+                        onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_FACTOR_1, it.toInt()) }
                     )
                     AlarmSlider(
                         label = "Max Intensity (Factor 2)",
-                        value = appConfig.alarmFactor2.toFloat(),
+                        value = alarmFactor2.toFloat(),
                         range = 0f..100f,
-                        displayValue = appConfig.alarmFactor2,
+                        displayValue = alarmFactor2,
                         unit = "%",
-                        onValueChange = { appConfig.alarmFactor2 = it.toInt() }
+                        onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_FACTOR_2, it.toInt()) }
                     )
                 } else {
+                    val alarm1Speed = viewModel.getPerWheelInt(PreferenceKeys.ALARM_1_SPEED, 29)
+                    val alarm2Speed = viewModel.getPerWheelInt(PreferenceKeys.ALARM_2_SPEED, 0)
+                    val alarm3Speed = viewModel.getPerWheelInt(PreferenceKeys.ALARM_3_SPEED, 0)
                     AlarmSlider(
                         label = "Alarm 1 Speed",
-                        value = appConfig.alarm1Speed.toFloat(),
+                        value = alarm1Speed.toFloat(),
                         range = 0f..100f,
-                        displayValue = displaySpeed(appConfig.alarm1Speed, useMph),
+                        displayValue = displaySpeed(alarm1Speed, useMph),
                         unit = if (useMph) "mph" else "km/h",
-                        onValueChange = { appConfig.alarm1Speed = it.toInt() }
+                        onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_1_SPEED, it.toInt()) }
                     )
                     AlarmSlider(
                         label = "Alarm 2 Speed",
-                        value = appConfig.alarm2Speed.toFloat(),
+                        value = alarm2Speed.toFloat(),
                         range = 0f..100f,
-                        displayValue = displaySpeed(appConfig.alarm2Speed, useMph),
+                        displayValue = displaySpeed(alarm2Speed, useMph),
                         unit = if (useMph) "mph" else "km/h",
-                        onValueChange = { appConfig.alarm2Speed = it.toInt() }
+                        onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_2_SPEED, it.toInt()) }
                     )
                     AlarmSlider(
                         label = "Alarm 3 Speed",
-                        value = appConfig.alarm3Speed.toFloat(),
+                        value = alarm3Speed.toFloat(),
                         range = 0f..100f,
-                        displayValue = displaySpeed(appConfig.alarm3Speed, useMph),
+                        displayValue = displaySpeed(alarm3Speed, useMph),
                         unit = if (useMph) "mph" else "km/h",
-                        onValueChange = { appConfig.alarm3Speed = it.toInt() }
+                        onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_3_SPEED, it.toInt()) }
                     )
                 }
 
+                val alarmCurrent = viewModel.getPerWheelInt(PreferenceKeys.ALARM_CURRENT, 0)
+                val alarmTemperature = viewModel.getPerWheelInt(PreferenceKeys.ALARM_TEMPERATURE, 0)
+                val alarmBattery = viewModel.getPerWheelInt(PreferenceKeys.ALARM_BATTERY, 0)
                 AlarmSlider(
                     label = "Current Alarm",
-                    value = appConfig.alarmCurrent.toFloat(),
+                    value = alarmCurrent.toFloat(),
                     range = 0f..100f,
-                    displayValue = appConfig.alarmCurrent,
+                    displayValue = alarmCurrent,
                     unit = "A",
-                    onValueChange = { appConfig.alarmCurrent = it.toInt() }
+                    onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_CURRENT, it.toInt()) }
                 )
                 AlarmSlider(
                     label = "Temperature Alarm",
-                    value = appConfig.alarmTemperature.toFloat(),
+                    value = alarmTemperature.toFloat(),
                     range = 0f..80f,
-                    displayValue = displayTemperature(appConfig.alarmTemperature, useFahrenheit),
+                    displayValue = displayTemperature(alarmTemperature, useFahrenheit),
                     unit = if (useFahrenheit) "\u00B0F" else "\u00B0C",
-                    onValueChange = { appConfig.alarmTemperature = it.toInt() }
+                    onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_TEMPERATURE, it.toInt()) }
                 )
                 AlarmSlider(
                     label = "Battery Alarm",
-                    value = appConfig.alarmBattery.toFloat(),
+                    value = alarmBattery.toFloat(),
                     range = 0f..100f,
-                    displayValue = appConfig.alarmBattery,
+                    displayValue = alarmBattery,
                     unit = "%",
-                    onValueChange = { appConfig.alarmBattery = it.toInt() }
+                    onValueChange = { viewModel.setPerWheelInt(PreferenceKeys.ALARM_BATTERY, it.toInt()) }
                 )
 
                 Text(
@@ -264,11 +275,8 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         SettingsSection(title = "Connection") {
             SettingsToggle(
                 label = "Auto Reconnect",
-                checked = appConfig.useReconnect,
-                // Write directly to SharedPreferences — the legacy AppConfig setter
-                // triggers WheelData/BluetoothService side effects that aren't
-                // initialized in Compose mode.
-                onCheckedChange = { appConfig.setUseReconnectDirect(it) }
+                checked = viewModel.getGlobalBool(PreferenceKeys.USE_RECONNECT, false),
+                onCheckedChange = { viewModel.setGlobalBool(PreferenceKeys.USE_RECONNECT, it) }
             )
             Text(
                 "Automatically reconnect to the last wheel on startup.",
@@ -282,8 +290,8 @@ fun SettingsScreen(viewModel: WheelViewModel) {
         SettingsSection(title = "Logging") {
             SettingsToggle(
                 label = "Auto-Start Logging",
-                checked = appConfig.autoLog,
-                onCheckedChange = { appConfig.autoLog = it }
+                checked = viewModel.getGlobalBool(PreferenceKeys.AUTO_LOG, false),
+                onCheckedChange = { viewModel.setGlobalBool(PreferenceKeys.AUTO_LOG, it) }
             )
             HorizontalDivider()
             SettingsToggle(

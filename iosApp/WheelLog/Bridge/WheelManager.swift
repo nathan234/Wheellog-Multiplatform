@@ -15,110 +15,110 @@ class WheelManager: ObservableObject {
     @Published var isMockMode: Bool = false
     @Published var isTestMode: Bool = false
 
-    // Unit preferences (persisted to UserDefaults, matching Android's use_mph / use_fahrenheit)
-    @Published var useMph: Bool = UserDefaults.standard.bool(forKey: "use_mph") {
+    // Unit preferences (persisted to UserDefaults, keys from shared KMP PreferenceKeys)
+    @Published var useMph: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.USE_MPH) {
         didSet {
-            UserDefaults.standard.set(useMph, forKey: "use_mph")
+            UserDefaults.standard.set(useMph, forKey: PreferenceKeys.shared.USE_MPH)
             pushDecoderConfig()
         }
     }
-    @Published var useFahrenheit: Bool = UserDefaults.standard.bool(forKey: "use_fahrenheit") {
+    @Published var useFahrenheit: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.USE_FAHRENHEIT) {
         didSet {
-            UserDefaults.standard.set(useFahrenheit, forKey: "use_fahrenheit")
+            UserDefaults.standard.set(useFahrenheit, forKey: PreferenceKeys.shared.USE_FAHRENHEIT)
             pushDecoderConfig()
         }
     }
     @Published var isLightOn: Bool = false
 
-    @Published var speedDisplayMode: SpeedDisplayMode = SpeedDisplayMode(rawValue: UserDefaults.standard.integer(forKey: "speed_display_mode")) ?? .wheel {
-        didSet { UserDefaults.standard.set(speedDisplayMode.rawValue, forKey: "speed_display_mode") }
+    @Published var speedDisplayMode: SpeedDisplayMode = SpeedDisplayMode(rawValue: UserDefaults.standard.integer(forKey: PreferenceKeys.shared.SPEED_DISPLAY_MODE)) ?? .wheel {
+        didSet { UserDefaults.standard.set(speedDisplayMode.rawValue, forKey: PreferenceKeys.shared.SPEED_DISPLAY_MODE) }
     }
 
     // Alarm settings (persisted to UserDefaults, stored in km/h and °C internally)
-    @Published var alarmsEnabled: Bool = UserDefaults.standard.bool(forKey: "alarms_enabled") {
-        didSet { UserDefaults.standard.set(alarmsEnabled, forKey: "alarms_enabled") }
+    @Published var alarmsEnabled: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.ALARMS_ENABLED) {
+        didSet { UserDefaults.standard.set(alarmsEnabled, forKey: PreferenceKeys.shared.ALARMS_ENABLED) }
     }
-    @Published var alarm1Speed: Double = UserDefaults.standard.double(forKey: "alarm_1_speed") {
-        didSet { UserDefaults.standard.set(alarm1Speed, forKey: "alarm_1_speed") }
+    @Published var alarm1Speed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_1_SPEED) {
+        didSet { UserDefaults.standard.set(alarm1Speed, forKey: PreferenceKeys.shared.ALARM_1_SPEED) }
     }
-    @Published var alarm2Speed: Double = UserDefaults.standard.double(forKey: "alarm_2_speed") {
-        didSet { UserDefaults.standard.set(alarm2Speed, forKey: "alarm_2_speed") }
+    @Published var alarm2Speed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_2_SPEED) {
+        didSet { UserDefaults.standard.set(alarm2Speed, forKey: PreferenceKeys.shared.ALARM_2_SPEED) }
     }
-    @Published var alarm3Speed: Double = UserDefaults.standard.double(forKey: "alarm_3_speed") {
-        didSet { UserDefaults.standard.set(alarm3Speed, forKey: "alarm_3_speed") }
+    @Published var alarm3Speed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_3_SPEED) {
+        didSet { UserDefaults.standard.set(alarm3Speed, forKey: PreferenceKeys.shared.ALARM_3_SPEED) }
     }
-    @Published var alarmCurrent: Double = UserDefaults.standard.double(forKey: "alarm_current") {
-        didSet { UserDefaults.standard.set(alarmCurrent, forKey: "alarm_current") }
+    @Published var alarmCurrent: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_CURRENT) {
+        didSet { UserDefaults.standard.set(alarmCurrent, forKey: PreferenceKeys.shared.ALARM_CURRENT) }
     }
-    @Published var alarmTemperature: Double = UserDefaults.standard.double(forKey: "alarm_temperature") {
-        didSet { UserDefaults.standard.set(alarmTemperature, forKey: "alarm_temperature") }
+    @Published var alarmTemperature: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_TEMPERATURE) {
+        didSet { UserDefaults.standard.set(alarmTemperature, forKey: PreferenceKeys.shared.ALARM_TEMPERATURE) }
     }
-    @Published var alarmBattery: Double = UserDefaults.standard.double(forKey: "alarm_battery") {
-        didSet { UserDefaults.standard.set(alarmBattery, forKey: "alarm_battery") }
+    @Published var alarmBattery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_BATTERY) {
+        didSet { UserDefaults.standard.set(alarmBattery, forKey: PreferenceKeys.shared.ALARM_BATTERY) }
     }
 
     // Alarm action (Feature 1)
-    @Published var alarmAction: AlarmAction = AlarmAction(rawValue: UserDefaults.standard.integer(forKey: "alarm_action")) ?? .phoneOnly {
-        didSet { UserDefaults.standard.set(alarmAction.rawValue, forKey: "alarm_action") }
+    @Published var alarmAction: AlarmAction = AlarmAction(rawValue: UserDefaults.standard.integer(forKey: PreferenceKeys.shared.ALARM_ACTION)) ?? .phoneOnly {
+        didSet { UserDefaults.standard.set(alarmAction.rawValue, forKey: PreferenceKeys.shared.ALARM_ACTION) }
     }
     @Published private(set) var activeAlarms: Set<AlarmType> = []
 
     // PWM-based alarm settings
-    @Published var pwmBasedAlarms: Bool = UserDefaults.standard.bool(forKey: "pwm_based_alarms") {
-        didSet { UserDefaults.standard.set(pwmBasedAlarms, forKey: "pwm_based_alarms") }
+    @Published var pwmBasedAlarms: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.ALTERED_ALARMS) {
+        didSet { UserDefaults.standard.set(pwmBasedAlarms, forKey: PreferenceKeys.shared.ALTERED_ALARMS) }
     }
     @Published var alarmFactor1: Double = {
-        let v = UserDefaults.standard.double(forKey: "alarm_factor1")
+        let v = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_FACTOR_1)
         return v == 0 ? 80 : v
     }() {
-        didSet { UserDefaults.standard.set(alarmFactor1, forKey: "alarm_factor1") }
+        didSet { UserDefaults.standard.set(alarmFactor1, forKey: PreferenceKeys.shared.ALARM_FACTOR_1) }
     }
     @Published var alarmFactor2: Double = {
-        let v = UserDefaults.standard.double(forKey: "alarm_factor2")
+        let v = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_FACTOR_2)
         return v == 0 ? 95 : v
     }() {
-        didSet { UserDefaults.standard.set(alarmFactor2, forKey: "alarm_factor2") }
+        didSet { UserDefaults.standard.set(alarmFactor2, forKey: PreferenceKeys.shared.ALARM_FACTOR_2) }
     }
 
     // Pre-warning settings
-    @Published var warningPwm: Double = UserDefaults.standard.double(forKey: "warning_pwm") {
-        didSet { UserDefaults.standard.set(warningPwm, forKey: "warning_pwm") }
+    @Published var warningPwm: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.WARNING_PWM) {
+        didSet { UserDefaults.standard.set(warningPwm, forKey: PreferenceKeys.shared.WARNING_PWM) }
     }
-    @Published var warningSpeed: Double = UserDefaults.standard.double(forKey: "warning_speed") {
-        didSet { UserDefaults.standard.set(warningSpeed, forKey: "warning_speed") }
+    @Published var warningSpeed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.WARNING_SPEED) {
+        didSet { UserDefaults.standard.set(warningSpeed, forKey: PreferenceKeys.shared.WARNING_SPEED) }
     }
-    @Published var warningSpeedPeriod: Double = UserDefaults.standard.double(forKey: "warning_speed_period") {
-        didSet { UserDefaults.standard.set(warningSpeedPeriod, forKey: "warning_speed_period") }
+    @Published var warningSpeedPeriod: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.WARNING_SPEED_PERIOD) {
+        didSet { UserDefaults.standard.set(warningSpeedPeriod, forKey: PreferenceKeys.shared.WARNING_SPEED_PERIOD) }
     }
 
     // Battery thresholds per speed alarm
-    @Published var alarm1Battery: Double = UserDefaults.standard.double(forKey: "alarm_1_battery") {
-        didSet { UserDefaults.standard.set(alarm1Battery, forKey: "alarm_1_battery") }
+    @Published var alarm1Battery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_1_BATTERY) {
+        didSet { UserDefaults.standard.set(alarm1Battery, forKey: PreferenceKeys.shared.ALARM_1_BATTERY) }
     }
-    @Published var alarm2Battery: Double = UserDefaults.standard.double(forKey: "alarm_2_battery") {
-        didSet { UserDefaults.standard.set(alarm2Battery, forKey: "alarm_2_battery") }
+    @Published var alarm2Battery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_2_BATTERY) {
+        didSet { UserDefaults.standard.set(alarm2Battery, forKey: PreferenceKeys.shared.ALARM_2_BATTERY) }
     }
-    @Published var alarm3Battery: Double = UserDefaults.standard.double(forKey: "alarm_3_battery") {
-        didSet { UserDefaults.standard.set(alarm3Battery, forKey: "alarm_3_battery") }
+    @Published var alarm3Battery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_3_BATTERY) {
+        didSet { UserDefaults.standard.set(alarm3Battery, forKey: PreferenceKeys.shared.ALARM_3_BATTERY) }
     }
 
     // New alarm types
-    @Published var alarmPhaseCurrent: Double = UserDefaults.standard.double(forKey: "alarm_phase_current") {
-        didSet { UserDefaults.standard.set(alarmPhaseCurrent, forKey: "alarm_phase_current") }
+    @Published var alarmPhaseCurrent: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_PHASE_CURRENT) {
+        didSet { UserDefaults.standard.set(alarmPhaseCurrent, forKey: PreferenceKeys.shared.ALARM_PHASE_CURRENT) }
     }
-    @Published var alarmMotorTemperature: Double = UserDefaults.standard.double(forKey: "alarm_motor_temperature") {
-        didSet { UserDefaults.standard.set(alarmMotorTemperature, forKey: "alarm_motor_temperature") }
+    @Published var alarmMotorTemperature: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_MOTOR_TEMPERATURE) {
+        didSet { UserDefaults.standard.set(alarmMotorTemperature, forKey: PreferenceKeys.shared.ALARM_MOTOR_TEMPERATURE) }
     }
-    @Published var alarmWheel: Bool = UserDefaults.standard.bool(forKey: "alarm_wheel") {
-        didSet { UserDefaults.standard.set(alarmWheel, forKey: "alarm_wheel") }
+    @Published var alarmWheel: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.ALARM_WHEEL) {
+        didSet { UserDefaults.standard.set(alarmWheel, forKey: PreferenceKeys.shared.ALARM_WHEEL) }
     }
 
     // Connection settings (persisted to UserDefaults)
-    @Published var autoReconnect: Bool = UserDefaults.standard.bool(forKey: "use_reconnect") {
-        didSet { UserDefaults.standard.set(autoReconnect, forKey: "use_reconnect") }
+    @Published var autoReconnect: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.USE_RECONNECT) {
+        didSet { UserDefaults.standard.set(autoReconnect, forKey: PreferenceKeys.shared.USE_RECONNECT) }
     }
-    @Published var showUnknownDevices: Bool = UserDefaults.standard.bool(forKey: "show_unknown_devices") {
-        didSet { UserDefaults.standard.set(showUnknownDevices, forKey: "show_unknown_devices") }
+    @Published var showUnknownDevices: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.SHOW_UNKNOWN_DEVICES) {
+        didSet { UserDefaults.standard.set(showUnknownDevices, forKey: PreferenceKeys.shared.SHOW_UNKNOWN_DEVICES) }
     }
 
     // Auto-reconnect state (Feature 2) — from shared KMP AutoConnectManager
@@ -133,20 +133,20 @@ class WheelManager: ObservableObject {
     @Published private(set) var isAutoConnecting: Bool = false
 
     // Logging settings (Feature 3)
-    @Published var autoStartLogging: Bool = UserDefaults.standard.bool(forKey: "auto_start_logging") {
-        didSet { UserDefaults.standard.set(autoStartLogging, forKey: "auto_start_logging") }
+    @Published var autoStartLogging: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.AUTO_LOG) {
+        didSet { UserDefaults.standard.set(autoStartLogging, forKey: PreferenceKeys.shared.AUTO_LOG) }
     }
-    @Published var logGPS: Bool = UserDefaults.standard.bool(forKey: "log_gps") {
-        didSet { UserDefaults.standard.set(logGPS, forKey: "log_gps") }
+    @Published var logGPS: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.LOG_LOCATION_DATA) {
+        didSet { UserDefaults.standard.set(logGPS, forKey: PreferenceKeys.shared.LOG_LOCATION_DATA) }
     }
     @Published private(set) var isLogging: Bool = false
 
     // MARK: - Saved Wheel Profiles
 
-    private static let savedAddressesKey = "WheelLogSavedAddresses"
-    private static let profileNameSuffix = "_profile_name"
-    private static let wheelTypeSuffix = "_wheel_type_name"
-    private static let lastConnectedSuffix = "_last_connected"
+    private static var savedAddressesKey: String { PreferenceKeys.shared.SAVED_WHEEL_ADDRESSES }
+    private static var profileNameSuffix: String { PreferenceKeys.shared.SUFFIX_PROFILE_NAME }
+    private static var wheelTypeSuffix: String { PreferenceKeys.shared.SUFFIX_WHEEL_TYPE }
+    private static var lastConnectedSuffix: String { PreferenceKeys.shared.SUFFIX_LAST_CONNECTED }
 
     @Published private(set) var savedAddresses: Set<String> = {
         let arr = UserDefaults.standard.stringArray(forKey: WheelManager.savedAddressesKey) ?? []
@@ -212,7 +212,28 @@ class WheelManager: ObservableObject {
 
     // MARK: - Initialization
 
+    // One-time migration of iOS preference keys to canonical (Android-matching) names.
+    // Runs synchronously before any UserDefaults reads in property initializers.
+    private static let _migrationOnce: Void = {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: "PreferenceKeysMigrated_v1") == nil else { return }
+        let migrations: [(old: String, new: String)] = [
+            ("auto_start_logging", PreferenceKeys.shared.AUTO_LOG),
+            ("log_gps", PreferenceKeys.shared.LOG_LOCATION_DATA),
+            ("pwm_based_alarms", PreferenceKeys.shared.ALTERED_ALARMS),
+            ("WheelLogSavedAddresses", PreferenceKeys.shared.SAVED_WHEEL_ADDRESSES),
+        ]
+        for (old, new) in migrations {
+            if defaults.object(forKey: old) != nil && defaults.object(forKey: new) == nil {
+                defaults.set(defaults.object(forKey: old), forKey: new)
+            }
+        }
+        defaults.set(true, forKey: "PreferenceKeysMigrated_v1")
+    }()
+
     nonisolated init() {
+        // Trigger one-time key migration before anything else
+        _ = Self._migrationOnce
         // Setup happens in Task
         Task { @MainActor in
             self.setupKmpComponents()

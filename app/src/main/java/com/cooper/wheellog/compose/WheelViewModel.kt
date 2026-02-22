@@ -21,6 +21,7 @@ import com.cooper.wheellog.core.service.WheelConnectionManager
 import com.cooper.wheellog.core.domain.AlarmType
 import com.cooper.wheellog.core.domain.SettingsCommandId
 import com.cooper.wheellog.core.domain.WheelProfile
+import com.cooper.wheellog.core.domain.PreferenceKeys
 import com.cooper.wheellog.core.protocol.DecoderConfig
 import android.content.SharedPreferences
 import com.cooper.wheellog.core.alarm.AlarmChecker
@@ -474,13 +475,42 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     // --- Slider persistence for write-only commands ---
 
     fun saveSliderValue(commandId: SettingsCommandId, value: Int) {
-        prefs.edit().putInt("wheel_slider_${commandId.name}", value).apply()
+        prefs.edit().putInt("${PreferenceKeys.WHEEL_SLIDER_PREFIX}${commandId.name}", value).apply()
     }
 
     fun loadSliderValue(commandId: SettingsCommandId): Int? {
-        val key = "wheel_slider_${commandId.name}"
+        val key = "${PreferenceKeys.WHEEL_SLIDER_PREFIX}${commandId.name}"
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null
     }
+
+    // --- SharedPreferences helpers (PreferenceKeys-based, bypasses AppConfig) ---
+
+    private val macPrefix: String
+        get() = prefs.getString("last_mac", "") ?: ""
+
+    fun getGlobalBool(key: String, default: Boolean): Boolean =
+        prefs.getBoolean(key, default)
+
+    fun setGlobalBool(key: String, value: Boolean) =
+        prefs.edit().putBoolean(key, value).apply()
+
+    fun getGlobalInt(key: String, default: Int): Int =
+        prefs.getInt(key, default)
+
+    fun setGlobalInt(key: String, value: Int) =
+        prefs.edit().putInt(key, value).apply()
+
+    fun getPerWheelBool(key: String, default: Boolean): Boolean =
+        prefs.getBoolean("${macPrefix}_$key", default)
+
+    fun setPerWheelBool(key: String, value: Boolean) =
+        prefs.edit().putBoolean("${macPrefix}_$key", value).apply()
+
+    fun getPerWheelInt(key: String, default: Int): Int =
+        prefs.getInt("${macPrefix}_$key", default)
+
+    fun setPerWheelInt(key: String, value: Int) =
+        prefs.edit().putInt("${macPrefix}_$key", value).apply()
 
     fun executeWheelCommand(commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
         viewModelScope.launch {

@@ -53,6 +53,7 @@ import com.cooper.wheellog.compose.components.GaugeTile
 import com.cooper.wheellog.compose.components.SpeedDisplayMode
 import com.cooper.wheellog.compose.components.SpeedGauge
 import com.cooper.wheellog.compose.components.StatRow
+import com.cooper.wheellog.core.domain.PreferenceKeys
 import com.cooper.wheellog.core.telemetry.ColorZone
 import com.cooper.wheellog.core.telemetry.MetricType
 import com.cooper.wheellog.core.utils.DisplayUtils
@@ -92,8 +93,8 @@ fun DashboardScreen(
     val isLightOn by viewModel.isLightOn.collectAsState()
     val samples by viewModel.telemetrySamples.collectAsState()
     val gpsSpeed by viewModel.gpsSpeedKmh.collectAsState()
-    val useMph = viewModel.appConfig.useMph
-    val useFahrenheit = viewModel.appConfig.useFahrenheit
+    val useMph = viewModel.getGlobalBool(PreferenceKeys.USE_MPH, false)
+    val useFahrenheit = viewModel.getGlobalBool(PreferenceKeys.USE_FAHRENHEIT, false)
 
     val displaySpeed = DisplayUtils.convertSpeed(wheelState.speedKmh, useMph)
     val displayGpsSpeed = DisplayUtils.convertSpeed(gpsSpeed, useMph)
@@ -101,7 +102,7 @@ fun DashboardScreen(
     val maxSpeed = DisplayUtils.maxSpeedDefault(useMph)
 
     var speedDisplayMode by remember {
-        mutableStateOf(SpeedDisplayMode.entries[viewModel.appConfig.speedDisplayModeInt.coerceIn(0, 2)])
+        mutableStateOf(SpeedDisplayMode.entries[viewModel.getGlobalInt(PreferenceKeys.SPEED_DISPLAY_MODE, 0).coerceIn(0, 2)])
     }
 
     val title = wheelState.displayName
@@ -143,7 +144,7 @@ fun DashboardScreen(
                     selected = speedDisplayMode == mode,
                     onClick = {
                         speedDisplayMode = mode
-                        viewModel.appConfig.speedDisplayModeInt = mode.ordinal
+                        viewModel.setGlobalInt(PreferenceKeys.SPEED_DISPLAY_MODE, mode.ordinal)
                     },
                     label = { Text(label) },
                     colors = FilterChipDefaults.filterChipColors(

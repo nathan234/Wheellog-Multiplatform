@@ -1,6 +1,7 @@
 package com.cooper.wheellog.compose
 
 import android.content.SharedPreferences
+import com.cooper.wheellog.core.domain.PreferenceKeys
 import com.cooper.wheellog.core.domain.WheelProfile
 
 /**
@@ -14,30 +15,23 @@ import com.cooper.wheellog.core.domain.WheelProfile
  */
 class WheelProfileStore(private val prefs: SharedPreferences) {
 
-    companion object {
-        private const val KEY_SAVED_ADDRESSES = "saved_wheel_addresses"
-        private const val SUFFIX_PROFILE_NAME = "_profile_name"
-        private const val SUFFIX_WHEEL_TYPE = "_wheel_type_name"
-        private const val SUFFIX_LAST_CONNECTED = "_last_connected"
-    }
-
     fun getSavedAddresses(): Set<String> {
-        return prefs.getStringSet(KEY_SAVED_ADDRESSES, emptySet()) ?: emptySet()
+        return prefs.getStringSet(PreferenceKeys.SAVED_WHEEL_ADDRESSES, emptySet()) ?: emptySet()
     }
 
     fun getSavedProfiles(): List<WheelProfile> {
         return getSavedAddresses().map { address ->
             WheelProfile(
                 address = address,
-                displayName = prefs.getString(address + SUFFIX_PROFILE_NAME, "") ?: "",
-                wheelTypeName = prefs.getString(address + SUFFIX_WHEEL_TYPE, "") ?: "",
-                lastConnectedMs = prefs.getLong(address + SUFFIX_LAST_CONNECTED, 0L)
+                displayName = prefs.getString(address + PreferenceKeys.SUFFIX_PROFILE_NAME, "") ?: "",
+                wheelTypeName = prefs.getString(address + PreferenceKeys.SUFFIX_WHEEL_TYPE, "") ?: "",
+                lastConnectedMs = prefs.getLong(address + PreferenceKeys.SUFFIX_LAST_CONNECTED, 0L)
             )
         }.sortedByDescending { it.lastConnectedMs }
     }
 
     fun getDisplayName(address: String): String? {
-        val name = prefs.getString(address + SUFFIX_PROFILE_NAME, null)
+        val name = prefs.getString(address + PreferenceKeys.SUFFIX_PROFILE_NAME, null)
         return if (name.isNullOrEmpty()) null else name
     }
 
@@ -45,10 +39,10 @@ class WheelProfileStore(private val prefs: SharedPreferences) {
         val addresses = getSavedAddresses().toMutableSet()
         addresses.add(profile.address)
         prefs.edit()
-            .putStringSet(KEY_SAVED_ADDRESSES, addresses)
-            .putString(profile.address + SUFFIX_PROFILE_NAME, profile.displayName)
-            .putString(profile.address + SUFFIX_WHEEL_TYPE, profile.wheelTypeName)
-            .putLong(profile.address + SUFFIX_LAST_CONNECTED, profile.lastConnectedMs)
+            .putStringSet(PreferenceKeys.SAVED_WHEEL_ADDRESSES, addresses)
+            .putString(profile.address + PreferenceKeys.SUFFIX_PROFILE_NAME, profile.displayName)
+            .putString(profile.address + PreferenceKeys.SUFFIX_WHEEL_TYPE, profile.wheelTypeName)
+            .putLong(profile.address + PreferenceKeys.SUFFIX_LAST_CONNECTED, profile.lastConnectedMs)
             .apply()
     }
 
@@ -56,9 +50,9 @@ class WheelProfileStore(private val prefs: SharedPreferences) {
         val addresses = getSavedAddresses().toMutableSet()
         addresses.remove(address)
         prefs.edit()
-            .putStringSet(KEY_SAVED_ADDRESSES, addresses)
-            .remove(address + SUFFIX_WHEEL_TYPE)
-            .remove(address + SUFFIX_LAST_CONNECTED)
+            .putStringSet(PreferenceKeys.SAVED_WHEEL_ADDRESSES, addresses)
+            .remove(address + PreferenceKeys.SUFFIX_WHEEL_TYPE)
+            .remove(address + PreferenceKeys.SUFFIX_LAST_CONNECTED)
             // Keep profile_name — it's shared with AppConfig's per-wheel settings
             .apply()
     }

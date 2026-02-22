@@ -136,7 +136,7 @@ struct WheelSettingsContent: View {
     private func sliderContent(_ control: ControlSpec.Slider) -> some View {
         let key = control.commandId.name
         let readback = readInt(control.commandId)
-        let persistKey = "wheel_slider_\(key)"
+        let persistKey = PreferenceKeys.shared.WHEEL_SLIDER_PREFIX + key
         let persisted: Double? = UserDefaults.standard.object(forKey: persistKey) != nil
             ? UserDefaults.standard.double(forKey: persistKey) : nil
         let initial = readback.map { Double($0) } ?? persisted ?? Double(control.defaultValue)

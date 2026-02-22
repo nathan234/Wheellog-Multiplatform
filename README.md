@@ -51,69 +51,99 @@ Build from source with Xcode 15+. Open `iosApp/WheelLog.xcodeproj`, select your 
 ## Architecture
 
 ```mermaid
-graph TB
-    subgraph HW["EUC Hardware"]
-        WHEEL["BLE Radio"]
+%%{init: {
+  "theme": "dark",
+  "flowchart": {
+    "curve": "basis",
+    "nodeSpacing": 40,
+    "rankSpacing": 55
+  }
+}}%%
+
+flowchart LR
+
+%% ---------- Styles ----------
+classDef hw fill:#111827,stroke:#60a5fa,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+classDef core fill:#0b1b2e,stroke:#34d399,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+classDef target fill:#1a1f2e,stroke:#a78bfa,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+classDef android fill:#132217,stroke:#22c55e,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+classDef ios fill:#1f1a12,stroke:#f59e0b,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+classDef wear fill:#1a1a22,stroke:#38bdf8,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+
+%% ---------- Hardware ----------
+subgraph HW["EUC Hardware"]
+    WHEEL["BLE Radio"]:::hw
+end
+
+%% ---------- Shared Core ----------
+subgraph CORE["KMP Shared Core · commonMain"]
+    direction TB
+    WCM["WheelConnectionManager"]:::core
+    DEC["Protocol Decoders<br/>Kingsong · Gotway · Veteran<br/>Ninebot · InMotion"]:::core
+    STATE["WheelState · ConnectionState<br/>WheelCommand · WheelType"]:::core
+    CFG["Settings · AlarmChecker<br/>TelemetryBuffer"]:::core
+    UTIL["RideLogger · ByteUtils · BleUuids"]:::core
+end
+
+WCM --> DEC --> STATE
+WCM --> STATE
+STATE --> CFG
+STATE --> UTIL
+
+%% ---------- Targets Layer ----------
+subgraph TARGETS["KMP Targets · expect/actual"]
+    direction TB
+
+    subgraph AND_T["Android Target"]
+        BLE_A["BleManager.android<br/>(Blessed)"]:::target
+        LOCK_A["Lock · File · Logger"]:::target
     end
 
-    subgraph KMP["KMP Shared Core · core/src/commonMain/"]
-        direction TB
-        DECODERS["Protocol Decoders<br/>Kingsong · Gotway · Veteran<br/>Ninebot · NinebotZ<br/>InMotion · InMotionV2"]
-        WCM["WheelConnectionManager"]
-        STATE["WheelState · ConnectionState<br/>WheelCommand · WheelType"]
-        CONFIG["WheelSettingsConfig<br/>AlarmChecker · TelemetryBuffer"]
-        UTILS["DisplayUtils · ByteUtils<br/>RideLogger · BleUuids"]
+    subgraph IOS_T["iOS Target"]
+        BLE_I["BleManager.ios<br/>(CoreBluetooth)"]:::target
+        LOCK_I["Lock · File · Logger"]:::target
     end
+end
 
-    subgraph PLAT["Platform Implementations · expect/actual"]
-        direction LR
-        BLE_A["BleManager.android<br/>(Blessed)"]
-        BLE_I["BleManager.ios<br/>(CoreBluetooth)"]
-        LOCK_A["Lock · Logger<br/>FileWriter"]
-        LOCK_I["Lock · Logger<br/>FileWriter"]
-    end
+%% Hardware connections
+WHEEL <-->|BLE packets| BLE_A
+WHEEL <-->|BLE packets| BLE_I
 
-    subgraph ANDROID["Android · app/"]
-        direction TB
-        BRIDGE_A["KmpWheelBridge<br/>BluetoothService"]
-        VM["WheelViewModel<br/>collects StateFlow"]
-        COMPOSE["Jetpack Compose<br/>Dashboard · Scan · Chart<br/>Rides · Settings · WheelSettings"]
-    end
+%% actual -> core
+BLE_A --> WCM
+BLE_I --> WCM
 
-    subgraph IOS["iOS · iosApp/"]
-        direction TB
-        FACTORY["WheelConnectionManagerHelper<br/>Swift-friendly API"]
-        WM["WheelManager.swift<br/>polls StateFlow → @Published"]
-        SWIFTUI["SwiftUI<br/>Dashboard · Scan · Chart<br/>Rides · Settings · WheelSettings"]
-    end
+BLE_A -.-> LOCK_A
+BLE_I -.-> LOCK_I
 
-    subgraph WEAR["WearOS · wearos/"]
-        WEARUI["Wearable DataClient<br/>receives from phone"]
-    end
+%% ---------- Android App ----------
+subgraph ANDROID["Android App"]
+    direction TB
+    BRIDGE["KmpWheelBridge<br/>BluetoothService"]:::android
+    VM["WheelViewModel"]:::android
+    UI_A["Jetpack Compose UI"]:::android
+end
 
-    WHEEL <-->|"BLE packets"| BLE_A
-    WHEEL <-->|"BLE packets"| BLE_I
-    BLE_A --> WCM
-    BLE_I --> WCM
-    WCM --> DECODERS
-    DECODERS --> STATE
-    WCM --> STATE
-    STATE --> CONFIG
+STATE -->|"StateFlow"| BRIDGE
+BRIDGE --> VM --> UI_A
 
-    BLE_A -.-> LOCK_A
-    BLE_I -.-> LOCK_I
+%% ---------- iOS App ----------
+subgraph IOS_APP["iOS App"]
+    direction TB
+    HELPER["WheelConnectionManagerHelper"]:::ios
+    WM["WheelManager.swift<br/>@Published"]:::ios
+    UI_I["SwiftUI"]:::ios
+end
 
-    STATE -->|"StateFlow"| BRIDGE_A
-    BRIDGE_A --> VM
-    VM --> COMPOSE
-    CONFIG --> COMPOSE
+STATE -->|"StateFlow"| HELPER
+HELPER --> WM --> UI_I
 
-    STATE -->|"StateFlow"| FACTORY
-    FACTORY --> WM
-    WM --> SWIFTUI
-    CONFIG --> SWIFTUI
+%% ---------- WearOS ----------
+subgraph WEAR["WearOS"]
+    WEARUI["DataClient (from phone)"]:::wear
+end
 
-    BRIDGE_A -.->|"DataClient"| WEARUI
+BRIDGE -.->|"DataClient"| WEARUI
 ```
 
 ### Directory Structure

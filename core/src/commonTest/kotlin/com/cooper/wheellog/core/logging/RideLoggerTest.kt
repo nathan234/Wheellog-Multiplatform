@@ -281,11 +281,13 @@ class RideLoggerTest {
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
         // 100W average over 3600s = 100Wh, distance = 10km (10000m)
-        logger.writeSample(WheelState(power = 10000, totalDistance = 0), null, 1000)
-        logger.writeSample(WheelState(power = 10000, totalDistance = 10000), null, 2000)
+        // startTotalDistance must be > 0 for distance calculation to work
+        logger.writeSample(WheelState(power = 10000, totalDistance = 50000), null, 1000)
+        logger.writeSample(WheelState(power = 10000, totalDistance = 60000), null, 2000)
 
-        val metadata = logger.stop(3601_000, lastTotalDistance = 10000)
+        val metadata = logger.stop(3601_000, lastTotalDistance = 60000)
         assertNotNull(metadata)
+        // distance = 60000 - 50000 = 10000m = 10km
         // 100 Wh / 10 km = 10 Wh/km
         assertEquals(10.0, metadata.consumptionWhPerKm, 1.0)
     }

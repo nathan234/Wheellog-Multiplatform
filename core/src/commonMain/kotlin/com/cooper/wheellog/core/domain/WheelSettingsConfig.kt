@@ -10,6 +10,7 @@ object WheelSettingsConfig {
         WheelType.KINGSONG -> kingsongSections()
         WheelType.GOTWAY, WheelType.GOTWAY_VIRTUAL -> gotwaySections()
         WheelType.VETERAN -> veteranSections()
+        WheelType.LEAPERKIM -> leaperkimSections()
         WheelType.NINEBOT_Z -> ninebotZSections()
         WheelType.INMOTION -> inmotionSections()
         WheelType.INMOTION_V2 -> inmotionV2Sections()
@@ -65,6 +66,27 @@ object WheelSettingsConfig {
         )),
         SettingsSection("Dangerous Actions", listOf(
             resetTripButton()
+        ))
+    )
+
+    private fun leaperkimSections() = listOf(
+        SettingsSection("Lighting", listOf(
+            ControlSpec.Toggle("Headlight", SettingsCommandId.LIGHT_MODE),
+            ControlSpec.Toggle("LEDs", SettingsCommandId.LED)
+        )),
+        SettingsSection("Ride", listOf(
+            ControlSpec.Toggle("Handle Button", SettingsCommandId.HANDLE_BUTTON),
+            ControlSpec.Toggle("Ride Mode", SettingsCommandId.RIDE_MODE),
+            ControlSpec.Slider("Max Speed", 5, 50, "km/h", 30, SettingsCommandId.MAX_SPEED),
+            ControlSpec.Slider("Pedal Tilt", -8, 8, "\u00B0", 0, SettingsCommandId.PEDAL_TILT),
+            ControlSpec.Slider("Pedal Sensitivity", 0, 100, "%", 50, SettingsCommandId.PEDAL_SENSITIVITY)
+        )),
+        SettingsSection("Audio", listOf(
+            ControlSpec.Slider("Speaker Volume", 0, 100, "", 50, SettingsCommandId.SPEAKER_VOLUME)
+        )),
+        SettingsSection("Dangerous Actions", listOf(
+            lockToggle(),
+            powerOffButton()
         ))
     )
 

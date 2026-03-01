@@ -11,6 +11,7 @@ class DefaultWheelDecoderFactory : WheelDecoderFactory {
         return when (wheelType) {
             WheelType.GOTWAY, WheelType.GOTWAY_VIRTUAL -> GotwayDecoder()
             WheelType.VETERAN -> VeteranDecoder()
+            WheelType.LEAPERKIM -> LeaperkimCanDecoder()
             WheelType.KINGSONG -> KingsongDecoder()
             WheelType.NINEBOT -> NinebotDecoder()
             WheelType.NINEBOT_Z -> NinebotZDecoder()
@@ -25,6 +26,7 @@ class DefaultWheelDecoderFactory : WheelDecoderFactory {
             WheelType.GOTWAY,
             WheelType.GOTWAY_VIRTUAL,
             WheelType.VETERAN,
+            WheelType.LEAPERKIM,
             WheelType.KINGSONG,
             WheelType.NINEBOT,
             WheelType.NINEBOT_Z,

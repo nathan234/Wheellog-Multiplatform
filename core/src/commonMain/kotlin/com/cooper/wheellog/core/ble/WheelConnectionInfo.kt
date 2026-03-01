@@ -95,11 +95,23 @@ data class WheelConnectionInfo(
         /**
          * Create connection info for a wheel type.
          */
+        /**
+         * Create connection info for a Leaperkim CAN wheel.
+         */
+        fun forLeaperkim(): WheelConnectionInfo = WheelConnectionInfo(
+            wheelType = WheelType.LEAPERKIM,
+            readServiceUuid = BleUuids.Gotway.SERVICE,
+            readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
+            writeServiceUuid = BleUuids.Gotway.SERVICE,
+            writeCharacteristicUuid = BleUuids.Gotway.WRITE_CHARACTERISTIC
+        )
+
         fun forType(wheelType: WheelType): WheelConnectionInfo? = when (wheelType) {
             WheelType.KINGSONG -> forKingsong()
             WheelType.GOTWAY -> forGotway()
             WheelType.GOTWAY_VIRTUAL -> forGotway()
             WheelType.VETERAN -> forVeteran()
+            WheelType.LEAPERKIM -> forLeaperkim()
             WheelType.INMOTION -> forInMotion()
             WheelType.INMOTION_V2 -> forInMotionV2()
             WheelType.NINEBOT -> forNinebot()

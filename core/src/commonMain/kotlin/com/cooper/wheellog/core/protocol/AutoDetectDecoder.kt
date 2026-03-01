@@ -11,6 +11,7 @@ import com.cooper.wheellog.core.domain.WheelType
  * (GOTWAY_VIRTUAL) and needs to be auto-detected from the BLE data.
  *
  * Supported detection:
+ * - AA AA header -> Leaperkim CAN wheel
  * - DC 5A 5C header -> Veteran wheel
  * - 55 AA header -> Gotway/Begode wheel
  */
@@ -24,6 +25,7 @@ class AutoDetectDecoder : WheelDecoder {
     // Lazy initialization of decoders
     private val gotwayDecoder by lazy { GotwayDecoder() }
     private val veteranDecoder by lazy { VeteranDecoder() }
+    private val leaperkimDecoder by lazy { LeaperkimCanDecoder() }
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
         if (data.isEmpty()) return null
@@ -36,6 +38,25 @@ class AutoDetectDecoder : WheelDecoder {
         // Try to detect wheel type from header bytes
         if (data.size >= 3) {
             when {
+                // Leaperkim CAN header: AA AA
+                data[0] == 0xAA.toByte() &&
+                data[1] == 0xAA.toByte() -> {
+                    detectedDecoder = leaperkimDecoder
+                    detectedType = WheelType.LEAPERKIM
+                    val result = leaperkimDecoder.decode(data, currentState, config)
+                    return result?.let {
+                        DecodedData(
+                            newState = it.newState.copy(
+                                wheelType = WheelType.LEAPERKIM,
+                                model = it.newState.model
+                            ),
+                            commands = it.commands,
+                            hasNewData = it.hasNewData,
+                            news = it.news
+                        )
+                    }
+                }
+
                 // Veteran header: DC 5A 5C
                 data[0] == 0xDC.toByte() &&
                 data[1] == 0x5A.toByte() &&
@@ -92,8 +113,9 @@ class AutoDetectDecoder : WheelDecoder {
     }
 
     override fun getInitCommands(): List<WheelCommand> {
-        // Return Gotway init commands by default, as they're more common
-        return gotwayDecoder.getInitCommands()
+        // Return Gotway init commands plus Leaperkim password command,
+        // so CAN wheels in auto-detect mode receive the password immediately
+        return gotwayDecoder.getInitCommands() + leaperkimDecoder.getInitCommands()
     }
 
     /**

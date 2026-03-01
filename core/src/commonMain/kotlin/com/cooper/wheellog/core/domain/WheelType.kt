@@ -26,8 +26,11 @@ enum class WheelType {
     /** InMotion wheels V2 protocol (e.g., V12, V13, V14) */
     INMOTION_V2,
 
-    /** Veteran/Leaperkim wheels (e.g., Sherman, Sherman Max, Lynx) */
+    /** Veteran/Leaperkim wheels legacy protocol (e.g., Sherman, Sherman Max, Lynx) */
     VETERAN,
+
+    /** Leaperkim CAN-over-BLE protocol (newer firmware/models) */
+    LEAPERKIM,
 
     /** Virtual Gotway adapter for testing/simulation */
     GOTWAY_VIRTUAL;
@@ -39,6 +42,7 @@ enum class WheelType {
         NINEBOT, NINEBOT_Z -> "Ninebot"
         INMOTION, INMOTION_V2 -> "InMotion"
         VETERAN -> "Veteran"
+        LEAPERKIM -> "Leaperkim"
         Unknown -> ""
     }
 

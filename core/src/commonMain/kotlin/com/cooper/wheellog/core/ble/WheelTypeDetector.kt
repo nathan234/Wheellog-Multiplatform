@@ -160,6 +160,19 @@ class WheelTypeDetector {
         val name = deviceName?.uppercase() ?: return null
 
         return when {
+            // Leaperkim CAN protocol patterns (before Veteran to prioritize CAN detection)
+            name.contains("LEAPERKIM") ||
+            name.contains("LPKIM") -> {
+                DetectionResult.Detected(
+                    wheelType = WheelType.LEAPERKIM,
+                    readServiceUuid = BleUuids.Gotway.SERVICE,
+                    readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
+                    writeServiceUuid = BleUuids.Gotway.SERVICE,
+                    writeCharacteristicUuid = BleUuids.Gotway.WRITE_CHARACTERISTIC,
+                    confidence = Confidence.HIGH
+                )
+            }
+
             // Veteran patterns
             name.contains("VETERAN") ||
             name.contains("SHERMAN") ||
@@ -265,6 +278,13 @@ class WheelTypeDetector {
             )
             WheelType.VETERAN -> WheelConnectionInfo(
                 wheelType = WheelType.VETERAN,
+                readServiceUuid = BleUuids.Gotway.SERVICE,
+                readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
+                writeServiceUuid = BleUuids.Gotway.SERVICE,
+                writeCharacteristicUuid = BleUuids.Gotway.WRITE_CHARACTERISTIC
+            )
+            WheelType.LEAPERKIM -> WheelConnectionInfo(
+                wheelType = WheelType.LEAPERKIM,
                 readServiceUuid = BleUuids.Gotway.SERVICE,
                 readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
                 writeServiceUuid = BleUuids.Gotway.SERVICE,

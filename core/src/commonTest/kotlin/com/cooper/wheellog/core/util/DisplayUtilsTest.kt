@@ -457,17 +457,23 @@ class DisplayUtilsTest {
 
     @Test
     fun `formatFriendlyDate today shows Today prefix`() {
-        val oneHourAgo = currentTimeMillis() - 3_600_000
-        val result = PlatformDateFormatter.formatFriendlyDate(oneHourAgo)
+        // Pass the current time — it is always "today" regardless of timezone
+        val now = currentTimeMillis()
+        val result = PlatformDateFormatter.formatFriendlyDate(now)
         assertTrue(result.startsWith("Today,"), "Expected 'Today,' prefix but got: $result")
     }
 
     @Test
     fun `formatFriendlyDate yesterday shows Yesterday prefix`() {
-        // 25 hours ago to avoid midnight edge cases
-        val yesterday = currentTimeMillis() - 25 * 3_600_000
-        val result = PlatformDateFormatter.formatFriendlyDate(yesterday)
-        assertTrue(result.startsWith("Yesterday,"), "Expected 'Yesterday,' prefix but got: $result")
+        // Try both 24h and 36h ago — exactly one must be "yesterday" in any timezone.
+        // At midnight local, 24h ago is yesterday; at 23:59 local, 36h ago is yesterday.
+        val now = currentTimeMillis()
+        val result24h = PlatformDateFormatter.formatFriendlyDate(now - 24 * 3_600_000L)
+        val result36h = PlatformDateFormatter.formatFriendlyDate(now - 36 * 3_600_000L)
+
+        val found = result24h.startsWith("Yesterday,") || result36h.startsWith("Yesterday,")
+        assertTrue(found,
+            "Expected 'Yesterday,' prefix in one of: '$result24h' / '$result36h'")
     }
 
     @Test

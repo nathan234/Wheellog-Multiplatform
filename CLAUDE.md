@@ -53,8 +53,9 @@ Some decoders have a paired `*Unpacker` for low-level frame reassembly; others h
 | Decoder | Unpacker | Notes |
 |---------|----------|-------|
 | KingsongDecoder | — | Framing handled internally |
-| GotwayDecoder | GotwayUnpacker | |
-| VeteranDecoder | — | Framing handled internally |
+| GotwayDecoder | GotwayUnpacker | Also handles ExtremeBull (same protocol, "JN" firmware prefix) |
+| VeteranDecoder | — | Framing handled internally; also handles Nosfet Apex/Aero (model IDs 42/43) |
+| LeaperkimCanDecoder | CanUnpacker (internal) | CAN-over-BLE protocol for newer Leaperkim firmware |
 | NinebotDecoder | NinebotUnpacker | |
 | NinebotZDecoder | — | Framing handled internally |
 | InMotionDecoder | InMotionUnpacker | |
@@ -66,29 +67,29 @@ Supporting files: `WheelDecoder.kt` (interface), `DefaultWheelDecoderFactory.kt`
 
 Which `WheelCommand` types each decoder supports in `buildCommand()`:
 
-| Category | Commands | KS | GW | VT | NB | NZ | IM1 | IM2 |
-|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Basic | Beep, Calibrate, PowerOff | Y | Y | Y* | - | Y | Y | Y |
-| Light | SetLight/Mode | Y | Y | Y | - | Y | Y | Y |
-| LED | SetLedMode, SetStrobeMode | Y | Y | - | - | Y | - | - |
-| LED | SetLed, SetLedColor | - | - | - | - | Y | Y | - |
-| Light ext | SetDrl, SetTailLight, SetLightBrightness | - | - | - | - | Y | - | Y |
-| Ride | SetPedalsMode | Y | Y | Y | - | - | - | - |
-| Ride | SetHandleButton, SetRideMode | - | - | - | - | Y | Y | Y |
-| Ride | SetTransportMode, SetGoHomeMode, SetFancierMode | - | - | - | - | - | - | Y |
-| Ride | SetRollAngleMode | - | Y | - | - | - | - | - |
-| Speed | SetMaxSpeed | - | Y | - | - | - | Y | Y |
-| Speed | SetAlarmSpeed/Enabled, SetLimitedMode/Speed | - | - | - | - | Y | - | - |
-| Speed | SetKingsongAlarms, RequestAlarmSettings | Y | - | - | - | - | - | - |
-| Pedal | SetPedalTilt, SetPedalSensitivity | - | - | - | - | Y* | Y | Y |
-| Audio | SetSpeakerVolume | - | - | - | - | Y | Y | Y |
-| Audio | SetBeeperVolume, SetMute | - | Y | - | - | - | - | Y |
-| Thermal | SetFan, SetFanQuiet | - | - | - | - | - | - | Y |
-| Other | SetLock, ResetTrip | - | - | Y* | - | Y | - | Y |
-| Other | SetAlarmMode, SetMilesMode, SetCutoutAngle | - | Y | - | - | - | - | - |
-| BMS | RequestBmsData | Y | - | - | - | - | - | - |
+| Category | Commands | KS | GW | VT | LK | NB | NZ | IM1 | IM2 |
+|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| Basic | Beep, Calibrate, PowerOff | Y | Y | Y* | Y* | - | Y | Y | Y |
+| Light | SetLight/Mode | Y | Y | Y | Y | - | Y | Y | Y |
+| LED | SetLedMode, SetStrobeMode | Y | Y | - | - | - | Y | - | - |
+| LED | SetLed, SetLedColor | - | - | - | Y | - | Y | Y | - |
+| Light ext | SetDrl, SetTailLight, SetLightBrightness | - | - | - | - | - | Y | - | Y |
+| Ride | SetPedalsMode | Y | Y | Y | - | - | - | - | - |
+| Ride | SetHandleButton, SetRideMode | - | - | - | Y | - | Y | Y | Y |
+| Ride | SetTransportMode, SetGoHomeMode, SetFancierMode | - | - | - | Y* | - | - | - | Y |
+| Ride | SetRollAngleMode | - | Y | - | - | - | - | - | - |
+| Speed | SetMaxSpeed | - | Y | - | Y | - | - | Y | Y |
+| Speed | SetAlarmSpeed/Enabled, SetLimitedMode/Speed | - | - | - | - | - | Y | - | - |
+| Speed | SetKingsongAlarms, RequestAlarmSettings | Y | - | - | - | - | - | - | - |
+| Pedal | SetPedalTilt, SetPedalSensitivity | - | - | - | Y | - | Y* | Y | Y |
+| Audio | SetSpeakerVolume | - | - | - | Y | - | Y | Y | Y |
+| Audio | SetBeeperVolume, SetMute | - | Y | - | - | - | - | - | Y |
+| Thermal | SetFan, SetFanQuiet | - | - | - | - | - | - | - | Y |
+| Other | SetLock, ResetTrip | - | - | Y* | Y* | - | Y | - | Y |
+| Other | SetAlarmMode, SetMilesMode, SetCutoutAngle | - | Y | - | - | - | - | - | - |
+| BMS | RequestBmsData | Y | - | - | - | - | - | - | - |
 
-Key: Y=supported, -=returns empty list, Y*=partial (VT Beep version-dependent, NZ PedalSensitivity only, VT ResetTrip only). NB has no buildCommand override.
+Key: Y=supported, -=returns empty list, Y*=partial (VT Beep version-dependent, NZ PedalSensitivity only, VT ResetTrip only, LK Beep/PowerOff only for Basic, LK TransportMode only for that row, LK Lock only for that row). NB has no buildCommand override. LK=LeaperkimCan.
 
 ### DecoderConfig Field Impact
 
@@ -357,6 +358,7 @@ Comparison tests verify KMP decoders produce identical results to the legacy Jav
 | KS | - | Y |
 | GW | Y | Y |
 | VT | - | Y |
+| LK (CAN) | Y | - |
 | NB | Y | - |
 | NZ | - | Y |
 | IM1 | Y | Y |
@@ -365,6 +367,7 @@ Comparison tests verify KMP decoders produce identical results to the legacy Jav
 | Unpacker | Unit Test |
 |----------|:---------:|
 | GotwayUnpacker | Y |
+| LeaperkimCan CanUnpacker | (tested via decoder) |
 | NinebotUnpacker | Y |
 | InMotionUnpacker | Y |
 | InMotionV2Unpacker | Y |
@@ -399,6 +402,14 @@ Protocol decoder gotchas discovered during development:
   causes the wheel to stop responding. BMS states are conditional on `bmsReadingMode`.
 - **Kingsong 0xA4 acknowledgment**: When a `0xA4` frame is received, the decoder must respond with a
   `0x98` (alarm settings request) command. This is done via the `commands` return list from `decode()`.
+- **LeaperkimCan 0xA5 escape bytes**: The CAN-over-BLE protocol uses `0xA5` as escape marker — doubled
+  `0xA5 0xA5` in transit represents a single `0xA5` data byte. The internal CanUnpacker handles
+  deduplication. Frame building (`buildCanFrame`) must also escape payload bytes.
+- **LeaperkimCan init sequence**: 3-step handshake (PASSWORD → INIT_COMM → INIT_STATUS) must complete
+  before polling begins. Each step waits for a response before sending the next command.
+- **LeaperkimCan uses Gotway BLE UUIDs**: Despite being a completely different protocol, Leaperkim CAN
+  reuses the same BLE service/characteristic UUIDs as Gotway. Detection relies on device name
+  ("LEAPERKIM"/"LPKIM") and must be checked *before* Veteran/Gotway name matching.
 
 ## Branch
 

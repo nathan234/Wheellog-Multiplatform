@@ -1,5 +1,9 @@
 # Reference EUC BLE Protocol
 
+See [reference-implementation-plan.md](reference-implementation-plan.md) for the concrete hardware/software
+phasing, and [protocol-quality-assessment.md](protocol-quality-assessment.md) for the analysis of existing
+protocols that motivates this design.
+
 ## Goal
 
 Design and implement an open, self-describing BLE protocol for electric unicycles,

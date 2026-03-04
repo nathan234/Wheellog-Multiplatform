@@ -1,6 +1,6 @@
 # Resources
 
-A curated collection of references for EUC protocol development, open-source hardware, and the broader movement toward open PEV (personal electric vehicle) ecosystems.
+A curated collection of references for EUC protocol development, open-source hardware, and the broader movement toward open PEV (personal electric vehicle) ecosystems. See also [docs/protocol-quality-assessment.md](docs/protocol-quality-assessment.md) and [docs/reference-protocol.md](docs/reference-protocol.md).
 
 The goal of FreeWheel is to **democratize EUC connectivity** and help move the industry toward open-source hardware and firmware, similar to what VESC did for electric skateboards.
 

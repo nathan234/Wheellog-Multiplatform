@@ -1,8 +1,9 @@
 # Reference Protocol — Implementation Plan
 
-Companion to [`reference-protocol.md`](reference-protocol.md). This document covers
-the concrete hardware, software, and phasing decisions for building the first working
-implementation of the open TLV protocol.
+Companion to [`reference-protocol.md`](reference-protocol.md). See also
+[`protocol-quality-assessment.md`](protocol-quality-assessment.md) for the analysis motivating this work.
+This document covers the concrete hardware, software, and phasing decisions for building
+the first working implementation of the open TLV protocol.
 
 ## Hardware Strategy
 

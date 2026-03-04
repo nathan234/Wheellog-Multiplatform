@@ -40,7 +40,7 @@ Wheellog.Android/
 ```
 core      ← standalone KMP (no Android app deps)
 freewheel → core + shared  (new Compose-only app)
-app       → core + shared  (legacy, frozen)
+app       → shared only    (legacy, frozen — no KMP core dependency)
 shared    ← standalone Android library (no core dep)
 wearos    → shared only (NO core)
 iosApp    → core framework
@@ -150,16 +150,9 @@ Decoders without unpackers (KS, VT, NZ) handle framing internally.
 - **Immutable + copy**: Decoders return `currentState.copy(field = newValue)`. SmartBms is mutable internally but exposed via immutable `BmsSnapshot`
 - **BMS accumulation**: `bms1`/`bms2` built across multiple frames. Cell voltages arrive separately (GW: frame 0x02/0x03, KS: via RequestBmsData)
 
-## Decoder Mode (Android)
+## Decoder Usage
 
-Users can choose which decoder to use:
-- **Settings → Application Settings → Decoder Mode**
-
-Options:
-- `LEGACY_ONLY` (default): Original Java/Kotlin decoders
-- `KMP_ONLY`: New cross-platform decoders
-
-iOS always uses KMP decoders (no legacy option).
+The legacy `app/` always uses the original Java/Kotlin decoders. The new `freewheel/` app and iOS app always use KMP decoders. There is no decoder mode setting — each app uses its own decoder stack.
 
 ## Legacy vs FreeWheel Boundary
 
@@ -171,7 +164,7 @@ The legacy `app/` module (`com.cooper.wheellog`) and new `freewheel/` module (`o
 | Entry point | `MainActivity` | `ComposeActivity` |
 | BLE service | `BluetoothService` | `WheelService` |
 | Data model | `WheelData` singleton | KMP `WheelState` via `WheelViewModel` |
-| Decoder | Legacy adapters or `KmpWheelBridge` | KMP decoders via `WheelConnectionManager` |
+| Decoder | Legacy Java/Kotlin adapters | KMP decoders via `WheelConnectionManager` |
 | Application class | `WheelLog` | `FreeWheel` |
 | UI | XML layouts + hybrid Compose | Pure Jetpack Compose |
 
@@ -234,11 +227,8 @@ Central orchestrator for the Compose app (`AndroidViewModel`). Owns:
 | Wheel profiles | `freewheel/src/main/.../compose/WheelProfileStore.kt` |
 | Trip database | `freewheel/src/main/.../data/{TripDatabase,TripDao,TripDataDbEntry}.kt` |
 | Trip repository | `freewheel/src/main/.../data/TripRepository.kt` |
-| KMP bridge | `app/src/main/.../kmp/KmpWheelBridge.kt` |
-| Decoder mode enum | `app/src/main/.../kmp/DecoderMode.kt` |
 | Compose screens | `freewheel/src/main/.../compose/screens/*.kt` |
 | Compose components | `freewheel/src/main/.../compose/components/*.kt` (incl. `DangerousActionDialog`, `TimeRangePicker`) |
-| Legacy hybrid screens | `app/src/main/.../compose/legacy/*.kt` |
 | **iOS App** | |
 | Main bridge (orchestrator) | `iosApp/FreeWheel/Bridge/WheelManager.swift` |
 | StateFlow → @Published | `iosApp/FreeWheel/Bridge/StateFlowObserver.swift` |
@@ -414,7 +404,8 @@ Every new KMP module (`core/src/commonMain/`) should have a corresponding test f
 | Location | Framework | What it covers |
 |----------|-----------|----------------|
 | `core/src/commonTest/` | kotlin-test, coroutines-test | KMP shared code (decoders, state, utils) |
-| `app/src/test/` | JUnit 4, Truth, Mockk, Robolectric | Android app logic (ViewModel, bridge, services) |
+| `freewheel/src/test/` | JUnit 4, Truth, Mockk, Robolectric | FreeWheel app logic (ViewModel, alarms, parity comparisons, adapter tests) |
+| `app/src/test/` | JUnit 4, Truth | Legacy adapter tests and domain tests (WheelData, ElectroClub, Calculator) |
 | `shared/src/test/` | JUnit 4 | Shared Android utilities |
 
 Platform-specific UI (Compose, SwiftUI) is verified via build compilation + manual testing.
@@ -462,16 +453,22 @@ Comparison tests verify KMP decoders produce identical results to the legacy Jav
 | Utilities | ByteUtils, DisplayUtils, StringUtil | ~192 |
 | Alarms (vibration) | VibrationPatterns | ~14 |
 
-**Android App Tests** (`app/src/test/`) — ~283 tests across 22 test files:
+**FreeWheel App Tests** (`freewheel/src/test/`) — 18 test files:
 
 | Area | Key test files | Approx tests |
 |---|---|---:|
-| Legacy adapter parity | KS, GW, GW Virtual, VT, NZ, IM1, IM2 adapter tests | ~108 |
+| Adapter parity | KS, GW, GW Virtual, VT, NZ, IM1, IM2 adapter tests | ~108 |
 | Utility parity | ByteUtils, StringUtil comparison; CommandParity, BmsParity, CsvParity | ~122 |
 | ViewModel | AutoConnect, Finalization | ~16 |
 | Alarm | AlarmHandler | ~10 |
-| Legacy domain | WheelData, RawData, ElectroClub, Calculator | ~21 |
 | Data | TripParser | ~1 |
+
+**Legacy App Tests** (`app/src/test/`) — 13 test files:
+
+| Area | Key test files | Approx tests |
+|---|---|---:|
+| Legacy adapter tests | KS, GW, GW Virtual, VT, NZ, IM1, IM2 adapter tests | ~108 |
+| Legacy domain | WheelData, RawData, ElectroClub, Calculator, MathUtil, StringUtil | ~30 |
 
 ### iOS Testing on Simulator
 
@@ -507,6 +504,16 @@ Protocol decoder gotchas discovered during development:
 - **LeaperkimCan uses Gotway BLE UUIDs**: Despite being a completely different protocol, Leaperkim CAN
   reuses the same BLE service/characteristic UUIDs as Gotway. Detection relies on device name
   ("LEAPERKIM"/"LPKIM") and must be checked *before* Veteran/Gotway name matching.
+
+## Related Documentation
+
+- [README.md](README.md) — Project overview, build commands, architecture diagram, contributing guide
+- [KMP_MIGRATION_PLAN.md](KMP_MIGRATION_PLAN.md) — Migration phases, BLE implementation status, current progress
+- [RESOURCES.md](RESOURCES.md) — EUC protocol references, open-source hardware, VESC resources
+- [docs/decoder-parity.md](docs/decoder-parity.md) — Per-decoder checklist of legacy parity gaps
+- [docs/protocol-quality-assessment.md](docs/protocol-quality-assessment.md) — Opinionated comparison of manufacturer protocol quality
+- [docs/reference-protocol.md](docs/reference-protocol.md) — Open TLV protocol spec for VESC-based EUCs
+- [docs/reference-implementation-plan.md](docs/reference-implementation-plan.md) — ESP32 hardware phases for reference protocol
 
 ## Branch
 

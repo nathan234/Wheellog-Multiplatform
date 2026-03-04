@@ -43,7 +43,7 @@ Maintains BLE connection, alarms, and ride logging when the app is backgrounded.
 ## Installation
 
 ### Android
-Build from source: clone the repo and run `./gradlew :app:assembleDebug`, then install the APK from `app/build/outputs/apk/debug/`.
+Build from source: clone the repo and run `./gradlew :freewheel:assembleDebug`, then install the APK from `freewheel/build/outputs/apk/debug/`.
 
 ### iOS
 Build from source with Xcode 15+. Open `iosApp/FreeWheel.xcodeproj`, select your device/simulator, and build. Requires the KMP framework to be built first (see [Building](#building) below).
@@ -53,10 +53,10 @@ Build from source with Xcode 15+. Open `iosApp/FreeWheel.xcodeproj`, select your
 ## Quick Start
 
 ```bash
-git clone https://github.com/GGorAA/Wheellog-Multiplatform.git
-cd Wheellog-Multiplatform
-./gradlew :core:testDebugUnitTest    # Run all KMP tests (~1,436 tests)
-./gradlew :app:assembleDebug         # Build Android APK
+git clone https://github.com/Wheellog/Wheellog.Android.git
+cd Wheellog.Android
+./gradlew :core:testDebugUnitTest         # Run all KMP tests (~1,436 tests)
+./gradlew :freewheel:assembleDebug        # Build FreeWheel Android APK
 ```
 
 For iOS, also build the KMP framework before opening Xcode:
@@ -172,13 +172,17 @@ Wheellog.Android/
 │       ├── commonTest/      # Unit tests for all shared code
 │       ├── androidMain/     # Android BLE implementation
 │       └── iosMain/         # iOS CoreBluetooth implementation + Swift bridge helper
-├── app/                     # Android app (Jetpack Compose)
+├── freewheel/               # New FreeWheel Android app (Compose-only, org.freewheel)
+├── app/                     # Legacy WheelLog Android app (com.cooper.wheellog, frozen)
+├── shared/                  # Android-only library shared between freewheel, app, and wearos
 ├── iosApp/                  # iOS SwiftUI app
 │   └── FreeWheel/
 │       ├── Bridge/          # WheelManager (Swift-to-KMP wrapper)
 │       └── Views/           # SwiftUI views
 └── wearos/                  # WearOS companion app
 ```
+
+See [CLAUDE.md](CLAUDE.md) for detailed architecture, decoder documentation, and module dependency graph.
 
 ### Key Principle: Define Once in KMP, Render Natively
 
@@ -205,13 +209,16 @@ Logic that both platforms need lives in `core/src/commonMain/`. Platform UI code
 # Run all KMP unit tests
 ./gradlew :core:testDebugUnitTest
 
-# Run Android app tests
-./gradlew :app:testDebugUnitTest
+# Run FreeWheel app tests
+./gradlew :freewheel:testDebugUnitTest
 
-# Compile Android app
-./gradlew :app:compileDebugKotlin
+# Compile FreeWheel app
+./gradlew :freewheel:compileDebugKotlin
 
-# Build Android APK
+# Build FreeWheel APK
+./gradlew :freewheel:assembleDebug
+
+# Build legacy WheelLog app (if needed)
 ./gradlew :app:assembleDebug
 
 # Build KMP framework for iOS Simulator
@@ -231,8 +238,8 @@ Before submitting a PR, run these in order:
 
 ```bash
 ./gradlew :core:testDebugUnitTest                        # 1. All KMP tests pass
-./gradlew :app:testDebugUnitTest                         # 2. All Android app tests pass
-./gradlew :app:compileDebugKotlin                        # 3. Android compiles
+./gradlew :freewheel:testDebugUnitTest                   # 2. All FreeWheel app tests pass
+./gradlew :freewheel:compileDebugKotlin                  # 3. FreeWheel compiles
 ./gradlew :core:linkReleaseFrameworkIosSimulatorArm64    # 4. iOS framework builds
 ```
 
@@ -269,7 +276,7 @@ Most new features follow this pattern:
 
 #### 1. Create KMP Model
 
-Add your shared types in `core/src/commonMain/kotlin/com/cooper/wheellog/core/`:
+Add your shared types in `core/src/commonMain/kotlin/org/freewheel/core/`:
 
 ```
 core/src/commonMain/.../yourpackage/
@@ -291,7 +298,7 @@ Run with `./gradlew :core:testDebugUnitTest`. Tests should **fail** first (class
 #### 3. Wire Up Android
 
 - **ViewModel**: Add a method to `WheelViewModel.kt` that calls into the shared KMP code
-- **Screen**: Create a new Composable in `app/src/main/.../compose/screens/`
+- **Screen**: Create a new Composable in `freewheel/src/main/.../compose/screens/`
 - **Navigation**: Add a route in `AppNavigation.kt` and hide the bottom bar if it's a detail screen
 
 #### 4. Wire Up iOS
@@ -332,21 +339,25 @@ BLE is not available on iOS Simulator. Use the test mode instead:
 2. Tap "Test KMP Decoder" button
 3. Verifies decoder with real Kingsong packets (12% battery, 13 C)
 
-## Android Decoder Mode
+## Decoder Architecture
 
-The Android app supports three decoder modes under **Settings > Application Settings > Decoder Mode**:
-
-| Mode | Description |
-|---|---|
-| **Legacy Only** (default) | Original Java/Kotlin decoders |
-| **KMP Only** | New cross-platform decoders |
-| **Both** | Run both in parallel for comparison |
-
-iOS always uses the KMP decoders.
+The FreeWheel app (`freewheel/`) and iOS app use the KMP decoders exclusively via `WheelConnectionManager`. The legacy WheelLog app (`app/`) uses the original Java/Kotlin adapters. See [CLAUDE.md](CLAUDE.md#kmp-decoder-architecture) for detailed decoder documentation.
 
 ## Resources
 
 See **[RESOURCES.md](RESOURCES.md)** for a curated collection of EUC protocol documentation, BLE references, open-source hardware projects, VESC resources, and community links. The long-term goal is to move toward open-source EUC hardware and firmware, similar to what VESC did for electric skateboards.
+
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [CLAUDE.md](CLAUDE.md) | Detailed architecture, decoder docs, key files, testing guide |
+| [KMP_MIGRATION_PLAN.md](KMP_MIGRATION_PLAN.md) | Migration phases and current status |
+| [RESOURCES.md](RESOURCES.md) | EUC protocol references, open-source hardware, VESC resources |
+| [docs/decoder-parity.md](docs/decoder-parity.md) | Per-decoder legacy parity checklist |
+| [docs/protocol-quality-assessment.md](docs/protocol-quality-assessment.md) | Manufacturer protocol quality comparison |
+| [docs/reference-protocol.md](docs/reference-protocol.md) | Open TLV protocol spec |
+| [docs/reference-implementation-plan.md](docs/reference-implementation-plan.md) | ESP32 hardware implementation plan |
 
 ## Contributing
 

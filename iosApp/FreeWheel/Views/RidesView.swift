@@ -1,7 +1,7 @@
 import SwiftUI
 import FreeWheelCore
 
-// CROSS-PLATFORM SYNC: This view mirrors app/.../compose/screens/RidesScreen.kt.
+// CROSS-PLATFORM SYNC: This view mirrors freewheel/.../compose/screens/RidesScreen.kt.
 // When adding, removing, or reordering sections, update the counterpart.
 //
 // Shared sections (in order):

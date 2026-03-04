@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  * Each test cites the specific legacy test case and asserts ALL fields that
  * the legacy test asserts, ensuring comprehensive parity.
  *
- * Legacy test file: app/src/test/java/com/cooper/wheellog/utils/InMotionAdapterV2Test.kt
+ * Based on legacy InMotionAdapterV2Test packet data.
  */
 class InMotionV2DecoderComparisonTest {
 

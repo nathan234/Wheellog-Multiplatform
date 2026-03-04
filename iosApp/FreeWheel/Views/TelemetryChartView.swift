@@ -2,7 +2,7 @@ import SwiftUI
 import Charts
 import FreeWheelCore
 
-// CROSS-PLATFORM SYNC: This view mirrors app/.../compose/screens/ChartScreen.kt.
+// CROSS-PLATFORM SYNC: This view mirrors freewheel/.../compose/screens/ChartScreen.kt.
 // When adding, removing, or reordering sections, update the counterpart.
 //
 // Shared sections (in order):

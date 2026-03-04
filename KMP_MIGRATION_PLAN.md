@@ -101,10 +101,10 @@ This document tracks the migration of FreeWheel's core functionality to Kotlin M
 ## Phase 4: Integration
 
 ### 4.1 Android Integration ✅
-- [x] ~~KmpWheelBridge for parallel decoding~~ (removed — legacy app and FreeWheel app now fully separated)
+- [x] ~~KmpWheelBridge for parallel decoding~~ (removed)
 - [x] FreeWheel Compose app (`freewheel/`) with WheelService using KMP WheelConnectionManager directly
 - [x] WheelViewModel orchestrates KMP state, scanning, logging, alarms
-- [x] Legacy app (`app/`) uses only legacy decoders (no KMP dependency)
+- [x] Legacy `app/` module removed (all code lives in `freewheel/` + `core/`)
 
 ### 4.2 iOS App Scaffold ✅
 - [x] Create iOS Xcode project

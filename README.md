@@ -172,9 +172,8 @@ Wheellog.Android/
 │       ├── commonTest/      # Unit tests for all shared code
 │       ├── androidMain/     # Android BLE implementation
 │       └── iosMain/         # iOS CoreBluetooth implementation + Swift bridge helper
-├── freewheel/               # New FreeWheel Android app (Compose-only, org.freewheel)
-├── app/                     # Legacy WheelLog Android app (com.cooper.wheellog, frozen)
-├── shared/                  # Android-only library shared between freewheel, app, and wearos
+├── freewheel/               # FreeWheel Android app (Compose-only, org.freewheel)
+├── shared/                  # Android-only library shared between freewheel and wearos
 ├── iosApp/                  # iOS SwiftUI app
 │   └── FreeWheel/
 │       ├── Bridge/          # WheelManager (Swift-to-KMP wrapper)
@@ -217,9 +216,6 @@ Logic that both platforms need lives in `core/src/commonMain/`. Platform UI code
 
 # Build FreeWheel APK
 ./gradlew :freewheel:assembleDebug
-
-# Build legacy WheelLog app (if needed)
-./gradlew :app:assembleDebug
 
 # Build KMP framework for iOS Simulator
 ./gradlew :core:linkReleaseFrameworkIosSimulatorArm64
@@ -341,7 +337,7 @@ BLE is not available on iOS Simulator. Use the test mode instead:
 
 ## Decoder Architecture
 
-The FreeWheel app (`freewheel/`) and iOS app use the KMP decoders exclusively via `WheelConnectionManager`. The legacy WheelLog app (`app/`) uses the original Java/Kotlin adapters. See [CLAUDE.md](CLAUDE.md#kmp-decoder-architecture) for detailed decoder documentation.
+Both the Android app (`freewheel/`) and iOS app use the KMP decoders exclusively via `WheelConnectionManager`. See [CLAUDE.md](CLAUDE.md#kmp-decoder-architecture) for detailed decoder documentation.
 
 ## Resources
 

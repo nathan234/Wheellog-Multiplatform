@@ -6,7 +6,7 @@ FreeWheel is an Android/iOS app for electric unicycle telemetry. The codebase is
 
 ## Development Policy
 
-**Do not modify legacy Android code.** All new work targets the KMP `core/` module and the new Compose UI in `freewheel/`. The legacy `app/` module (`com.cooper.wheellog`) is frozen — it remains for reference and existing users but receives no new features. The `freewheel/` module (`org.freewheel`) is the new Compose-only app.
+All new work targets the KMP `core/` module and the Compose UI in `freewheel/`. The `freewheel/` module (`org.freewheel`) is the Compose-only Android app.
 
 ## Project Structure
 
@@ -22,9 +22,8 @@ Wheellog.Android/
 │       ├── service/         # WheelConnectionManager, KeepAliveTimer
 │       ├── telemetry/       # TelemetryBuffer
 │       └── utils/           # ByteUtils, DisplayUtils, StringUtil, Lock, Logger, EnergyCalculator
-├── freewheel/               # New FreeWheel Android app (Compose-only, org.freewheel)
-├── app/                     # Legacy WheelLog Android app (com.cooper.wheellog, frozen)
-├── shared/                  # Android-only library shared between freewheel, app and wearos
+├── freewheel/               # FreeWheel Android app (Compose-only, org.freewheel)
+├── shared/                  # Android-only library shared between freewheel and wearos
 │                            #   (WearPage, SmartDouble, Constants)
 ├── iosApp/                  # iOS SwiftUI app
 │   ├── Scripts/             # build-kmp-framework.sh (Xcode build phase)
@@ -39,8 +38,7 @@ Wheellog.Android/
 
 ```
 core      ← standalone KMP (no Android app deps)
-freewheel → core + shared  (new Compose-only app)
-app       → shared only    (legacy, frozen — no KMP core dependency)
+freewheel → core + shared  (Compose-only app)
 shared    ← standalone Android library (no core dep)
 wearos    → shared only (NO core)
 iosApp    → core framework
@@ -149,24 +147,6 @@ Decoders without unpackers (KS, VT, NZ) handle framing internally.
 - **Default -1 = unknown**: Settings fields (`pedalsMode`, `lightMode`, `ledMode`, `maxSpeed`, `pedalTilt`, `pedalSensitivity`, `speakerVolume`, `beeperVolume`, `lightBrightness`, `cutoutAngle`, `rollAngle`, `speedAlarms`) use -1 for "not yet read from wheel"
 - **Immutable + copy**: Decoders return `currentState.copy(field = newValue)`. SmartBms is mutable internally but exposed via immutable `BmsSnapshot`
 - **BMS accumulation**: `bms1`/`bms2` built across multiple frames. Cell voltages arrive separately (GW: frame 0x02/0x03, KS: via RequestBmsData)
-
-## Decoder Usage
-
-The legacy `app/` always uses the original Java/Kotlin decoders. The new `freewheel/` app and iOS app always use KMP decoders. There is no decoder mode setting — each app uses its own decoder stack.
-
-## Legacy vs FreeWheel Boundary
-
-The legacy `app/` module (`com.cooper.wheellog`) and new `freewheel/` module (`org.freewheel`) are separate apps:
-
-| | Legacy App (`app/`) | FreeWheel (`freewheel/`) |
-|---|---|---|
-| Application ID | `com.cooper.wheellog` | `org.freewheel` |
-| Entry point | `MainActivity` | `ComposeActivity` |
-| BLE service | `BluetoothService` | `WheelService` |
-| Data model | `WheelData` singleton | KMP `WheelState` via `WheelViewModel` |
-| Decoder | Legacy Java/Kotlin adapters | KMP decoders via `WheelConnectionManager` |
-| Application class | `WheelLog` | `FreeWheel` |
-| UI | XML layouts + hybrid Compose | Pure Jetpack Compose |
 
 ## FreeWheel App Entry Flow
 
@@ -339,11 +319,11 @@ KMP uses `expect`/`actual` declarations for platform-specific implementations. E
 |------------|---------|---------|
 | Kotlin | 2.2.10 | All modules |
 | Kotlinx Coroutines | 1.10.2 | core |
-| Koin (DI) | 4.1.1 | core, app |
+| Koin (DI) | 4.1.1 | core |
 | Blessed (Android BLE) | 2.4.1 | core androidMain |
-| Jetpack Compose | 1.9.2 | app |
-| Room (SQLite) | 2.7.2 | app |
-| Vico (charts) | 2.1.2 | app |
+| Jetpack Compose | 1.9.2 | freewheel |
+| Room (SQLite) | 2.7.2 | freewheel |
+| Vico (charts) | 2.1.2 | freewheel |
 | Swift Charts | — | iosApp |
 | CoreBluetooth | — | core iosMain |
 
@@ -361,9 +341,6 @@ KMP uses `expect`/`actual` declarations for platform-specific implementations. E
 
 # Build FreeWheel APK
 ./gradlew :freewheel:assembleDebug
-
-# Build legacy WheelLog app (if needed)
-./gradlew :app:assembleDebug
 
 # Build KMP framework for iOS Simulator
 ./gradlew :core:linkReleaseFrameworkIosSimulatorArm64
@@ -404,8 +381,7 @@ Every new KMP module (`core/src/commonMain/`) should have a corresponding test f
 | Location | Framework | What it covers |
 |----------|-----------|----------------|
 | `core/src/commonTest/` | kotlin-test, coroutines-test | KMP shared code (decoders, state, utils) |
-| `freewheel/src/test/` | JUnit 4, Truth, Mockk, Robolectric | FreeWheel app logic (ViewModel, alarms, parity comparisons, adapter tests) |
-| `app/src/test/` | JUnit 4, Truth | Legacy adapter tests and domain tests (WheelData, ElectroClub, Calculator) |
+| `freewheel/src/test/` | JUnit 4, Truth, Mockk, Robolectric | FreeWheel app logic (ViewModel, alarms, CSV parity) |
 | `shared/src/test/` | JUnit 4 | Shared Android utilities |
 
 Platform-specific UI (Compose, SwiftUI) is verified via build compilation + manual testing.
@@ -429,14 +405,6 @@ Frame builders (decoder-specific, in respective test files):
 - `buildIM2Frame(flags, command, data)` — InMotion V2 message with escaping + checksum
 - `buildSettingsFrame(payload)` — InMotion V2 settings frame
 
-### Comparison Test Convention
-
-Comparison tests verify KMP decoders produce identical results to the legacy Java/Kotlin decoders:
-
-1. **Cite the legacy test file** in class KDoc
-2. **Cite specific test cases** in individual test comments
-3. **Use identical packet data** from legacy — do not fabricate new packets
-
 ### Test Coverage
 
 **KMP Core Tests** (`core/src/commonTest/`) — ~1,436 tests across 49 test files:
@@ -445,7 +413,7 @@ Comparison tests verify KMP decoders produce identical results to the legacy Jav
 |---|---|---:|
 | Protocol decoders | 8 decoder tests (KS, GW, VT, LK, NB, NZ, IM1, IM2) + AutoDetect, DecoderLifecycle, DecodeLoop, Factory, WheelCommand | ~670 |
 | Protocol unpackers | GotwayUnpacker, NinebotUnpacker, InMotionUnpacker, InMotionV2Unpacker | ~33 |
-| Decoder comparison | GW, KS, VT, NZ, IM1 comparison tests (verify parity with legacy Java decoders) | ~132 |
+| Decoder comparison | GW, KS, VT, NZ, IM1 comparison tests (verify parity using legacy packet data) | ~132 |
 | Service/Connection | WheelConnectionManager (3 files), AutoConnect, KeepAlive, ConnectionState, DemoData | ~175 |
 | Domain & Alarms | WheelState, WheelSettingsConfig, AlarmChecker, AlarmType, SmartBms | ~185 |
 | Telemetry & Logging | TelemetryBuffer/History/Sample/CsvSerializer, CsvFormatter/Parser, RideLogger/Metadata | ~116 |
@@ -453,22 +421,13 @@ Comparison tests verify KMP decoders produce identical results to the legacy Jav
 | Utilities | ByteUtils, DisplayUtils, StringUtil | ~192 |
 | Alarms (vibration) | VibrationPatterns | ~14 |
 
-**FreeWheel App Tests** (`freewheel/src/test/`) — 18 test files:
+**FreeWheel App Tests** (`freewheel/src/test/`) — 4 test files:
 
 | Area | Key test files | Approx tests |
 |---|---|---:|
-| Adapter parity | KS, GW, GW Virtual, VT, NZ, IM1, IM2 adapter tests | ~108 |
-| Utility parity | ByteUtils, StringUtil comparison; CommandParity, BmsParity, CsvParity | ~122 |
 | ViewModel | AutoConnect, Finalization | ~16 |
 | Alarm | AlarmHandler | ~10 |
-| Data | TripParser | ~1 |
-
-**Legacy App Tests** (`app/src/test/`) — 13 test files:
-
-| Area | Key test files | Approx tests |
-|---|---|---:|
-| Legacy adapter tests | KS, GW, GW Virtual, VT, NZ, IM1, IM2 adapter tests | ~108 |
-| Legacy domain | WheelData, RawData, ElectroClub, Calculator, MathUtil, StringUtil | ~30 |
+| CSV parity | CsvParityTest | ~5 |
 
 ### iOS Testing on Simulator
 

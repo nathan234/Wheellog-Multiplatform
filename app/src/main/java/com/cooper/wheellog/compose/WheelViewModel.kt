@@ -216,31 +216,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener)
         if (rideLogger.isLogging) {
-            logSamplingJob?.cancel()
-            logSamplingJob = null
-            val state = wheelState.value
-            val metadata = rideLogger.stop(System.currentTimeMillis(), state.totalDistance)
-            _isLogging.value = false
-            if (metadata != null) {
-                // viewModelScope is cancelled, so use runBlocking for this single INSERT
-                runBlocking(Dispatchers.IO) {
-                    tripRepository.insertNewData(
-                        TripDataDbEntry(
-                            fileName = metadata.fileName,
-                            start = (metadata.startTimeMillis / 1000).toInt(),
-                            duration = (metadata.durationSeconds / 60).toInt(),
-                            maxSpeed = metadata.maxSpeedKmh.toFloat(),
-                            avgSpeed = metadata.avgSpeedKmh.toFloat(),
-                            maxCurrent = metadata.maxCurrentA.toFloat(),
-                            maxPower = metadata.maxPowerW.toFloat(),
-                            maxPwm = metadata.maxPwmPercent.toFloat(),
-                            distance = metadata.distanceMeters.toInt(),
-                            consumptionTotal = metadata.consumptionWh.toFloat(),
-                            consumptionByKm = metadata.consumptionWhPerKm.toFloat()
-                        )
-                    )
-                }
-            }
+            stopLogging()
             telemetryHistory?.save()
         }
     }
@@ -585,7 +561,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         _isLogging.value = false
 
         if (metadata != null) {
-            viewModelScope.launch {
+            // Must use runBlocking — callers (disconnect, shutdownService, onCleared)
+            // need the INSERT to complete before the scope is cancelled or the app exits.
+            runBlocking(Dispatchers.IO) {
                 tripRepository.insertNewData(
                     TripDataDbEntry(
                         fileName = metadata.fileName,

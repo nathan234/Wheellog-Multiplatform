@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class WheelService : Service() {
 
@@ -104,9 +105,12 @@ class WheelService : Service() {
 
     override fun onDestroy() {
         stopLocationTracking()
-        // Disconnect BLE before cancelling scope to ensure the GATT connection
-        // is released even if the ViewModel's coroutine was cancelled first.
-        connectionManager.disconnect()
+        // Drain the event loop: sends DisconnectRequested, closes the channel,
+        // and waits for the event loop to finish — ensuring bleManager.disconnect()
+        // actually runs before the scope is cancelled.
+        // runBlocking is safe here: shutdown() runs on Dispatchers.Default (the
+        // event loop dispatcher), not Main, so no deadlock.
+        runBlocking { connectionManager.shutdown() }
         serviceScope.cancel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)

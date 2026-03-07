@@ -89,11 +89,9 @@ class WheelConnectionManager(
 
     private val events = Channel<WheelEvent>(Channel.UNLIMITED)
 
-    init {
-        scope.launch(dispatcher) {
-            for (event in events) {
-                processEvent(event)
-            }
+    private val eventLoopJob: Job = scope.launch(dispatcher) {
+        for (event in events) {
+            processEvent(event)
         }
     }
 
@@ -172,6 +170,18 @@ class WheelConnectionManager(
      */
     fun disconnect() {
         events.trySend(WheelEvent.DisconnectRequested)
+    }
+
+    /**
+     * Disconnect and shut down the event loop.
+     * Sends a disconnect event, closes the channel so remaining events drain,
+     * then waits for the event loop to finish. Call this when tearing down the
+     * manager (e.g., in Service.onDestroy) to ensure BLE GATT is released.
+     */
+    suspend fun shutdown() {
+        events.send(WheelEvent.DisconnectRequested)
+        events.close()
+        eventLoopJob.join()
     }
 
     /**

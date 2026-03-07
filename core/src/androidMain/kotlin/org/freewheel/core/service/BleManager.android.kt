@@ -119,6 +119,12 @@ actual class BleManager : BleManagerPort {
         }
 
         override fun onDisconnectedPeripheral(peripheral: BluetoothPeripheral, status: HciStatus) {
+            // Safety net: resume any pending connect continuation
+            continuationLock.withLock {
+                connectionContinuation?.resume(false) {}
+                connectionContinuation = null
+            }
+
             val address = peripheral.address
             Logger.d("BleManager", "onDisconnectedPeripheral: $address, requested=$disconnectRequested, status=$status")
 
@@ -314,6 +320,11 @@ actual class BleManager : BleManagerPort {
 
     actual override suspend fun disconnect() {
         disconnectRequested = true
+        // Unblock any pending connect() coroutine BEFORE cancelling BLE
+        continuationLock.withLock {
+            connectionContinuation?.resume(false) {}
+            connectionContinuation = null
+        }
         currentPeripheral?.let { peripheral ->
             central?.cancelConnection(peripheral)
         }

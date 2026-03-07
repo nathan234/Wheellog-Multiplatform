@@ -74,6 +74,9 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
+    // Track the connect coroutine so disconnect() can cancel it
+    private var connectJob: Job? = null
+
     // Demo mode
     private val _isDemo = MutableStateFlow(false)
     val isDemo: StateFlow<Boolean> = _isDemo.asStateFlow()
@@ -388,7 +391,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         val cm = connectionManager ?: return
         _isScanning.value = false
         appConfig.lastMac = address
-        viewModelScope.launch {
+        connectJob = viewModelScope.launch {
             bleManager?.stopScan()
             cm.connect(address)
         }
@@ -399,6 +402,8 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
             stopDemo()
             return
         }
+        connectJob?.cancel()
+        connectJob = null
         wearOsManager?.stop()
         appConfig.lastMac = ""
         autoConnectManager?.stop()

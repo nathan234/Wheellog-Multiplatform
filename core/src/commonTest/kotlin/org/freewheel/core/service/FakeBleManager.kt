@@ -1,5 +1,6 @@
 package org.freewheel.core.service
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +15,9 @@ class FakeBleManager : BleManagerPort {
 
     /** All data written via [write]. Each entry is a copy of the written bytes. */
     val writtenData = mutableListOf<ByteArray>()
+
+    /** When non-null, connect() suspends until this deferred completes. */
+    var connectDeferred: CompletableDeferred<Boolean>? = null
 
     /** Whether [connect] should return true (success). */
     var connectResult = true
@@ -37,6 +41,18 @@ class FakeBleManager : BleManagerPort {
     override suspend fun connect(address: String): Boolean {
         lastConnectAddress = address
         connectCallCount++
+
+        // If a deferred is set, suspend until it completes (simulates pending BLE connect)
+        val deferred = connectDeferred
+        if (deferred != null) {
+            val result = deferred.await()
+            if (result) {
+                isConnected = true
+                _connectionState.value = ConnectionState.Connecting(address)
+            }
+            return result
+        }
+
         if (connectResult) {
             isConnected = true
             _connectionState.value = ConnectionState.Connecting(address)

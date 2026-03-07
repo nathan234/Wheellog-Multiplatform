@@ -160,14 +160,22 @@ class WheelConnectionManager(
                 // Start data timeout monitoring
                 startDataTimeoutMonitor(address)
 
-            } else {
+            } else if (_connectionState.value !is ConnectionState.Disconnected) {
+                // Don't overwrite Disconnected set by a concurrent disconnect() call
                 _connectionState.value = ConnectionState.Failed(
                     error = "Connection failed",
                     address = address
                 )
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e  // Never swallow CancellationException
         } catch (e: Exception) {
-            _connectionState.value = ConnectionState.Failed(error = e.message ?: "Connection failed", address = address)
+            if (_connectionState.value !is ConnectionState.Disconnected) {
+                _connectionState.value = ConnectionState.Failed(
+                    error = e.message ?: "Connection failed",
+                    address = address
+                )
+            }
         }
     }
 
@@ -565,12 +573,11 @@ class WheelConnectionManager(
     }
 
     private fun startDataTimeoutMonitor(address: String) {
-        // Proportional timeout: 40x the keep-alive interval, minimum 10 seconds.
-        // This gives ~10s for wheel-initiated protocols (KS/GW/VT) and proportional
-        // timeouts for polling protocols (IM2/NZ at 25ms → 10s, IM1 at 250ms → 10s).
+        // Proportional timeout: 40x the keep-alive interval, minimum 30 seconds.
+        // 30s minimum — short drops during riding shouldn't trigger ConnectionLost.
         val decoder = currentDecoder
         val keepAliveMs = decoder?.keepAliveIntervalMs ?: 0L
-        val timeoutMs = maxOf(keepAliveMs * 40, 10_000L)
+        val timeoutMs = maxOf(keepAliveMs * 40, 30_000L)
 
         dataTimeoutTracker.start(timeoutMs = timeoutMs) {
             // Data timeout occurred - connection may be lost

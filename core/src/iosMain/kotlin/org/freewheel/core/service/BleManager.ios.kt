@@ -177,6 +177,11 @@ actual class BleManager : BleManagerPort {
     actual override suspend fun disconnect() {
         serviceDiscoveryTimeoutJob?.cancel()
         serviceDiscoveryTimeoutJob = null
+        // Unblock any pending connect() coroutine BEFORE cancelling BLE
+        continuationLock.withLock {
+            connectionContinuation?.resume(false) {}
+            connectionContinuation = null
+        }
         currentPeripheral?.let { peripheral ->
             centralManager?.cancelPeripheralConnection(peripheral)
         }
@@ -378,6 +383,11 @@ actual class BleManager : BleManagerPort {
     internal fun onPeripheralDisconnected(peripheral: CBPeripheral, error: NSError?) {
         serviceDiscoveryTimeoutJob?.cancel()
         serviceDiscoveryTimeoutJob = null
+        // Safety net: resume any pending connect continuation
+        continuationLock.withLock {
+            connectionContinuation?.resume(false) {}
+            connectionContinuation = null
+        }
         val address = peripheral.identifier.UUIDString
         if (error != null) {
             _connectionState.value = ConnectionState.ConnectionLost(

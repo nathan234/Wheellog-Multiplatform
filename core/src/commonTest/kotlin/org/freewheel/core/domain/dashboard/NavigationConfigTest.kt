@@ -11,7 +11,7 @@ class NavigationConfigTest {
     fun `default config matches current 3-tab layout`() {
         val config = NavigationConfig()
         assertEquals(
-            listOf(NavigationTab.DEVICES, NavigationTab.RIDES, NavigationTab.SETTINGS),
+            listOf(NavigationTab.Devices, NavigationTab.Rides, NavigationTab.Settings),
             config.tabs
         )
     }
@@ -23,20 +23,20 @@ class NavigationConfigTest {
 
     @Test
     fun `config without DEVICES is invalid`() {
-        val config = NavigationConfig(tabs = listOf(NavigationTab.RIDES, NavigationTab.SETTINGS))
+        val config = NavigationConfig(tabs = listOf(NavigationTab.Rides, NavigationTab.Settings))
         assertFalse(config.isValid())
     }
 
     @Test
     fun `config with only one tab is invalid`() {
-        val config = NavigationConfig(tabs = listOf(NavigationTab.DEVICES))
+        val config = NavigationConfig(tabs = listOf(NavigationTab.Devices))
         assertFalse(config.isValid())
     }
 
     @Test
     fun `config with 2 tabs is valid`() {
         val config = NavigationConfig(
-            tabs = listOf(NavigationTab.DEVICES, NavigationTab.SETTINGS)
+            tabs = listOf(NavigationTab.Devices, NavigationTab.Settings)
         )
         assertTrue(config.isValid())
     }
@@ -45,8 +45,8 @@ class NavigationConfigTest {
     fun `config with 5 tabs is valid`() {
         val config = NavigationConfig(
             tabs = listOf(
-                NavigationTab.DEVICES, NavigationTab.CHART, NavigationTab.BMS,
-                NavigationTab.RIDES, NavigationTab.SETTINGS
+                NavigationTab.Devices, NavigationTab.Chart, NavigationTab.Bms,
+                NavigationTab.Rides, NavigationTab.Settings
             )
         )
         assertTrue(config.isValid())
@@ -54,14 +54,14 @@ class NavigationConfigTest {
 
     @Test
     fun `config with 6 tabs is invalid`() {
-        val config = NavigationConfig(tabs = NavigationTab.entries.toList())
+        val config = NavigationConfig(tabs = NavigationTab.builtIn)
         assertFalse(config.isValid())
     }
 
     @Test
     fun `config with duplicate tabs is invalid`() {
         val config = NavigationConfig(
-            tabs = listOf(NavigationTab.DEVICES, NavigationTab.RIDES, NavigationTab.RIDES)
+            tabs = listOf(NavigationTab.Devices, NavigationTab.Rides, NavigationTab.Rides)
         )
         assertFalse(config.isValid())
     }
@@ -76,8 +76,8 @@ class NavigationConfigTest {
     fun `config with all optional tabs plus DEVICES is valid when 5 or fewer`() {
         val config = NavigationConfig(
             tabs = listOf(
-                NavigationTab.DEVICES, NavigationTab.CHART,
-                NavigationTab.RIDES, NavigationTab.SETTINGS, NavigationTab.BMS
+                NavigationTab.Devices, NavigationTab.Chart,
+                NavigationTab.Rides, NavigationTab.Settings, NavigationTab.Bms
             )
         )
         assertTrue(config.isValid())
@@ -94,7 +94,7 @@ class NavigationConfigTest {
     @Test
     fun `config without Settings is invalid`() {
         val config = NavigationConfig(
-            tabs = listOf(NavigationTab.DEVICES, NavigationTab.RIDES)
+            tabs = listOf(NavigationTab.Devices, NavigationTab.Rides)
         )
         assertFalse(config.isValid())
     }
@@ -102,8 +102,55 @@ class NavigationConfigTest {
     @Test
     fun `config with both required tabs has no warnings`() {
         val config = NavigationConfig(
-            tabs = listOf(NavigationTab.DEVICES, NavigationTab.SETTINGS)
+            tabs = listOf(NavigationTab.Devices, NavigationTab.Settings)
         )
         assertTrue(config.warnings().isEmpty())
+    }
+
+    // --- Custom tabs ---
+
+    @Test
+    fun `config with custom tab is valid`() {
+        val custom = NavigationTab.Custom(id = "racing", label = "Racing", iconName = "speed")
+        val config = NavigationConfig(
+            tabs = listOf(NavigationTab.Devices, custom, NavigationTab.Settings)
+        )
+        assertTrue(config.isValid())
+    }
+
+    @Test
+    fun `config with duplicate custom tab IDs is invalid`() {
+        val custom1 = NavigationTab.Custom(id = "racing", label = "Racing", iconName = "speed")
+        val custom2 = NavigationTab.Custom(id = "racing", label = "Racing 2", iconName = "bolt")
+        val config = NavigationConfig(
+            tabs = listOf(NavigationTab.Devices, custom1, custom2, NavigationTab.Settings)
+        )
+        assertFalse(config.isValid())
+    }
+
+    @Test
+    fun `customTabs returns only custom tabs`() {
+        val custom = NavigationTab.Custom(id = "racing", label = "Racing", iconName = "speed")
+        val config = NavigationConfig(
+            tabs = listOf(NavigationTab.Devices, custom, NavigationTab.Settings)
+        )
+        assertEquals(listOf(custom), config.customTabs)
+    }
+
+    @Test
+    fun `customTabs is empty for built-in only config`() {
+        val config = NavigationConfig()
+        assertTrue(config.customTabs.isEmpty())
+    }
+
+    @Test
+    fun `config with mixed built-in and custom tabs at max is valid`() {
+        val custom1 = NavigationTab.Custom(id = "racing", label = "Racing", iconName = "speed")
+        val custom2 = NavigationTab.Custom(id = "battery", label = "Battery", iconName = "battery_full")
+        val config = NavigationConfig(
+            tabs = listOf(NavigationTab.Devices, custom1, custom2, NavigationTab.Rides, NavigationTab.Settings)
+        )
+        assertTrue(config.isValid())
+        assertEquals(2, config.customTabs.size)
     }
 }

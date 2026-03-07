@@ -154,6 +154,7 @@ class WheelManager: ObservableObject {
         didSet {
             let serialized = NavigationConfigSerializer.shared.serialize(config: navigationConfig)
             UserDefaults.standard.set(serialized, forKey: PreferenceKeys.shared.NAVIGATION_CONFIG)
+            loadCustomTabLayouts()
         }
     }
 
@@ -177,6 +178,37 @@ class WheelManager: ObservableObject {
 
     func applyPreset(_ preset: DashboardPreset) {
         dashboardLayout = preset.layout
+    }
+
+    // MARK: - Custom Tab Layouts
+
+    @Published var customTabLayouts: [String: DashboardLayout] = [:]
+
+    func loadCustomTabLayouts() {
+        var layouts: [String: DashboardLayout] = [:]
+        for tab in Array(navigationConfig.customTabs) {
+            let key = "custom_tab_\(tab.id)_layout"
+            if let raw = UserDefaults.standard.string(forKey: key),
+               let layout = DashboardLayoutSerializer.shared.deserialize(input: raw) {
+                layouts[tab.id] = layout
+            } else {
+                layouts[tab.id] = DashboardLayout.companion.default()
+            }
+        }
+        customTabLayouts = layouts
+    }
+
+    func saveCustomTabLayout(tabId: String, layout: DashboardLayout) {
+        let key = "custom_tab_\(tabId)_layout"
+        let serialized = DashboardLayoutSerializer.shared.serialize(layout: layout)
+        UserDefaults.standard.set(serialized, forKey: key)
+        customTabLayouts[tabId] = layout
+    }
+
+    func deleteCustomTabLayout(tabId: String) {
+        let key = "custom_tab_\(tabId)_layout"
+        UserDefaults.standard.removeObject(forKey: key)
+        customTabLayouts.removeValue(forKey: tabId)
     }
 
     // MARK: - Saved Wheel Profiles
@@ -281,6 +313,7 @@ class WheelManager: ObservableObject {
             self.setupAlarmCallbacks()
             self.startObserving()
             self.loadNavigationConfig()
+            self.loadCustomTabLayouts()
             self.backgroundManager.requestNotificationPermission()
 
             self.startupScan()

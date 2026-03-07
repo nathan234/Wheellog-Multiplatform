@@ -4,26 +4,14 @@ import FreeWheelCore
 struct ContentView: View {
     @EnvironmentObject var wheelManager: WheelManager
 
-    private func sfSymbol(for tab: NavigationTab) -> String {
-        switch tab.iconName {
-        case "bluetooth": return "antenna.radiowaves.left.and.right"
-        case "show_chart": return "chart.xyaxis.line"
-        case "battery_full": return "battery.100"
-        case "route": return "road.lanes"
-        case "tune": return "slider.horizontal.3"
-        case "settings": return "gearshape"
-        default: return "questionmark"
-        }
-    }
-
     var body: some View {
         TabView {
-            ForEach(Array(wheelManager.navigationConfig.tabs), id: \.name) { tab in
+            ForEach(Array(wheelManager.navigationConfig.tabs), id: \.id) { tab in
                 NavigationStack {
                     tabContent(for: tab)
                 }
                 .tabItem {
-                    Label(tab.label, systemImage: sfSymbol(for: tab))
+                    Label(tab.label, systemImage: sfSymbol(for: tab.iconName))
                 }
             }
         }
@@ -31,8 +19,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private func tabContent(for tab: NavigationTab) -> some View {
-        switch tab {
-        case .devices:
+        if tab is NavigationTab.Devices {
             ZStack {
                 if wheelManager.connectionState.isConnected {
                     DashboardView()
@@ -44,17 +31,19 @@ struct ContentView: View {
                     Spacer()
                 }
             }
-        case .chart:
+        } else if tab is NavigationTab.Chart {
             TelemetryChartView()
-        case .bms:
+        } else if tab is NavigationTab.Bms {
             SmartBmsView()
-        case .rides:
+        } else if tab is NavigationTab.Rides {
             RidesView()
-        case .wheelSettings:
+        } else if tab is NavigationTab.WheelSettings {
             WheelSettingsView()
-        case .settings:
+        } else if tab is NavigationTab.Settings {
             SettingsView()
-        default:
+        } else if let custom = tab as? NavigationTab.Custom {
+            CustomTabView(tabId: custom.id)
+        } else {
             Text("Unknown tab")
         }
     }

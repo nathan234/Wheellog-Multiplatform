@@ -163,6 +163,10 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val _navigationConfig = MutableStateFlow(NavigationConfig())
     val navigationConfig: StateFlow<NavigationConfig> = _navigationConfig.asStateFlow()
 
+    // Custom tab layouts (global, keyed by custom tab ID)
+    private val _customTabLayouts = MutableStateFlow<Map<String, DashboardLayout>>(emptyMap())
+    val customTabLayouts: StateFlow<Map<String, DashboardLayout>> = _customTabLayouts.asStateFlow()
+
     // Saved wheel profiles
     val profileStore = WheelProfileStore(
         PreferenceManager.getDefaultSharedPreferences(application)
@@ -225,6 +229,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         tripRepository = TripRepository(db.tripDao())
         prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
         loadNavigationConfig()
+        loadCustomTabLayouts()
         startTelemetryBuffering()
         startAlarmMonitoring()
     }
@@ -593,6 +598,31 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         if (!config.isValid()) return
         _navigationConfig.value = config
         prefs.edit().putString(PreferenceKeys.NAVIGATION_CONFIG, NavigationConfigSerializer.serialize(config)).apply()
+        loadCustomTabLayouts()
+    }
+
+    private fun loadCustomTabLayouts() {
+        val config = _navigationConfig.value
+        val layouts = mutableMapOf<String, DashboardLayout>()
+        for (tab in config.customTabs) {
+            val key = "custom_tab_${tab.id}_layout"
+            val raw = prefs.getString(key, null)
+            layouts[tab.id] = raw?.let { DashboardLayoutSerializer.deserialize(it) }
+                ?: DashboardLayout.default()
+        }
+        _customTabLayouts.value = layouts
+    }
+
+    fun saveCustomTabLayout(tabId: String, layout: DashboardLayout) {
+        val key = "custom_tab_${tabId}_layout"
+        prefs.edit().putString(key, DashboardLayoutSerializer.serialize(layout)).apply()
+        _customTabLayouts.value = _customTabLayouts.value + (tabId to layout)
+    }
+
+    fun deleteCustomTabLayout(tabId: String) {
+        val key = "custom_tab_${tabId}_layout"
+        prefs.edit().remove(key).apply()
+        _customTabLayouts.value = _customTabLayouts.value - tabId
     }
 
     fun getGlobalString(key: String, default: String?): String? =

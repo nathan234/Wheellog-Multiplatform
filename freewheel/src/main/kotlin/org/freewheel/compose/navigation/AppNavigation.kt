@@ -5,9 +5,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -27,6 +34,8 @@ import androidx.navigation.compose.rememberNavController
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.compose.SmartBmsScreen
 import org.freewheel.compose.screens.ChartScreen
+import org.freewheel.compose.screens.CustomTabEditScreen
+import org.freewheel.compose.screens.CustomTabScreen
 import org.freewheel.compose.screens.DashboardEditScreen
 import org.freewheel.compose.screens.DashboardScreen
 import org.freewheel.compose.screens.MetricDetailScreen
@@ -47,11 +56,18 @@ fun tabIcon(tab: NavigationTab): ImageVector = when (tab.iconName) {
     "route" -> Icons.Default.Route
     "tune" -> Icons.Default.Tune
     "settings" -> Icons.Default.Settings
-    else -> Icons.Default.Bluetooth
+    "dashboard" -> Icons.Default.Dashboard
+    "speed" -> Icons.Default.Speed
+    "star" -> Icons.Default.Star
+    "favorite" -> Icons.Default.Favorite
+    "bolt" -> Icons.Default.Bolt
+    "visibility" -> Icons.Default.Visibility
+    "thermostat" -> Icons.Default.Thermostat
+    else -> Icons.Default.Dashboard
 }
 
 // Routes that should hide the bottom bar (overlay screens)
-private val overlayRoutes = setOf("edit_dashboard", "edit_navigation")
+private val overlayRoutes = setOf(Routes.EDIT_DASHBOARD, Routes.EDIT_NAVIGATION)
 
 @Composable
 fun AppNavigation(viewModel: WheelViewModel) {
@@ -63,11 +79,13 @@ fun AppNavigation(viewModel: WheelViewModel) {
 
     // Hide bottom bar on overlay screens and metric/trip detail
     val showBottomBar = currentRoute !in overlayRoutes
-        && currentRoute?.startsWith("metric/") != true
-        && currentRoute?.startsWith("trip/") != true
+        && currentRoute?.startsWith(Routes.METRIC_PREFIX) != true
+        && currentRoute?.startsWith(Routes.TRIP_PREFIX) != true
+        && currentRoute?.startsWith(Routes.EDIT_CUSTOM_PREFIX) != true
         // Hide bottom bar on screens that are NOT tabs (accessed from dashboard buttons)
         && (currentRoute == null || currentRoute in tabRoutes
-            || currentRoute == "devices") // devices is always a valid route
+            || currentRoute == NavigationTab.Devices.route
+            || currentRoute?.startsWith(Routes.CUSTOM_PREFIX) == true)
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -96,21 +114,21 @@ fun AppNavigation(viewModel: WheelViewModel) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = NavigationTab.DEVICES.route,
+            startDestination = NavigationTab.Devices.route,
             modifier = Modifier.padding(innerPadding)
         ) {
             // Devices tab — shows dashboard when connected, scan when not
-            composable(NavigationTab.DEVICES.route) {
+            composable(NavigationTab.Devices.route) {
                 val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
                 val isAutoConnecting by viewModel.isAutoConnecting.collectAsStateWithLifecycle()
                 if (connectionState.isConnected) {
                     DashboardScreen(
                         viewModel = viewModel,
-                        onNavigateToChart = { navController.navigate("chart") },
-                        onNavigateToBms = { navController.navigate("bms") },
-                        onNavigateToMetric = { metricId -> navController.navigate("metric/$metricId") },
-                        onNavigateToWheelSettings = { navController.navigate("wheel_settings") },
-                        onNavigateToEditDashboard = { navController.navigate("edit_dashboard") }
+                        onNavigateToChart = { navController.navigate(NavigationTab.Chart.route) },
+                        onNavigateToBms = { navController.navigate(NavigationTab.Bms.route) },
+                        onNavigateToMetric = { metricId -> navController.navigate(Routes.metricDetail(metricId)) },
+                        onNavigateToWheelSettings = { navController.navigate(NavigationTab.WheelSettings.route) },
+                        onNavigateToEditDashboard = { navController.navigate(Routes.EDIT_DASHBOARD) }
                     )
                 } else if (isAutoConnecting) {
                     AutoConnectContent(onCancel = { viewModel.disconnect() })
@@ -120,7 +138,7 @@ fun AppNavigation(viewModel: WheelViewModel) {
             }
 
             // Chart — as tab or overlay
-            composable(NavigationTab.CHART.route) {
+            composable(NavigationTab.Chart.route) {
                 ChartScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
@@ -128,22 +146,22 @@ fun AppNavigation(viewModel: WheelViewModel) {
             }
 
             // BMS — as tab or overlay
-            composable(NavigationTab.BMS.route) {
+            composable(NavigationTab.Bms.route) {
                 SmartBmsScreen(viewModel = viewModel)
             }
 
             // Rides tab
-            composable(NavigationTab.RIDES.route) {
+            composable(NavigationTab.Rides.route) {
                 RidesScreen(
                     viewModel = viewModel,
                     onNavigateToTripDetail = { fileName ->
-                        navController.navigate("trip/$fileName")
+                        navController.navigate(Routes.tripDetail(fileName))
                     }
                 )
             }
 
             // Wheel Settings — as tab or overlay
-            composable(NavigationTab.WHEEL_SETTINGS.route) {
+            composable(NavigationTab.WheelSettings.route) {
                 WheelSettingsScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
@@ -151,15 +169,26 @@ fun AppNavigation(viewModel: WheelViewModel) {
             }
 
             // Settings tab
-            composable(NavigationTab.SETTINGS.route) {
+            composable(NavigationTab.Settings.route) {
                 SettingsScreen(
                     viewModel = viewModel,
-                    onNavigateToEditNavigation = { navController.navigate("edit_navigation") }
+                    onNavigateToEditNavigation = { navController.navigate(Routes.EDIT_NAVIGATION) }
+                )
+            }
+
+            // Custom tab
+            composable(Routes.CUSTOM_TAB) { backStackEntry ->
+                val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+                CustomTabScreen(
+                    viewModel = viewModel,
+                    tabId = tabId,
+                    onNavigateToMetric = { metricId -> navController.navigate(Routes.metricDetail(metricId)) },
+                    onNavigateToEditLayout = { navController.navigate(Routes.editCustomTab(tabId)) }
                 )
             }
 
             // Metric detail (overlay)
-            composable("metric/{metricId}") { backStackEntry ->
+            composable(Routes.METRIC_DETAIL) { backStackEntry ->
                 val metricId = backStackEntry.arguments?.getString("metricId") ?: "speed"
                 MetricDetailScreen(
                     viewModel = viewModel,
@@ -169,7 +198,7 @@ fun AppNavigation(viewModel: WheelViewModel) {
             }
 
             // Trip detail (overlay)
-            composable("trip/{fileName}") { backStackEntry ->
+            composable(Routes.TRIP_DETAIL) { backStackEntry ->
                 val fileName = backStackEntry.arguments?.getString("fileName") ?: ""
                 TripDetailScreen(
                     viewModel = viewModel,
@@ -179,18 +208,31 @@ fun AppNavigation(viewModel: WheelViewModel) {
             }
 
             // Dashboard edit (overlay)
-            composable("edit_dashboard") {
+            composable(Routes.EDIT_DASHBOARD) {
                 DashboardEditScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
             }
 
+            // Custom tab edit (overlay)
+            composable(Routes.EDIT_CUSTOM_TAB) { backStackEntry ->
+                val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+                CustomTabEditScreen(
+                    viewModel = viewModel,
+                    tabId = tabId,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             // Navigation edit (overlay)
-            composable("edit_navigation") {
+            composable(Routes.EDIT_NAVIGATION) {
                 NavigationEditScreen(
                     viewModel = viewModel,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToEditCustomTab = { tabId ->
+                        navController.navigate(Routes.editCustomTab(tabId))
+                    }
                 )
             }
         }

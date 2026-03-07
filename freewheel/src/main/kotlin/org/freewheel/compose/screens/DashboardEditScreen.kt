@@ -64,8 +64,30 @@ fun DashboardEditScreen(
 ) {
     val currentLayout by viewModel.dashboardLayout.collectAsStateWithLifecycle()
     val wheelState by viewModel.wheelState.collectAsStateWithLifecycle()
-    val wheelType = wheelState.wheelType
 
+    LayoutEditorContent(
+        title = "Edit Dashboard",
+        currentLayout = currentLayout,
+        wheelType = wheelState.wheelType,
+        onSave = { layout -> viewModel.saveDashboardLayout(layout); onBack() },
+        onCancel = onBack
+    )
+}
+
+/**
+ * Shared layout editor UI used by both [DashboardEditScreen] and [CustomTabEditScreen].
+ * Contains preset picker, hero gauge selector, tile/stat list editors, info card toggles,
+ * and add-metric dialogs.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun LayoutEditorContent(
+    title: String,
+    currentLayout: DashboardLayout,
+    wheelType: WheelType,
+    onSave: (DashboardLayout) -> Unit,
+    onCancel: () -> Unit
+) {
     // Local mutable state
     var heroMetric by remember(currentLayout) { mutableStateOf(currentLayout.heroMetric) }
     val tiles = remember(currentLayout) { mutableStateListOf(*currentLayout.tiles.toTypedArray()) }
@@ -85,9 +107,9 @@ fun DashboardEditScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Edit Dashboard") },
+                title = { Text(title) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Cancel") }
+                    TextButton(onClick = onCancel) { Text("Cancel") }
                 },
                 actions = {
                     TextButton(
@@ -101,8 +123,7 @@ fun DashboardEditScreen(
                                 stats = stats.toList(),
                                 sections = sections
                             )
-                            viewModel.saveDashboardLayout(layout)
-                            onBack()
+                            onSave(layout)
                         },
                         enabled = isLayoutValid
                     ) {
@@ -252,7 +273,7 @@ fun DashboardEditScreen(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleSmall,
@@ -262,7 +283,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun MetricListEditor(
+internal fun MetricListEditor(
     metrics: List<DashboardMetric>,
     widgetType: WidgetType,
     wheelType: WheelType,
@@ -321,7 +342,7 @@ private fun MetricListEditor(
 }
 
 @Composable
-private fun AddMetricDialog(
+internal fun AddMetricDialog(
     title: String,
     widgetType: WidgetType,
     wheelType: WheelType,

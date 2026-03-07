@@ -6,6 +6,7 @@ import FreeWheelCore
 struct DashboardContentView: View {
     @EnvironmentObject var wheelManager: WheelManager
     let layout: DashboardLayout
+    var showControls: Bool = true
     @Binding var selectedMetric: String?
     @Binding var showChart: Bool
     @Binding var showBms: Bool
@@ -56,14 +57,16 @@ struct DashboardContentView: View {
                 }
 
                 if isSpeedHero {
-                    // Speed display mode picker
-                    Picker("Speed Source", selection: $wheelManager.speedDisplayMode) {
-                        Text(DashboardLabels.shared.SPEED_SOURCE_SPEED).tag(SpeedDisplayMode.wheel)
-                        Text(DashboardLabels.shared.SPEED_SOURCE_GPS).tag(SpeedDisplayMode.gps)
-                        Text(DashboardLabels.shared.SPEED_SOURCE_BOTH).tag(SpeedDisplayMode.both)
+                    // Speed display mode picker (only on main dashboard)
+                    if showControls {
+                        Picker("Speed Source", selection: $wheelManager.speedDisplayMode) {
+                            Text(DashboardLabels.shared.SPEED_SOURCE_SPEED).tag(SpeedDisplayMode.wheel)
+                            Text(DashboardLabels.shared.SPEED_SOURCE_GPS).tag(SpeedDisplayMode.gps)
+                            Text(DashboardLabels.shared.SPEED_SOURCE_BOTH).tag(SpeedDisplayMode.both)
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.horizontal)
                     }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
 
                     // Speed gauge
                     Button(action: { selectedMetric = "speed" }) {
@@ -138,171 +141,173 @@ struct DashboardContentView: View {
                     .padding(.horizontal)
                 }
 
-                // Wheel settings (conditional)
-                if effectiveLayout.showWheelSettings && wheelManager.wheelState.pedalsMode >= 0 {
-                    NavigationLink(destination: WheelSettingsView()) {
+                if showControls {
+                    // Wheel settings (conditional)
+                    if effectiveLayout.showWheelSettings && wheelManager.wheelState.pedalsMode >= 0 {
+                        NavigationLink(destination: WheelSettingsView()) {
+                            VStack(spacing: 12) {
+                                StatRow(label: DashboardLabels.shared.PEDALS_MODE, value: DisplayUtils.shared.pedalsModeText(mode: wheelManager.wheelState.pedalsMode))
+                                StatRow(label: DashboardLabels.shared.TILT_BACK_SPEED, value: DisplayUtils.shared.tiltBackSpeedText(speed: wheelManager.wheelState.tiltBackSpeed, useMph: wheelManager.useMph))
+                                StatRow(label: DashboardLabels.shared.LIGHT, value: DisplayUtils.shared.lightModeText(mode: wheelManager.wheelState.lightMode))
+                                StatRow(label: DashboardLabels.shared.LED_MODE, value: "\(wheelManager.wheelState.ledMode)")
+                            }
+                            .padding()
+                            .background(Color(UIColor.secondarySystemGroupedBackground))
+                            .cornerRadius(12)
+                            .padding(.horizontal)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Wheel info (conditional)
+                    if effectiveLayout.showWheelInfo && (!wheelManager.wheelState.name.isEmpty || !wheelManager.wheelState.model.isEmpty) {
                         VStack(spacing: 12) {
-                            StatRow(label: DashboardLabels.shared.PEDALS_MODE, value: DisplayUtils.shared.pedalsModeText(mode: wheelManager.wheelState.pedalsMode))
-                            StatRow(label: DashboardLabels.shared.TILT_BACK_SPEED, value: DisplayUtils.shared.tiltBackSpeedText(speed: wheelManager.wheelState.tiltBackSpeed, useMph: wheelManager.useMph))
-                            StatRow(label: DashboardLabels.shared.LIGHT, value: DisplayUtils.shared.lightModeText(mode: wheelManager.wheelState.lightMode))
-                            StatRow(label: DashboardLabels.shared.LED_MODE, value: "\(wheelManager.wheelState.ledMode)")
+                            if !wheelManager.wheelState.name.isEmpty {
+                                StatRow(label: DashboardLabels.shared.NAME, value: wheelManager.wheelState.name)
+                            }
+                            if !wheelManager.wheelState.model.isEmpty {
+                                StatRow(label: DashboardLabels.shared.MODEL, value: wheelManager.wheelState.model)
+                            }
+                            StatRow(label: DashboardLabels.shared.TYPE, value: wheelManager.wheelState.wheelType.name)
+                            if !wheelManager.wheelState.version.isEmpty {
+                                StatRow(label: DashboardLabels.shared.FIRMWARE, value: wheelManager.wheelState.version)
+                            }
                         }
                         .padding()
                         .background(Color(UIColor.secondarySystemGroupedBackground))
                         .cornerRadius(12)
                         .padding(.horizontal)
                     }
-                    .buttonStyle(.plain)
-                }
 
-                // Wheel info (conditional)
-                if effectiveLayout.showWheelInfo && (!wheelManager.wheelState.name.isEmpty || !wheelManager.wheelState.model.isEmpty) {
-                    VStack(spacing: 12) {
-                        if !wheelManager.wheelState.name.isEmpty {
-                            StatRow(label: DashboardLabels.shared.NAME, value: wheelManager.wheelState.name)
-                        }
-                        if !wheelManager.wheelState.model.isEmpty {
-                            StatRow(label: DashboardLabels.shared.MODEL, value: wheelManager.wheelState.model)
-                        }
-                        StatRow(label: DashboardLabels.shared.TYPE, value: wheelManager.wheelState.wheelType.name)
-                        if !wheelManager.wheelState.version.isEmpty {
-                            StatRow(label: DashboardLabels.shared.FIRMWARE, value: wheelManager.wheelState.version)
-                        }
-                    }
-                    .padding()
-                    .background(Color(UIColor.secondarySystemGroupedBackground))
-                    .cornerRadius(12)
-                    .padding(.horizontal)
-                }
-
-                // Demo/Test mode indicator
-                if wheelManager.isMockMode {
-                    HStack {
-                        Image(systemName: "info.circle.fill")
-                        Text(DashboardLabels.shared.DEMO_MODE_BADGE)
-                    }
-                    .font(.caption)
-                    .foregroundColor(.orange)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 16)
-                    .background(Color.orange.opacity(0.15))
-                    .cornerRadius(8)
-                } else if wheelManager.isTestMode {
-                    HStack {
-                        Image(systemName: "testtube.2")
-                        Text(DashboardLabels.shared.TEST_MODE_BADGE)
-                    }
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 16)
-                    .background(Color.blue.opacity(0.15))
-                    .cornerRadius(8)
-                }
-
-                // Controls row: Horn, Light
-                if !wheelManager.isMockMode && !wheelManager.isTestMode {
-                    HStack(spacing: 12) {
-                        Button(action: { wheelManager.wheelBeep() }) {
-                            HStack {
-                                Image(systemName: "speaker.wave.2.fill")
-                                Text(DashboardLabels.shared.HORN)
-                            }
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.blue)
-                            .cornerRadius(12)
-                        }
-
-                        Button(action: { wheelManager.toggleLight() }) {
-                            HStack {
-                                Image(systemName: wheelManager.isLightOn ? "lightbulb.fill" : "lightbulb")
-                                Text(DashboardLabels.shared.LIGHT)
-                            }
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(wheelManager.isLightOn ? Color.yellow : Color.blue)
-                            .cornerRadius(12)
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-
-                // Record, BMS, Chart row
-                HStack(spacing: 12) {
-                    if wheelManager.connectionState.isConnected {
-                        Button(action: {
-                            if wheelManager.isLogging {
-                                wheelManager.stopLogging()
-                            } else {
-                                wheelManager.startLogging()
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
-                                Text(wheelManager.isLogging ? DashboardLabels.shared.STOP : DashboardLabels.shared.RECORD)
-                            }
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(wheelManager.isLogging ? Color.red : Color.gray)
-                            .cornerRadius(12)
-                        }
-                    }
-
-                    Button(action: { showBms = true }) {
-                        HStack {
-                            Image(systemName: "battery.100")
-                            Text(DashboardLabels.shared.BMS)
-                        }
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.gray)
-                        .cornerRadius(12)
-                    }
-
-                    Button(action: { showChart = true }) {
-                        HStack {
-                            Image(systemName: "chart.xyaxis.line")
-                            Text(DashboardLabels.shared.CHART)
-                        }
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.purple)
-                        .cornerRadius(12)
-                    }
-                }
-                .padding(.horizontal)
-
-                // Disconnect button
-                Button(action: {
+                    // Demo/Test mode indicator
                     if wheelManager.isMockMode {
-                        wheelManager.stopMockMode()
+                        HStack {
+                            Image(systemName: "info.circle.fill")
+                            Text(DashboardLabels.shared.DEMO_MODE_BADGE)
+                        }
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(8)
                     } else if wheelManager.isTestMode {
-                        wheelManager.stopTestMode()
-                    } else {
-                        wheelManager.disconnect()
+                        HStack {
+                            Image(systemName: "testtube.2")
+                            Text(DashboardLabels.shared.TEST_MODE_BADGE)
+                        }
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(Color.blue.opacity(0.15))
+                        .cornerRadius(8)
                     }
-                }) {
-                    Text(disconnectLabel)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(disconnectColor)
-                        .cornerRadius(12)
+
+                    // Controls row: Horn, Light
+                    if !wheelManager.isMockMode && !wheelManager.isTestMode {
+                        HStack(spacing: 12) {
+                            Button(action: { wheelManager.wheelBeep() }) {
+                                HStack {
+                                    Image(systemName: "speaker.wave.2.fill")
+                                    Text(DashboardLabels.shared.HORN)
+                                }
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(Color.blue)
+                                .cornerRadius(12)
+                            }
+
+                            Button(action: { wheelManager.toggleLight() }) {
+                                HStack {
+                                    Image(systemName: wheelManager.isLightOn ? "lightbulb.fill" : "lightbulb")
+                                    Text(DashboardLabels.shared.LIGHT)
+                                }
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(wheelManager.isLightOn ? Color.yellow : Color.blue)
+                                .cornerRadius(12)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    // Record, BMS, Chart row
+                    HStack(spacing: 12) {
+                        if wheelManager.connectionState.isConnected {
+                            Button(action: {
+                                if wheelManager.isLogging {
+                                    wheelManager.stopLogging()
+                                } else {
+                                    wheelManager.startLogging()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
+                                    Text(wheelManager.isLogging ? DashboardLabels.shared.STOP : DashboardLabels.shared.RECORD)
+                                }
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(wheelManager.isLogging ? Color.red : Color.gray)
+                                .cornerRadius(12)
+                            }
+                        }
+
+                        Button(action: { showBms = true }) {
+                            HStack {
+                                Image(systemName: "battery.100")
+                                Text(DashboardLabels.shared.BMS)
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.gray)
+                            .cornerRadius(12)
+                        }
+
+                        Button(action: { showChart = true }) {
+                            HStack {
+                                Image(systemName: "chart.xyaxis.line")
+                                Text(DashboardLabels.shared.CHART)
+                            }
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.purple)
+                            .cornerRadius(12)
+                        }
+                    }
+                    .padding(.horizontal)
+
+                    // Disconnect button
+                    Button(action: {
+                        if wheelManager.isMockMode {
+                            wheelManager.stopMockMode()
+                        } else if wheelManager.isTestMode {
+                            wheelManager.stopTestMode()
+                        } else {
+                            wheelManager.disconnect()
+                        }
+                    }) {
+                        Text(disconnectLabel)
+                            .fontWeight(.medium)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(disconnectColor)
+                            .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 20)
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
             }
         }
         .background(Color(UIColor.systemGroupedBackground))

@@ -5,6 +5,29 @@ struct DashboardEditView: View {
     @EnvironmentObject var wheelManager: WheelManager
     @Environment(\.dismiss) var dismiss
 
+    var body: some View {
+        LayoutEditorBody(
+            title: "Edit Dashboard",
+            initialLayout: wheelManager.dashboardLayout,
+            wheelType: wheelManager.wheelState.wheelType,
+            onSave: { layout in
+                wheelManager.dashboardLayout = layout
+                dismiss()
+            },
+            onCancel: { dismiss() }
+        )
+    }
+}
+
+/// Shared layout editor used by both DashboardEditView and CustomTabEditView.
+/// Contains preset picker, hero gauge selector, tile/stat list editors, and info card toggles.
+struct LayoutEditorBody: View {
+    let title: String
+    let initialLayout: DashboardLayout
+    let wheelType: WheelType
+    let onSave: (DashboardLayout) -> Void
+    let onCancel: () -> Void
+
     @State private var heroMetric: DashboardMetric = .speed
     @State private var tiles: [DashboardMetric] = []
     @State private var stats: [DashboardMetric] = []
@@ -27,7 +50,7 @@ struct DashboardEditView: View {
                     HStack(spacing: 8) {
                         ForEach(DashboardPresets.shared.all(), id: \.id) { preset in
                             Button(preset.name) {
-                                let filtered = preset.layout.filteredFor(wheelType: wheelManager.wheelState.wheelType)
+                                let filtered = preset.layout.filteredFor(wheelType: wheelType)
                                 heroMetric = filtered.heroMetric
                                 tiles = Array(filtered.tiles)
                                 stats = Array(filtered.stats)
@@ -44,7 +67,7 @@ struct DashboardEditView: View {
             Section("Hero Gauge") {
                 let heroOptions = DashboardMetric.entries.filter {
                     $0.supportedDisplayTypes.contains(.heroGauge) &&
-                    $0.isAvailableFor(wheelType: wheelManager.wheelState.wheelType)
+                    $0.isAvailableFor(wheelType: wheelType)
                 }
                 ForEach(heroOptions, id: \.name) { metric in
                     Button(action: { heroMetric = metric }) {
@@ -133,11 +156,11 @@ struct DashboardEditView: View {
                 Toggle("Show Wheel Info", isOn: $showWheelInfo)
             }
         }
-        .navigationTitle("Edit Dashboard")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") { dismiss() }
+                Button("Cancel") { onCancel() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") {
@@ -151,25 +174,24 @@ struct DashboardEditView: View {
                         stats: stats,
                         sections: sections
                     )
-                    wheelManager.dashboardLayout = layout
-                    dismiss()
+                    onSave(layout)
                 }
                 .fontWeight(.bold)
                 .disabled(!isLayoutValid)
             }
         }
         .onAppear {
-            heroMetric = wheelManager.dashboardLayout.heroMetric
-            tiles = Array(wheelManager.dashboardLayout.tiles)
-            stats = Array(wheelManager.dashboardLayout.stats)
-            showWheelSettings = wheelManager.dashboardLayout.showWheelSettings
-            showWheelInfo = wheelManager.dashboardLayout.showWheelInfo
+            heroMetric = initialLayout.heroMetric
+            tiles = Array(initialLayout.tiles)
+            stats = Array(initialLayout.stats)
+            showWheelSettings = initialLayout.showWheelSettings
+            showWheelInfo = initialLayout.showWheelInfo
         }
         .sheet(isPresented: $showAddTile) {
             AddMetricSheet(
                 title: "Add Gauge Tile",
                 widgetType: .gaugeTile,
-                wheelType: wheelManager.wheelState.wheelType,
+                wheelType: wheelType,
                 alreadySelected: Set(tiles + stats)
             ) { metric in
                 tiles.append(metric)
@@ -180,7 +202,7 @@ struct DashboardEditView: View {
             AddMetricSheet(
                 title: "Add Stat Row",
                 widgetType: .statRow,
-                wheelType: wheelManager.wheelState.wheelType,
+                wheelType: wheelType,
                 alreadySelected: Set(tiles + stats)
             ) { metric in
                 stats.append(metric)

@@ -87,6 +87,7 @@ fun DashboardContent(
     onToggleLight: () -> Unit,
     onToggleLogging: () -> Unit,
     onDisconnect: () -> Unit,
+    showControls: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val effectiveLayout = remember(layout, wheelState.wheelType) {
@@ -115,28 +116,30 @@ fun DashboardContent(
             effectiveLayout.heroMetric == DashboardMetric.GPS_SPEED
 
         if (isSpeedHero) {
-            // Speed display mode picker
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
-            ) {
-                for (mode in SpeedDisplayMode.entries) {
-                    val label = when (mode) {
-                        SpeedDisplayMode.WHEEL -> DashboardLabels.SPEED_SOURCE_SPEED
-                        SpeedDisplayMode.GPS -> DashboardLabels.SPEED_SOURCE_GPS
-                        SpeedDisplayMode.BOTH -> DashboardLabels.SPEED_SOURCE_BOTH
-                    }
-                    FilterChip(
-                        selected = speedDisplayMode == mode,
-                        onClick = { onSpeedDisplayModeChange(mode) },
-                        label = { Text(label) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+            // Speed display mode picker (dashboard only)
+            if (showControls) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
+                    for (mode in SpeedDisplayMode.entries) {
+                        val label = when (mode) {
+                            SpeedDisplayMode.WHEEL -> DashboardLabels.SPEED_SOURCE_SPEED
+                            SpeedDisplayMode.GPS -> DashboardLabels.SPEED_SOURCE_GPS
+                            SpeedDisplayMode.BOTH -> DashboardLabels.SPEED_SOURCE_BOTH
+                        }
+                        FilterChip(
+                            selected = speedDisplayMode == mode,
+                            onClick = { onSpeedDisplayModeChange(mode) },
+                            label = { Text(label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         )
-                    )
+                    }
                 }
             }
 
@@ -241,6 +244,12 @@ fun DashboardContent(
                     StatRow(label = DashboardLabels.FIRMWARE, value = wheelState.version)
                 }
             }
+        }
+
+        // Everything below is dashboard-only (controls, nav buttons, disconnect)
+        if (!showControls) {
+            Spacer(Modifier.height(16.dp))
+            return@Column
         }
 
         // Demo mode badge

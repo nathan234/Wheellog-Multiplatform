@@ -7,7 +7,7 @@ package org.freewheel.core.domain.dashboard
  * Constraints:
  * - All required tabs (DEVICES, SETTINGS) must be present
  * - 2-5 tabs supported
- * - No duplicate tabs
+ * - No duplicate tabs (by ID)
  */
 data class NavigationConfig(
     val tabs: List<NavigationTab> = DEFAULT_TABS
@@ -16,13 +16,13 @@ data class NavigationConfig(
      * Returns true if this config is valid:
      * - Contains all required tabs
      * - Has 2-5 tabs
-     * - No duplicates
+     * - No duplicates (by ID)
      */
     fun isValid(): Boolean {
-        val required = NavigationTab.entries.filter { it.isRequired }
+        val required = NavigationTab.builtIn.filter { it.isRequired }
         if (!tabs.containsAll(required)) return false
         if (tabs.size < 2 || tabs.size > 5) return false
-        if (tabs.toSet().size != tabs.size) return false
+        if (tabs.map { it.id }.toSet().size != tabs.size) return false
         return true
     }
 
@@ -34,11 +34,15 @@ data class NavigationConfig(
         return emptyList()
     }
 
+    /** All custom tabs in this config. */
+    val customTabs: List<NavigationTab.Custom>
+        get() = tabs.filterIsInstance<NavigationTab.Custom>()
+
     companion object {
         val DEFAULT_TABS = listOf(
-            NavigationTab.DEVICES,
-            NavigationTab.RIDES,
-            NavigationTab.SETTINGS
+            NavigationTab.Devices,
+            NavigationTab.Rides,
+            NavigationTab.Settings
         )
 
         /** Swift-callable factory (KMP data class defaults aren't exposed to ObjC). */

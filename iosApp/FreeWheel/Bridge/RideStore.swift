@@ -66,10 +66,11 @@ class RideStore: ObservableObject {
 
     private static let metadataFileName = "metadata.json"
 
-    nonisolated init() {
-        Task { @MainActor in
-            loadRides()
-        }
+    nonisolated init() {}
+
+    /// Must be called after init to load persisted rides.
+    func initialize() {
+        loadRides()
     }
 
     // MARK: - CRUD
@@ -85,7 +86,9 @@ class RideStore: ObservableObject {
             let fileURL = Self.ridesDirectory().appendingPathComponent(ride.fileName)
             try? FileManager.default.removeItem(at: fileURL)
         }
-        rides.remove(atOffsets: offsets)
+        for index in offsets.sorted().reversed() {
+            rides.remove(at: index)
+        }
         saveRides()
     }
 

@@ -11,16 +11,14 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     override nonisolated init() {
         super.init()
-        Task { @MainActor in
-            manager.delegate = self
-            manager.desiredAccuracy = kCLLocationAccuracyBest
-            manager.distanceFilter = 1
-        }
     }
 
     func startTracking() {
         guard !isTracking else { return }
         isTracking = true
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+        manager.distanceFilter = 1
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }

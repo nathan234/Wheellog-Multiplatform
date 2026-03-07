@@ -314,6 +314,7 @@ class WheelManager: ObservableObject {
             self.startObserving()
             self.loadNavigationConfig()
             self.loadCustomTabLayouts()
+            self.rideStore.initialize()
             self.backgroundManager.requestNotificationPermission()
 
             self.startupScan()

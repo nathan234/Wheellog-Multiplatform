@@ -433,10 +433,13 @@ class WheelManager: ObservableObject {
         demoStateObserver?.close()
         demoStateObserver = nil
         WheelConnectionManagerHelper.shared.stopDemo(provider: demoProvider)
+        if isLogging { stopLogging() }
+        telemetryBuffer.clear()
+        alarmManager.reset()
+        activeAlarms = []
         isMockMode = false
         connectionState = .disconnected
         wheelState = WheelState.companion.empty()
-        telemetryBuffer.clear()
     }
 
     private func startDemoObserving() {
@@ -1058,18 +1061,12 @@ class WheelManager: ObservableObject {
         }
         UserDefaults.standard.removeObject(forKey: "FreeWheelLastPeripheralUUID")
 
-        // Stop logging
-        if isLogging {
-            stopLogging()
-        }
-
+        // BLE disconnect — cleanup happens in handleConnectionStateChange when
+        // state transitions to .disconnected, avoiding duplicate cleanup.
         connectionManager.disconnect { [weak self] error in
             Task { @MainActor in
                 self?.connectionState = .disconnected
                 self?.wheelState = WheelState.companion.empty()
-                self?.telemetryBuffer.clear()
-                self?.alarmManager.reset()
-                self?.activeAlarms = []
                 if let error = error {
                     print("Disconnect error: \(error.localizedDescription)")
                 }

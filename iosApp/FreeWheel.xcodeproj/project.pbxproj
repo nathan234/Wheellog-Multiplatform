@@ -37,6 +37,8 @@
 		I1000001221F0000000024 /* DashboardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001221F0000000014 /* DashboardEditView.swift */; };
 		I1000001221F0000000025 /* NavigationEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001221F0000000015 /* NavigationEditView.swift */; };
 		J1000001221F0000000026 /* HeroGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J1000001221F0000000016 /* HeroGaugeView.swift */; };
+		K1000001221F0000000027 /* CustomTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = K1000001221F0000000017 /* CustomTabView.swift */; };
+		K1000001221F0000000028 /* CustomTabEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = K1000001221F0000000018 /* CustomTabEditView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -72,6 +74,8 @@
 		I1000001221F0000000014 /* DashboardEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardEditView.swift; sourceTree = "<group>"; };
 		I1000001221F0000000015 /* NavigationEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationEditView.swift; sourceTree = "<group>"; };
 		J1000001221F0000000016 /* HeroGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroGaugeView.swift; sourceTree = "<group>"; };
+		K1000001221F0000000017 /* CustomTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTabView.swift; sourceTree = "<group>"; };
+		K1000001221F0000000018 /* CustomTabEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomTabEditView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -159,6 +163,8 @@
 				I1000001221F0000000014 /* DashboardEditView.swift */,
 				I1000001221F0000000015 /* NavigationEditView.swift */,
 				J1000001221F0000000016 /* HeroGaugeView.swift */,
+				K1000001221F0000000017 /* CustomTabView.swift */,
+				K1000001221F0000000018 /* CustomTabEditView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -284,6 +290,8 @@
 				I1000001221F0000000024 /* DashboardEditView.swift in Sources */,
 				I1000001221F0000000025 /* NavigationEditView.swift in Sources */,
 				J1000001221F0000000026 /* HeroGaugeView.swift in Sources */,
+				K1000001221F0000000027 /* CustomTabView.swift in Sources */,
+				K1000001221F0000000028 /* CustomTabEditView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

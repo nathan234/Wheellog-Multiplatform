@@ -249,6 +249,7 @@ struct DashboardContentView: View {
                                 HStack {
                                     Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
                                     Text(wheelManager.isLogging ? DashboardLabels.shared.STOP : DashboardLabels.shared.RECORD)
+                                        .lineLimit(1)
                                 }
                                 .fontWeight(.medium)
                                 .foregroundColor(.white)

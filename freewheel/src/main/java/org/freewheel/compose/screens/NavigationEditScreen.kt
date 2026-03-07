@@ -34,7 +34,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -177,7 +176,7 @@ fun NavigationEditScreen(
             if (warnings.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFFFF3E0)
+                    color = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         warnings.forEach { warning ->
@@ -188,12 +187,12 @@ fun NavigationEditScreen(
                                 Icon(
                                     Icons.Default.Warning,
                                     contentDescription = null,
-                                    tint = Color(0xFFFF9800)
+                                    tint = MaterialTheme.colorScheme.tertiary
                                 )
                                 Text(
                                     warning,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFFE65100)
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
                         }

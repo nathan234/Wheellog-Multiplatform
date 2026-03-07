@@ -247,7 +247,7 @@ fun DashboardContent(
         if (isDemo) {
             ModeBadge(
                 text = DashboardLabels.DEMO_MODE_BADGE,
-                color = Color(0xFFFF9800)
+                color = MaterialTheme.colorScheme.tertiary
             )
         }
 
@@ -261,7 +261,7 @@ fun DashboardContent(
             ) {
                 Button(
                     onClick = onBeep,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -272,7 +272,7 @@ fun DashboardContent(
                 Button(
                     onClick = onToggleLight,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLightOn) Color(0xFFFFC107) else Color(0xFF2196F3)
+                        containerColor = if (isLightOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -286,7 +286,7 @@ fun DashboardContent(
                 }
                 Button(
                     onClick = onNavigateToWheelSettings,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF607D8B)),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -308,7 +308,7 @@ fun DashboardContent(
                 Button(
                     onClick = onToggleLogging,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLogging) Color(0xFFF44336) else Color.Gray
+                        containerColor = if (isLogging) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
                     ),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
@@ -324,7 +324,7 @@ fun DashboardContent(
 
             Button(
                 onClick = onNavigateToChart,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
@@ -335,7 +335,7 @@ fun DashboardContent(
 
             Button(
                 onClick = onNavigateToBms,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF607D8B)),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
@@ -349,7 +349,7 @@ fun DashboardContent(
         Button(
             onClick = onDisconnect,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isDemo) Color(0xFFFF9800) else Color(0xFFF44336)
+                containerColor = if (isDemo) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
             ),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier

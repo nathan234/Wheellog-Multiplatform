@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.app.Activity
@@ -381,28 +380,8 @@ fun SettingsScreen(
             }
         }
 
-        // Decoder mode
-        SettingsSection(title = "Decoder") {
-            StatRow(
-                label = "Mode",
-                value = "KMP"
-            )
-        }
-
         // UI section
         SettingsSection(title = "Interface") {
-            SettingsToggle(
-                label = "Use New Compose UI",
-                checked = appConfig.useComposeUI,
-                onCheckedChange = { appConfig.useComposeUI = it }
-            )
-            Text(
-                "Restart the app to switch between legacy and Compose UI.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            HorizontalDivider()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -454,7 +433,7 @@ fun SettingsScreen(
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF44336))
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
             Text(SettingsLabels.CLOSE_APP)
         }

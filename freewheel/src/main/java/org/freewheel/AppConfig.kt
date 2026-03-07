@@ -10,10 +10,9 @@ import org.freewheel.utils.ThemeEnum
 import org.freewheel.shared.Constants
 import org.freewheel.shared.WearPage
 import org.freewheel.shared.WearPages
-import org.koin.core.component.KoinComponent
 import timber.log.Timber
 
-class AppConfig(var context: Context): KoinComponent {
+class AppConfig(var context: Context) {
     private val sharedPreferences: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
     private var specificPrefix: String = ""
     private val separator = ";"

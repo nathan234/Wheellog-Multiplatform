@@ -49,6 +49,8 @@ fun GaugeTile(
         label = "gauge_progress"
     )
 
+    val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+
     Surface(
         modifier = modifier
             .clickable(onClick = onClick)
@@ -84,7 +86,7 @@ fun GaugeTile(
 
                 // Background arc
                 drawArc(
-                    color = Color.Gray.copy(alpha = 0.15f),
+                    color = trackColor,
                     startAngle = 180f,
                     sweepAngle = 180f,
                     useCenter = false,

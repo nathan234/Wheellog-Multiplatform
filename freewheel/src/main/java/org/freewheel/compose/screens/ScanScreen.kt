@@ -93,7 +93,7 @@ fun AutoConnectContent(onCancel: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         TextButton(onClick = onCancel) {
-            Text(CommonLabels.CANCEL, color = Color(0xFFF44336), fontWeight = FontWeight.Medium)
+            Text(CommonLabels.CANCEL, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -237,7 +237,7 @@ fun ScanScreen(viewModel: WheelViewModel) {
                 // Demo mode button
                 Button(
                     onClick = { viewModel.startDemo() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -256,7 +256,7 @@ private fun ScanButton(
     onToggleScan: () -> Unit
 ) {
     val size = if (hasDevices) 100.dp else 160.dp
-    val buttonColor = if (isScanning) Color(0xFFF44336) else Color(0xFF2196F3)
+    val buttonColor = if (isScanning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
 
     Box(
         modifier = Modifier
@@ -315,7 +315,7 @@ private fun ScanButton(
                         else -> Icons.Default.Bluetooth
                     },
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(if (hasDevices) 24.dp else 40.dp)
                 )
                 Text(
@@ -324,7 +324,7 @@ private fun ScanButton(
                         hasDevices -> ScanLabels.RESCAN
                         else -> ScanLabels.SCAN
                     },
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = if (hasDevices) 14.sp else 20.sp
                 )
@@ -353,13 +353,13 @@ private fun SwipeToDismissDeviceRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFF44336))
+                    .background(MaterialTheme.colorScheme.error)
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Text(
                     text = ScanLabels.FORGET,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onError,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -383,8 +383,8 @@ private fun DeviceRow(
     onCancel: (() -> Unit)? = null
 ) {
     val rowBackground = when {
-        isConnecting -> Color(0xFF2196F3).copy(alpha = 0.08f)
-        isFailed -> Color(0xFFF44336).copy(alpha = 0.08f)
+        isConnecting -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        isFailed -> MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
         else -> Color.Transparent
     }
 
@@ -417,7 +417,7 @@ private fun DeviceRow(
                     text = statusText,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
-                    color = if (isFailed) Color(0xFFF44336) else Color(0xFF2196F3),
+                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -426,7 +426,7 @@ private fun DeviceRow(
                     text = ScanLabels.CONNECTION_FAILED,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFFF44336),
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -436,14 +436,14 @@ private fun DeviceRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
-                    color = Color(0xFF2196F3),
+                    color = MaterialTheme.colorScheme.primary,
                     strokeWidth = 2.dp
                 )
                 if (onCancel != null) {
                     Spacer(Modifier.width(8.dp))
                     TextButton(
                         onClick = onCancel,
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text(CommonLabels.CANCEL, fontWeight = FontWeight.Medium)
                     }
@@ -477,7 +477,7 @@ private fun SignalStrengthBars(rssi: Int) {
                     .clip(RoundedCornerShape(1.dp))
                     .background(
                         if (i < bars) Color(0xFF4CAF50)
-                        else Color.Gray.copy(alpha = 0.3f)
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                     )
             )
         }

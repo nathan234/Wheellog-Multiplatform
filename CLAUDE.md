@@ -319,7 +319,6 @@ KMP uses `expect`/`actual` declarations for platform-specific implementations. E
 |------------|---------|---------|
 | Kotlin | 2.2.10 | All modules |
 | Kotlinx Coroutines | 1.10.2 | core |
-| Koin (DI) | 4.1.1 | core |
 | Blessed (Android BLE) | 2.4.1 | core androidMain |
 | Jetpack Compose | 1.9.2 | freewheel |
 | Room (SQLite) | 2.7.2 | freewheel |

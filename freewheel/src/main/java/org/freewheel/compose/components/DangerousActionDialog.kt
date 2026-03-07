@@ -2,10 +2,10 @@ package org.freewheel.compose.components
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import org.freewheel.core.domain.CommonLabels
 import org.freewheel.core.domain.ControlSpec
 import org.freewheel.core.domain.SettingsCommandId
@@ -31,7 +31,7 @@ fun DangerousActionDialog(
                     confirmButton = {
                         TextButton(
                             onClick = { onConfirmButton(action.commandId) },
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) { Text(CommonLabels.CONFIRM) }
                     },
                     dismissButton = {
@@ -47,7 +47,7 @@ fun DangerousActionDialog(
                     confirmButton = {
                         TextButton(
                             onClick = { onConfirmToggle(action.commandId) },
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) { Text(CommonLabels.CONFIRM) }
                     },
                     dismissButton = {

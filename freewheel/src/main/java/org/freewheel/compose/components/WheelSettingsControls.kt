@@ -33,7 +33,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -255,7 +254,7 @@ internal fun DangerousButtonControl(
 ) {
     TextButton(
         onClick = { onDangerousAction(control) },
-        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFF44336))
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
     ) {
         Text(control.label, fontWeight = FontWeight.Medium)
     }
@@ -278,7 +277,7 @@ internal fun DangerousToggleControl(
         Text(
             control.label,
             style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFFF44336)
+            color = MaterialTheme.colorScheme.error
         )
         Switch(
             checked = checked,

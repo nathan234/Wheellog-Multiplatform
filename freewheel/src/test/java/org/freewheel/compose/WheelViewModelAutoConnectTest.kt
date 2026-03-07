@@ -26,7 +26,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -53,7 +52,6 @@ class WheelViewModelAutoConnectTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
 
-        // Koin is already started by WheelLog application class via Robolectric
         app = ApplicationProvider.getApplicationContext()
 
         // Clear preferences between tests
@@ -73,7 +71,6 @@ class WheelViewModelAutoConnectTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
-        stopKoin()
     }
 
     private fun setLastMac(mac: String) {

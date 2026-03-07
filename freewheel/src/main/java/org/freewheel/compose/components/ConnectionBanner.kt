@@ -14,12 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,10 +42,10 @@ fun ConnectionBanner(
         modifier = modifier
     ) {
         val color = when (connectionState) {
-            is ConnectionState.Connecting, is ConnectionState.DiscoveringServices -> Color(0xFF2196F3)
-            is ConnectionState.ConnectionLost -> Color(0xFFFF9800)
-            is ConnectionState.Failed -> Color(0xFFF44336)
-            else -> Color.Gray
+            is ConnectionState.Connecting, is ConnectionState.DiscoveringServices -> MaterialTheme.colorScheme.primary
+            is ConnectionState.ConnectionLost -> MaterialTheme.colorScheme.tertiary
+            is ConnectionState.Failed -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.outline
         }
 
         Row(
@@ -60,14 +60,14 @@ fun ConnectionBanner(
             if (connectionState is ConnectionState.Connecting || connectionState is ConnectionState.DiscoveringServices) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp
                 )
                 Spacer(Modifier.width(8.dp))
             }
             Text(
                 text = connectionState.statusText,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onPrimary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )

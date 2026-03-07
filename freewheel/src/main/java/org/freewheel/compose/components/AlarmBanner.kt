@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,8 +41,10 @@ fun AlarmBanner(
     var isPulsing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { isPulsing = true }
 
+    val errorColor = MaterialTheme.colorScheme.error
+    val tertiaryColor = MaterialTheme.colorScheme.tertiary
     val backgroundColor by animateColorAsState(
-        targetValue = if (isPulsing) Color(0xFFF44336) else Color(0xFFFF9800),
+        targetValue = if (isPulsing) errorColor else tertiaryColor,
         animationSpec = infiniteRepeatable(
             animation = tween(500),
             repeatMode = RepeatMode.Reverse
@@ -64,12 +66,12 @@ fun AlarmBanner(
         Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = "Alarm",
-            tint = Color.White
+            tint = MaterialTheme.colorScheme.onError
         )
         Spacer(Modifier.width(8.dp))
         Text(
             text = "${CommonLabels.ALARM_PREFIX}$alarmText",
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onError,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp
         )

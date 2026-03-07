@@ -18,7 +18,6 @@ import org.junit.After
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.koin.core.context.stopKoin
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -31,7 +30,6 @@ class DashboardContentTest {
 
     @After
     fun tearDown() {
-        try { stopKoin() } catch (_: Exception) {}
     }
 
     private fun setContent(

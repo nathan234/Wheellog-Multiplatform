@@ -73,6 +73,7 @@ fun SpeedGauge(
 
     val textMeasurer = rememberTextMeasurer()
     val secondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
 
     val displaySpeed = when (mode) {
         SpeedDisplayMode.WHEEL -> String.format(Locale.US, "%.1f", speed)
@@ -102,7 +103,7 @@ fun SpeedGauge(
 
             // Background arc
             drawArc(
-                color = Color.Gray.copy(alpha = 0.2f),
+                color = trackColor,
                 startAngle = startAngle,
                 sweepAngle = sweepAngle,
                 useCenter = false,

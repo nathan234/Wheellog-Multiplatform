@@ -92,17 +92,15 @@ class NavigationConfigTest {
     }
 
     @Test
-    fun `config without Settings shows warning`() {
+    fun `config without Settings is invalid`() {
         val config = NavigationConfig(
             tabs = listOf(NavigationTab.DEVICES, NavigationTab.RIDES)
         )
-        val warnings = config.warnings()
-        assertEquals(1, warnings.size)
-        assertTrue(warnings[0].contains("Settings"))
+        assertFalse(config.isValid())
     }
 
     @Test
-    fun `config with Settings has no warnings`() {
+    fun `config with both required tabs has no warnings`() {
         val config = NavigationConfig(
             tabs = listOf(NavigationTab.DEVICES, NavigationTab.SETTINGS)
         )

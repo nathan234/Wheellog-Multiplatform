@@ -8,13 +8,9 @@ import kotlin.test.assertTrue
 class NavigationTabTest {
 
     @Test
-    fun `DEVICES is the only required tab`() {
-        assertTrue(NavigationTab.DEVICES.isRequired)
-        for (tab in NavigationTab.entries) {
-            if (tab != NavigationTab.DEVICES) {
-                assertFalse(tab.isRequired, "${tab.name} should not be required")
-            }
-        }
+    fun `DEVICES and SETTINGS are the only required tabs`() {
+        val required = NavigationTab.entries.filter { it.isRequired }
+        assertEquals(setOf(NavigationTab.DEVICES, NavigationTab.SETTINGS), required.toSet())
     }
 
     @Test

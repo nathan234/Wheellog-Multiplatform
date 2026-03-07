@@ -324,7 +324,7 @@ struct DashboardContentView: View {
 #Preview("Default Layout") {
     NavigationStack {
         DashboardContentView(
-            layout: DashboardPresets.shared.default_().layout,
+            layout: DashboardPresets.shared.default().layout,
             selectedMetric: .constant(nil),
             showChart: .constant(false),
             showBms: .constant(false),

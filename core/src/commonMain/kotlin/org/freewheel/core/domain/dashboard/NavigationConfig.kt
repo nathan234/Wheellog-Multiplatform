@@ -43,5 +43,8 @@ data class NavigationConfig(
             NavigationTab.RIDES,
             NavigationTab.SETTINGS
         )
+
+        /** Swift-callable factory (KMP data class defaults aren't exposed to ObjC). */
+        fun default(): NavigationConfig = NavigationConfig()
     }
 }

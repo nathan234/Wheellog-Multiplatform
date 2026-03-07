@@ -143,14 +143,14 @@ class WheelManager: ObservableObject {
 
     // MARK: - Dashboard & Navigation Config
 
-    @Published var dashboardLayout: DashboardLayout = DashboardLayout.companion.default_() {
+    @Published var dashboardLayout: DashboardLayout = DashboardLayout.companion.default() {
         didSet {
             let serialized = DashboardLayoutSerializer.shared.serialize(layout: dashboardLayout)
             UserDefaults.standard.set(serialized, forKey: PreferenceKeys.shared.DASHBOARD_LAYOUT)
         }
     }
 
-    @Published var navigationConfig: NavigationConfig = NavigationConfig() {
+    @Published var navigationConfig: NavigationConfig = NavigationConfig.companion.default() {
         didSet {
             let serialized = NavigationConfigSerializer.shared.serialize(config: navigationConfig)
             UserDefaults.standard.set(serialized, forKey: PreferenceKeys.shared.NAVIGATION_CONFIG)
@@ -162,7 +162,7 @@ class WheelManager: ObservableObject {
            let layout = DashboardLayoutSerializer.shared.deserialize(input: raw) {
             dashboardLayout = layout
         } else {
-            dashboardLayout = DashboardLayout.companion.default_()
+            dashboardLayout = DashboardLayout.companion.default()
         }
     }
 
@@ -171,7 +171,7 @@ class WheelManager: ObservableObject {
            let config = NavigationConfigSerializer.shared.deserialize(input: raw) {
             navigationConfig = config
         } else {
-            navigationConfig = NavigationConfig()
+            navigationConfig = NavigationConfig.companion.default()
         }
     }
 

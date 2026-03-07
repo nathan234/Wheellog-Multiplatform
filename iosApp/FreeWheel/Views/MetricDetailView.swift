@@ -45,11 +45,27 @@ struct MetricDetailView: View {
     }
 
     private var displayUnit: String {
-        DisplayUtils.shared.metricUnit(metric: metric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
+        // Inline to avoid KMP overload ambiguity (MetricType vs DashboardMetric)
+        switch metric {
+        case .speed, .gpsSpeed:
+            return DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
+        case .temperature:
+            return DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
+        default:
+            return metric.unit
+        }
     }
 
     private func convertValue(_ raw: Double) -> Double {
-        DisplayUtils.shared.convertMetricValue(value: raw, metric: metric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
+        // Inline to avoid KMP overload ambiguity (MetricType vs DashboardMetric)
+        switch metric {
+        case .speed, .gpsSpeed:
+            return wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: raw) : raw
+        case .temperature:
+            return wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: raw) : raw
+        default:
+            return raw
+        }
     }
 
     private var chartColor: Color {

@@ -36,6 +36,7 @@
 		I1000001221F0000000023 /* DashboardContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001221F0000000013 /* DashboardContentView.swift */; };
 		I1000001221F0000000024 /* DashboardEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001221F0000000014 /* DashboardEditView.swift */; };
 		I1000001221F0000000025 /* NavigationEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I1000001221F0000000015 /* NavigationEditView.swift */; };
+		J1000001221F0000000026 /* HeroGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J1000001221F0000000016 /* HeroGaugeView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,6 +71,7 @@
 		I1000001221F0000000013 /* DashboardContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardContentView.swift; sourceTree = "<group>"; };
 		I1000001221F0000000014 /* DashboardEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardEditView.swift; sourceTree = "<group>"; };
 		I1000001221F0000000015 /* NavigationEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationEditView.swift; sourceTree = "<group>"; };
+		J1000001221F0000000016 /* HeroGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroGaugeView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -156,6 +158,7 @@
 				I1000001221F0000000013 /* DashboardContentView.swift */,
 				I1000001221F0000000014 /* DashboardEditView.swift */,
 				I1000001221F0000000015 /* NavigationEditView.swift */,
+				J1000001221F0000000016 /* HeroGaugeView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -280,6 +283,7 @@
 				I1000001221F0000000023 /* DashboardContentView.swift in Sources */,
 				I1000001221F0000000024 /* DashboardEditView.swift in Sources */,
 				I1000001221F0000000025 /* NavigationEditView.swift in Sources */,
+				J1000001221F0000000026 /* HeroGaugeView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

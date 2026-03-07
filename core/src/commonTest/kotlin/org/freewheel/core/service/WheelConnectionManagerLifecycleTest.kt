@@ -1,5 +1,11 @@
 package org.freewheel.core.service
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.freewheel.core.ble.BleUuids
 import org.freewheel.core.ble.DiscoveredService
 import org.freewheel.core.ble.DiscoveredServices
@@ -10,16 +16,6 @@ import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
 import org.freewheel.core.protocol.WheelDecoderFactory
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
-// advanceUntilIdle removed — DataTimeoutTracker uses real clock (currentTimeMillis)
-// which never triggers under virtual time, causing advanceUntilIdle to loop forever.
-// Use runCurrent() instead: with UnconfinedTestDispatcher, launched coroutines run
-// eagerly so runCurrent() is sufficient to process init/response commands.
-import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.test.runTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -27,6 +23,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Lifecycle tests for [WheelConnectionManager].
@@ -53,7 +50,7 @@ class WheelConnectionManagerLifecycleTest {
         factory: FakeDecoderFactory = fakeFactory
     ): WheelConnectionManager {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        return WheelConnectionManager(fakeBle, factory, this, dispatcher)
+        return WheelConnectionManager(fakeBle, factory, backgroundScope, dispatcher)
     }
 
     // Kingsong services detected by device name
@@ -87,25 +84,25 @@ class WheelConnectionManagerLifecycleTest {
     // ==================== Connect / Disconnect ====================
 
     @Test
-    fun `connect success transitions to DiscoveringServices`() = runTest {
+    fun `connect success transitions to DiscoveringServices`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
 
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         assertEquals(
             ConnectionState.DiscoveringServices("AA:BB:CC:DD:EE:FF"),
             manager.connectionState.value
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `connect failure transitions to Failed`() = runTest {
+    fun `connect failure transitions to Failed`() = runTest(timeout = 0.1.seconds) {
         fakeBle.connectResult = false
         val manager = createManager()
 
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         val state = manager.connectionState.value
         assertTrue(state is ConnectionState.Failed, "Expected Failed, got $state")
@@ -113,7 +110,7 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
-    fun `connect exception transitions to Failed`() = runTest {
+    fun `connect exception transitions to Failed`() = runTest(timeout = 0.1.seconds) {
         // Use a BleManagerPort that throws
         val throwingBle = object : BleManagerPort {
             override val connectionState = fakeBle.connectionState
@@ -125,17 +122,18 @@ class WheelConnectionManagerLifecycleTest {
             override suspend fun stopScan() {}
         }
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        val manager = WheelConnectionManager(throwingBle, fakeFactory, this, dispatcher)
+        val manager = WheelConnectionManager(throwingBle, fakeFactory, backgroundScope, dispatcher)
 
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         val state = manager.connectionState.value
         assertTrue(state is ConnectionState.Failed, "Expected Failed, got $state")
-        assertTrue((state as ConnectionState.Failed).error.contains("BLE not initialized"))
+        assertTrue(state.error.contains("BLE not initialized"))
     }
 
     @Test
-    fun `disconnect resets state and stops timers`() = runTest {
+    fun `disconnect resets state and stops timers`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -147,11 +145,13 @@ class WheelConnectionManagerLifecycleTest {
         )
         fakeDecoder.ready = true
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
 
         assertTrue(manager.connectionState.value is ConnectionState.Connected)
 
         // Now disconnect
         manager.disconnect()
+        runCurrent()
 
         assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
         assertEquals(WheelState(), manager.wheelState.value)
@@ -163,36 +163,37 @@ class WheelConnectionManagerLifecycleTest {
     // ==================== Service Discovery ====================
 
     @Test
-    fun `onServicesDiscovered with known name creates decoder`() = runTest {
+    fun `onServicesDiscovered with known name creates decoder`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         manager.onServicesDiscovered(kingsongServices, "KS-S18")
+        runCurrent()
 
         assertNotNull(manager.getCurrentDecoder())
         assertEquals(WheelType.KINGSONG, fakeFactory.lastCreatedType)
         assertEquals(WheelType.KINGSONG, manager.wheelState.value.wheelType)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `onServicesDiscovered with InMotion V2 services detects type`() = runTest {
+    fun `onServicesDiscovered with InMotion V2 services detects type`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         manager.onServicesDiscovered(inMotionV2Services, null)
+        runCurrent()
 
         assertNotNull(manager.getCurrentDecoder())
         assertEquals(WheelType.INMOTION_V2, fakeFactory.lastCreatedType)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `onServicesDiscovered with unknown services transitions to Failed`() = runTest {
+    fun `onServicesDiscovered with unknown services transitions to Failed`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         val unknownServices = DiscoveredServices(
             listOf(
@@ -203,19 +204,19 @@ class WheelConnectionManagerLifecycleTest {
             )
         )
         manager.onServicesDiscovered(unknownServices, null)
+        runCurrent()
 
         assertTrue(
             manager.connectionState.value is ConnectionState.Failed,
             "Expected Failed, got ${manager.connectionState.value}"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `onServicesDiscovered with ambiguous services uses GOTWAY_VIRTUAL`() = runTest {
+    fun `onServicesDiscovered with ambiguous services uses GOTWAY_VIRTUAL`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         // Standard service without name → ambiguous → GOTWAY_VIRTUAL
         val ambiguousServices = DiscoveredServices(
@@ -227,45 +228,44 @@ class WheelConnectionManagerLifecycleTest {
             )
         )
         manager.onServicesDiscovered(ambiguousServices, null)
+        runCurrent()
 
         assertNotNull(manager.getCurrentDecoder())
         assertEquals(WheelType.GOTWAY_VIRTUAL, fakeFactory.lastCreatedType)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `onServicesDiscovered stores btName in wheel state`() = runTest {
+    fun `onServicesDiscovered stores btName in wheel state`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         manager.onServicesDiscovered(kingsongServices, "KS-S18")
+        runCurrent()
 
         assertEquals("KS-S18", manager.wheelState.value.btName)
-
-        manager.disconnect()
     }
 
     // ==================== onWheelTypeDetected ====================
 
     @Test
-    fun `onWheelTypeDetected creates decoder and updates state`() = runTest {
+    fun `onWheelTypeDetected creates decoder and updates state`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         manager.onWheelTypeDetected(WheelType.VETERAN)
+        runCurrent()
 
         assertNotNull(manager.getCurrentDecoder())
         assertEquals(WheelType.VETERAN, fakeFactory.lastCreatedType)
         assertEquals(WheelType.VETERAN, manager.wheelState.value.wheelType)
-
-        manager.disconnect()
     }
 
     // ==================== Init Commands ====================
 
     @Test
-    fun `init commands sent after decoder setup`() = runTest {
+    fun `init commands sent after decoder setup`() = runTest(timeout = 0.1.seconds) {
         val initData = byteArrayOf(0xAA.toByte(), 0x55, 0x01, 0x02)
         fakeDecoder.initCommandList = listOf(WheelCommand.SendBytes(initData))
 
@@ -278,12 +278,10 @@ class WheelConnectionManagerLifecycleTest {
             fakeBle.writtenData.any { it.contentEquals(initData) },
             "Init command data should be written to BLE. Written: ${fakeBle.writtenData.size} commands"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `multiple init commands sent in order`() = runTest {
+    fun `multiple init commands sent in order`() = runTest(timeout = 0.1.seconds) {
         val cmd1 = byteArrayOf(0x01)
         val cmd2 = byteArrayOf(0x02)
         val cmd3 = byteArrayOf(0x03)
@@ -304,14 +302,12 @@ class WheelConnectionManagerLifecycleTest {
             it.contentEquals(cmd1) || it.contentEquals(cmd2) || it.contentEquals(cmd3)
         }
         assertEquals(3, initWrites.size)
-
-        manager.disconnect()
     }
 
     // ==================== Data Received ====================
 
     @Test
-    fun `onDataReceived updates wheel state`() = runTest {
+    fun `onDataReceived updates wheel state`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -322,29 +318,28 @@ class WheelConnectionManagerLifecycleTest {
         )
 
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
 
         assertEquals(2500, manager.wheelState.value.speed)
         assertEquals(8400, manager.wheelState.value.voltage)
         assertEquals(85, manager.wheelState.value.batteryLevel)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `onDataReceived with no decoder logs and does nothing`() = runTest {
+    fun `onDataReceived with no decoder logs and does nothing`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
         // No decoder set up
 
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
 
         assertEquals(0, manager.wheelState.value.speed)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `onDataReceived with null decode result does not update state`() = runTest {
+    fun `onDataReceived with null decode result does not update state`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -355,22 +350,22 @@ class WheelConnectionManagerLifecycleTest {
             newState = WheelState(speed = 2500)
         )
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
         assertEquals(2500, manager.wheelState.value.speed)
 
         // Now return null (incomplete frame)
         fakeDecoder.decodeResult = null
         manager.onDataReceived(byteArrayOf(0x02))
+        runCurrent()
 
         // State should be unchanged
         assertEquals(2500, manager.wheelState.value.speed)
-
-        manager.disconnect()
     }
 
     // ==================== Decoder Ready → Connected ====================
 
     @Test
-    fun `decoder ready transitions to Connected`() = runTest {
+    fun `decoder ready transitions to Connected`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -382,16 +377,15 @@ class WheelConnectionManagerLifecycleTest {
         fakeDecoder.ready = true
 
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
 
         val state = manager.connectionState.value
         assertTrue(state is ConnectionState.Connected, "Expected Connected, got $state")
-        assertEquals("AA:BB:CC:DD:EE:FF", (state as ConnectionState.Connected).address)
-
-        manager.disconnect()
+        assertEquals("AA:BB:CC:DD:EE:FF", state.address)
     }
 
     @Test
-    fun `decoder not ready does not transition to Connected`() = runTest {
+    fun `decoder not ready does not transition to Connected`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -403,17 +397,16 @@ class WheelConnectionManagerLifecycleTest {
         fakeDecoder.ready = false
 
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
 
         assertFalse(
             manager.connectionState.value is ConnectionState.Connected,
             "Should not be Connected when decoder is not ready"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `Connected state not re-emitted on subsequent data`() = runTest {
+    fun `Connected state not re-emitted on subsequent data`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -425,6 +418,7 @@ class WheelConnectionManagerLifecycleTest {
         fakeDecoder.ready = true
 
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
         val firstState = manager.connectionState.value
 
         // Send more data — state should remain Connected (same instance)
@@ -432,34 +426,29 @@ class WheelConnectionManagerLifecycleTest {
             newState = WheelState(speed = 3000, name = "KS-S18")
         )
         manager.onDataReceived(byteArrayOf(0x02))
+        runCurrent()
 
         assertTrue(manager.connectionState.value === firstState,
             "Connected state should not be re-emitted")
-
-        manager.disconnect()
     }
 
     // ==================== Keep-Alive ====================
 
     @Test
-    fun `keep-alive starts when decoder has non-zero interval`() = runTest {
+    fun `keep-alive starts when decoder has non-zero interval`() = runTest(timeout = 0.1.seconds) {
         val decoder = FakeDecoder(keepAliveIntervalMs = 100L)
         val factory = FakeDecoderFactory(decoder)
         val manager = createManager(decoder = decoder, factory = factory)
 
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.INMOTION_V2)
-        // Keep-alive starts immediately in setupDecoder for polling decoders
         runCurrent()
 
         assertTrue(manager.isKeepAliveRunning.value, "Keep-alive should be running after setupDecoder")
-
-        // Clean up timer coroutine
-        manager.disconnect()
     }
 
     @Test
-    fun `keep-alive does not start for zero interval decoder`() = runTest {
+    fun `keep-alive does not start for zero interval decoder`() = runTest(timeout = 0.1.seconds) {
         // Default FakeDecoder has keepAliveIntervalMs = 0 (like Kingsong/Gotway)
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
@@ -471,15 +460,14 @@ class WheelConnectionManagerLifecycleTest {
         )
         fakeDecoder.ready = true
         manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
 
         assertFalse(manager.isKeepAliveRunning.value,
             "Keep-alive should NOT run for zero interval")
-
-        manager.disconnect()
     }
 
     @Test
-    fun `keep-alive sends periodic commands`() = runTest {
+    fun `keep-alive sends periodic commands`() = runTest(timeout = 0.1.seconds) {
         val keepAliveData = byteArrayOf(0xAA.toByte(), 0xBB.toByte())
         val decoder = FakeDecoder(
             keepAliveIntervalMs = 50L,
@@ -490,8 +478,6 @@ class WheelConnectionManagerLifecycleTest {
 
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.INMOTION_V2)
-        // Keep-alive timer starts immediately in setupDecoder; process launches without
-        // advancing time (avoids infinite timer loop in advanceUntilIdle)
         runCurrent()
 
         // Clear any writes from init commands
@@ -504,15 +490,12 @@ class WheelConnectionManagerLifecycleTest {
             fakeBle.writtenData.any { it.contentEquals(keepAliveData) },
             "Keep-alive command should have been written. Written: ${fakeBle.writtenData.size}"
         )
-
-        // Clean up timer coroutine
-        manager.disconnect()
     }
 
     // ==================== Response Commands ====================
 
     @Test
-    fun `response commands from decoder are dispatched`() = runTest {
+    fun `response commands from decoder are dispatched`() = runTest(timeout = 0.1.seconds) {
         val responseData = byteArrayOf(0x98.toByte(), 0x01, 0x00)
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
@@ -533,12 +516,10 @@ class WheelConnectionManagerLifecycleTest {
             fakeBle.writtenData.any { it.contentEquals(responseData) },
             "Response command should be written to BLE"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `multiple response commands dispatched in order`() = runTest {
+    fun `multiple response commands dispatched in order`() = runTest(timeout = 0.1.seconds) {
         val resp1 = byteArrayOf(0x01)
         val resp2 = byteArrayOf(0x02)
         val manager = createManager()
@@ -562,18 +543,17 @@ class WheelConnectionManagerLifecycleTest {
             it.contentEquals(resp1) || it.contentEquals(resp2)
         }
         assertEquals(2, respWrites.size, "Both response commands should be written")
-
-        manager.disconnect()
     }
 
     // ==================== Config ====================
 
     @Test
-    fun `updateConfig and getConfig round-trip`() = runTest {
+    fun `updateConfig and getConfig round-trip`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         val config = DecoderConfig(useMph = true, useFahrenheit = true, batteryCapacity = 1800)
 
         manager.updateConfig(config)
+        runCurrent()
 
         assertEquals(config, manager.getConfig())
     }
@@ -581,23 +561,23 @@ class WheelConnectionManagerLifecycleTest {
     // ==================== sendCommand ====================
 
     @Test
-    fun `sendCommand SendBytes writes directly`() = runTest {
+    fun `sendCommand SendBytes writes directly`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         val data = byteArrayOf(0xDE.toByte(), 0xAD.toByte())
         manager.sendCommand(WheelCommand.SendBytes(data))
+        runCurrent()
 
         assertTrue(
             fakeBle.writtenData.any { it.contentEquals(data) },
             "SendBytes should write directly"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `sendCommand with decoder buildCommand`() = runTest {
+    fun `sendCommand with decoder buildCommand`() = runTest(timeout = 0.1.seconds) {
         val builtData = byteArrayOf(0x01, 0x02, 0x03)
         fakeDecoder.buildCommandResult = listOf(WheelCommand.SendBytes(builtData))
 
@@ -614,35 +594,33 @@ class WheelConnectionManagerLifecycleTest {
             fakeBle.writtenData.any { it.contentEquals(builtData) },
             "Built command should be written. Written: ${fakeBle.writtenData.size}"
         )
-
-        manager.disconnect()
     }
 
     // ==================== Connection Info ====================
 
     @Test
-    fun `getConnectionInfo returns null before connect`() = runTest {
+    fun `getConnectionInfo returns null before connect`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         assertNull(manager.getConnectionInfo())
     }
 
     @Test
-    fun `getConnectionInfo populated after service discovery`() = runTest {
+    fun `getConnectionInfo populated after service discovery`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
         manager.onServicesDiscovered(kingsongServices, "KS-S18")
+        runCurrent()
 
         val info = manager.getConnectionInfo()
         assertNotNull(info)
         assertEquals(WheelType.KINGSONG, info.wheelType)
-
-        manager.disconnect()
     }
 
     // ==================== Decoder Reset on Type Change ====================
 
     @Test
-    fun `changing wheel type resets previous decoder`() = runTest {
+    fun `changing wheel type resets previous decoder`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -655,8 +633,6 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
 
         assertTrue(fakeDecoder.resetCalled, "Previous decoder should be reset")
-
-        manager.disconnect()
     }
 }
 

@@ -1035,15 +1035,8 @@ class WheelManager: ObservableObject {
 
         connectionState = .connecting(address: address)
 
-        // Use WheelConnectionManager for connection
-        connectionManager.connect(address: address, wheelType: nil) { error in
-            if let error = error {
-                Task { @MainActor in
-                    self.connectionState = .failed(address: address, error: error.localizedDescription)
-                }
-            }
-            // Connection state will be updated through polling
-        }
+        // Fire-and-forget — connection state updates come through StateFlow polling
+        connectionManager.connect(address: address, wheelType: nil)
     }
 
     func stopReconnecting() {
@@ -1061,17 +1054,9 @@ class WheelManager: ObservableObject {
         }
         UserDefaults.standard.removeObject(forKey: "FreeWheelLastPeripheralUUID")
 
-        // BLE disconnect — cleanup happens in handleConnectionStateChange when
-        // state transitions to .disconnected, avoiding duplicate cleanup.
-        connectionManager.disconnect { [weak self] error in
-            Task { @MainActor in
-                self?.connectionState = .disconnected
-                self?.wheelState = WheelState.companion.empty()
-                if let error = error {
-                    print("Disconnect error: \(error.localizedDescription)")
-                }
-            }
-        }
+        // Fire-and-forget — cleanup happens in handleConnectionStateChange when
+        // state transitions to .disconnected via StateFlow polling.
+        connectionManager.disconnect()
     }
 }
 

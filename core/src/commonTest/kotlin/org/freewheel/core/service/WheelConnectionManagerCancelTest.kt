@@ -2,7 +2,6 @@ package org.freewheel.core.service
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -10,57 +9,55 @@ import kotlinx.coroutines.test.runTest
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Tests for connection cancellation — verifying that disconnect() during
- * a pending connect() unblocks the coroutine and transitions to Disconnected.
+ * a pending connect() transitions to Disconnected without hitting Failed.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class WheelConnectionManagerCancelTest {
 
     private fun TestScope.createManager(fakeBle: FakeBleManager): WheelConnectionManager {
         val dispatcher = StandardTestDispatcher(testScheduler)
-        return WheelConnectionManager(fakeBle, DefaultWheelDecoderFactory(), this, dispatcher)
+        return WheelConnectionManager(fakeBle, DefaultWheelDecoderFactory(), backgroundScope, dispatcher)
     }
 
     @Test
-    fun disconnectDuringConnectResolvesImmediately() = runTest {
+    fun disconnectDuringConnectResolvesImmediately() = runTest(timeout = 0.1.seconds) {
         val fakeBle = FakeBleManager()
         fakeBle.connectDeferred = CompletableDeferred()
         val manager = createManager(fakeBle)
 
-        // Start connect — will suspend on the deferred
-        val connectJob = launch { manager.connect("AA:BB:CC:DD:EE:FF") }
+        // Fire connect — event loop sets state to Connecting and launches BLE job
+        manager.connect("AA:BB:CC:DD:EE:FF")
         runCurrent()
         assertEquals(ConnectionState.Connecting("AA:BB:CC:DD:EE:FF"), manager.connectionState.value)
 
-        // Simulate disconnect while connecting — complete deferred first (BLE cancel returns false)
+        // BLE connect completes with failure, then disconnect fires
         fakeBle.connectDeferred!!.complete(false)
         manager.disconnect()
         runCurrent()
 
-        // Connect coroutine should have completed (not hanging)
-        assertTrue(connectJob.isCompleted)
         assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
     }
 
     @Test
-    fun disconnectDuringConnectDoesNotTransitionToFailed() = runTest {
+    fun disconnectDuringConnectDoesNotTransitionToFailed() = runTest(timeout = 0.1.seconds) {
         val fakeBle = FakeBleManager()
         fakeBle.connectDeferred = CompletableDeferred()
         val manager = createManager(fakeBle)
 
-        val connectJob = launch { manager.connect("AA:BB:CC:DD:EE:FF") }
+        manager.connect("AA:BB:CC:DD:EE:FF")
         runCurrent()
 
-        // Disconnect sets state to Disconnected before connect resumes
-        // When connect resumes with false, it should NOT overwrite to Failed
+        // Disconnect fires before BLE connect resolves
         manager.disconnect()
+        runCurrent()
         fakeBle.connectDeferred!!.complete(false)
         runCurrent()
 
-        assertTrue(connectJob.isCompleted)
+        // Should be Disconnected, NOT Failed
         assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
     }
 }

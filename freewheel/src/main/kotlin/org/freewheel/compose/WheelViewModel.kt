@@ -410,9 +410,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         if (rideLogger.isLogging) stopLogging()
         wheelService?.stopLocationTracking()
         telemetryHistory?.save()
-        viewModelScope.launch {
-            connectionManager?.disconnect()
-        }
+        connectionManager?.disconnect()
         telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
         alarmChecker.reset()
@@ -567,9 +565,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putInt("${macPrefix}_$key", value).apply()
 
     fun executeWheelCommand(commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
-        viewModelScope.launch {
-            connectionManager?.executeCommand(commandId, intValue, boolValue)
-        }
+        connectionManager?.executeCommand(commandId, intValue, boolValue)
     }
 
     // --- Dashboard & Navigation config ---

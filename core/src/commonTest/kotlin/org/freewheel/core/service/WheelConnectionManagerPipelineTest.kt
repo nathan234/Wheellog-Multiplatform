@@ -5,7 +5,6 @@ import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecodedData
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
 import org.freewheel.core.protocol.DecoderConfig
-import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
 import org.freewheel.core.protocol.WheelDecoderFactory
 import org.freewheel.core.protocol.hexToByteArray
@@ -20,6 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * End-to-end pipeline tests for [WheelConnectionManager].
@@ -43,7 +43,7 @@ class WheelConnectionManagerPipelineTest {
 
     private fun TestScope.createManager(): WheelConnectionManager {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        return WheelConnectionManager(fakeBle, factory, this, dispatcher)
+        return WheelConnectionManager(fakeBle, factory, backgroundScope, dispatcher)
     }
 
     // ==================== Real Kingsong Packets ====================
@@ -67,7 +67,7 @@ class WheelConnectionManagerPipelineTest {
     // ==================== Pipeline: Real packets → correct state ====================
 
     @Test
-    fun `real Kingsong packets produce correct wheelState values`() = runTest {
+    fun `real Kingsong packets produce correct wheelState values`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -93,12 +93,10 @@ class WheelConnectionManagerPipelineTest {
 
         // Wheel type should be preserved
         assertEquals(WheelType.KINGSONG, state.wheelType)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `real Kingsong packets produce correct speed and temperature`() = runTest {
+    fun `real Kingsong packets produce correct speed and temperature`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -114,14 +112,12 @@ class WheelConnectionManagerPipelineTest {
 
         // Temperature from live data packet
         assertTrue(state.temperature > 0, "Temperature should be set from live data")
-
-        manager.disconnect()
     }
 
     // ==================== connectionState transitions ====================
 
     @Test
-    fun `connectionState transitions to Connected after isReady`() = runTest {
+    fun `connectionState transitions to Connected after isReady`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -144,12 +140,10 @@ class WheelConnectionManagerPipelineTest {
             "Should transition to Connected after model + voltage received, got $connState"
         )
         assertEquals("AA:BB:CC:DD:EE:FF", (connState as ConnectionState.Connected).address)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `connectionState not Connected until decoder has both model and voltage`() = runTest {
+    fun `connectionState not Connected until decoder has both model and voltage`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -170,14 +164,12 @@ class WheelConnectionManagerPipelineTest {
             manager.connectionState.value is ConnectionState.Connected,
             "Should be Connected after voltage received"
         )
-
-        manager.disconnect()
     }
 
     // ==================== Partial/incomplete data ====================
 
     @Test
-    fun `partial data does not crash and state unchanged`() = runTest {
+    fun `partial data does not crash and state unchanged`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -194,12 +186,10 @@ class WheelConnectionManagerPipelineTest {
         // State should be unchanged
         assertEquals(stateAfterValid.voltage, manager.wheelState.value.voltage)
         assertEquals(stateAfterValid.model, manager.wheelState.value.model)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `empty data does not crash`() = runTest {
+    fun `empty data does not crash`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -210,14 +200,12 @@ class WheelConnectionManagerPipelineTest {
 
         // Should still be in default state
         assertEquals(0, manager.wheelState.value.speed)
-
-        manager.disconnect()
     }
 
     // ==================== consecutiveDecodeErrors ====================
 
     @Test
-    fun `consecutiveDecodeErrors increments on garbage data`() = runTest {
+    fun `consecutiveDecodeErrors increments on garbage data`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -235,12 +223,10 @@ class WheelConnectionManagerPipelineTest {
             manager.consecutiveDecodeErrors.value >= 2,
             "Should accumulate errors: ${manager.consecutiveDecodeErrors.value}"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `consecutiveDecodeErrors resets on valid decode`() = runTest {
+    fun `consecutiveDecodeErrors resets on valid decode`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -260,12 +246,10 @@ class WheelConnectionManagerPipelineTest {
 
         assertEquals(0, manager.consecutiveDecodeErrors.value,
             "Should reset to 0 after valid decode")
-
-        manager.disconnect()
     }
 
     @Test
-    fun `consecutiveDecodeErrors resets on connect`() = runTest {
+    fun `consecutiveDecodeErrors resets on connect`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -277,16 +261,16 @@ class WheelConnectionManagerPipelineTest {
 
         // Reconnect
         manager.disconnect()
+        runCurrent()
         manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
 
         assertEquals(0, manager.consecutiveDecodeErrors.value,
             "Should reset to 0 on new connect")
-
-        manager.disconnect()
     }
 
     @Test
-    fun `consecutiveDecodeErrors resets on disconnect`() = runTest {
+    fun `consecutiveDecodeErrors resets on disconnect`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -297,6 +281,7 @@ class WheelConnectionManagerPipelineTest {
         assertTrue(manager.consecutiveDecodeErrors.value > 0)
 
         manager.disconnect()
+        runCurrent()
 
         assertEquals(0, manager.consecutiveDecodeErrors.value,
             "Should reset to 0 on disconnect")
@@ -305,7 +290,7 @@ class WheelConnectionManagerPipelineTest {
     // ==================== Granular sub-states ====================
 
     @Test
-    fun `telemetryState updates on live data`() = runTest {
+    fun `telemetryState updates on live data`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -320,12 +305,10 @@ class WheelConnectionManagerPipelineTest {
         assertNotEquals(initialTelemetry, newTelemetry,
             "TelemetryState should update on live data")
         assertTrue(newTelemetry.voltage > 0, "Voltage should be set in telemetry")
-
-        manager.disconnect()
     }
 
     @Test
-    fun `identityState updates on name packet`() = runTest {
+    fun `identityState updates on name packet`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -340,12 +323,10 @@ class WheelConnectionManagerPipelineTest {
         assertTrue(newIdentity.model.isNotEmpty(),
             "Model should be set in identity after name packet")
         assertEquals("KS-S18", newIdentity.model)
-
-        manager.disconnect()
     }
 
     @Test
-    fun `identityState wheelType set on decoder setup`() = runTest {
+    fun `identityState wheelType set on decoder setup`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -353,12 +334,10 @@ class WheelConnectionManagerPipelineTest {
 
         assertEquals(WheelType.KINGSONG, manager.identityState.value.wheelType,
             "Identity should have wheelType after setup")
-
-        manager.disconnect()
     }
 
     @Test
-    fun `telemetryState does not change on name-only packet`() = runTest {
+    fun `telemetryState does not change on name-only packet`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -371,14 +350,12 @@ class WheelConnectionManagerPipelineTest {
 
         assertEquals(initialTelemetry, manager.telemetryState.value,
             "TelemetryState should NOT change on name-only packet")
-
-        manager.disconnect()
     }
 
     // ==================== Multi-packet integration ====================
 
     @Test
-    fun `full packet sequence produces complete state`() = runTest {
+    fun `full packet sequence produces complete state`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -401,12 +378,10 @@ class WheelConnectionManagerPipelineTest {
             manager.connectionState.value is ConnectionState.Connected,
             "Should be Connected after full sequence"
         )
-
-        manager.disconnect()
     }
 
     @Test
-    fun `recovery from garbage to valid data`() = runTest {
+    fun `recovery from garbage to valid data`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -431,14 +406,12 @@ class WheelConnectionManagerPipelineTest {
             manager.connectionState.value is ConnectionState.Connected,
             "Should reach Connected after recovery"
         )
-
-        manager.disconnect()
     }
 
     // ==================== Decode exception safety ====================
 
     @Test
-    fun `decode exception does not crash and increments errors`() = runTest {
+    fun `decode exception does not crash and increments errors`() = runTest(timeout = 0.1.seconds) {
         // Create a factory that returns a decoder which throws on decode()
         val throwingFactory = object : WheelDecoderFactory {
             override fun createDecoder(wheelType: WheelType): WheelDecoder? {
@@ -455,7 +428,7 @@ class WheelConnectionManagerPipelineTest {
         }
 
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        val manager = WheelConnectionManager(fakeBle, throwingFactory, this, dispatcher)
+        val manager = WheelConnectionManager(fakeBle, throwingFactory, backgroundScope, dispatcher)
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
@@ -474,7 +447,5 @@ class WheelConnectionManagerPipelineTest {
         // State should be unchanged
         assertEquals(stateBefore.voltage, manager.wheelState.value.voltage,
             "State should not change when decoder throws")
-
-        manager.disconnect()
     }
 }

@@ -268,15 +268,15 @@ class WheelManager: ObservableObject {
 
     // MARK: - Feature Managers
 
-    let alarmManager = AlarmManager()
+    let alarmManager: AlarmManager
     private var autoConnectManager: AutoConnectManager?
-    let rideLogger = RideLogger()
-    let rideStore = RideStore()
-    private let captureLogger = FreeWheelCore.BleCaptureLogger(fileWriter: FileWriter())
-    let locationManager = LocationManager()
-    let backgroundManager = BackgroundManager()
-    let telemetryBuffer = TelemetryBuffer()
-    let telemetryHistory = TelemetryHistoryBridge()
+    let rideLogger: RideLogger
+    let rideStore: RideStore
+    private let captureLogger: FreeWheelCore.BleCaptureLogger
+    let locationManager: LocationManager
+    let backgroundManager: BackgroundManager
+    let telemetryBuffer: TelemetryBuffer
+    let telemetryHistory: TelemetryHistoryBridge
 
     // MARK: - Connection Tracking
 
@@ -312,7 +312,26 @@ class WheelManager: ObservableObject {
         defaults.set(true, forKey: "PreferenceKeysMigrated_v1")
     }()
 
-    nonisolated init() {
+    /// Designated init — nonisolated so it can be called from any context (e.g. tests).
+    /// Pass pre-created sub-managers for dependency injection.
+    nonisolated init(
+        alarmManager: AlarmManager,
+        rideLogger: RideLogger,
+        rideStore: RideStore,
+        captureLogger: FreeWheelCore.BleCaptureLogger,
+        locationManager: LocationManager,
+        backgroundManager: BackgroundManager,
+        telemetryBuffer: TelemetryBuffer,
+        telemetryHistory: TelemetryHistoryBridge
+    ) {
+        self.alarmManager = alarmManager
+        self.rideLogger = rideLogger
+        self.rideStore = rideStore
+        self.captureLogger = captureLogger
+        self.locationManager = locationManager
+        self.backgroundManager = backgroundManager
+        self.telemetryBuffer = telemetryBuffer
+        self.telemetryHistory = telemetryHistory
         // Trigger one-time key migration before anything else
         _ = Self._migrationOnce
         // Setup happens in Task
@@ -332,6 +351,20 @@ class WheelManager: ObservableObject {
             self.isMockMode = true
             #endif
         }
+    }
+
+    /// Convenience init — creates default sub-managers. Used by production code.
+    @MainActor convenience init() {
+        self.init(
+            alarmManager: AlarmManager(),
+            rideLogger: RideLogger(),
+            rideStore: RideStore(),
+            captureLogger: FreeWheelCore.BleCaptureLogger(fileWriter: FileWriter()),
+            locationManager: LocationManager(),
+            backgroundManager: BackgroundManager(),
+            telemetryBuffer: TelemetryBuffer(),
+            telemetryHistory: TelemetryHistoryBridge()
+        )
     }
 
     private var startupScanTarget: String?

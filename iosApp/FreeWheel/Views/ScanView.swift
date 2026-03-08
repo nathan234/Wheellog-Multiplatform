@@ -10,7 +10,7 @@ import FreeWheelCore
 //  3. Scan button with pulse animation
 //  4. Device list: "My Wheels" section (saved devices)
 //  5. Device list: "New Devices" section (unsaved, swipe-to-delete to forget)
-//  6. Empty state with demo mode button
+//  6. Empty state
 //  Note: iOS has additional simulator-specific test UI buttons
 
 struct ScanView: View {
@@ -140,18 +140,6 @@ struct ScanView: View {
                 Text("BLE is not available on iOS Simulator")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
-                Button(action: { wheelManager.startMockMode() }) {
-                    HStack {
-                        Image(systemName: "play.circle.fill")
-                        Text(ScanLabels.shared.START_DEMO)
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
-                }
 
                 Button(action: { startKmpTest() }) {
                     HStack {

@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -67,7 +66,7 @@ import org.freewheel.core.utils.DisplayUtils
 //  3. Scan button with pulse animation
 //  4. Device list: "My Wheels" section (saved devices)
 //  5. Device list: "New Devices" section (unsaved, swipe-to-delete to forget)
-//  6. Empty state with demo mode button
+//  6. Empty state
 //  Note: iOS has additional simulator-specific test UI buttons
 
 @Composable
@@ -229,21 +228,6 @@ fun ScanScreen(viewModel: WheelViewModel) {
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
-                Spacer(Modifier.height(32.dp))
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                // Demo mode button
-                Button(
-                    onClick = { viewModel.startDemo() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(ScanLabels.START_DEMO)
-                }
             }
         }
     }

@@ -12,8 +12,10 @@ import org.freewheel.shared.WearPage
 import org.freewheel.shared.WearPages
 import timber.log.Timber
 
-class AppConfig(var context: Context) {
-    private val sharedPreferences: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
+class AppConfig(
+    private val context: Context,
+    private val sharedPreferences: SharedPreferences
+) {
     private var specificPrefix: String = ""
     private val separator = ";"
 

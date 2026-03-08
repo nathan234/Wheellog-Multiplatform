@@ -69,9 +69,9 @@ class WheelViewModel(
     private val rideLogger: RideLogger,
     private val captureLogger: BleCaptureLogger,
     private val telemetryFileIO: TelemetryFileIO,
+    val profileStore: WheelProfileStore,
+    private val demoDataProvider: DemoDataProvider
 ) : AndroidViewModel(application) {
-
-    private val demoDataProvider = DemoDataProvider()
 
     // Service references (set via attachService/detachService)
     private var wheelService: WheelService? = null
@@ -188,7 +188,6 @@ class WheelViewModel(
     val customTabLayouts: StateFlow<Map<String, DashboardLayout>> = _customTabLayouts.asStateFlow()
 
     // Saved wheel profiles
-    val profileStore = WheelProfileStore(prefs)
     private val _savedAddresses = MutableStateFlow(profileStore.getSavedAddresses())
     val savedAddresses: StateFlow<Set<String>> = _savedAddresses.asStateFlow()
 

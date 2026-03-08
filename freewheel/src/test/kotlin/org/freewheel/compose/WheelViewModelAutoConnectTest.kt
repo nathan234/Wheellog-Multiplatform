@@ -29,6 +29,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.freewheel.core.service.DemoDataProvider
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -67,7 +68,7 @@ class WheelViewModelAutoConnectTest {
         // Robolectric creates a new Application per test method.
         prefs = PreferenceManager.getDefaultSharedPreferences(app)
         prefs.edit().clear().commit()
-        appConfig = AppConfig(app)
+        appConfig = AppConfig(app, prefs)
 
         val db = TripDatabase.getDataBase(app)
         viewModel = WheelViewModel(
@@ -76,6 +77,8 @@ class WheelViewModelAutoConnectTest {
             rideLogger = RideLogger(),
             captureLogger = BleCaptureLogger(),
             telemetryFileIO = PlatformTelemetryFileIO(),
+            profileStore = WheelProfileStore(prefs),
+            demoDataProvider = DemoDataProvider()
         )
 
         mockConnectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)

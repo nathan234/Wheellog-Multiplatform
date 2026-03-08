@@ -30,7 +30,6 @@ data class WcmState(
 sealed class WcmEffect {
     class BleConnect(val address: String) : WcmEffect()
     data object BleDisconnect : WcmEffect()
-    class BleWrite(val data: ByteArray) : WcmEffect()
     class DispatchCommands(val commands: List<WheelCommand>) : WcmEffect()
     class StartKeepAlive(val intervalMs: Long) : WcmEffect()
     class StartDataTimeout(val address: String, val timeoutMs: Long) : WcmEffect()

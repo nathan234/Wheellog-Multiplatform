@@ -103,8 +103,10 @@ class WheelConnectionManager(
     // ==================== Derived public flows ====================
 
     // Uses scope + dispatcher so stateIn collectors run on the same dispatcher
-    // as the scan pipeline. This guarantees derived flows update synchronously
-    // (within the same dispatch) when _wcmState changes.
+    // as the scan pipeline. This guarantees derived flows see state updates within
+    // the same dispatch cycle, preventing timing issues where a collector on
+    // Dispatchers.Main could observe stale derived state between the _wcmState
+    // update and the derived flow emission.
     private val derivedScope = scope + dispatcher
 
     /** Current wheel state. */
@@ -410,26 +412,29 @@ class WheelConnectionManager(
     }
 
     private fun reduceConnect(state: WcmState, event: WheelEvent.ConnectRequested): WcmTransition {
-        val effects = mutableListOf<WcmEffect>(
-            WcmEffect.CancelBleConnect,
-            WcmEffect.StopTimers,
-            WcmEffect.CancelCommands,
-        )
-        state.decoder?.let { effects.add(WcmEffect.ResetDecoder(it)) }
-
         var newState = WcmState(
             decoderConfig = state.decoderConfig,
             connectionState = ConnectionState.Connecting(event.address)
         )
 
-        // If wheel type is known, set up decoder immediately
+        // Decoder setup effects (if wheel type known)
+        var decoderEffects = emptyList<WcmEffect>()
         event.wheelType?.let { type ->
-            val (decoderState, decoderEffects) = setupDecoderTransition(newState, type)
+            val (decoderState, effects) = setupDecoderTransition(newState, type)
             newState = decoderState
-            effects.addAll(decoderEffects)
+            decoderEffects = effects
         }
 
-        effects.add(WcmEffect.BleConnect(event.address))
+        // Cleanup effects must precede setup/connect effects to ensure
+        // previous connection resources are released before new ones start
+        val effects = buildList {
+            add(WcmEffect.CancelBleConnect)
+            add(WcmEffect.StopTimers)
+            add(WcmEffect.CancelCommands)
+            state.decoder?.let { add(WcmEffect.ResetDecoder(it)) }
+            addAll(decoderEffects)
+            add(WcmEffect.BleConnect(event.address))
+        }
         return WcmTransition(newState, effects)
     }
 
@@ -673,10 +678,6 @@ class WheelConnectionManager(
                 is WcmEffect.BleDisconnect -> {
                     bleManager.disconnect()
                 }
-                is WcmEffect.BleWrite -> {
-                    captureCallback?.invoke(effect.data, BlePacketDirection.TX)
-                    bleManager.write(effect.data)
-                }
                 is WcmEffect.DispatchCommands -> {
                     commandScheduler.scheduleSequence {
                         effect.commands.forEach { cmd ->
@@ -745,36 +746,32 @@ class WheelConnectionManager(
 
     /**
      * Dispatch a command to the BLE layer.
+     *
+     * Note: `_wcmState.value.decoder` is read here in the effect layer, not inside
+     * the reducer. This is intentional — buildCommand() is a side-effect (it may
+     * mutate decoder internal state) and must not be called from the pure reducer.
      */
     private suspend fun dispatchCommand(command: WheelCommand) {
         when (command) {
-            is WheelCommand.SendBytes -> {
-                captureCallback?.invoke(command.data, BlePacketDirection.TX)
-                bleManager.write(command.data)
-            }
-            is WheelCommand.SendDelayed -> {
-                delay(command.delayMs)
-                captureCallback?.invoke(command.data, BlePacketDirection.TX)
-                bleManager.write(command.data)
-            }
+            is WheelCommand.SendBytes -> sendBleData(command.data)
+            is WheelCommand.SendDelayed -> sendBleData(command.data, command.delayMs)
             else -> {
                 val rawCommands = _wcmState.value.decoder?.buildCommand(command) ?: return
                 for (cmd in rawCommands) {
                     when (cmd) {
-                        is WheelCommand.SendBytes -> {
-                            captureCallback?.invoke(cmd.data, BlePacketDirection.TX)
-                            bleManager.write(cmd.data)
-                        }
-                        is WheelCommand.SendDelayed -> {
-                            delay(cmd.delayMs)
-                            captureCallback?.invoke(cmd.data, BlePacketDirection.TX)
-                            bleManager.write(cmd.data)
-                        }
+                        is WheelCommand.SendBytes -> sendBleData(cmd.data)
+                        is WheelCommand.SendDelayed -> sendBleData(cmd.data, cmd.delayMs)
                         else -> {} // prevent recursion
                     }
                 }
             }
         }
+    }
+
+    private suspend fun sendBleData(data: ByteArray, delayMs: Long = 0) {
+        if (delayMs > 0) delay(delayMs)
+        captureCallback?.invoke(data, BlePacketDirection.TX)
+        bleManager.write(data)
     }
 
     companion object {

@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.freewheel.core.service.DemoDataProvider
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -62,7 +63,7 @@ class WheelViewModelFinalizationTest {
         app = ApplicationProvider.getApplicationContext()
         val prefs = PreferenceManager.getDefaultSharedPreferences(app)
         prefs.edit().clear().commit()
-        val appConfig = AppConfig(app)
+        val appConfig = AppConfig(app, prefs)
         val db = TripDatabase.getDataBase(app)
         viewModel = WheelViewModel(
             app, appConfig, prefs, null,
@@ -70,6 +71,8 @@ class WheelViewModelFinalizationTest {
             rideLogger = RideLogger(),
             captureLogger = BleCaptureLogger(),
             telemetryFileIO = PlatformTelemetryFileIO(),
+            profileStore = WheelProfileStore(prefs),
+            demoDataProvider = DemoDataProvider()
         )
 
         val mockConnectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)

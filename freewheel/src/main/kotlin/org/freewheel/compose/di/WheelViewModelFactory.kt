@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import org.freewheel.compose.WheelViewModel
+import org.freewheel.core.service.DemoDataProvider
 
 class WheelViewModelFactory(
     private val application: Application,
@@ -19,6 +20,8 @@ class WheelViewModelFactory(
             rideLogger = AppModule.rideLogger,
             captureLogger = AppModule.bleCaptureLogger,
             telemetryFileIO = AppModule.telemetryFileIO,
+            profileStore = AppModule.profileStore,
+            demoDataProvider = AppModule.demoDataProvider
         ) as T
     }
 }

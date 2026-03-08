@@ -450,11 +450,11 @@ class WheelTypeDetectorTest {
         assertTrue(result is WheelTypeDetector.DetectionResult.Unknown)
     }
 
-    // ==================== getUuidsForType ====================
+    // ==================== WheelConnectionInfo.forType ====================
 
     @Test
-    fun `getUuidsForType returns correct info for KingSong`() {
-        val info = detector.getUuidsForType(WheelType.KINGSONG)
+    fun `forType returns correct info for KingSong`() {
+        val info = WheelConnectionInfo.forType(WheelType.KINGSONG)
 
         assertNotNull(info)
         assertEquals(WheelType.KINGSONG, info.wheelType)
@@ -463,8 +463,8 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `getUuidsForType returns correct info for InMotion V1`() {
-        val info = detector.getUuidsForType(WheelType.INMOTION)
+    fun `forType returns correct info for InMotion V1`() {
+        val info = WheelConnectionInfo.forType(WheelType.INMOTION)
 
         assertNotNull(info)
         assertEquals(WheelType.INMOTION, info.wheelType)
@@ -475,8 +475,8 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `getUuidsForType returns correct info for InMotion V2`() {
-        val info = detector.getUuidsForType(WheelType.INMOTION_V2)
+    fun `forType returns correct info for InMotion V2`() {
+        val info = WheelConnectionInfo.forType(WheelType.INMOTION_V2)
 
         assertNotNull(info)
         assertEquals(WheelType.INMOTION_V2, info.wheelType)
@@ -485,8 +485,8 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `getUuidsForType returns correct info for Ninebot Z`() {
-        val info = detector.getUuidsForType(WheelType.NINEBOT_Z)
+    fun `forType returns correct info for Ninebot Z`() {
+        val info = WheelConnectionInfo.forType(WheelType.NINEBOT_Z)
 
         assertNotNull(info)
         assertEquals(WheelType.NINEBOT_Z, info.wheelType)
@@ -494,8 +494,8 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `getUuidsForType returns correct info for Veteran`() {
-        val info = detector.getUuidsForType(WheelType.VETERAN)
+    fun `forType returns correct info for Veteran`() {
+        val info = WheelConnectionInfo.forType(WheelType.VETERAN)
 
         assertNotNull(info)
         assertEquals(WheelType.VETERAN, info.wheelType)
@@ -504,8 +504,8 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `getUuidsForType returns null for Unknown`() {
-        val info = detector.getUuidsForType(WheelType.Unknown)
+    fun `forType returns null for Unknown`() {
+        val info = WheelConnectionInfo.forType(WheelType.Unknown)
         assertNull(info)
     }
 

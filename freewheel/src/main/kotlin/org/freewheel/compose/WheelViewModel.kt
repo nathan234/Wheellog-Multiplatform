@@ -58,6 +58,7 @@ import kotlinx.coroutines.runBlocking
 import androidx.core.content.edit
 import org.freewheel.compose.di.AppModule
 import org.freewheel.compose.di.AppModule.prefs
+import org.freewheel.compose.di.AppModule.vibrator
 import org.freewheel.compose.service.AlarmHandler
 import org.freewheel.compose.service.WheelService
 
@@ -216,7 +217,6 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     private val alarmChecker = AlarmChecker()
     private val alarmHandler = AlarmHandler(
         vibrate = { pattern ->
-            val vibrator = getApplication<Application>().getSystemService(Vibrator::class.java)
             vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
         },
         playTone = { type, duration ->

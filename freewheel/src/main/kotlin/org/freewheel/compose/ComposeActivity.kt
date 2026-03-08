@@ -20,13 +20,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import org.freewheel.compose.di.AppModule
+import org.freewheel.compose.di.WheelViewModelFactory
 import org.freewheel.compose.service.WheelService
 import org.freewheel.compose.navigation.AppNavigation
 import org.freewheel.ui.theme.AppTheme
 
 class ComposeActivity : ComponentActivity() {
 
-    private val viewModel: WheelViewModel by viewModels()
+    private val viewModel: WheelViewModel by viewModels {
+        WheelViewModelFactory(application)
+    }
     private var serviceBound = false
 
     private val bluetoothReceiver = object : BroadcastReceiver() {

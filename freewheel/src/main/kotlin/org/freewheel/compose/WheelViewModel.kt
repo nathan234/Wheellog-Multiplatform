@@ -43,7 +43,6 @@ import org.freewheel.data.TripDataDbEntry
 import org.freewheel.data.TripDatabase
 import org.freewheel.data.TripRepository
 import android.content.Context
-import androidx.preference.PreferenceManager
 import java.io.File
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,15 +55,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import androidx.core.content.edit
-import org.freewheel.compose.di.AppModule
-import org.freewheel.compose.di.AppModule.prefs
-import org.freewheel.compose.di.AppModule.vibrator
 import org.freewheel.compose.service.AlarmHandler
 import org.freewheel.compose.service.WheelService
 
-class WheelViewModel(application: Application) : AndroidViewModel(application) {
+class WheelViewModel(
+    application: Application,
+    val appConfig: AppConfig,
+    private val prefs: SharedPreferences,
+    private val vibrator: Vibrator?,
+) : AndroidViewModel(application) {
 
-    val appConfig: AppConfig = AppModule.appConfig
     private val tripRepository: TripRepository
 
     private val demoDataProvider = DemoDataProvider()
@@ -177,9 +177,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     val customTabLayouts: StateFlow<Map<String, DashboardLayout>> = _customTabLayouts.asStateFlow()
 
     // Saved wheel profiles
-    val profileStore = WheelProfileStore(
-        PreferenceManager.getDefaultSharedPreferences(application)
-    )
+    val profileStore = WheelProfileStore(prefs)
     private val _savedAddresses = MutableStateFlow(profileStore.getSavedAddresses())
     val savedAddresses: StateFlow<Set<String>> = _savedAddresses.asStateFlow()
 

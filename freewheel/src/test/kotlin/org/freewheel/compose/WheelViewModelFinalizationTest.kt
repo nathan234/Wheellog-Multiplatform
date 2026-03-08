@@ -6,6 +6,11 @@ import androidx.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider
 import org.freewheel.AppConfig
 import org.freewheel.core.domain.WheelState
+import org.freewheel.core.logging.BleCaptureLogger
+import org.freewheel.core.logging.RideLogger
+import org.freewheel.core.telemetry.PlatformTelemetryFileIO
+import org.freewheel.data.TripDatabase
+import org.freewheel.data.TripRepository
 import org.freewheel.core.service.BleManager
 import org.freewheel.core.service.ConnectionState
 import org.freewheel.core.service.WheelConnectionManager
@@ -58,7 +63,14 @@ class WheelViewModelFinalizationTest {
         val prefs = PreferenceManager.getDefaultSharedPreferences(app)
         prefs.edit().clear().commit()
         val appConfig = AppConfig(app)
-        viewModel = WheelViewModel(app, appConfig, prefs, null)
+        val db = TripDatabase.getDataBase(app)
+        viewModel = WheelViewModel(
+            app, appConfig, prefs, null,
+            tripRepository = TripRepository(db.tripDao()),
+            rideLogger = RideLogger(),
+            captureLogger = BleCaptureLogger(),
+            telemetryFileIO = PlatformTelemetryFileIO(),
+        )
 
         val mockConnectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
         mockCm = mockk(relaxed = true) {

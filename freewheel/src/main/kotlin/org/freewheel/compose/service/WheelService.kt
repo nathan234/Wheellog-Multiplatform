@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import org.freewheel.R
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
+import org.freewheel.core.protocol.WheelDecoderFactory
 import org.freewheel.core.service.BleManager
 import org.freewheel.core.service.ConnectionState
 import org.freewheel.core.service.WheelConnectionManager
@@ -52,22 +53,31 @@ class WheelService : Service() {
 
     private val binder = LocalBinder()
 
+    fun initializeDependencies(
+        ble: BleManager = BleManager(),
+        decoderFactory: WheelDecoderFactory = DefaultWheelDecoderFactory(),
+        locManager: LocationManager? = AppModule.locationManager,
+        notifManager: NotificationManager? = AppModule.notificationManager,
+    ) {
+        bleManager = ble
+        connectionManager = WheelConnectionManager(
+            bleManager = ble,
+            decoderFactory = decoderFactory,
+            scope = serviceScope
+        )
+        locationManager = locManager
+        notificationManager = notifManager
+    }
+
     override fun onCreate() {
         super.onCreate()
 
-        locationManager = AppModule.locationManager
-        notificationManager = AppModule.notificationManager
+        if (!::bleManager.isInitialized) {
+            initializeDependencies()
+        }
 
-        createNotificationChannel()
-
-        bleManager = BleManager()
         bleManager.initialize(this)
-
-        connectionManager = WheelConnectionManager(
-            bleManager = bleManager,
-            decoderFactory = DefaultWheelDecoderFactory(),
-            scope = serviceScope
-        )
+        createNotificationChannel()
 
         // Wire BLE data to connection manager (mirrors WheelManager.swift)
         bleManager.setDataReceivedCallback { data ->

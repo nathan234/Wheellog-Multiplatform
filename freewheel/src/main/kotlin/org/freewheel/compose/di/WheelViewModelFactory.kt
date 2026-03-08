@@ -15,6 +15,10 @@ class WheelViewModelFactory(
             appConfig = AppModule.appConfig,
             prefs = AppModule.prefs,
             vibrator = AppModule.vibrator,
+            tripRepository = AppModule.tripRepository,
+            rideLogger = AppModule.rideLogger,
+            captureLogger = AppModule.bleCaptureLogger,
+            telemetryFileIO = AppModule.telemetryFileIO,
         ) as T
     }
 }

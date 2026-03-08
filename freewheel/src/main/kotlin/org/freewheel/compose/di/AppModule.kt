@@ -9,6 +9,12 @@ import android.os.Vibrator
 import androidx.core.content.ContextCompat.getSystemService
 import androidx.preference.PreferenceManager
 import org.freewheel.AppConfig
+import org.freewheel.core.logging.BleCaptureLogger
+import org.freewheel.core.logging.RideLogger
+import org.freewheel.core.telemetry.PlatformTelemetryFileIO
+import org.freewheel.core.telemetry.TelemetryFileIO
+import org.freewheel.data.TripDatabase
+import org.freewheel.data.TripRepository
 
 object AppModule {
     private lateinit var appContext: Context
@@ -47,4 +53,10 @@ object AppModule {
             Vibrator::class.java
         )
     }
+    val tripRepository: TripRepository by lazy {
+        TripRepository(TripDatabase.getDataBase(appContext).tripDao())
+    }
+    val rideLogger: RideLogger by lazy { RideLogger() }
+    val bleCaptureLogger: BleCaptureLogger by lazy { BleCaptureLogger() }
+    val telemetryFileIO: TelemetryFileIO by lazy { PlatformTelemetryFileIO() }
 }

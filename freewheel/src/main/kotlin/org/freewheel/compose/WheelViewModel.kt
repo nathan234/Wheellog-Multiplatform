@@ -14,7 +14,6 @@ import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.logging.GpsLocation
 import org.freewheel.core.logging.RideLogger
 import org.freewheel.core.telemetry.ChartTimeRange
-import org.freewheel.core.telemetry.PlatformTelemetryFileIO
 import org.freewheel.core.telemetry.TelemetryBuffer
 import org.freewheel.core.telemetry.TelemetryHistory
 import org.freewheel.core.telemetry.TelemetrySample
@@ -42,8 +41,8 @@ import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.VibrationEffect
 import android.os.Vibrator
+import org.freewheel.core.telemetry.TelemetryFileIO
 import org.freewheel.data.TripDataDbEntry
-import org.freewheel.data.TripDatabase
 import org.freewheel.data.TripRepository
 import android.content.Context
 import java.io.File
@@ -66,9 +65,11 @@ class WheelViewModel(
     val appConfig: AppConfig,
     private val prefs: SharedPreferences,
     private val vibrator: Vibrator?,
+    private val tripRepository: TripRepository,
+    private val rideLogger: RideLogger,
+    private val captureLogger: BleCaptureLogger,
+    private val telemetryFileIO: TelemetryFileIO,
 ) : AndroidViewModel(application) {
-
-    private val tripRepository: TripRepository
 
     private val demoDataProvider = DemoDataProvider()
 
@@ -124,7 +125,6 @@ class WheelViewModel(
 
     // Persistent telemetry history (24h, downsampled)
     @Volatile private var telemetryHistory: TelemetryHistory? = null
-    private val telemetryFileIO = PlatformTelemetryFileIO()
 
     // Chart time range selection
     private val _chartTimeRange = MutableStateFlow(ChartTimeRange.FIVE_MINUTES)
@@ -240,8 +240,6 @@ class WheelViewModel(
     )
 
     init {
-        val db = TripDatabase.getDataBase(application)
-        tripRepository = TripRepository(db.tripDao())
         prefs.registerOnSharedPreferenceChangeListener(prefChangeListener)
         loadNavigationConfig()
         loadCustomTabLayouts()
@@ -659,8 +657,6 @@ class WheelViewModel(
 
     // --- Logging ---
 
-    private val rideLogger = RideLogger()
-
     fun toggleLogging() {
         if (rideLogger.isLogging) {
             stopLogging()
@@ -754,8 +750,6 @@ class WheelViewModel(
     }
 
     // --- BLE Capture ---
-
-    private val captureLogger = BleCaptureLogger()
 
     fun startCapture() {
         val cm = connectionManager ?: return

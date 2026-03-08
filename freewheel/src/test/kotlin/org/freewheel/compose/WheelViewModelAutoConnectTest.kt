@@ -1,5 +1,6 @@
 package org.freewheel.compose
 
+import org.freewheel.compose.service.WheelService
 import android.app.Application
 import android.preference.PreferenceManager
 import androidx.test.core.app.ApplicationProvider

@@ -55,10 +55,15 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import androidx.core.content.edit
+import org.freewheel.compose.di.AppModule
+import org.freewheel.compose.di.AppModule.prefs
+import org.freewheel.compose.service.AlarmHandler
+import org.freewheel.compose.service.WheelService
 
 class WheelViewModel(application: Application) : AndroidViewModel(application) {
 
-    val appConfig: AppConfig = AppConfig(application)
+    val appConfig: AppConfig = AppModule.appConfig
     private val tripRepository: TripRepository
 
     private val demoDataProvider = DemoDataProvider()
@@ -178,8 +183,6 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     val savedAddresses: StateFlow<Set<String>> = _savedAddresses.asStateFlow()
 
     // --- DecoderConfig propagation ---
-
-    private val prefs = PreferenceManager.getDefaultSharedPreferences(application)
 
     private val prefChangeListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         pushDecoderConfig()
@@ -583,7 +586,7 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun saveDashboardLayout(layout: DashboardLayout) {
         _dashboardLayout.value = layout
         val key = "${macPrefix}_${PreferenceKeys.DASHBOARD_LAYOUT}"
-        prefs.edit().putString(key, DashboardLayoutSerializer.serialize(layout)).apply()
+        prefs.edit { putString(key, DashboardLayoutSerializer.serialize(layout)) }
     }
 
     fun applyPreset(preset: DashboardPreset) {
@@ -602,7 +605,12 @@ class WheelViewModel(application: Application) : AndroidViewModel(application) {
     fun saveNavigationConfig(config: NavigationConfig) {
         if (!config.isValid()) return
         _navigationConfig.value = config
-        prefs.edit().putString(PreferenceKeys.NAVIGATION_CONFIG, NavigationConfigSerializer.serialize(config)).apply()
+        prefs.edit {
+            putString(
+                PreferenceKeys.NAVIGATION_CONFIG,
+                NavigationConfigSerializer.serialize(config)
+            )
+        }
         loadCustomTabLayouts()
     }
 

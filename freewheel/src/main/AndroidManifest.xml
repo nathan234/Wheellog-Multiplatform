@@ -83,7 +83,7 @@
             android:configChanges="orientation|screenSize"
             android:exported="false" />
 
-        <service android:name=".compose.WheelService"
+        <service android:name=".compose.service.WheelService"
             android:foregroundServiceType="connectedDevice|location"
             android:exported="false" />
 

@@ -32,7 +32,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.freewheel.compose.WheelViewModel
-import org.freewheel.compose.SmartBmsScreen
 import org.freewheel.compose.screens.ChartScreen
 import org.freewheel.compose.screens.CustomTabEditScreen
 import org.freewheel.compose.screens.CustomTabScreen
@@ -43,6 +42,7 @@ import org.freewheel.compose.screens.NavigationEditScreen
 import org.freewheel.compose.screens.RidesScreen
 import org.freewheel.compose.screens.AutoConnectContent
 import org.freewheel.compose.screens.ScanScreen
+import org.freewheel.compose.screens.SmartBmsScreen
 import org.freewheel.compose.screens.TripDetailScreen
 import org.freewheel.compose.screens.WheelSettingsScreen
 import org.freewheel.compose.screens.SettingsScreen

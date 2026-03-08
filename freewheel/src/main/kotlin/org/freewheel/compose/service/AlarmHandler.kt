@@ -1,4 +1,4 @@
-package org.freewheel.compose
+package org.freewheel.compose.service
 
 import org.freewheel.core.alarm.AlarmResult
 import org.freewheel.core.alarm.VibrationPatterns

@@ -1,4 +1,4 @@
-package org.freewheel.compose
+package org.freewheel.compose.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState

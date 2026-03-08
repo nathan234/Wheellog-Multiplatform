@@ -1,5 +1,6 @@
 package org.freewheel.compose
 
+import org.freewheel.compose.service.AlarmHandler
 import org.freewheel.core.alarm.AlarmResult
 import org.freewheel.core.alarm.PreWarning
 import org.freewheel.core.alarm.PreWarningType

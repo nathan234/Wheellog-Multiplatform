@@ -1,4 +1,4 @@
-package org.freewheel.compose
+package org.freewheel.compose.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.freewheel.compose.WheelViewModel
 import org.freewheel.core.domain.BmsSnapshot
 import org.freewheel.core.utils.DisplayUtils
 

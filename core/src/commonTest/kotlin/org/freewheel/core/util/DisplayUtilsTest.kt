@@ -465,15 +465,16 @@ class DisplayUtilsTest {
 
     @Test
     fun `formatFriendlyDate yesterday shows Yesterday prefix`() {
-        // Try both 24h and 36h ago — exactly one must be "yesterday" in any timezone.
-        // At midnight local, 24h ago is yesterday; at 23:59 local, 36h ago is yesterday.
-        val now = currentTimeMillis()
-        val result24h = PlatformDateFormatter.formatFriendlyDate(now - 24 * 3_600_000L)
-        val result36h = PlatformDateFormatter.formatFriendlyDate(now - 36 * 3_600_000L)
-
-        val found = result24h.startsWith("Yesterday,") || result36h.startsWith("Yesterday,")
-        assertTrue(found,
-            "Expected 'Yesterday,' prefix in one of: '$result24h' / '$result36h'")
+        // Use noon yesterday to avoid DST edge cases. Calendar.add handles DST correctly
+        // (subtracting a calendar day, not a fixed 24h of millis which can skip days on DST).
+        val yesterdayNoon = java.util.Calendar.getInstance().apply {
+            add(java.util.Calendar.DAY_OF_YEAR, -1)
+            set(java.util.Calendar.HOUR_OF_DAY, 12)
+            set(java.util.Calendar.MINUTE, 0)
+        }
+        val result = PlatformDateFormatter.formatFriendlyDate(yesterdayNoon.timeInMillis)
+        assertTrue(result.startsWith("Yesterday,"),
+            "Expected 'Yesterday,' prefix but got: '$result'")
     }
 
     @Test

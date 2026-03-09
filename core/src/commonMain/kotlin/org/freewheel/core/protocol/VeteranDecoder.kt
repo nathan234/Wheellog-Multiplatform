@@ -158,9 +158,9 @@ internal class VeteranUnpacker : Unpacker {
  * - Sherman, Sherman S, Sherman L
  * - Abrams
  * - Patton, Patton S
- * - Lynx
+ * - Lynx, Lynx S
  * - Oryx
- * - Nosfet Apex/Aero
+ * - Nosfet Apex/Aero/Aeon
  *
  * Data starts streaming immediately — no init commands needed.
  * Model is detected from the mVer byte in the first valid frame.
@@ -172,7 +172,8 @@ internal class VeteranUnpacker : Unpacker {
  * - Bytes 8-9:  Phase current (BE, signed)
  * - Bytes 10-11: Temperature (BE, ÷340 + 36.53)
  * - Byte 20:    mVer (model identifier)
- *   0/1=Sherman, 2=Abrams, 3=Sherman S, 4=Patton, 5=Lynx, etc.
+ *   0/1=Sherman, 2=Abrams, 3=Sherman S, 4=Patton, 5=Lynx, 6=Sherman L,
+ *   7=Patton S, 8=Oryx, 9=Lynx S, 42=Apex, 43=Aero, 44=Aeon
  *
  * State machine: none — always ready after first frame with valid mVer.
  *
@@ -502,7 +503,7 @@ class VeteranDecoder : WheelDecoder {
                     else -> ((voltage - 9918) / 24.2).roundToInt()
                 }
             }
-            mVer == 5 || mVer == 6 || mVer == 42 -> { // Lynx, Sherman L, Nosfet Apex (151V)
+            mVer == 5 || mVer == 6 || mVer == 9 || mVer == 42 || mVer == 44 -> { // Lynx, Sherman L, Lynx S, Nosfet Apex/Aeon (151V)
                 when {
                     voltage <= 11902 -> 0
                     voltage >= 14805 -> 100
@@ -533,17 +534,20 @@ class VeteranDecoder : WheelDecoder {
             7 -> VeteranSocTables.PATTON_126V // Patton S (same 126V chemistry/pack config)
             5 -> VeteranSocTables.LYNX_151V
             6 -> VeteranSocTables.LYNX_151V // Sherman L (same 151.2V chemistry)
+            9 -> VeteranSocTables.LYNX_151V // Lynx S (same 151.2V chemistry)
             42 -> VeteranSocTables.LYNX_151V // Nosfet Apex (same 151.2V, same pack config)
+            44 -> VeteranSocTables.LYNX_151V // Nosfet Aeon (same 151.2V, 36S)
             else -> null // Oryx, Nosfet Aero, unknown — use piecewise fallback
         }
     }
 
     private fun getCellsForWheel(): Int {
         return when {
-            mVer == 4 || mVer == 7 || mVer == 43 -> 30
-            mVer == 8 -> 42
-            mVer >= 5 -> 36
-            else -> 24
+            mVer == 4 || mVer == 7 || mVer == 43 -> 30 // Patton, Patton S, Aero
+            mVer == 8 -> 42 // Oryx
+            mVer == 5 || mVer == 6 || mVer == 9 || mVer == 42 || mVer == 44 -> 36 // Lynx, Sherman L, Lynx S, Apex, Aeon
+            mVer >= 5 -> 36 // fallback for unknown mVer >= 5
+            else -> 24 // Sherman, Abrams, Sherman S
         }
     }
 
@@ -557,8 +561,10 @@ class VeteranDecoder : WheelDecoder {
             6 -> "Sherman L"
             7 -> "Patton S"
             8 -> "Oryx"
+            9 -> "Lynx S"
             42 -> "Nosfet Apex"
             43 -> "Nosfet Aero"
+            44 -> "Nosfet Aeon"
             else -> "Unknown Veteran"
         }
     }

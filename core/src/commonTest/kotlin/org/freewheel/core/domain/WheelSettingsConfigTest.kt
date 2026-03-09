@@ -42,12 +42,13 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `Veteran has 3 sections - Lighting, Ride, Dangerous`() {
+    fun `Veteran has 4 sections - Lighting, Ride, Audio, Dangerous`() {
         val sections = WheelSettingsConfig.sections(WheelType.VETERAN)
-        assertEquals(3, sections.size)
+        assertEquals(4, sections.size)
         assertEquals("Lighting", sections[0].title)
         assertEquals("Ride", sections[1].title)
-        assertEquals("Dangerous Actions", sections[2].title)
+        assertEquals("Audio", sections[2].title)
+        assertEquals("Dangerous Actions", sections[3].title)
     }
 
     @Test
@@ -253,12 +254,18 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `Veteran Dangerous has Reset Trip`() {
-        val dangerous = WheelSettingsConfig.sections(WheelType.VETERAN)[2]
-        assertEquals(1, dangerous.controls.size)
-        val btn = dangerous.controls[0] as ControlSpec.DangerousButton
-        assertEquals("Reset Trip", btn.label)
-        assertEquals(SettingsCommandId.RESET_TRIP, btn.commandId)
+    fun `Veteran Dangerous has Lock, Power Off, Reset Trip`() {
+        val dangerous = WheelSettingsConfig.sections(WheelType.VETERAN)[3]
+        assertEquals(3, dangerous.controls.size)
+        val lock = dangerous.controls[0] as ControlSpec.DangerousToggle
+        assertEquals("Lock Wheel", lock.label)
+        assertEquals(SettingsCommandId.LOCK, lock.commandId)
+        val powerOff = dangerous.controls[1] as ControlSpec.DangerousButton
+        assertEquals("Power Off", powerOff.label)
+        assertEquals(SettingsCommandId.POWER_OFF, powerOff.commandId)
+        val resetTrip = dangerous.controls[2] as ControlSpec.DangerousButton
+        assertEquals("Reset Trip", resetTrip.label)
+        assertEquals(SettingsCommandId.RESET_TRIP, resetTrip.commandId)
     }
 
     @Test
@@ -338,8 +345,8 @@ class WheelSettingsConfigTest {
 
     @Test
     fun `Reset Trip button has confirmation message`() {
-        val dangerous = WheelSettingsConfig.sections(WheelType.VETERAN)[2]
-        val reset = dangerous.controls[0] as ControlSpec.DangerousButton
+        val dangerous = WheelSettingsConfig.sections(WheelType.VETERAN)[3]
+        val reset = dangerous.controls[2] as ControlSpec.DangerousButton
         assertEquals("Reset Trip", reset.confirmTitle)
         assertTrue(reset.confirmMessage.contains("trip distance"))
     }

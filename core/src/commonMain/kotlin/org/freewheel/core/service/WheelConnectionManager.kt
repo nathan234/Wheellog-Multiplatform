@@ -377,6 +377,10 @@ class WheelConnectionManager(
             SettingsCommandId.POWER_OFF -> powerOff()
             SettingsCommandId.LOCK -> setLock(boolValue)
             SettingsCommandId.RESET_TRIP -> resetTrip()
+            // Veteran extended settings
+            SettingsCommandId.HIGH_SPEED_MODE -> sendCommand(WheelCommand.SetHighSpeedMode(boolValue))
+            SettingsCommandId.LOW_VOLTAGE_MODE -> sendCommand(WheelCommand.SetLowVoltageMode(boolValue))
+            SettingsCommandId.KEY_TONE -> sendCommand(WheelCommand.SetKeyTone(intValue))
             // InMotion V2 extended settings
             SettingsCommandId.BERM_ANGLE_MODE -> setBermAngleMode(boolValue)
             SettingsCommandId.BERM_ANGLE -> setBermAngle(intValue)

@@ -909,4 +909,416 @@ class VeteranDecoderTest {
         assertNotNull(result)
         assertEquals(WheelType.VETERAN, result.newState.wheelType)
     }
+
+    // ==================== New Fields from Main Frame ====================
+
+    @Test
+    fun `tiltBackSpeed is populated from frame`() {
+        // Bytes 26-27 are speed tiltback (BE), multiplied by 10 in decoder,
+        // then divided by 10 when stored as tiltBackSpeed
+        // speedTiltback = shortFromBytesBE(buff, 26) * 10
+        // state.tiltBackSpeed = speedTiltback / 10
+        // So tiltBackSpeed = shortFromBytesBE(buff, 26)
+        val freshDecoder = VeteranDecoder()
+        val frame = buildVeteranFrame()
+        // Set bytes 26-27 to 450 (BE) -> tiltBackSpeed = 450 * 10 / 10 = 450
+        frame[26] = ((450 shr 8) and 0xFF).toByte()
+        frame[27] = (450 and 0xFF).toByte()
+        val result = freshDecoder.decode(frame, WheelState(), config)
+        assertNotNull(result)
+        assertEquals(450, result.newState.tiltBackSpeed)
+    }
+
+    @Test
+    fun `pedalsMode is populated from frame`() {
+        // Bytes 30-31 are pedals mode (BE); byte 30 must be 0x00 or 0x07
+        // With byte 30=0x00, byte 31=0x02 -> pedalsMode = 2
+        val freshDecoder = VeteranDecoder()
+        val frame = buildVeteranFrame()
+        frame[30] = 0x00
+        frame[31] = 0x02
+        val result = freshDecoder.decode(frame, WheelState(), config)
+        assertNotNull(result)
+        assertEquals(2, result.newState.pedalsMode)
+    }
+
+    // ==================== Extended Frame Builder ====================
+
+    /**
+     * Build an extended Veteran frame with sub-type data.
+     *
+     * Extended frames (> 46 bytes) require CRC32 validation by the unpacker
+     * since len > 38. The CRC is computed over bytes 0..(len-1) and appended
+     * as 4 bytes BE at offset len.
+     */
+    private fun buildExtendedFrame(
+        voltage: Int = 9686,
+        ver: Int = 5000,
+        subType: Int = 0,
+        extraSize: Int = 40
+    ): ByteArray {
+        val base = buildVeteranFrame(voltage = voltage, ver = ver)
+        // Unpacker: len = byte[3]. CRC over bytes 0..(len-1). CRC at offset len.
+        // Total buffer = len + 4. We need sub-type at byte 46 plus extra data.
+        // len must be > 38 to trigger CRC checking.
+        val unpackerLen = 47 + extraSize  // this is what byte[3] will be set to
+        val totalSize = unpackerLen + 4   // 4 bytes for CRC appended at offset len
+
+        val extended = ByteArray(totalSize)
+        base.copyInto(extended)
+
+        // Update length byte: unpacker reads this as len
+        extended[3] = unpackerLen.toByte()
+
+        // Set sub-type at byte 46
+        extended[46] = subType.toByte()
+
+        // Compute and append CRC32 over first unpackerLen bytes
+        val crc = veteranCrc32(extended, 0, unpackerLen)
+        extended[unpackerLen] = ((crc shr 24) and 0xFF).toByte()
+        extended[unpackerLen + 1] = ((crc shr 16) and 0xFF).toByte()
+        extended[unpackerLen + 2] = ((crc shr 8) and 0xFF).toByte()
+        extended[unpackerLen + 3] = (crc and 0xFF).toByte()
+
+        return extended
+    }
+
+    /**
+     * Convenience: decode an extended frame with a fresh decoder.
+     */
+    private fun decodeExtendedFrame(
+        voltage: Int = 9686,
+        ver: Int = 5000,
+        subType: Int = 0,
+        extraSize: Int = 40,
+        frameModifier: (ByteArray) -> Unit = {}
+    ): DecodedData? {
+        val freshDecoder = VeteranDecoder()
+        val frame = buildExtendedFrame(voltage = voltage, ver = ver, subType = subType, extraSize = extraSize)
+
+        // Apply modifications before CRC
+        // We need to rebuild CRC after modification
+        frameModifier(frame)
+
+        // Recalculate CRC after modification
+        val unpackerLen = frame[3].toInt() and 0xFF
+        val crc = veteranCrc32(frame, 0, unpackerLen)
+        frame[unpackerLen] = ((crc shr 24) and 0xFF).toByte()
+        frame[unpackerLen + 1] = ((crc shr 16) and 0xFF).toByte()
+        frame[unpackerLen + 2] = ((crc shr 8) and 0xFF).toByte()
+        frame[unpackerLen + 3] = (crc and 0xFF).toByte()
+
+        return freshDecoder.decode(frame, WheelState(), config)
+    }
+
+    // ==================== Sub-type Extended Data Parsing ====================
+
+    @Test
+    fun `sub-type 0 parses roll angle from bytes 67-68`() {
+        // Roll angle at bytes 67-68, signed BE, divided by 100
+        // 250 -> 2.5 degrees
+        val result = decodeExtendedFrame(subType = 0) { frame ->
+            frame[67] = ((250 shr 8) and 0xFF).toByte()
+            frame[68] = (250 and 0xFF).toByte()
+        }
+        assertNotNull(result)
+        assertEquals(2.5, result.newState.roll, 0.001)
+    }
+
+    @Test
+    fun `sub-type 5 parses lock state from byte 51`() {
+        val result = decodeExtendedFrame(subType = 5) { frame ->
+            frame[51] = 0x50.toByte() // locked + password set
+        }
+        assertNotNull(result)
+        assertEquals(0x50, result.newState.lockState)
+    }
+
+    @Test
+    fun `sub-type 2 overrides battery percent from byte 50`() {
+        val result = decodeExtendedFrame(subType = 2) { frame ->
+            frame[50] = 75.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(75, result.newState.batteryLevel)
+    }
+
+    @Test
+    fun `sub-type 2 ignores invalid battery percent`() {
+        // Battery > 100 should be ignored, falling back to voltage-based calc
+        val result = decodeExtendedFrame(subType = 2, voltage = 9686) { frame ->
+            frame[50] = 200.toByte() // invalid (> 100)
+        }
+        assertNotNull(result)
+        // Should use voltage-based calculation, not 200
+        assertTrue(result.newState.batteryLevel in 0..100,
+            "Battery should use voltage-based calc when sub-type 2 value > 100")
+    }
+
+    @Test
+    fun `sub-type 8 parses transport mode`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[57] = 1.toByte()
+        }
+        assertNotNull(result)
+        assertTrue(result.newState.transportMode)
+    }
+
+    @Test
+    fun `sub-type 8 parses high speed mode`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[61] = 1.toByte()
+        }
+        assertNotNull(result)
+        assertTrue(result.newState.highSpeedMode)
+    }
+
+    @Test
+    fun `sub-type 8 parses low voltage mode`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[60] = 1.toByte()
+        }
+        assertNotNull(result)
+        assertTrue(result.newState.lowVoltageMode)
+    }
+
+    @Test
+    fun `sub-type 8 parses key tone`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[63] = 75.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(75, result.newState.keyTone)
+    }
+
+    @Test
+    fun `sub-type 8 parses speaker volume`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[59] = 50.toByte() // signed byte
+        }
+        assertNotNull(result)
+        assertEquals(50, result.newState.speakerVolume)
+    }
+
+    @Test
+    fun `sub-type 8 ignores unsupported fields (0x80)`() {
+        // 0x80 means "not supported" — should not change defaults
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[57] = 0x80.toByte() // transport mode = not supported
+        }
+        assertNotNull(result)
+        assertFalse(result.newState.transportMode, "0x80 should be treated as unsupported, keeping default false")
+    }
+
+    @Test
+    fun `sub-type 8 parses pedal hardness as pedalSensitivity`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[50] = 65.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(65, result.newState.pedalSensitivity)
+    }
+
+    // ==================== New Binary Commands (mVer >= 3) ====================
+
+    /**
+     * Helper: create a fresh decoder with mVer set by decoding one frame.
+     */
+    private fun decoderWithVer(ver: Int): VeteranDecoder {
+        val d = VeteranDecoder()
+        val frame = buildVeteranFrame(ver = ver)
+        d.decode(frame, WheelState(), config)
+        return d
+    }
+
+    @Test
+    fun `set alarm speed command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000) // mVer=5
+        val commands = freshDecoder.buildCommand(WheelCommand.SetAlarmSpeed(50, 1))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        // Header: 4C 6B 41 70
+        assertEquals(0x4C.toByte(), data[0])
+        assertEquals(0x6B.toByte(), data[1])
+        assertEquals(0x41.toByte(), data[2])
+        assertEquals(0x70.toByte(), data[3])
+        // Command byte 0x11
+        assertEquals(0x11.toByte(), data[4])
+        // Value at byte 12 = speed + 10 = 60
+        assertEquals(60.toByte(), data[12])
+        // Total length = 13 payload + 4 CRC = 17
+        assertEquals(17, data.size)
+    }
+
+    @Test
+    fun `set pedal tilt command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetPedalTilt(0))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x10.toByte(), data[4]) // cmd byte
+        // Value at byte 11 = angle + 80 = 0 + 80 = 80
+        assertEquals(80.toByte(), data[11])
+        assertEquals(16, data.size) // 12 payload + 4 CRC
+    }
+
+    @Test
+    fun `set transport mode on command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetTransportMode(enabled = true))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x16.toByte(), data[4]) // cmd byte
+        assertEquals(1.toByte(), data[17]) // value at byte 17
+    }
+
+    @Test
+    fun `set transport mode off command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetTransportMode(enabled = false))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x16.toByte(), data[4])
+        assertEquals(0.toByte(), data[17])
+    }
+
+    @Test
+    fun `set speaker volume command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetSpeakerVolume(50))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x18.toByte(), data[4]) // cmd byte
+        assertEquals(50.toByte(), data[19]) // value at byte 19
+    }
+
+    @Test
+    fun `set high speed mode on command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetHighSpeedMode(enabled = true))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x1A.toByte(), data[4]) // cmd byte
+        assertEquals(1.toByte(), data[21]) // value at byte 21
+    }
+
+    @Test
+    fun `set low voltage mode on command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetLowVoltageMode(enabled = true))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x19.toByte(), data[4]) // cmd byte
+        assertEquals(1.toByte(), data[20]) // value at byte 20
+    }
+
+    @Test
+    fun `set key tone command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetKeyTone(75))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x1C.toByte(), data[4]) // cmd byte
+        assertEquals(75.toByte(), data[23]) // value at byte 23
+    }
+
+    @Test
+    fun `power off command for new firmware`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.PowerOff)
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        // Header
+        assertEquals(0x4C.toByte(), data[0])
+        assertEquals(0x6B.toByte(), data[1])
+        assertEquals(0x41.toByte(), data[2])
+        assertEquals(0x70.toByte(), data[3])
+        // cmd byte 0x16
+        assertEquals(0x16.toByte(), data[4])
+        // Total = 18 payload + 4 CRC = 22
+        assertEquals(22, data.size)
+        // Verify the CRC is present (non-trivial last 4 bytes)
+        val payloadSize = data.size - 4
+        val crc = veteranCrc32(data, 0, payloadSize)
+        val providedCrc = ((data[payloadSize].toLong() and 0xFF) shl 24) or
+                ((data[payloadSize + 1].toLong() and 0xFF) shl 16) or
+                ((data[payloadSize + 2].toLong() and 0xFF) shl 8) or
+                (data[payloadSize + 3].toLong() and 0xFF)
+        assertEquals(crc, providedCrc, "PowerOff command should have valid CRC32")
+    }
+
+    @Test
+    fun `set light binary for new firmware`() {
+        val freshDecoder = decoderWithVer(5000) // mVer=5
+        val commands = freshDecoder.buildCommand(WheelCommand.SetLight(enabled = true))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        // Binary format, not string
+        assertEquals(0x4C.toByte(), data[0]) // binary header
+        assertEquals(0x6B.toByte(), data[1])
+        assertEquals(0x0D.toByte(), data[4]) // cmd byte for light
+        assertEquals(1.toByte(), data[8]) // value at byte 8
+    }
+
+    @Test
+    fun `set pedals mode binary for new firmware`() {
+        val freshDecoder = decoderWithVer(5000) // mVer=5
+        // mode 0 = hard -> inverted to 3
+        val commands = freshDecoder.buildCommand(WheelCommand.SetPedalsMode(mode = 0))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x4C.toByte(), data[0]) // binary header
+        assertEquals(0x0C.toByte(), data[4]) // cmd byte for pedals mode
+        assertEquals(3.toByte(), data[7]) // value at byte 7 (0 -> 3 inverted)
+    }
+
+    @Test
+    fun `old firmware commands still use string format`() {
+        val freshDecoder = decoderWithVer(1000) // mVer=1
+        val commands = freshDecoder.buildCommand(WheelCommand.SetLight(enabled = true))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals("SetLightON", data.decodeToString())
+    }
+
+    @Test
+    fun `old firmware returns empty for new commands`() {
+        val freshDecoder = decoderWithVer(1000) // mVer=1
+        val commands = freshDecoder.buildCommand(WheelCommand.SetAlarmSpeed(50, 1))
+        assertTrue(commands.isEmpty(), "Old firmware should not support SetAlarmSpeed")
+    }
+
+    // ==================== CRC32 Correctness ====================
+
+    @Test
+    fun `binary beep command matches hardcoded bytes`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.Beep)
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        val expected = byteArrayOf(
+            0x4C, 0x6B, 0x41, 0x70, 0x0E, 0x00,
+            0x80.toByte(), 0x80.toByte(), 0x80.toByte(), 0x01,
+            0xCA.toByte(), 0x87.toByte(), 0xE6.toByte(), 0x6F
+        )
+        assertTrue(expected.contentEquals(data),
+            "Beep command should match hardcoded bytes exactly")
+    }
+
+    @Test
+    fun `binary command has valid CRC32`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetSpeakerVolume(50))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        // Extract and verify CRC
+        val payloadSize = data.size - 4
+        val computedCrc = veteranCrc32(data, 0, payloadSize)
+        val extractedCrc = ((data[payloadSize].toLong() and 0xFF) shl 24) or
+                ((data[payloadSize + 1].toLong() and 0xFF) shl 16) or
+                ((data[payloadSize + 2].toLong() and 0xFF) shl 8) or
+                (data[payloadSize + 3].toLong() and 0xFF)
+        assertEquals(computedCrc, extractedCrc,
+            "CRC32 appended to command should match computed CRC32")
+    }
 }

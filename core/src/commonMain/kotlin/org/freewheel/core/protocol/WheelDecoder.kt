@@ -308,6 +308,12 @@ sealed class WheelCommand {
     data class SetStandbyTime(val minutes: Int) : WheelCommand()
     data class SetChargeLimit(val percentage: Int) : WheelCommand()
 
+    // --- Veteran/Leaperkim extended settings ---
+
+    data class SetHighSpeedMode(val enabled: Boolean) : WheelCommand()
+    data class SetLowVoltageMode(val enabled: Boolean) : WheelCommand()
+    data class SetKeyTone(val value: Int) : WheelCommand()
+
     // --- BMS requests (Kingsong) ---
 
     /**

@@ -57,5 +57,10 @@ data class WheelSettingsState(
     val cruise: Boolean = false,
     val loadDetect: Boolean = false,
     val standbyTime: Int = -1,
-    val chargeLimit: Int = -1
+    val chargeLimit: Int = -1,
+    // Veteran/Leaperkim extended settings
+    val highSpeedMode: Boolean = false,
+    val lowVoltageMode: Boolean = false,
+    val keyTone: Int = -1,
+    val lockState: Int = -1
 )

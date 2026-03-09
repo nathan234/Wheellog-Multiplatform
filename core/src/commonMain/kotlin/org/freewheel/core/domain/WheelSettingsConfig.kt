@@ -62,9 +62,20 @@ object WheelSettingsConfig {
             ControlSpec.Toggle("Headlight", SettingsCommandId.LIGHT_MODE)
         )),
         SettingsSection("Ride", listOf(
-            ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE)
+            ControlSpec.Segmented("Pedals Mode", listOf("Hard", "Medium", "Soft"), SettingsCommandId.PEDALS_MODE),
+            ControlSpec.Slider("Alarm Speed", 10, 80, "km/h", 50, SettingsCommandId.ALARM_SPEED_1),
+            ControlSpec.Slider("Pedal Tilt", -8, 8, "\u00B0", 0, SettingsCommandId.PEDAL_TILT),
+            ControlSpec.Toggle("Transport Mode", SettingsCommandId.TRANSPORT_MODE),
+            ControlSpec.Toggle("High Speed Mode", SettingsCommandId.HIGH_SPEED_MODE),
+            ControlSpec.Toggle("Low Voltage Mode", SettingsCommandId.LOW_VOLTAGE_MODE)
+        )),
+        SettingsSection("Audio", listOf(
+            ControlSpec.Slider("Speaker Volume", 0, 100, "%", 50, SettingsCommandId.SPEAKER_VOLUME),
+            ControlSpec.Slider("Key Tone", 0, 100, "%", 50, SettingsCommandId.KEY_TONE)
         )),
         SettingsSection("Dangerous Actions", listOf(
+            lockToggle(),
+            powerOffButton(),
             resetTripButton()
         ))
     )

@@ -138,6 +138,12 @@ data class WheelState(
     val standbyTime: Int = -1,          // minutes (-1=unknown)
     val chargeLimit: Int = -1,          // percentage (-1=unknown)
 
+    // Veteran/Leaperkim extended settings — populated by: VT only
+    val highSpeedMode: Boolean = false,
+    val lowVoltageMode: Boolean = false,
+    val keyTone: Int = -1,           // 0-100% (-1=unknown)
+    val lockState: Int = -1,         // lock bitfield (-1=unknown)
+
     // Error tracking
     val error: String = "",
     /** Alert string. Populated by: GW, IM1, IM2. */
@@ -235,7 +241,9 @@ data class WheelState(
         lightEffect = lightEffect, lightEffectMode = lightEffectMode,
         twoBatteryMode = twoBatteryMode, lowBatterySafeMode = lowBatterySafeMode,
         spinKill = spinKill, cruise = cruise, loadDetect = loadDetect,
-        standbyTime = standbyTime, chargeLimit = chargeLimit
+        standbyTime = standbyTime, chargeLimit = chargeLimit,
+        highSpeedMode = highSpeedMode, lowVoltageMode = lowVoltageMode,
+        keyTone = keyTone, lockState = lockState
     )
 
     /** Extract identity fields (set once per connection). */

@@ -203,6 +203,50 @@ class LeaperkimCanDecoderTest {
     }
 
     @Test
+    fun `calculates battery level from voltage`() {
+        completeInitSequence()
+
+        val payload = ByteArray(64)
+        // Voltage at offset 24: 8900 (= 89.00V, mid-range for 100V class)
+        // Expected battery: ((8900 - 7935) / 19.5).roundToInt() = (965 / 19.5).roundToInt() = 49
+        putIntLE(payload, 24, 8900)
+
+        val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
+        val result = decoder.decode(frame, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertEquals(49, result.newState.batteryLevel)
+    }
+
+    @Test
+    fun `battery level is 0 at or below minimum voltage`() {
+        completeInitSequence()
+
+        val payload = ByteArray(64)
+        putIntLE(payload, 24, 7900) // below 7935 threshold
+
+        val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
+        val result = decoder.decode(frame, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertEquals(0, result.newState.batteryLevel)
+    }
+
+    @Test
+    fun `battery level is 100 at or above maximum voltage`() {
+        completeInitSequence()
+
+        val payload = ByteArray(64)
+        putIntLE(payload, 24, 10000) // above 9870 threshold
+
+        val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
+        val result = decoder.decode(frame, defaultState, defaultConfig)
+
+        assertNotNull(result)
+        assertEquals(100, result.newState.batteryLevel)
+    }
+
+    @Test
     fun `parses temperature from READ_VALUES response`() {
         completeInitSequence()
 

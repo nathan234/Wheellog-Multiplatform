@@ -260,6 +260,30 @@ class LeaperkimCanDecoder : WheelDecoder {
         }
     }
 
+    // ==================== Battery Calculation ====================
+
+    /**
+     * Calculate battery percentage from voltage using piecewise-linear interpolation.
+     *
+     * Currently all known CAN protocol models are treated as 100V class (24s).
+     * This is a conservative default — the CAN protocol wheels are InMotion-manufactured
+     * so their voltage classes may differ from legacy Veteran wheels. Having any battery %
+     * is better than showing 0.
+     *
+     * @param voltage Voltage stored as ×100 (e.g. 8400 = 84.00V)
+     * @return Battery percentage 0-100
+     */
+    private fun calculateBatteryPercent(voltage: Int): Int {
+        return when {
+            // 100V class (24s): Sherman, Abrams, R0, and other unknown models
+            else -> when {
+                voltage <= 7935 -> 0
+                voltage >= 9870 -> 100
+                else -> ((voltage - 7935) / 19.5).roundToInt()
+            }
+        }
+    }
+
     // ==================== Telemetry Parsing ====================
 
     /**
@@ -289,6 +313,9 @@ class LeaperkimCanDecoder : WheelDecoder {
         // Store as ×100: value * 0.01 * 100 = value
         val voltage = ByteUtils.intFromBytesLE(payload, 24)
 
+        // Battery level from voltage
+        val battery = calculateBatteryPercent(voltage)
+
         // Temperature: offset 32, 1B uint8, * 100 → stored as ×100
         val temperature = if (payload.size > 32) {
             (payload[32].toInt() and 0xFF) * 100
@@ -308,6 +335,7 @@ class LeaperkimCanDecoder : WheelDecoder {
         return currentState.copy(
             speed = speed,
             voltage = voltage,
+            batteryLevel = battery,
             phaseCurrent = phaseCurrent,
             current = phaseCurrent,
             power = power,

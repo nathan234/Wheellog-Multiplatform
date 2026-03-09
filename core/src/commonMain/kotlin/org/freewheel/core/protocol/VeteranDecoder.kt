@@ -11,6 +11,25 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
+ * Simple CRC32 calculation for KMP.
+ */
+internal fun veteranCrc32(data: ByteArray, offset: Int, length: Int): Long {
+    var crc = 0xFFFFFFFFL
+    for (i in offset until offset + length) {
+        val byte = data[i].toLong() and 0xFF
+        crc = crc xor byte
+        for (j in 0 until 8) {
+            crc = if ((crc and 1L) == 1L) {
+                (crc ushr 1) xor 0xEDB88320L
+            } else {
+                crc ushr 1
+            }
+        }
+    }
+    return crc xor 0xFFFFFFFFL
+}
+
+/**
  * Frame unpacker for Veteran/Leaperkim wheels.
  *
  * Frame format:
@@ -68,7 +87,7 @@ internal class VeteranUnpacker : Unpacker {
                     // Check CRC32 for new format
                     if (len > 38 || usingCrc) {
                         val data = getBuffer()
-                        val calcCrc = crc32(data, 0, len)
+                        val calcCrc = veteranCrc32(data, 0, len)
                         val providedCrc = ByteUtils.intFromBytesBE(data, len)
                         if (calcCrc == providedCrc) {
                             usingCrc = true
@@ -109,24 +128,6 @@ internal class VeteranUnpacker : Unpacker {
         return false
     }
 
-    /**
-     * Simple CRC32 calculation for KMP.
-     */
-    private fun crc32(data: ByteArray, offset: Int, length: Int): Long {
-        var crc = 0xFFFFFFFFL
-        for (i in offset until offset + length) {
-            val byte = data[i].toLong() and 0xFF
-            crc = crc xor byte
-            for (j in 0 until 8) {
-                crc = if ((crc and 1L) == 1L) {
-                    (crc ushr 1) xor 0xEDB88320L
-                } else {
-                    crc ushr 1
-                }
-            }
-        }
-        return crc xor 0xFFFFFFFFL
-    }
 }
 
 /**
@@ -160,6 +161,18 @@ class VeteranDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.VETERAN
     private val stateLock = Lock()
+
+    private data class SubTypeData(
+        val roll: Double? = null,
+        val lockState: Int? = null,
+        val batteryOverride: Int? = null,
+        val highSpeedMode: Boolean? = null,
+        val lowVoltageMode: Boolean? = null,
+        val speakerVolume: Int? = null,
+        val transportMode: Boolean? = null,
+        val keyTone: Int? = null,
+        val pedalHardness: Int? = null,
+    )
 
     private val unpacker = VeteranUnpacker()
     private var lastPacketTime = 0L
@@ -249,7 +262,10 @@ class VeteranDecoder : WheelDecoder {
         val current = (calculatedPwm * phaseCurrent).roundToInt()
         val power = ((current / 100.0) * voltage).roundToInt()
 
-        return currentState.copy(
+        // Parse sub-type extended data for newer wheels
+        val subData = if (mVer >= 5 && buff.size > 46) parseSubTypeData(buff) else null
+
+        var state = currentState.copy(
             speed = speed,
             voltage = voltage,
             phaseCurrent = phaseCurrent,
@@ -258,14 +274,107 @@ class VeteranDecoder : WheelDecoder {
             temperature = temperature,
             wheelDistance = distance,
             totalDistance = totalDistance,
-            batteryLevel = battery,
+            batteryLevel = subData?.batteryOverride ?: battery,
             chargingStatus = chargeMode,
             output = output,
             calculatedPwm = calculatedPwm,
             angle = pitchAngle / 100.0,
+            tiltBackSpeed = speedTiltback / 10,
+            pedalsMode = pedalsMode,
             version = version,
             model = getModelName(),
             wheelType = WheelType.VETERAN
+        )
+
+        // Merge sub-type settings data
+        if (subData != null) {
+            state = state.copy(
+                roll = subData.roll ?: state.roll,
+                lockState = subData.lockState ?: state.lockState,
+                highSpeedMode = subData.highSpeedMode ?: state.highSpeedMode,
+                lowVoltageMode = subData.lowVoltageMode ?: state.lowVoltageMode,
+                speakerVolume = subData.speakerVolume ?: state.speakerVolume,
+                transportMode = subData.transportMode ?: state.transportMode,
+                keyTone = subData.keyTone ?: state.keyTone,
+                pedalSensitivity = subData.pedalHardness ?: state.pedalSensitivity,
+            )
+        }
+
+        return state
+    }
+
+    private fun parseSubTypeData(buff: ByteArray): SubTypeData? {
+        if (buff.size <= 46) return null
+        val pNum = buff[46].toInt()
+
+        return when (pNum) {
+            0, 4 -> {
+                // Roll angle (left-right) at bytes 67-68
+                if (buff.size > 68) {
+                    val rollRaw = ByteUtils.signedShortFromBytesBE(buff, 67)
+                    SubTypeData(roll = rollRaw / 100.0)
+                } else null
+            }
+            5 -> {
+                // Lock state at byte 51
+                if (buff.size > 51) {
+                    SubTypeData(lockState = buff[51].toInt() and 0xFF)
+                } else null
+            }
+            2 -> {
+                // Battery % override at byte 50
+                if (buff.size > 50) {
+                    val pct = buff[50].toInt() and 0xFF
+                    if (pct in 0..100) SubTypeData(batteryOverride = pct) else null
+                } else null
+            }
+            8 -> parseControlSettings(buff)
+            else -> null
+        }
+    }
+
+    private fun parseControlSettings(buff: ByteArray): SubTypeData {
+        // Control settings from sub-type 8
+        // 0x80 (128) means "not supported" for each field
+        val NOT_SUPPORTED = 0x80
+
+        val pedalHardness = if (buff.size > 50) {
+            val raw = buff[50].toInt() and 0xFF
+            if (raw == NOT_SUPPORTED) null else raw
+        } else null
+
+        val transport = if (buff.size > 57) {
+            val raw = buff[57].toInt() and 0xFF
+            if (raw == NOT_SUPPORTED) null else raw != 0
+        } else null
+
+        val volume = if (buff.size > 59) {
+            val raw = buff[59].toInt() // signed byte
+            if ((raw.toInt() and 0xFF) == NOT_SUPPORTED) null else raw
+        } else null
+
+        val lowVol = if (buff.size > 60) {
+            val raw = buff[60].toInt() and 0xFF
+            if (raw == NOT_SUPPORTED) null else raw != 0
+        } else null
+
+        val highSpeed = if (buff.size > 61) {
+            val raw = buff[61].toInt() and 0xFF
+            if (raw == NOT_SUPPORTED) null else raw != 0
+        } else null
+
+        val keyToneVal = if (buff.size > 63) {
+            val raw = buff[63].toInt() and 0xFF
+            if (raw == NOT_SUPPORTED) null else raw
+        } else null
+
+        return SubTypeData(
+            pedalHardness = pedalHardness,
+            transportMode = transport,
+            speakerVolume = volume,
+            lowVoltageMode = lowVol,
+            highSpeedMode = highSpeed,
+            keyTone = keyToneVal,
         )
     }
 
@@ -451,35 +560,159 @@ class VeteranDecoder : WheelDecoder {
         }
     }
 
+    /**
+     * Build a Veteran binary command with CRC32.
+     * Format: [4C 6B 41 70] [cmdByte] [byte5] [padding 0x80...] [valueByte] + CRC32 (4 bytes BE)
+     *
+     * The value is placed at [valuePosition] (0-indexed), with 0x80 padding between byte 6 and the value.
+     * The total payload (before CRC) is valuePosition + 1.
+     */
+    private fun buildVeteranCommand(cmdByte: Int, valuePosition: Int, value: Int, byte5: Int = 0x00): ByteArray {
+        val payloadSize = valuePosition + 1
+        val payload = ByteArray(payloadSize)
+        payload[0] = 0x4C
+        payload[1] = 0x6B
+        payload[2] = 0x41
+        payload[3] = 0x70
+        payload[4] = cmdByte.toByte()
+        payload[5] = byte5.toByte()
+        // Fill positions 6..(payloadSize-2) with 0x80 padding
+        for (i in 6 until payloadSize - 1) {
+            payload[i] = 0x80.toByte()
+        }
+        payload[payloadSize - 1] = value.toByte()
+
+        return appendCrc32(payload)
+    }
+
+    /**
+     * Append 4-byte big-endian CRC32 to a byte array.
+     */
+    private fun appendCrc32(data: ByteArray): ByteArray {
+        val crc = veteranCrc32(data, 0, data.size)
+        val result = ByteArray(data.size + 4)
+        data.copyInto(result)
+        result[data.size] = ((crc shr 24) and 0xFF).toByte()
+        result[data.size + 1] = ((crc shr 16) and 0xFF).toByte()
+        result[data.size + 2] = ((crc shr 8) and 0xFF).toByte()
+        result[data.size + 3] = (crc and 0xFF).toByte()
+        return result
+    }
+
     override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+        val ver = stateLock.withLock { mVer }
         return when (command) {
             is WheelCommand.Beep -> {
-                val ver = stateLock.withLock { mVer }
                 if (ver < 3) {
                     listOf(WheelCommand.SendBytes("b".encodeToByteArray()))
                 } else {
-                    listOf(WheelCommand.SendBytes(byteArrayOf(
-                        0x4C, 0x6B, 0x41, 0x70, 0x0E, 0x00,
-                        0x80.toByte(), 0x80.toByte(), 0x80.toByte(), 0x01,
-                        0xCA.toByte(), 0x87.toByte(), 0xE6.toByte(), 0x6F
-                    )))
+                    // cmd 0x0E, value at byte 9 = 0x01
+                    listOf(WheelCommand.SendBytes(
+                        buildVeteranCommand(0x0E, 9, 0x01)
+                    ))
                 }
             }
-            is WheelCommand.SetLight -> listOf(
-                WheelCommand.SendBytes(
-                    if (command.enabled) "SetLightON".encodeToByteArray()
-                    else "SetLightOFF".encodeToByteArray()
-                )
-            )
-            is WheelCommand.SetPedalsMode -> {
-                // 0=hard, 1=medium, 2=soft
-                val cmd = when (command.mode) {
-                    0 -> "SETh"
-                    1 -> "SETm"
-                    2 -> "SETs"
-                    else -> return emptyList()
+            is WheelCommand.SetLight -> {
+                if (ver < 3) {
+                    listOf(WheelCommand.SendBytes(
+                        if (command.enabled) "SetLightON".encodeToByteArray()
+                        else "SetLightOFF".encodeToByteArray()
+                    ))
+                } else {
+                    // cmd 0x0D, value at byte 8 = 1/0
+                    listOf(WheelCommand.SendBytes(
+                        buildVeteranCommand(0x0D, 8, if (command.enabled) 1 else 0, byte5 = 0x01)
+                    ))
                 }
-                listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+            }
+            is WheelCommand.SetPedalsMode -> {
+                if (ver < 3) {
+                    val cmd = when (command.mode) {
+                        0 -> "SETh"
+                        1 -> "SETm"
+                        2 -> "SETs"
+                        else -> return emptyList()
+                    }
+                    listOf(WheelCommand.SendBytes(cmd.encodeToByteArray()))
+                } else {
+                    // cmd 0x0C, value at byte 7
+                    // UI sends 0=hard, 1=medium, 2=soft
+                    // Wheel expects 3=hard, 2=medium, 1=soft
+                    val value = when (command.mode) {
+                        0 -> 3  // hard
+                        1 -> 2  // medium
+                        2 -> 1  // soft
+                        else -> return emptyList()
+                    }
+                    listOf(WheelCommand.SendBytes(
+                        buildVeteranCommand(0x0C, 7, value, byte5 = 0x01)
+                    ))
+                }
+            }
+            is WheelCommand.SetAlarmSpeed -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x11, value at byte 12 = speed + 10
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x11, 12, command.speed + 10, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.SetPedalTilt -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x10, value at byte 11 = angle + 80
+                // command.angle comes from UI as raw degrees (e.g. -8 to 8)
+                // After dispatch: setPedalTilt multiplies by 10, so angle is degrees*10
+                // Encoding: value = angle + 80 (where angle is degrees*10)
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x10, 11, command.angle + 80, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.SetTransportMode -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x16, value at byte 17 = 0/1
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x16, 17, if (command.enabled) 1 else 0, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.SetSpeakerVolume -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x18, value at byte 19
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x18, 19, command.volume, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.SetHighSpeedMode -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x1A, value at byte 21 = 0/1
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x1A, 21, if (command.enabled) 1 else 0, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.SetLowVoltageMode -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x19, value at byte 20 = 0/1
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x19, 20, if (command.enabled) 1 else 0, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.SetKeyTone -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x1C, value at byte 23
+                listOf(WheelCommand.SendBytes(
+                    buildVeteranCommand(0x1C, 23, command.value, byte5 = 0x01)
+                ))
+            }
+            is WheelCommand.PowerOff -> {
+                if (ver < 3) return emptyList()
+                // cmd 0x16, byte 16 = 1 (close in 10 seconds)
+                // This has a special layout: value is at byte 16, not the last byte
+                // Use the CMD_SET_CLOSE_IN_10 pattern from decompiled app
+                val payload = byteArrayOf(
+                    0x4C, 0x6B, 0x41, 0x70, 0x16, 0x01,
+                    0x80.toByte(), 0x80.toByte(), 0x80.toByte(), 0x80.toByte(),
+                    0x80.toByte(), 0x80.toByte(), 0x80.toByte(), 0x80.toByte(),
+                    0x80.toByte(), 0x80.toByte(), 0x01, 0x80.toByte()
+                )
+                listOf(WheelCommand.SendBytes(appendCrc32(payload)))
             }
             is WheelCommand.ResetTrip -> {
                 listOf(WheelCommand.SendBytes("CLEARMETER".encodeToByteArray()))

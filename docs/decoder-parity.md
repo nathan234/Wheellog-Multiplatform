@@ -117,13 +117,33 @@ Tests: `VeteranDecoderTest.kt` · `VeteranDecoderComparisonTest.kt`
 - [x] PWM and current calculation from hwPwm and phaseCurrent
 
 ### Commands
-- [x] Beep ("b" for old, structured frame for v3+)
-- [x] Light on/off ("SetLightON"/"SetLightOFF")
-- [x] Pedals mode (SETh/SETm/SETs)
+- [x] Beep ("b" for old, binary CRC32 frame for v3+)
+- [x] Light on/off (binary CRC32 frame)
+- [x] Pedals mode (binary CRC32 frame, 3 levels)
+- [x] Alarm speed (binary CRC32 frame, 10-80 km/h)
+- [x] Pedal tilt (binary CRC32 frame, -8 to +8°)
+- [x] Transport mode (binary CRC32 toggle)
+- [x] Speaker volume (binary CRC32 frame, 0-100%)
+- [x] High speed mode (binary CRC32 toggle)
+- [x] Low voltage mode (binary CRC32 toggle)
+- [x] Key tone (binary CRC32 frame, 0-100%)
+- [x] Power off (binary CRC32 frame)
 - [x] Reset trip ("CLEARMETER")
 
+### Sub-type Extended Data (mVer >= 5)
+- [x] Sub-type 0/4: roll angle
+- [x] Sub-type 1/5: lock state
+- [x] Sub-type 2/6: battery percent override
+- [x] Sub-type 8: control settings readback (pedal hardness, transport mode, volume, low voltage mode, high speed mode, key tone; 0x80 = not supported sentinel)
+
 ### Known Gaps
-- (none identified)
+- [ ] **[P1]** Nosfet Aero (mVer 43) SOC table: 126V/2P pack has a different voltage-SOC curve than Patton/Patton-S (126V/4P). Uses piecewise-linear fallback. Need real-world data or Leaperkim-provided table.
+- [ ] **[P2]** Dual-format commands: official app sends old (LkAp) + new (LdAp) format concatenated for non-"004" firmware. We only send old format. May affect newer wheels.
+- [ ] **[P2]** Lock command: requires time-based password prefix (`genPwdCmd` in official app). Currently returns empty.
+- [ ] **[P2]** Oryx (mVer 8) SOC table: no official table available (not in Leaperkim app v1.4.8). Uses piecewise-linear fallback.
+- [ ] **[P3]** Fall protection angle: parsed in sub-type 2 (byte 47) by official app but not surfaced in WheelState.
+- [ ] **[P3]** Time sync on connect: official app sends time sync command on first valid frame.
+- [ ] **[P3]** Sub-types 1/5 cell voltages (cells 1-15), 2/6 cells 16-30, 3/7 remaining cells + temps: not yet parsed (BMS data already comes from main frame for mVer >= 5).
 
 ---
 

@@ -10,10 +10,12 @@ import androidx.core.content.ContextCompat.getSystemService
 import androidx.preference.PreferenceManager
 import org.freewheel.AppConfig
 import org.freewheel.compose.WheelProfileStore
+import org.freewheel.core.alarm.AlarmChecker
 import org.freewheel.core.logging.BleCaptureLogger
 import org.freewheel.core.logging.RideLogger
 import org.freewheel.core.service.DemoDataProvider
 import org.freewheel.core.telemetry.PlatformTelemetryFileIO
+import org.freewheel.core.telemetry.TelemetryBuffer
 import org.freewheel.core.telemetry.TelemetryFileIO
 import org.freewheel.data.TripDatabase
 import org.freewheel.data.TripRepository
@@ -62,4 +64,6 @@ object AppModule {
     val telemetryFileIO: TelemetryFileIO by lazy { PlatformTelemetryFileIO() }
     val profileStore: WheelProfileStore by lazy { WheelProfileStore(prefs) }
     val demoDataProvider: DemoDataProvider by lazy { DemoDataProvider() }
+    val alarmChecker: AlarmChecker by lazy { AlarmChecker() }
+    val telemetryBuffer: TelemetryBuffer by lazy { TelemetryBuffer() }
 }

@@ -70,7 +70,9 @@ class WheelViewModel(
     private val captureLogger: BleCaptureLogger,
     private val telemetryFileIO: TelemetryFileIO,
     val profileStore: WheelProfileStore,
-    private val demoDataProvider: DemoDataProvider
+    private val demoDataProvider: DemoDataProvider,
+    private val alarmChecker: AlarmChecker = AlarmChecker(),
+    val telemetryBuffer: TelemetryBuffer = TelemetryBuffer()
 ) : AndroidViewModel(application) {
 
     // Service references (set via attachService/detachService)
@@ -120,8 +122,7 @@ class WheelViewModel(
     private val _activeAlarms = MutableStateFlow<Set<AlarmType>>(emptySet())
     val activeAlarms: StateFlow<Set<AlarmType>> = _activeAlarms.asStateFlow()
 
-    // Telemetry buffer for charts (shared KMP)
-    val telemetryBuffer = TelemetryBuffer()
+    // Telemetry buffer for charts (shared KMP) — injected via constructor
 
     // Persistent telemetry history (24h, downsampled)
     @Volatile private var telemetryHistory: TelemetryHistory? = null
@@ -220,9 +221,8 @@ class WheelViewModel(
         connectionManager?.updateConfig(buildDecoderConfig())
     }
 
-    // Alarm checking — must be declared before init{} because startAlarmMonitoring()
-    // launches an immediate coroutine that accesses these properties.
-    private val alarmChecker = AlarmChecker()
+    // Alarm checking — alarmChecker injected via constructor; must be declared before init{}
+    // because startAlarmMonitoring() launches an immediate coroutine that accesses these properties.
     private val alarmHandler = AlarmHandler(
         vibrate = { pattern ->
             vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))

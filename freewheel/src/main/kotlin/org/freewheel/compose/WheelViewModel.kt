@@ -86,7 +86,7 @@ class WheelViewModel(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
-    // Track the connect coroutine so disconnect() can cancel it
+    // Track the connect coroutine so we can cancel the scan-stop + connect call
     private var connectJob: Job? = null
 
     // Demo mode
@@ -760,7 +760,7 @@ class WheelViewModel(
         val filePath = File(capturesDir, fileName).absolutePath
 
         val state = wheelState.value
-        val wheelTypeName = state.wheelType?.name ?: "UNKNOWN"
+        val wheelTypeName = state.wheelType.name
         val wheelName = state.displayName
         val firmware = state.version
         val appVersion = try {
@@ -835,10 +835,6 @@ class WheelViewModel(
 
     fun setChartTimeRange(range: ChartTimeRange) {
         _chartTimeRange.value = range
-        // Refresh chart samples for non-buffer ranges
-        if (range != ChartTimeRange.FIVE_MINUTES) {
-            _telemetrySamples.value = _telemetrySamples.value // trigger recompute
-        }
     }
 
     fun saveHistoryToDisk() {

@@ -29,7 +29,7 @@ Wheellog.Android/
 │   ├── Scripts/             # build-kmp-framework.sh (Xcode build phase)
 │   └── FreeWheel/
 │       ├── Bridge/          # Swift-to-KMP wrappers (see iOS Bridge below)
-│       └── Views/           # SwiftUI views (11 files)
+│       └── Views/           # SwiftUI views
 └── wearos/                  # WearOS companion app (does NOT use KMP core;
                              #   receives data from phone via DataClient)
 ```
@@ -122,7 +122,6 @@ Central orchestrator for the Compose app (`AndroidViewModel`). Owns:
 | Compose components | `freewheel/src/main/.../compose/components/*.kt` (incl. `DangerousActionDialog`, `TimeRangePicker`) |
 | **iOS App** | |
 | Main bridge (orchestrator) | `iosApp/FreeWheel/Bridge/WheelManager.swift` |
-| StateFlow → @Published | `iosApp/FreeWheel/Bridge/StateFlowObserver.swift` |
 | Alarm bridge | `iosApp/FreeWheel/Bridge/AlarmManager.swift` |
 | Background mode | `iosApp/FreeWheel/Bridge/BackgroundManager.swift` |
 | Location tracking | `iosApp/FreeWheel/Bridge/LocationManager.swift` |
@@ -136,7 +135,7 @@ Central orchestrator for the Compose app (`AndroidViewModel`). Owns:
 
 `WheelConnectionManagerHelper.kt` (in iosMain) provides Swift-friendly wrappers around the KMP `WheelConnectionManager`. It exposes convenience methods that Swift can call without dealing with Kotlin coroutines directly.
 
-On the Swift side, `WheelManager.swift` is the main orchestrator. It owns the KMP manager instance and coordinates the other Bridge files. `StateFlowObserver` polls KMP StateFlows on a timer and publishes changes to SwiftUI via `@Published` properties.
+On the Swift side, `WheelManager.swift` is the main orchestrator. It owns the KMP manager instance and coordinates the other Bridge files. StateFlow collection is handled reactively via `WheelConnectionManagerHelper.observeXxx()` methods (Kotlin coroutines collecting flows and invoking Swift callbacks), not polling.
 
 For app lifecycle, shutdown paths, data persistence, and logging architecture details, see [docs/claude-reference.md](docs/claude-reference.md).
 

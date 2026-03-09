@@ -56,7 +56,7 @@ BLE notification → WheelConnectionManager.onDataReceived(bytes)
               ↓              ↓
      _wheelState.emit()  sendCommand() → bleManager.write()
               ↓
-        UI observes via StateFlow (Android) / polling (iOS)
+        UI observes via StateFlow (Android) / callback-based flow collection (iOS)
 ```
 
 Lifecycle:

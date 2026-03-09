@@ -1055,7 +1055,9 @@ class WheelManager: ObservableObject {
     func insertCaptureMarker(_ label: String) {
         let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
         captureLogger.insertMarker(label: label, currentTimeMs: nowMs)
-        captureMarkerCount += 1
+        if isCapturing {
+            captureMarkerCount += 1
+        }
     }
 
     static func capturesDirectory() -> URL {

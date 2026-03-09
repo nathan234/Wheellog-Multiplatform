@@ -429,6 +429,11 @@ class WheelManager: ObservableObject {
         bleManager?.setServicesDiscoveredCallback { [weak self] services, deviceName in
             self?.connectionManager?.onServicesDiscovered(services: services, deviceName: deviceName)
         }
+
+        // Wire BLE errors to connection manager
+        bleManager?.setBleErrorCallback { [weak self] in
+            self?.connectionManager?.onBleError()
+        }
     }
 
     private func setupAlarmCallbacks() {

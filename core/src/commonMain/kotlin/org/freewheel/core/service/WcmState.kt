@@ -18,6 +18,7 @@ data class WcmState(
     val wheelState: WheelState = WheelState(),
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val consecutiveDecodeErrors: Int = 0,
+    val consecutiveBleErrors: Int = 0,
     // Internal — not exposed as public flows
     val decoder: WheelDecoder? = null,
     val decoderConfig: DecoderConfig = DecoderConfig(),

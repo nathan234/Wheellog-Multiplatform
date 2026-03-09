@@ -59,6 +59,12 @@ sealed class WheelEvent {
         val data: ByteArray
     ) : WheelEvent()
 
+    /**
+     * BLE characteristic update failed (GATT error on Android, NSError on iOS).
+     * Consecutive errors past a threshold trigger [ConnectionState.ConnectionLost].
+     */
+    data object BleError : WheelEvent()
+
     // --- Timers ---
 
     /**

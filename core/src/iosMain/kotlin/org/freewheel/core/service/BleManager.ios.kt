@@ -56,6 +56,7 @@ actual class BleManager : BleManagerPort {
 
     // Callbacks
     private var onDataReceivedCallback: ((ByteArray) -> Unit)? = null
+    private var onBleErrorCallback: (() -> Unit)? = null
     private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
     private var scanCallback: ((BleDevice) -> Unit)? = null
 
@@ -100,6 +101,13 @@ actual class BleManager : BleManagerPort {
      */
     fun setDataReceivedCallback(callback: (ByteArray) -> Unit) {
         onDataReceivedCallback = callback
+    }
+
+    /**
+     * Set callback for when a BLE characteristic update fails (CoreBluetooth error).
+     */
+    fun setBleErrorCallback(callback: () -> Unit) {
+        onBleErrorCallback = callback
     }
 
     /**
@@ -581,6 +589,7 @@ actual class BleManager : BleManagerPort {
     internal fun onCharacteristicValueUpdated(characteristic: CBCharacteristic, error: NSError?) {
         if (error != null) {
             Logger.w("BleManager", "Characteristic update error: ${error.localizedDescription}")
+            onBleErrorCallback?.invoke()
             return
         }
 

@@ -387,7 +387,8 @@ class NinebotDecoder(
      * Parse live data 2 frame (0xB3).
      * Contains: battery level, speed.
      */
-    private fun parseLiveData2(data: ByteArray, currentState: WheelState): FrameResult {
+    private fun parseLiveData2(data: ByteArray, currentState: WheelState): FrameResult? {
+        if (data.size < 6) return null
         batt = ByteUtils.shortFromBytesLE(data, 2)
         speed = ByteUtils.shortFromBytesLE(data, 4) / 10
 
@@ -404,7 +405,8 @@ class NinebotDecoder(
      * Parse live data 3 frame (0xB6).
      * Contains: distance.
      */
-    private fun parseLiveData3(data: ByteArray, currentState: WheelState): FrameResult {
+    private fun parseLiveData3(data: ByteArray, currentState: WheelState): FrameResult? {
+        if (data.size < 6) return null
         distance = ByteUtils.intFromBytesLE(data, 2).toLong()
 
         return FrameResult(
@@ -419,7 +421,8 @@ class NinebotDecoder(
      * Parse live data 4 frame (0xB9).
      * Contains: temperature.
      */
-    private fun parseLiveData4(data: ByteArray, currentState: WheelState): FrameResult {
+    private fun parseLiveData4(data: ByteArray, currentState: WheelState): FrameResult? {
+        if (data.size < 6) return null
         temperature = ByteUtils.shortFromBytesLE(data, 4)
 
         return FrameResult(
@@ -434,7 +437,8 @@ class NinebotDecoder(
      * Parse live data 5 frame (0xBC).
      * Contains: voltage, current.
      */
-    private fun parseLiveData5(data: ByteArray, currentState: WheelState): FrameResult {
+    private fun parseLiveData5(data: ByteArray, currentState: WheelState): FrameResult? {
+        if (data.size < 4) return null
         voltage = ByteUtils.shortFromBytesLE(data, 0)
         current = ByteUtils.signedShortFromBytesLE(data, 2)
         power = ((current / 100.0) * voltage).roundToInt()

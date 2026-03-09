@@ -367,6 +367,61 @@ class NinebotDecoderTest {
         assertEquals(15, NinebotDecoder.CELLS_FOR_WHEEL)
     }
 
+    // ==================== Bounds Check Tests ====================
+
+    @Test
+    fun `truncated LiveData2 frame returns null`() {
+        // LiveData2 (0xB3) accesses offsets 2 and 4 → needs >= 6 bytes
+        // Send frame with only 2 data bytes
+        val frame = buildNinebotFrame(
+            source = 0x01, destination = 0x09,
+            parameter = 0xB3, data = byteArrayOf(0x00, 0x00)
+        )
+        val decoder = NinebotDecoder()
+        feedNinebotInit(decoder)
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNull(result, "LiveData2 with < 6 data bytes should return null")
+    }
+
+    @Test
+    fun `truncated LiveData3 frame returns null`() {
+        // LiveData3 (0xB6) accesses offset 2 as 4-byte int → needs >= 6 bytes
+        val frame = buildNinebotFrame(
+            source = 0x01, destination = 0x09,
+            parameter = 0xB6, data = byteArrayOf(0x00, 0x00, 0x00)
+        )
+        val decoder = NinebotDecoder()
+        feedNinebotInit(decoder)
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNull(result, "LiveData3 with < 6 data bytes should return null")
+    }
+
+    @Test
+    fun `truncated LiveData4 frame returns null`() {
+        // LiveData4 (0xB9) accesses offset 4 as 2-byte short → needs >= 6 bytes
+        val frame = buildNinebotFrame(
+            source = 0x01, destination = 0x09,
+            parameter = 0xB9, data = byteArrayOf(0x00, 0x00, 0x00, 0x00)
+        )
+        val decoder = NinebotDecoder()
+        feedNinebotInit(decoder)
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNull(result, "LiveData4 with < 6 data bytes should return null")
+    }
+
+    @Test
+    fun `truncated LiveData5 frame returns null`() {
+        // LiveData5 (0xBC) accesses offsets 0 and 2 → needs >= 4 bytes
+        val frame = buildNinebotFrame(
+            source = 0x01, destination = 0x09,
+            parameter = 0xBC, data = byteArrayOf(0x00, 0x00)
+        )
+        val decoder = NinebotDecoder()
+        feedNinebotInit(decoder)
+        val result = decoder.decode(frame, WheelState(), config)
+        assertNull(result, "LiveData5 with < 4 data bytes should return null")
+    }
+
     // ==================== Power Calculation Tests ====================
     // Bug fix: power was voltage * current (both ×100 units) = 10000× too large.
     // Correct formula: (current / 100.0) * voltage, matching legacy calculatePower().

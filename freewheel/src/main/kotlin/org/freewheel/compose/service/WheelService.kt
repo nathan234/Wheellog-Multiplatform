@@ -95,6 +95,9 @@ class WheelService : Service() {
                 org.freewheel.core.utils.Logger.e("WheelService", "Error in onServicesDiscovered", e)
             }
         }
+        bleManager.setBleErrorCallback {
+            connectionManager.onBleError()
+        }
 
         // Monitor connection state for notification updates
         serviceScope.launch {

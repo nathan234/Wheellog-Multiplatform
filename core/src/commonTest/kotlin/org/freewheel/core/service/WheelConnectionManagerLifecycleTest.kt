@@ -617,6 +617,77 @@ class WheelConnectionManagerLifecycleTest {
         assertEquals(WheelType.KINGSONG, info.wheelType)
     }
 
+    // ==================== BLE Error Tracking ====================
+
+    @Test
+    fun `bleError increments counter and resets on successful data`() = runTest(timeout = 0.1.seconds) {
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        // Send a few BLE errors
+        manager.onBleError()
+        manager.onBleError()
+        manager.onBleError()
+        runCurrent()
+
+        assertEquals(3, manager.consecutiveBleErrors.value)
+
+        // Successful data resets the counter
+        fakeDecoder.decodeResult = DecodedData(
+            newState = WheelState(speed = 2500)
+        )
+        manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
+
+        assertEquals(0, manager.consecutiveBleErrors.value)
+    }
+
+    @Test
+    fun `consecutive BLE errors trigger ConnectionLost after threshold`() = runTest(timeout = 0.1.seconds) {
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        // Make decoder ready → Connected
+        fakeDecoder.decodeResult = DecodedData(
+            newState = WheelState(speed = 2500, name = "KS-S18")
+        )
+        fakeDecoder.ready = true
+        manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
+        assertTrue(manager.connectionState.value is ConnectionState.Connected)
+
+        // Send MAX_BLE_ERRORS consecutive errors
+        repeat(WheelConnectionManager.MAX_BLE_ERRORS) {
+            manager.onBleError()
+        }
+        runCurrent()
+
+        val state = manager.connectionState.value
+        assertTrue(state is ConnectionState.ConnectionLost, "Expected ConnectionLost, got $state")
+        assertEquals("Too many BLE errors", (state as ConnectionState.ConnectionLost).reason)
+        assertEquals("AA:BB:CC:DD:EE:FF", state.address)
+    }
+
+    // ==================== Derived Flow: consecutiveBleErrors ====================
+
+    @Test
+    fun `consecutiveBleErrors flow exposed correctly`() = runTest(timeout = 0.1.seconds) {
+        val manager = createManager()
+        assertEquals(0, manager.consecutiveBleErrors.value)
+
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        manager.onBleError()
+        runCurrent()
+        assertEquals(1, manager.consecutiveBleErrors.value)
+    }
+
     // ==================== Decoder Reset on Type Change ====================
 
     @Test

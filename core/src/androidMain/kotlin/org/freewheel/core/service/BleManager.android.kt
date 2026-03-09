@@ -67,6 +67,9 @@ actual class BleManager : BleManagerPort {
     // Callback for data received from the wheel
     private var onDataReceivedCallback: ((ByteArray) -> Unit)? = null
 
+    // Callback for BLE characteristic update errors (GATT errors)
+    private var onBleErrorCallback: (() -> Unit)? = null
+
     // Callback for services discovered
     private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
 
@@ -178,6 +181,13 @@ actual class BleManager : BleManagerPort {
     }
 
     /**
+     * Set callback for when a BLE characteristic update fails (GATT error).
+     */
+    fun setBleErrorCallback(callback: () -> Unit) {
+        onBleErrorCallback = callback
+    }
+
+    /**
      * Set callback for when services are discovered.
      */
     fun setServicesDiscoveredCallback(callback: (DiscoveredServices, String?) -> Unit) {
@@ -251,6 +261,7 @@ actual class BleManager : BleManagerPort {
                 onDataReceivedCallback?.invoke(value)
             } else {
                 Logger.w("BleManager", "Characteristic update failed: $status (${characteristic.uuid})")
+                onBleErrorCallback?.invoke()
             }
         }
 

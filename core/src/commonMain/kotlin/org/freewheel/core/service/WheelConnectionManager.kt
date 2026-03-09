@@ -151,6 +151,12 @@ class WheelConnectionManager(
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, 0)
 
+    /** Count of consecutive BLE errors. Resets to 0 on each successful decode. */
+    val consecutiveBleErrors: StateFlow<Int> = _wcmState
+        .map { it.consecutiveBleErrors }
+        .distinctUntilChanged()
+        .stateIn(derivedScope, SharingStarted.Eagerly, 0)
+
     /** Whether the keep-alive timer is running. */
     val isKeepAliveRunning: StateFlow<Boolean> = keepAliveTimer.isRunning
 
@@ -215,6 +221,15 @@ class WheelConnectionManager(
         // Reset timeout tracker immediately for accurate timing
         dataTimeoutTracker.onDataReceived()
         events.trySend(WheelEvent.DataReceived(data))
+    }
+
+    /**
+     * Report a BLE characteristic update error.
+     * Called by platform-specific BLE implementation on GATT/CoreBluetooth errors.
+     * Consecutive errors past [MAX_BLE_ERRORS] trigger [ConnectionState.ConnectionLost].
+     */
+    fun onBleError() {
+        events.trySend(WheelEvent.BleError)
     }
 
     /**
@@ -404,6 +419,7 @@ class WheelConnectionManager(
             is WheelEvent.ServicesDiscovered -> reduceServicesDiscovered(state, event)
             is WheelEvent.WheelTypeDetected -> reduceWheelTypeDetected(state, event)
             is WheelEvent.DataReceived -> reduceDataReceived(state, event)
+            is WheelEvent.BleError -> reduceBleError(state)
             is WheelEvent.KeepAliveTick -> reduceKeepAliveTick(state)
             is WheelEvent.DataTimeout -> reduceDataTimeout(state, event)
             is WheelEvent.SendCommand -> reduceSendCommand(state, event)
@@ -588,10 +604,29 @@ class WheelConnectionManager(
             state = state.copy(
                 wheelState = result.newState,
                 connectionState = newConnectionState,
-                consecutiveDecodeErrors = 0
+                consecutiveDecodeErrors = 0,
+                consecutiveBleErrors = 0
             ),
             effects = effects
         )
+    }
+
+    private fun reduceBleError(state: WcmState): WcmTransition {
+        val newCount = state.consecutiveBleErrors + 1
+        Logger.w(TAG, "BLE error #$newCount")
+        if (newCount >= MAX_BLE_ERRORS) {
+            val address = getCurrentAddress(state)
+            return WcmTransition(
+                state.copy(
+                    consecutiveBleErrors = newCount,
+                    connectionState = ConnectionState.ConnectionLost(
+                        address = address ?: "",
+                        reason = "Too many BLE errors"
+                    )
+                )
+            )
+        }
+        return WcmTransition(state.copy(consecutiveBleErrors = newCount))
     }
 
     private fun reduceKeepAliveTick(state: WcmState): WcmTransition {
@@ -776,6 +811,8 @@ class WheelConnectionManager(
 
     companion object {
         private const val TAG = "WheelConnectionManager"
+        /** Consecutive BLE errors before triggering ConnectionLost. */
+        internal const val MAX_BLE_ERRORS = 50
     }
 }
 

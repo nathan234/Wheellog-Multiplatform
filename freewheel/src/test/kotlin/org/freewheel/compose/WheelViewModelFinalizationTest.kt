@@ -66,7 +66,10 @@ class WheelViewModelFinalizationTest {
         val appConfig = AppConfig(app, prefs)
         val db = TripDatabase.getDataBase(app)
         viewModel = WheelViewModel(
-            app, appConfig, prefs, null,
+            application = app,
+            appConfig = appConfig,
+            prefs = prefs,
+            vibrator = null,
             tripRepository = TripRepository(db.tripDao()),
             rideLogger = RideLogger(),
             captureLogger = BleCaptureLogger(),

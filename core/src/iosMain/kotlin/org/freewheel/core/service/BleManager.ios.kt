@@ -348,6 +348,9 @@ actual class BleManager : BleManagerPort {
         serviceDiscoveryTimeoutJob?.cancel()
         serviceDiscoveryTimeoutJob = scope.launch {
             delay(15_000)
+            // Check under lock — completeServiceDiscovery may have won the race
+            val alreadyCompleted = continuationLock.withLock { serviceDiscoveryCompleted }
+            if (alreadyCompleted) return@launch
             val address = peripheral.identifier.UUIDString
             Logger.w("BleManager", "Service discovery timed out after 15s for $address")
             _connectionState.value = ConnectionState.Failed(
@@ -476,8 +479,13 @@ actual class BleManager : BleManagerPort {
      * Called from both the cache-hit fast path and the normal discovery callback path.
      */
     private fun completeServiceDiscovery(peripheral: CBPeripheral) {
-        if (serviceDiscoveryCompleted) return
-        serviceDiscoveryCompleted = true
+        // Guard: timeout and callback can race — use lock to prevent double-completion
+        val alreadyCompleted = continuationLock.withLock {
+            if (serviceDiscoveryCompleted) return@withLock true
+            serviceDiscoveryCompleted = true
+            false
+        }
+        if (alreadyCompleted) return
 
         serviceDiscoveryTimeoutJob?.cancel()
         serviceDiscoveryTimeoutJob = null

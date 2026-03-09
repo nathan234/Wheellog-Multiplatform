@@ -33,7 +33,8 @@ class WearOsManager(
     private val activeAlarmsFlow: StateFlow<Set<AlarmType>>,
     private val appConfig: AppConfig,
     private val onHornRequested: () -> Unit,
-    private val onLightToggleRequested: () -> Unit
+    private val onLightToggleRequested: () -> Unit,
+    private val prefs: SharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
 ) : MessageClient.OnMessageReceivedListener {
 
     @Volatile private var isConnected = false
@@ -63,8 +64,7 @@ class WearOsManager(
         isConnected = false
 
         Wearable.getMessageClient(context).addListener(this)
-        PreferenceManager.getDefaultSharedPreferences(context)
-            .registerOnSharedPreferenceChangeListener(prefListener)
+        prefs.registerOnSharedPreferenceChangeListener(prefListener)
 
         // Send ping, then auto-launch watch app if no pong received
         sendMessage(Constants.wearOsPingMessage)
@@ -99,8 +99,7 @@ class WearOsManager(
             Wearable.getMessageClient(context).removeListener(this)
         } catch (_: Exception) {}
         try {
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .unregisterOnSharedPreferenceChangeListener(prefListener)
+            prefs.unregisterOnSharedPreferenceChangeListener(prefListener)
         } catch (_: Exception) {}
     }
 

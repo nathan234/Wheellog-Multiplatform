@@ -15,17 +15,19 @@ import org.freewheel.core.domain.WheelType
  * - DC 5A 5C header -> Veteran wheel
  * - 55 AA header -> Gotway/Begode wheel
  */
-class AutoDetectDecoder : WheelDecoder {
+class AutoDetectDecoder(
+    private val factory: WheelDecoderFactory = DefaultWheelDecoderFactory()
+) : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.GOTWAY_VIRTUAL
 
     private var detectedDecoder: WheelDecoder? = null
     private var detectedType: WheelType? = null
 
-    // Lazy initialization of decoders
-    private val gotwayDecoder by lazy { GotwayDecoder() }
-    private val veteranDecoder by lazy { VeteranDecoder() }
-    private val leaperkimDecoder by lazy { LeaperkimCanDecoder() }
+    // Lazy initialization of decoders via factory
+    private val gotwayDecoder by lazy { factory.createDecoder(WheelType.GOTWAY)!! }
+    private val veteranDecoder by lazy { factory.createDecoder(WheelType.VETERAN)!! }
+    private val leaperkimDecoder by lazy { factory.createDecoder(WheelType.LEAPERKIM)!! }
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
         if (data.isEmpty()) return null

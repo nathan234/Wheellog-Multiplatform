@@ -56,11 +56,12 @@ class WheelService : Service() {
     fun initializeDependencies(
         ble: BleManager = BleManager(),
         decoderFactory: WheelDecoderFactory = DefaultWheelDecoderFactory(),
+        cm: WheelConnectionManager? = null,
         locManager: LocationManager? = AppModule.locationManager,
         notifManager: NotificationManager? = AppModule.notificationManager,
     ) {
         bleManager = ble
-        connectionManager = WheelConnectionManager(
+        connectionManager = cm ?: WheelConnectionManager(
             bleManager = ble,
             decoderFactory = decoderFactory,
             scope = serviceScope

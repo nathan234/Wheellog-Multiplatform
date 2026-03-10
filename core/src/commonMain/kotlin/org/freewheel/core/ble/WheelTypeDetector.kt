@@ -160,22 +160,12 @@ class WheelTypeDetector {
         val name = deviceName?.uppercase() ?: return null
 
         return when {
-            // Leaperkim CAN protocol patterns (before Veteran to prioritize CAN detection)
-            // Official Leaperkim app filters by "LK" prefix
+            // Veteran/Leaperkim patterns (legacy DC 5A 5C protocol)
+            // Official Leaperkim app filters by "LK" prefix; all known LK wheels
+            // use the legacy Veteran protocol, not CAN-over-BLE.
             name.contains("LEAPERKIM") ||
             name.contains("LPKIM") ||
-            name.startsWith("LK") -> {
-                DetectionResult.Detected(
-                    wheelType = WheelType.LEAPERKIM,
-                    readServiceUuid = BleUuids.Gotway.SERVICE,
-                    readCharacteristicUuid = BleUuids.Gotway.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.Gotway.SERVICE,
-                    writeCharacteristicUuid = BleUuids.Gotway.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.HIGH
-                )
-            }
-
-            // Veteran patterns (including Nosfet-branded wheels)
+            name.startsWith("LK") ||
             name.contains("VETERAN") ||
             name.contains("SHERMAN") ||
             name.contains("LYNX") ||

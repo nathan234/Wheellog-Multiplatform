@@ -611,4 +611,120 @@ class WheelTypeDetectorTest {
         val detected = result as WheelTypeDetector.DetectionResult.Detected
         assertEquals(WheelType.KINGSONG, detected.wheelType)
     }
+
+    // ==================== Real Device Name Tests ====================
+    // These test against actual BLE advertisement names observed in the wild,
+    // from DarknessBot device lists and user reports.
+
+    private val ffe0Services = DiscoveredServices(
+        services = listOf(
+            DiscoveredService(
+                uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
+                characteristics = listOf("0000ffe1-0000-1000-8000-00805f9b34fb")
+            )
+        )
+    )
+
+    private fun assertDetectedAs(deviceName: String, expectedType: WheelType) {
+        val result = detector.detect(ffe0Services, deviceName)
+        assertTrue(
+            result is WheelTypeDetector.DetectionResult.Detected &&
+                result.wheelType == expectedType,
+            "Expected $expectedType for name '$deviceName' but got $result"
+        )
+    }
+
+    // --- Leaperkim/Veteran LK prefix (from official app + DarknessBot screenshot) ---
+    // The official Leaperkim app v1.4.8 uses the legacy Veteran protocol (DC 5A 5C)
+    // for all LK-prefixed wheels. Route to VETERAN, not LEAPERKIM (CAN).
+
+    @Test
+    fun `detect Veteran from real LK device names`() {
+        // Real names from DarknessBot device list screenshot
+        val lkNames = listOf("LK15724", "LK18412", "LK16350")
+        for (name in lkNames) {
+            assertDetectedAs(name, WheelType.VETERAN)
+        }
+    }
+
+    @Test
+    fun `LK prefix uses Gotway BLE UUIDs`() {
+        val result = detector.detect(ffe0Services, "LK15724")
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(BleUuids.Gotway.SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.Gotway.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+    }
+
+    @Test
+    fun `LEAPERKIM keyword detected as Veteran`() {
+        assertDetectedAs("LEAPERKIM-V2", WheelType.VETERAN)
+    }
+
+    // --- Veteran (NF prefix for Nosfet, from user report) ---
+
+    @Test
+    fun `detect Veteran from NF prefix real device name`() {
+        // Real Nosfet Apex device name from user BLE scan
+        assertDetectedAs("NF2790", WheelType.VETERAN)
+    }
+
+    @Test
+    fun `Veteran NF prefix uses Gotway BLE UUIDs`() {
+        val result = detector.detect(ffe0Services, "NF2790")
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(BleUuids.Gotway.SERVICE, detected.readServiceUuid)
+    }
+
+    @Test
+    fun `detect Veteran from various real patterns`() {
+        val veteranNames = listOf(
+            "VETERAN-S",     // Veteran keyword
+            "SHERMAN-MAX",   // Sherman
+            "Lynx",          // Lynx
+            "PATTON-S",      // Patton
+            "ABRAMS",        // Abrams
+            "Oryx-1",        // Oryx (new)
+            "NOSFET-APEX",   // Nosfet keyword (new)
+            "NF2790",        // NF prefix (new, real device name)
+            "NF1234"         // NF prefix variant
+        )
+        for (name in veteranNames) {
+            assertDetectedAs(name, WheelType.VETERAN)
+        }
+    }
+
+    // --- Gotway (GotWay_ prefix, from DarknessBot screenshot) ---
+
+    @Test
+    fun `detect Gotway from real device names`() {
+        // Real names from DarknessBot device list screenshot
+        val gotwayNames = listOf("GotWay_75007", "GotWay_59380", "GotWay_005741", "GotWay_002633", "GotWay_73335")
+        for (name in gotwayNames) {
+            assertDetectedAs(name, WheelType.GOTWAY)
+        }
+    }
+
+    // --- InMotion V2 (P6 prefix, from DarknessBot screenshot) ---
+
+    @Test
+    fun `detect InMotion V2 from real P6 device name`() {
+        // Real name from DarknessBot device list screenshot
+        assertDetectedAs("P6-60032721", WheelType.INMOTION_V2)
+    }
+
+    @Test
+    fun `detect InMotion V2 from new model names`() {
+        val imNames = listOf("E20-123", "CLIMBER-456", "GLIDE-789")
+        for (name in imNames) {
+            assertDetectedAs(name, WheelType.INMOTION_V2)
+        }
+    }
+
+    @Test
+    fun `InMotion V2 P6 uses Nordic UART UUIDs`() {
+        val result = detector.detect(ffe0Services, "P6-60032721")
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(BleUuids.InMotionV2.SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.InMotionV2.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+    }
 }

@@ -374,10 +374,16 @@ struct DeviceRow: View {
                     ProgressView()
                         .tint(.blue)
                     if let onCancel = onCancel {
-                        Button(CommonLabels.shared.CANCEL, action: onCancel)
-                            .font(.body)
-                            .fontWeight(.medium)
-                            .foregroundColor(.red)
+                        Button(action: onCancel) {
+                            Text(CommonLabels.shared.CANCEL)
+                                .font(.body)
+                                .fontWeight(.medium)
+                                .foregroundColor(.red)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             } else if !isDisabled {

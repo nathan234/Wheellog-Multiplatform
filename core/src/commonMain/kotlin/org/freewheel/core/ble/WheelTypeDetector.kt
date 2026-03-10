@@ -182,7 +182,8 @@ class WheelTypeDetector {
             name.contains("PATTON") ||
             name.contains("ABRAMS") ||
             name.contains("ORYX") ||
-            name.contains("NOSFET") -> {
+            name.contains("NOSFET") ||
+            name.startsWith("NF") -> {
                 DetectionResult.Detected(
                     wheelType = WheelType.VETERAN,
                     readServiceUuid = BleUuids.Gotway.SERVICE,

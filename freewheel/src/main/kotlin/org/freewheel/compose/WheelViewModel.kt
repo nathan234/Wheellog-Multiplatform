@@ -11,6 +11,7 @@ import org.freewheel.core.utils.StringUtil
 import org.freewheel.core.logging.BleCaptureLogger
 import org.freewheel.core.logging.BleCaptureMetadata
 import org.freewheel.core.logging.BlePacketDirection
+import org.freewheel.core.logging.DiagnosticSnapshotBuilder
 import org.freewheel.core.logging.GpsLocation
 import org.freewheel.core.logging.RideLogger
 import org.freewheel.core.telemetry.ChartTimeRange
@@ -793,11 +794,49 @@ class WheelViewModel(
     }
 
     fun stopCapture(): BleCaptureMetadata? {
-        connectionManager?.captureCallback = null
-        val metadata = captureLogger.stop(System.currentTimeMillis())
+        val cm = connectionManager
+        cm?.captureCallback = null
+
+        val footer = cm?.let { buildDiagnosticFooter(it) }
+        val metadata = captureLogger.stop(System.currentTimeMillis(), footer)
         _isCapturing.value = false
         return metadata
     }
+
+    /**
+     * Build a diagnostic text snapshot for clipboard sharing.
+     * Returns null if not connected.
+     */
+    fun buildDiagnosticText(): String? {
+        val cm = connectionManager ?: return null
+        val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
+            wheelState = wheelState.value,
+            capabilities = _capabilities.value,
+            connectionInfo = cm.getConnectionInfo(),
+            decoderConfig = cm.getConfig(),
+            platform = "android",
+            appVersion = appVersion()
+        )
+        return DiagnosticSnapshotBuilder.formatAsText(snapshot)
+    }
+
+    private fun buildDiagnosticFooter(cm: WheelConnectionManager): String {
+        val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
+            wheelState = wheelState.value,
+            capabilities = _capabilities.value,
+            connectionInfo = cm.getConnectionInfo(),
+            decoderConfig = cm.getConfig(),
+            platform = "android",
+            appVersion = appVersion()
+        )
+        return DiagnosticSnapshotBuilder.formatAsCommentBlock(snapshot)
+    }
+
+    private fun appVersion(): String =
+        try {
+            val app = getApplication<Application>()
+            app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: ""
+        } catch (_: Exception) { "" }
 
     fun insertCaptureMarker(label: String) {
         captureLogger.insertMarker(label, System.currentTimeMillis())

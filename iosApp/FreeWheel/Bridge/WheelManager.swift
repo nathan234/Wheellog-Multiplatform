@@ -1064,9 +1064,37 @@ class WheelManager: ObservableObject {
             WheelConnectionManagerHelper.shared.setCaptureCallback(manager: cm, callback: nil)
         }
         let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
-        _ = captureLogger.stop(currentTimeMs: nowMs)
+        let footer = buildDiagnosticFooter()
+        _ = captureLogger.stop(currentTimeMs: nowMs, diagnosticFooter: footer)
         isCapturing = false
         captureStartTime = nil
+    }
+
+    /// Build diagnostic text for clipboard sharing. Returns nil if not connected.
+    func buildDiagnosticText() -> String? {
+        guard let cm = connectionManager else { return nil }
+        let snapshot = DiagnosticSnapshotBuilder.shared.buildSnapshot(
+            wheelState: wheelState,
+            capabilities: capabilities,
+            connectionInfo: cm.getConnectionInfo(),
+            decoderConfig: cm.getConfig(),
+            platform: "ios",
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        )
+        return DiagnosticSnapshotBuilder.shared.formatAsText(snapshot: snapshot)
+    }
+
+    private func buildDiagnosticFooter() -> String? {
+        guard let cm = connectionManager else { return nil }
+        let snapshot = DiagnosticSnapshotBuilder.shared.buildSnapshot(
+            wheelState: wheelState,
+            capabilities: capabilities,
+            connectionInfo: cm.getConnectionInfo(),
+            decoderConfig: cm.getConfig(),
+            platform: "ios",
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        )
+        return DiagnosticSnapshotBuilder.shared.formatAsCommentBlock(snapshot: snapshot)
     }
 
     func insertCaptureMarker(_ label: String) {

@@ -95,6 +95,21 @@ struct BleCaptureView: View {
                 }
             }
 
+            // Copy Diagnostic Info
+            Section {
+                Button(action: {
+                    if let text = wheelManager.buildDiagnosticText() {
+                        UIPasteboard.general.string = text
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: "doc.on.doc")
+                        Text("Copy Diagnostic Info")
+                    }
+                }
+                .disabled(!wheelManager.connectionState.isConnected)
+            }
+
             // Capture history
             Section("Capture History") {
                 if captureFiles.isEmpty {

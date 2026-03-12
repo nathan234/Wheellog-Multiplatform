@@ -142,10 +142,18 @@ class BleCaptureLogger(private val fileWriter: FileWriter = FileWriter()) {
      * Stop capturing and close the file.
      *
      * @param currentTimeMs Current epoch time in milliseconds.
+     * @param diagnosticFooter Optional comment block to append before closing.
+     *   Each line should start with `#`. See [DiagnosticSnapshotBuilder.formatAsCommentBlock].
      * @return [BleCaptureMetadata] for the completed capture, or null if not capturing.
      */
-    fun stop(currentTimeMs: Long): BleCaptureMetadata? = lock.withLock {
+    fun stop(currentTimeMs: Long, diagnosticFooter: String? = null): BleCaptureMetadata? = lock.withLock {
         if (!active) return@withLock null
+
+        if (diagnosticFooter != null) {
+            for (line in diagnosticFooter.lines()) {
+                fileWriter.writeLine(line)
+            }
+        }
 
         fileWriter.close()
         active = false

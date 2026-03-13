@@ -77,15 +77,8 @@ actual class BleManager : BleManagerPort {
     private var centralDelegate: CBCentralManagerDelegateImpl? = null
     private var peripheralDelegate: CBPeripheralDelegateImpl? = null
 
-    /**
-     * Raw Bluetooth adapter state, mirroring CBManagerState values.
-     * Separate from [connectionState] so it persists across connection lifecycle changes.
-     *
-     * Values: CBManagerStateUnknown(0), Resetting(1), Unsupported(2),
-     *         Unauthorized(3), PoweredOff(4), PoweredOn(5).
-     */
-    private val _bluetoothState = MutableStateFlow(CBManagerStateUnknown)
-    val bluetoothState: StateFlow<Long> = _bluetoothState.asStateFlow()
+    private val _bluetoothState = MutableStateFlow(BluetoothAdapterState.UNKNOWN)
+    actual override val bluetoothState: StateFlow<BluetoothAdapterState> = _bluetoothState.asStateFlow()
 
     actual override val connectionState: StateFlow<ConnectionState>
         get() = _connectionState.asStateFlow()
@@ -281,7 +274,14 @@ actual class BleManager : BleManagerPort {
     // ==================== Internal Callback Methods ====================
 
     internal fun onStateUpdated(state: Long) {
-        _bluetoothState.value = state
+        _bluetoothState.value = when (state) {
+            CBManagerStatePoweredOn -> BluetoothAdapterState.POWERED_ON
+            CBManagerStatePoweredOff -> BluetoothAdapterState.POWERED_OFF
+            CBManagerStateUnauthorized -> BluetoothAdapterState.UNAUTHORIZED
+            CBManagerStateUnsupported -> BluetoothAdapterState.UNSUPPORTED
+            CBManagerStateResetting -> BluetoothAdapterState.RESETTING
+            else -> BluetoothAdapterState.UNKNOWN
+        }
         // BT adapter state (powered off, unauthorized, unsupported) is surfaced
         // exclusively via bluetoothState. Connection lifecycle (connecting, connected,
         // disconnected, failed) is a separate concern in connectionState.

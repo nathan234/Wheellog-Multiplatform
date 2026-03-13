@@ -55,6 +55,16 @@ import kotlin.coroutines.resume
  */
 actual class BleManager : BleManagerPort {
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+    private val _bluetoothState = MutableStateFlow(BluetoothAdapterState.UNKNOWN)
+    actual override val bluetoothState: StateFlow<BluetoothAdapterState> = _bluetoothState.asStateFlow()
+
+    /**
+     * Update the Bluetooth adapter state.
+     * Called from ComposeActivity's BroadcastReceiver when adapter state changes.
+     */
+    fun setBluetoothAdapterState(state: BluetoothAdapterState) {
+        _bluetoothState.value = state
+    }
     private var central: BluetoothCentralManager? = null
     private var currentPeripheral: BluetoothPeripheral? = null
     private var writeCharacteristic: BluetoothGattCharacteristic? = null

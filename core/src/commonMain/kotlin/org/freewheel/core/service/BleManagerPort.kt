@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.StateFlow
 interface BleManagerPort {
     val connectionState: StateFlow<ConnectionState>
 
+    /** Bluetooth adapter state (power, permission). Separate from connection lifecycle. */
+    val bluetoothState: StateFlow<BluetoothAdapterState>
+        get() = kotlinx.coroutines.flow.MutableStateFlow(BluetoothAdapterState.POWERED_ON)
+
     /**
      * Connect to a BLE device at the given address.
      * @return true if the connection was established successfully

@@ -83,6 +83,7 @@ struct ScanView: View {
                     )
                 }
 
+
                 // Hide scan button while connecting
                 if connectingAddress == nil {
                     scanButton

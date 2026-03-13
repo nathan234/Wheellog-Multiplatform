@@ -388,18 +388,15 @@ object WheelConnectionManagerHelper {
 
     /**
      * Get the current Bluetooth adapter state.
-     * Returns CBManagerState raw value (0-5).
      */
-    fun getBluetoothState(bleManager: BleManager): Long {
+    fun getBluetoothState(bleManager: BleManager): BluetoothAdapterState {
         return bleManager.bluetoothState.value
     }
 
     /**
      * Observe Bluetooth adapter state changes.
-     * Values are CBManagerState raw values: Unknown(0), Resetting(1),
-     * Unsupported(2), Unauthorized(3), PoweredOff(4), PoweredOn(5).
      */
-    fun observeBluetoothState(bleManager: BleManager, onChange: (Long) -> Unit): FlowObservation {
+    fun observeBluetoothState(bleManager: BleManager, onChange: (BluetoothAdapterState) -> Unit): FlowObservation {
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         scope.launch { bleManager.bluetoothState.collect { onChange(it) } }
         return FlowObservation(scope)

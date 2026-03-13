@@ -850,6 +850,7 @@ class WheelConnectionManager(
  */
 expect class BleManager : BleManagerPort {
     override val connectionState: StateFlow<ConnectionState>
+    override val bluetoothState: StateFlow<BluetoothAdapterState>
 
     override suspend fun connect(address: String): Boolean
     override suspend fun disconnect()

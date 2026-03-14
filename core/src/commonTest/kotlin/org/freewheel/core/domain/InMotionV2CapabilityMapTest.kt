@@ -74,15 +74,19 @@ class InMotionV2CapabilityMapTest {
     }
 
     @Test
-    fun `P6 gets base plus 4 exclusive commands`() {
+    fun `P6 gets base minus headlight plus 3 exclusive commands`() {
+        // P6 removes LIGHT_MODE and LIGHT_BRIGHTNESS from BASE, adds 3 P6-only commands
         val commands = buildMap {
             putAll(InMotionV2Decoder.BASE_COMMANDS)
+            remove(SettingsCommandId.LIGHT_MODE)
+            remove(SettingsCommandId.LIGHT_BRIGHTNESS)
             putAll(InMotionV2Decoder.P6_COMMANDS)
         }
         val cap = commands.resolveAt(firmwareLevel = 0)
-        assertEquals(21, cap.supportedCommands.size)
+        assertEquals(18, cap.supportedCommands.size) // 17 base - 2 headlight + 3 P6
+        assertFalse(cap.supports(SettingsCommandId.LIGHT_MODE))
+        assertFalse(cap.supports(SettingsCommandId.LIGHT_BRIGHTNESS))
         assertFalse(cap.supports(SettingsCommandId.SAFE_SPEED_LIMIT))
-        assertTrue(cap.supports(SettingsCommandId.SCREEN_AUTO_OFF))
         assertTrue(cap.supports(SettingsCommandId.LOGO_LIGHT_BRIGHTNESS))
         assertTrue(cap.supports(SettingsCommandId.TAIL_LIGHT_MODE))
         assertTrue(cap.supports(SettingsCommandId.TURN_SIGNAL_MODE))

@@ -1030,7 +1030,12 @@ class InMotionV2Decoder : WheelDecoder {
                     putAll(V13_V14_COMMANDS)
                     putAll(V14_COMMANDS)
                 }
-                model == Model.P6 -> putAll(P6_COMMANDS)
+                model == Model.P6 -> {
+                    // P6 has no manual headlight toggle or brightness (auto-only headlight)
+                    remove(SettingsCommandId.LIGHT_MODE)
+                    remove(SettingsCommandId.LIGHT_BRIGHTNESS)
+                    putAll(P6_COMMANDS)
+                }
             }
         }
         commands.resolveAt(
@@ -1125,7 +1130,11 @@ class InMotionV2Decoder : WheelDecoder {
                 controlMsg(0x32, boolByte(command.enabled))
 
             is WheelCommand.SetDrl -> {
-                val subCmd: Byte = if (isV9Like) 0x44 else 0x2D
+                val subCmd: Byte = when {
+                    model == Model.P6 -> 0x4e  // P6 DRL (logo light) toggle
+                    model == Model.V9 -> 0x44  // V9 DRL
+                    else -> 0x2D
+                }
                 controlMsg(subCmd, boolByte(command.enabled))
             }
 
@@ -1232,9 +1241,18 @@ class InMotionV2Decoder : WheelDecoder {
                 controlMsg(0x44, boolByte(command.enabled))
             }
             is WheelCommand.SetBackwardOverspeedAlert -> null
-            is WheelCommand.SetTailLightMode -> null
-            is WheelCommand.SetTurnSignalMode -> null
-            is WheelCommand.SetLogoLightBrightness -> null
+            is WheelCommand.SetTailLightMode -> {
+                if (model != Model.P6) return null
+                controlMsg(0x3b, (command.mode and 0xFF).toByte())
+            }
+            is WheelCommand.SetTurnSignalMode -> {
+                if (model != Model.P6) return null
+                controlMsg(0x30, (command.mode and 0xFF).toByte())
+            }
+            is WheelCommand.SetLogoLightBrightness -> {
+                if (model != Model.P6) return null
+                controlMsg(0x44, (command.brightness.coerceIn(0, 100) and 0xFF).toByte())
+            }
             is WheelCommand.SetLightEffect -> null
             is WheelCommand.SetLightEffectMode -> {
                 // V13/V14 only — confirmed: V13 factory lightEffectModeCmd = 0x2D
@@ -1260,11 +1278,12 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Build headlight on/off message. Model and firmware dependent.
      */
-    private fun buildLightMessage(on: Boolean): ByteArray {
+    private fun buildLightMessage(on: Boolean): ByteArray? {
         val enable = boolByte(on)
         return when {
+            model == Model.P6 -> null // P6 has no manual headlight toggle (auto-only)
             isV12Family -> controlMsg(0x50, enable, 0x00) // Simple on/off (low beam)
-            isV9Like -> controlMsg(0x50, enable, enable)
+            model == Model.V9 -> controlMsg(0x50, enable, enable)
             isV11Family && !isFirmwareAtLeast(1, 4) -> controlMsg(0x40, enable)
             else -> controlMsg(0x50, enable) // V11 fw>=1.4, V13, V14
         }
@@ -1381,9 +1400,8 @@ class InMotionV2Decoder : WheelDecoder {
             SettingsCommandId.TWO_BATTERY_MODE to 0,
         )
 
-        /** P6-specific commands. */
+        /** P6-specific additions. Also used as a negative filter to remove LIGHT_MODE and LIGHT_BRIGHTNESS from BASE. */
         val P6_COMMANDS: CapabilityMap = mapOf(
-            SettingsCommandId.SCREEN_AUTO_OFF to 0,
             SettingsCommandId.LOGO_LIGHT_BRIGHTNESS to 0,
             SettingsCommandId.TAIL_LIGHT_MODE to 0,
             SettingsCommandId.TURN_SIGNAL_MODE to 0,

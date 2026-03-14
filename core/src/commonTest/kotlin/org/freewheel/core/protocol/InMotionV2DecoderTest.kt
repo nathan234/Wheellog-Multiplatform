@@ -1618,27 +1618,91 @@ class InMotionV2DecoderTest {
     // ==================== P6 Command Routing (shares V9 protocol) ====================
 
     @Test
-    fun `P6 headlight uses V9 format with two enable bytes`() {
+    fun `P6 headlight returns empty - no manual headlight toggle`() {
         val d = decoderForModel(13, 1) // P6
         val result = d.buildCommand(WheelCommand.SetLight(true))
-        assertTrue(result.isNotEmpty())
-        val expected = InMotionV2Decoder.buildMessage(
-            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
-            byteArrayOf(0x50, 0x01, 0x01) // V9-style: enable, enable
-        )
-        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+        assertTrue(result.isEmpty(), "P6 has no manual headlight toggle (auto-only)")
     }
 
     @Test
-    fun `P6 DRL uses V9 sub-command 0x44`() {
+    fun `P6 DRL uses P6-specific sub-command 0x4e`() {
         val d = decoderForModel(13, 1) // P6
         val result = d.buildCommand(WheelCommand.SetDrl(true))
         assertTrue(result.isNotEmpty())
         val expected = InMotionV2Decoder.buildMessage(
             InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
-            byteArrayOf(0x44, 0x01) // V9-style sub-cmd
+            byteArrayOf(0x4e, 0x01) // P6-specific logo light toggle
         )
         assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 logo light brightness uses sub-command 0x44`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetLogoLightBrightness(50))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x44, 0x32) // register 0x44, brightness 50
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 logo light brightness clamps to 0-100`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetLogoLightBrightness(150))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x44, 0x64) // clamped to 100 (0x64)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 tail light mode uses sub-command 0x3b`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetTailLightMode(2))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x3b, 0x02) // register 0x3b, mode 2 (Hazard)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 turn signal mode uses sub-command 0x30`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetTurnSignalMode(3))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x30, 0x03) // register 0x30, mode 3 (Strobe)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `non-P6 logo light brightness returns empty`() {
+        val d = decoderForModel(6, 1) // V11
+        val result = d.buildCommand(WheelCommand.SetLogoLightBrightness(50))
+        assertTrue(result.isEmpty(), "Logo light brightness only supported on P6")
+    }
+
+    @Test
+    fun `non-P6 tail light mode returns empty`() {
+        val d = decoderForModel(8, 1) // V13
+        val result = d.buildCommand(WheelCommand.SetTailLightMode(1))
+        assertTrue(result.isEmpty(), "Tail light mode only supported on P6")
+    }
+
+    @Test
+    fun `non-P6 turn signal mode returns empty`() {
+        val d = decoderForModel(9, 1) // V14g
+        val result = d.buildCommand(WheelCommand.SetTurnSignalMode(1))
+        assertTrue(result.isEmpty(), "Turn signal mode only supported on P6")
     }
 
     @Test

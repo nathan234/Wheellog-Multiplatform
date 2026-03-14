@@ -417,9 +417,40 @@ class InMotionV2Decoder : WheelDecoder {
     }
 
     /**
+     * Fallback model detection from BLE device name when protocol-based detection fails.
+     * Some models (e.g., P6) may not respond to standard/extended init car-type requests,
+     * but the BLE device name always contains the model prefix.
+     */
+    private fun detectModelFromName(btName: String) {
+        if (model != Model.UNKNOWN || btName.isEmpty()) return
+        val name = btName.uppercase()
+        val detected = when {
+            name.startsWith("V11Y") -> Model.V11Y
+            name.startsWith("V11") -> Model.V11
+            name.startsWith("V12S") -> Model.V12S
+            name.startsWith("V12HS") -> Model.V12HS
+            name.startsWith("V12HT") -> Model.V12HT
+            name.startsWith("V12PRO") || name.startsWith("V12 PRO") -> Model.V12PRO
+            name.startsWith("V13PRO") || name.startsWith("V13 PRO") -> Model.V13PRO
+            name.startsWith("V13") -> Model.V13
+            name.startsWith("V14") && name.contains("50S") -> Model.V14s
+            name.startsWith("V14") -> Model.V14g
+            name.startsWith("V9") -> Model.V9
+            name.startsWith("P6") -> Model.P6
+            else -> null
+        }
+        if (detected != null) {
+            model = detected
+            isModelDetected = true
+        }
+    }
+
+    /**
      * Process real-time telemetry info.
      */
     private fun processRealTimeInfo(message: Message, currentState: WheelState): FrameResult? {
+        // Fallback: if model unknown after init, detect from BLE device name
+        detectModelFromName(currentState.btName)
         val result = when (model) {
             Model.V11 -> {
                 if (protoVer < 2) parseRealTimeInfoV11Old(message.data, currentState)

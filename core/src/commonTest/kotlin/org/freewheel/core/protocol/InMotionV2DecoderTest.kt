@@ -1963,6 +1963,49 @@ class InMotionV2DecoderTest {
         assertTrue(result.isEmpty())
     }
 
+    // ==================== BLE Name-Based Model Detection Fallback ====================
+
+    @Test
+    fun `P6 detected from btName when init response fails`() {
+        val decoder = InMotionV2Decoder()
+        // Don't send any init/car-type frames — model stays UNKNOWN
+
+        // Build a standard telemetry frame (DEFAULT, REAL_TIME_INFO) with enough data
+        // for the generic parser (>= 24 bytes)
+        val telemetryData = ByteArray(80)
+        // voltage at [0:1] = 10000
+        telemetryData[0] = 0x10; telemetryData[1] = 0x27
+        // current at [2:3] = 0
+        // speed at [8:9] = 500
+        telemetryData[8] = 0xF4.toByte(); telemetryData[9] = 0x01
+
+        val frame = buildIM2Frame(0x14, 0x84, telemetryData) // DEFAULT flag, REAL_TIME_INFO | 0x80
+
+        // Send with a state that has btName = "P6-A1421"
+        val stateWithName = defaultState.copy(btName = "P6-A1421")
+        val result = decoder.decode(frame, stateWithName, defaultConfig)
+
+        assertNotNull(result, "Should decode telemetry")
+        assertEquals("InMotion P6", result!!.newState.model, "Model should be detected from btName")
+    }
+
+    @Test
+    fun `name-based detection does not override protocol detection`() {
+        // Detect model via standard init as V11
+        val decoder = InMotionV2Decoder()
+        decoder.decode(buildCarTypeFrame(6, 1), defaultState, defaultConfig)
+
+        // Send telemetry with a misleading btName
+        val telemetryData = ByteArray(60)
+        telemetryData[0] = 0x10; telemetryData[1] = 0x27
+        val frame = buildIM2Frame(0x14, 0x84, telemetryData)
+        val stateWithName = defaultState.copy(btName = "P6-FAKE")
+        val result = decoder.decode(frame, stateWithName, defaultConfig)
+
+        assertNotNull(result)
+        assertEquals("InMotion V11", result!!.newState.model, "Protocol detection takes precedence over name")
+    }
+
     @Test
     fun `reset clears mainBoardVersion`() {
         val d = decoderForModel(6, 1, fwMajor = 1, fwMinor = 5)

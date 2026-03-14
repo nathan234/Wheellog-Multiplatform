@@ -15,13 +15,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
-import androidx.compose.material.icons.filled.Campaign
-import androidx.compose.material.icons.filled.FlashOff
-import androidx.compose.material.icons.filled.FlashOn
-import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -69,8 +64,6 @@ fun DashboardContent(
     connectionState: ConnectionState,
     activeAlarms: Set<AlarmType>,
     isDemo: Boolean,
-    isLogging: Boolean,
-    isLightOn: Boolean,
     gpsSpeed: Double,
     useMph: Boolean,
     useFahrenheit: Boolean,
@@ -82,10 +75,6 @@ fun DashboardContent(
     onNavigateToBms: () -> Unit,
     onNavigateToMetric: (String) -> Unit,
     onNavigateToWheelSettings: () -> Unit,
-    onNavigateToEditDashboard: () -> Unit,
-    onBeep: () -> Unit,
-    onToggleLight: () -> Unit,
-    onToggleLogging: () -> Unit,
     onDisconnect: () -> Unit,
     showControls: Boolean = true,
     modifier: Modifier = Modifier
@@ -266,75 +255,22 @@ fun DashboardContent(
             )
         }
 
-        // Controls row: Horn, Light, Settings (hidden in demo mode)
-        if (!isDemo) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Button(
-                    onClick = onBeep,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Campaign, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(DashboardLabels.HORN)
-                }
-                Button(
-                    onClick = onToggleLight,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLightOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        if (isLightOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                        contentDescription = null
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(DashboardLabels.LIGHT)
-                }
-                Button(
-                    onClick = onNavigateToWheelSettings,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Tune, contentDescription = null)
-                    Spacer(Modifier.width(4.dp))
-                    Text(SettingsLabels.TITLE)
-                }
-            }
-        }
-
-        // Record, Chart, BMS row
+        // Settings, Chart, BMS row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (connectionState.isConnected) {
-                Button(
-                    onClick = onToggleLogging,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isLogging) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        if (isLogging) Icons.Default.Stop else Icons.Default.FiberManualRecord,
-                        contentDescription = null
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(if (isLogging) DashboardLabels.STOP else DashboardLabels.RECORD)
-                }
+            Button(
+                onClick = onNavigateToWheelSettings,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(Icons.Default.Tune, contentDescription = null)
+                Spacer(Modifier.width(4.dp))
+                Text(SettingsLabels.TITLE)
             }
 
             Button(
@@ -478,8 +414,6 @@ private fun PreviewDashboard(layout: DashboardLayout, wheelType: WheelType = Whe
             connectionState = ConnectionState.Connected("00:00:00:00:00:00", "Preview"),
             activeAlarms = emptySet(),
             isDemo = false,
-            isLogging = false,
-            isLightOn = false,
             gpsSpeed = 21.5,
             useMph = false,
             useFahrenheit = false,
@@ -491,10 +425,6 @@ private fun PreviewDashboard(layout: DashboardLayout, wheelType: WheelType = Whe
             onNavigateToBms = noOp,
             onNavigateToMetric = noOpString,
             onNavigateToWheelSettings = noOp,
-            onNavigateToEditDashboard = noOp,
-            onBeep = noOp,
-            onToggleLight = noOp,
-            onToggleLogging = noOp,
             onDisconnect = noOp
         )
     }

@@ -23,7 +23,28 @@ struct DashboardView: View {
         .navigationTitle(wheelManager.wheelState.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if wheelManager.connectionState.isConnected && !wheelManager.isMockMode && !wheelManager.isTestMode {
+                    Button(action: { wheelManager.wheelBeep() }) {
+                        Image(systemName: "speaker.wave.2.fill")
+                    }
+                    Button(action: { wheelManager.toggleLight() }) {
+                        Image(systemName: wheelManager.isLightOn ? "lightbulb.fill" : "lightbulb")
+                            .foregroundColor(wheelManager.isLightOn ? .yellow : nil)
+                    }
+                }
+                if wheelManager.connectionState.isConnected {
+                    Button(action: {
+                        if wheelManager.isLogging {
+                            wheelManager.stopLogging()
+                        } else {
+                            wheelManager.startLogging()
+                        }
+                    }) {
+                        Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
+                            .foregroundColor(wheelManager.isLogging ? .red : nil)
+                    }
+                }
                 Button(action: { showEditDashboard = true }) {
                     Image(systemName: "square.and.pencil")
                 }
@@ -118,6 +139,7 @@ struct StatCard: View {
 struct StatRow: View {
     let label: String
     let value: String
+    var valueColor: Color? = nil
 
     var body: some View {
         HStack {
@@ -126,6 +148,7 @@ struct StatRow: View {
             Spacer()
             Text(value)
                 .fontWeight(.medium)
+                .foregroundColor(valueColor ?? .primary)
         }
     }
 }

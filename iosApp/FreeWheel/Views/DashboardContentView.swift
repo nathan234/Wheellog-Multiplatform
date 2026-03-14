@@ -210,62 +210,8 @@ struct DashboardContentView: View {
                         .cornerRadius(8)
                     }
 
-                    // Controls row: Horn, Light
-                    if !wheelManager.isMockMode && !wheelManager.isTestMode {
-                        HStack(spacing: 12) {
-                            Button(action: { wheelManager.wheelBeep() }) {
-                                HStack {
-                                    Image(systemName: "speaker.wave.2.fill")
-                                    Text(DashboardLabels.shared.HORN)
-                                }
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.blue)
-                                .cornerRadius(12)
-                            }
-
-                            Button(action: { wheelManager.toggleLight() }) {
-                                HStack {
-                                    Image(systemName: wheelManager.isLightOn ? "lightbulb.fill" : "lightbulb")
-                                    Text(DashboardLabels.shared.LIGHT)
-                                }
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(wheelManager.isLightOn ? Color.yellow : Color.blue)
-                                .cornerRadius(12)
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-
-                    // Record, BMS, Chart row
+                    // BMS, Chart row
                     HStack(spacing: 12) {
-                        if wheelManager.connectionState.isConnected {
-                            Button(action: {
-                                if wheelManager.isLogging {
-                                    wheelManager.stopLogging()
-                                } else {
-                                    wheelManager.startLogging()
-                                }
-                            }) {
-                                HStack {
-                                    Image(systemName: wheelManager.isLogging ? "stop.circle.fill" : "record.circle")
-                                    Text(wheelManager.isLogging ? DashboardLabels.shared.STOP : DashboardLabels.shared.RECORD)
-                                        .lineLimit(1)
-                                }
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(wheelManager.isLogging ? Color.red : Color.gray)
-                                .cornerRadius(12)
-                            }
-                        }
-
                         Button(action: { showBms = true }) {
                             HStack {
                                 Image(systemName: "battery.100")

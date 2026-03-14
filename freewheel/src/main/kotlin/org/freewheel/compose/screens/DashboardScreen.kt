@@ -1,11 +1,17 @@
 package org.freewheel.compose.screens
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.compose.components.DashboardContent
 import org.freewheel.core.domain.SpeedDisplayMode
@@ -58,6 +65,27 @@ fun DashboardScreen(
             CenterAlignedTopAppBar(
                 title = { Text(title) },
                 actions = {
+                    if (connectionState.isConnected && !isDemo) {
+                        IconButton(onClick = { viewModel.wheelBeep() }) {
+                            Icon(Icons.Default.Campaign, contentDescription = "Horn")
+                        }
+                        IconButton(onClick = { viewModel.toggleLight() }) {
+                            Icon(
+                                if (isLightOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                                contentDescription = "Light",
+                                tint = if (isLightOn) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                    if (connectionState.isConnected) {
+                        IconButton(onClick = { viewModel.toggleLogging() }) {
+                            Icon(
+                                if (isLogging) Icons.Default.Stop else Icons.Default.FiberManualRecord,
+                                contentDescription = if (isLogging) "Stop Recording" else "Record",
+                                tint = if (isLogging) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
                     IconButton(onClick = onNavigateToEditDashboard) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Dashboard")
                     }
@@ -71,8 +99,6 @@ fun DashboardScreen(
             connectionState = connectionState,
             activeAlarms = activeAlarms,
             isDemo = isDemo,
-            isLogging = isLogging,
-            isLightOn = isLightOn,
             gpsSpeed = gpsSpeed,
             useMph = useMph,
             useFahrenheit = useFahrenheit,
@@ -87,10 +113,6 @@ fun DashboardScreen(
             onNavigateToBms = onNavigateToBms,
             onNavigateToMetric = onNavigateToMetric,
             onNavigateToWheelSettings = onNavigateToWheelSettings,
-            onNavigateToEditDashboard = onNavigateToEditDashboard,
-            onBeep = { viewModel.wheelBeep() },
-            onToggleLight = { viewModel.toggleLight() },
-            onToggleLogging = { viewModel.toggleLogging() },
             onDisconnect = { viewModel.disconnect() },
             modifier = Modifier.padding(contentPadding)
         )

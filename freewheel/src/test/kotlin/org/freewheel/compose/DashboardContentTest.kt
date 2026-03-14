@@ -44,8 +44,6 @@ class DashboardContentTest {
                     connectionState = ConnectionState.Connected("00:00:00:00:00:00", "Test"),
                     activeAlarms = emptySet(),
                     isDemo = false,
-                    isLogging = false,
-                    isLightOn = false,
                     gpsSpeed = 21.5,
                     useMph = false,
                     useFahrenheit = false,
@@ -57,10 +55,6 @@ class DashboardContentTest {
                     onNavigateToBms = {},
                     onNavigateToMetric = {},
                     onNavigateToWheelSettings = {},
-                    onNavigateToEditDashboard = {},
-                    onBeep = {},
-                    onToggleLight = {},
-                    onToggleLogging = {},
                     onDisconnect = {}
                 )
             }

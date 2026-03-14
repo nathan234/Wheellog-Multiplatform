@@ -39,7 +39,7 @@ enum class SettingsCommandId {
     // Veteran extended settings
     HIGH_SPEED_MODE, LOW_VOLTAGE_MODE, KEY_TONE,
     SCREEN_BACKLIGHT, STOP_SPEED, VETERAN_PWM_LIMIT, VOLTAGE_CORRECTION,
-    MAX_CHARGE_VOLTAGE, LATERAL_CUTOFF_ANGLE,
+    MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM, LATERAL_CUTOFF_ANGLE,
     // InMotion P6 settings
     SCREEN_AUTO_OFF;
 
@@ -51,7 +51,7 @@ enum class SettingsCommandId {
         // Veteran: mVer >= 3 required
         ALARM_SPEED_1, PEDAL_TILT, TRANSPORT_MODE, HIGH_SPEED_MODE, LOW_VOLTAGE_MODE,
         KEY_TONE, SCREEN_BACKLIGHT, STOP_SPEED, VETERAN_PWM_LIMIT, VOLTAGE_CORRECTION,
-        MAX_CHARGE_VOLTAGE, LATERAL_CUTOFF_ANGLE,
+        MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM, LATERAL_CUTOFF_ANGLE,
         // InMotion V2: model/protoVer gated
         BERM_ANGLE_MODE, BERM_ANGLE, TURNING_SENSITIVITY, ONE_PEDAL_MODE,
         SPEEDING_BRAKING_MODE, SPEEDING_BRAKING_ANGLE, SOUND_WAVE, SOUND_WAVE_SENSITIVITY,
@@ -98,6 +98,7 @@ enum class SettingsCommandId {
         VETERAN_PWM_LIMIT -> state.pwmLimit.takeIf { it >= 0 }
         VOLTAGE_CORRECTION -> state.voltageCorrection.takeIf { it > -16 } // -15..+15, raw signed
         MAX_CHARGE_VOLTAGE -> state.maxChargeVoltage.takeIf { it >= 0 }
+        BRAKE_PRESSURE_ALARM -> state.brakePressureAlarm.takeIf { it >= 0 }
         LATERAL_CUTOFF_ANGLE -> state.lateralCutoffAngle.takeIf { it >= 0 }
         else -> null
     }

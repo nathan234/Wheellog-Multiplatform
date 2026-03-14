@@ -350,6 +350,7 @@ sealed class WheelCommand {
     data class SetVeteranPwmLimit(val limit: Int) : WheelCommand()
     data class SetVoltageCorrection(val value: Int) : WheelCommand()
     data class SetMaxChargeVoltage(val value: Int) : WheelCommand()
+    data class SetBrakePressureAlarm(val value: Int) : WheelCommand()
     data class SetLateralCutoffAngle(val angle: Int) : WheelCommand()
 
     // --- BMS requests (Kingsong) ---

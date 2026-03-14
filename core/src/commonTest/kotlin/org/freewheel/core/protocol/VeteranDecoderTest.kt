@@ -1266,14 +1266,14 @@ class VeteranDecoderTest {
     }
 
     @Test
-    fun `sub-type 8 parses max charge voltage`() {
+    fun `sub-type 8 parses max charge voltage and brake pressure alarm`() {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[64] = 100.toByte()
-            frame[65] = 84.toByte() // base voltage
+            frame[65] = 105.toByte() // brake pressure alarm (105%)
         }
         assertNotNull(result)
         assertEquals(100, result.newState.maxChargeVoltage)
-        assertEquals(84, result.newState.maxChargeVoltageBase)
+        assertEquals(105, result.newState.brakePressureAlarm)
     }
 
     @Test
@@ -1476,6 +1476,18 @@ class VeteranDecoderTest {
     }
 
     @Test
+    fun `set brake pressure alarm command`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetBrakePressureAlarm(110))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), data[1]) // "LdAp"
+        assertEquals(0x1E.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
+        assertEquals(110.toByte(), data[25]) // value at byte 25
+    }
+
+    @Test
     fun `set lateral cutoff angle command`() {
         val freshDecoder = decoderWithVer(5000)
         val commands = freshDecoder.buildCommand(WheelCommand.SetLateralCutoffAngle(70))
@@ -1510,6 +1522,7 @@ class VeteranDecoderTest {
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetVeteranPwmLimit(80)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetVoltageCorrection(5)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetMaxChargeVoltage(100)).isEmpty())
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetBrakePressureAlarm(100)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetLateralCutoffAngle(70)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.Calibrate).isEmpty())
     }

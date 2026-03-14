@@ -92,7 +92,8 @@ object WheelSettingsConfig {
         )),
         SettingsSection("Battery", listOf(
             ControlSpec.Slider("Voltage Correction", -15, 15, "", 0, SettingsCommandId.VOLTAGE_CORRECTION),
-            ControlSpec.Slider("Max Charge Voltage", 0, 120, "", 100, SettingsCommandId.MAX_CHARGE_VOLTAGE)
+            ControlSpec.Slider("Max Charge Voltage", 0, 120, "", 100, SettingsCommandId.MAX_CHARGE_VOLTAGE),
+            ControlSpec.Slider("Brake Pressure Alarm", 90, 125, "%", 100, SettingsCommandId.BRAKE_PRESSURE_ALARM)
         )),
         SettingsSection("Dangerous Actions", listOf(
             ControlSpec.Slider("Lateral Cutoff Angle", 35, 90, "\u00B0", 70, SettingsCommandId.LATERAL_CUTOFF_ANGLE),

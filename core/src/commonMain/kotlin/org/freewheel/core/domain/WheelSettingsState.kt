@@ -70,6 +70,6 @@ data class WheelSettingsState(
     val pwmLimit: Int = -1,
     val voltageCorrection: Int = -1,
     val maxChargeVoltage: Int = -1,
-    val maxChargeVoltageBase: Int = -1,
+    val brakePressureAlarm: Int = -1,
     val lateralCutoffAngle: Int = -1
 )

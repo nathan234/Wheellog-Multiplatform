@@ -202,7 +202,7 @@ class VeteranDecoder : WheelDecoder {
         val stopPowerRate: Int? = null,
         val screenBacklightRate: Int? = null,
         val maxChargeVol: Int? = null,
-        val maxChargeVolBaseVol: Int? = null,
+        val brakePressureAlarm: Int? = null,
         val lateralCutoffAngle: Int? = null,
     )
 
@@ -336,7 +336,7 @@ class VeteranDecoder : WheelDecoder {
                 pwmLimit = subData.stopPowerRate ?: state.pwmLimit,
                 screenBacklight = subData.screenBacklightRate ?: state.screenBacklight,
                 maxChargeVoltage = subData.maxChargeVol ?: state.maxChargeVoltage,
-                maxChargeVoltageBase = subData.maxChargeVolBaseVol ?: state.maxChargeVoltageBase,
+                brakePressureAlarm = subData.brakePressureAlarm ?: state.brakePressureAlarm,
                 lateralCutoffAngle = subData.lateralCutoffAngle ?: state.lateralCutoffAngle,
             )
         }
@@ -407,7 +407,7 @@ class VeteranDecoder : WheelDecoder {
             highSpeedMode = readBool(61),              // byte 61: high speed mode
             keyTone = readUnsigned(63),                // byte 63: key tone 0-100%
             maxChargeVol = readUnsigned(64),           // byte 64: max charge voltage (0-120)
-            maxChargeVolBaseVol = readUnsigned(65),    // byte 65: max charge voltage base
+            brakePressureAlarm = readUnsigned(65),       // byte 65: brake pressure alarm (90-125%)
         )
     }
 
@@ -798,6 +798,10 @@ class VeteranDecoder : WheelDecoder {
                 if (!isSupported(SettingsCommandId.MAX_CHARGE_VOLTAGE)) return emptyList()
                 listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1D, 24, command.value, byte6 = 0x02)))
             }
+            is WheelCommand.SetBrakePressureAlarm -> {
+                if (!isSupported(SettingsCommandId.BRAKE_PRESSURE_ALARM)) return emptyList()
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1E, 25, command.value, byte6 = 0x02)))
+            }
             is WheelCommand.SetLateralCutoffAngle -> {
                 if (!isSupported(SettingsCommandId.LATERAL_CUTOFF_ANGLE)) return emptyList()
                 listOf(
@@ -838,6 +842,7 @@ class VeteranDecoder : WheelDecoder {
             SettingsCommandId.VETERAN_PWM_LIMIT to 3,
             SettingsCommandId.VOLTAGE_CORRECTION to 3,
             SettingsCommandId.MAX_CHARGE_VOLTAGE to 3,
+            SettingsCommandId.BRAKE_PRESSURE_ALARM to 3,
             SettingsCommandId.LATERAL_CUTOFF_ANGLE to 3,
             SettingsCommandId.CALIBRATE to 3,
             SettingsCommandId.POWER_OFF to 3,

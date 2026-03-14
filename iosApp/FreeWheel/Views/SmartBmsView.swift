@@ -51,6 +51,7 @@ private struct BmsBlock: View {
             }
             Text("\(BmsLabels.shared.VOLTAGE): \(DisplayUtils.shared.formatBmsVoltage(voltage: bms.voltage))")
             Text("\(BmsLabels.shared.CURRENT): \(DisplayUtils.shared.formatBmsCurrent(current: bms.current))")
+            Text("\(BmsLabels.shared.CELL_DIFF): \(DisplayUtils.shared.formatBmsCell(voltage: bms.cellDiff))")
             if bms.remCap > 0 {
                 Text("\(BmsLabels.shared.REMAINING): \(bms.remCap) / \(bms.factoryCap) mAh (\(bms.remPerc)%)")
             }
@@ -73,7 +74,6 @@ private struct BmsBlock: View {
             }
             Text("\(BmsLabels.shared.MAX_CELL): \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.maxCell, cellNum: bms.maxCellNum))")
             Text("\(BmsLabels.shared.MIN_CELL): \(DisplayUtils.shared.formatBmsCellLabeled(voltage: bms.minCell, cellNum: bms.minCellNum))")
-            Text("\(BmsLabels.shared.CELL_DIFF): \(DisplayUtils.shared.formatBmsCell(voltage: bms.cellDiff))")
             Text("\(BmsLabels.shared.AVG_CELL): \(DisplayUtils.shared.formatBmsCell(voltage: bms.avgCell))")
 
             if bms.cellNum > 0 {
@@ -81,11 +81,42 @@ private struct BmsBlock: View {
                 Text("\(BmsLabels.shared.CELLS) (\(bms.cellNum)):")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                ForEach(0..<Int(bms.cellNum), id: \.self) { i in
-                    Text("  \(DisplayUtils.shared.formatBmsCellIndexed(index: Int32(i + 1), voltage: bms.cellValues[i]))")
-                        .font(.system(.body, design: .monospaced))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 6) {
+                    ForEach(0..<Int(bms.cellNum), id: \.self) { i in
+                        CellCard(index: i + 1, voltage: bms.cellValues[i], bms: bms)
+                    }
                 }
             }
         }
+    }
+}
+
+private struct CellCard: View {
+    let index: Int
+    let voltage: Double
+    let bms: BmsSnapshot
+
+    private var backgroundColor: Color {
+        if index == Int(bms.maxCellNum) {
+            return Color.green.opacity(0.12)
+        } else if index == Int(bms.minCellNum) {
+            return Color.red.opacity(0.12)
+        }
+        return Color(UIColor.secondarySystemGroupedBackground)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("#\(index)")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+            Text(DisplayUtils.shared.formatBmsCell(voltage: voltage))
+                .font(.system(size: 13, design: .monospaced))
+                .fontWeight(.bold)
+        }
+        .padding(6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(backgroundColor)
+        .cornerRadius(6)
     }
 }

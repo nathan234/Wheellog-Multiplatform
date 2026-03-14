@@ -2,13 +2,19 @@ package org.freewheel.compose.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.core.domain.BmsSnapshot
 import org.freewheel.core.utils.DisplayUtils
@@ -59,6 +65,7 @@ private fun BmsBlock(bms: BmsSnapshot) {
         }
         Text("Voltage: ${DisplayUtils.formatBmsVoltage(bms.voltage)}")
         Text("Current: ${DisplayUtils.formatBmsCurrent(bms.current)}")
+        Text("Cell Diff: ${DisplayUtils.formatBmsCell(bms.cellDiff)}")
         if (bms.remCap > 0) {
             Text("Remaining: ${bms.remCap} / ${bms.factoryCap} mAh (${bms.remPerc}%)")
         }
@@ -73,15 +80,46 @@ private fun BmsBlock(bms: BmsSnapshot) {
         }
         Text("Max Cell: ${DisplayUtils.formatBmsCellLabeled(bms.maxCell, bms.maxCellNum)}")
         Text("Min Cell: ${DisplayUtils.formatBmsCellLabeled(bms.minCell, bms.minCellNum)}")
-        Text("Cell Diff: ${DisplayUtils.formatBmsCell(bms.cellDiff)}")
         Text("Avg Cell: ${DisplayUtils.formatBmsCell(bms.avgCell)}")
 
         if (bms.cellNum > 0) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
             Text("Cells (${bms.cellNum}):", style = MaterialTheme.typography.labelMedium)
-            for (i in 0 until bms.cellNum) {
-                Text("  ${DisplayUtils.formatBmsCellIndexed(i + 1, bms.cells[i])}")
+            for (row in (0 until bms.cellNum).chunked(3)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    for (i in row) {
+                        CellCard(index = i + 1, voltage = bms.cells[i], bms = bms, modifier = Modifier.weight(1f))
+                    }
+                    repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun CellCard(index: Int, voltage: Double, bms: BmsSnapshot, modifier: Modifier) {
+    val bg = when (index) {
+        bms.maxCellNum -> Color(0xFF4CAF50).copy(alpha = 0.12f)
+        bms.minCellNum -> Color(0xFFF44336).copy(alpha = 0.12f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(6.dp),
+        color = bg
+    ) {
+        Column(Modifier.padding(6.dp)) {
+            Text("#$index", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                DisplayUtils.formatBmsCell(voltage),
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp
+            )
         }
     }
 }

@@ -1025,7 +1025,11 @@ class InMotionV2Decoder : WheelDecoder {
             when {
                 isV11Family -> putAll(V11_COMMANDS)
                 isV12Family -> putAll(V12_COMMANDS)
-                isV13Family || isV14Family -> putAll(V13_V14_COMMANDS)
+                isV13Family -> putAll(V13_V14_COMMANDS)
+                isV14Family -> {
+                    putAll(V13_V14_COMMANDS)
+                    putAll(V14_COMMANDS)
+                }
                 model == Model.P6 -> putAll(P6_COMMANDS)
             }
         }
@@ -1210,7 +1214,11 @@ class InMotionV2Decoder : WheelDecoder {
             }
 
             // Commands not found in EUC World — return null (unsupported or need BLE capture)
-            is WheelCommand.SetBermAngleMode -> null
+            is WheelCommand.SetBermAngleMode -> {
+                // V13/V14 only — confirmed: V13 factory bermAngleModeCmd = 0x45
+                if (!isV13Family && !isV14Family) return null
+                controlMsg(0x45, boolByte(command.enabled))
+            }
             is WheelCommand.SetBermAngle -> null
             is WheelCommand.SetTurningSensitivity -> null
             is WheelCommand.SetOnePedalMode -> null
@@ -1218,14 +1226,27 @@ class InMotionV2Decoder : WheelDecoder {
             is WheelCommand.SetSpeedingBrakingAngle -> null
             is WheelCommand.SetSoundWave -> null
             is WheelCommand.SetSoundWaveSensitivity -> null
-            is WheelCommand.SetSafeSpeedLimit -> null
+            is WheelCommand.SetSafeSpeedLimit -> {
+                // V13/V14 only — confirmed: V13 factory safeSpeedLimitCmd = 0x44
+                if (!isV13Family && !isV14Family) return null
+                controlMsg(0x44, boolByte(command.enabled))
+            }
             is WheelCommand.SetBackwardOverspeedAlert -> null
             is WheelCommand.SetTailLightMode -> null
             is WheelCommand.SetTurnSignalMode -> null
             is WheelCommand.SetLogoLightBrightness -> null
             is WheelCommand.SetLightEffect -> null
-            is WheelCommand.SetLightEffectMode -> null
-            is WheelCommand.SetTwoBatteryMode -> null
+            is WheelCommand.SetLightEffectMode -> {
+                // V13/V14 only — confirmed: V13 factory lightEffectModeCmd = 0x2D
+                // Shares sub-cmd 0x2D with DRL; DRL sends bool, this sends mode int
+                if (!isV13Family && !isV14Family) return null
+                controlMsg(0x2D, (command.mode and 0xFF).toByte())
+            }
+            is WheelCommand.SetTwoBatteryMode -> {
+                // V14 only — confirmed: V14 factory genSetTwoBatteryModeMsg cmd 0x48
+                if (!isV14Family) return null
+                controlMsg(0x48, boolByte(command.enabled))
+            }
             is WheelCommand.SetLowBatterySafeMode -> null
             is WheelCommand.SetSpinKill -> null
             is WheelCommand.SetCruise -> null
@@ -1350,11 +1371,18 @@ class InMotionV2Decoder : WheelDecoder {
         /** V13/V14 commands. */
         val V13_V14_COMMANDS: CapabilityMap = mapOf(
             SettingsCommandId.AUTO_HEADLIGHT to 0,
+            SettingsCommandId.BERM_ANGLE_MODE to 0,
+            SettingsCommandId.SAFE_SPEED_LIMIT to 0,
+            SettingsCommandId.LIGHT_EFFECT_MODE to 0,
+        )
+
+        /** V14-only commands (on top of V13_V14_COMMANDS). */
+        val V14_COMMANDS: CapabilityMap = mapOf(
+            SettingsCommandId.TWO_BATTERY_MODE to 0,
         )
 
         /** P6-specific commands. */
         val P6_COMMANDS: CapabilityMap = mapOf(
-            SettingsCommandId.SAFE_SPEED_LIMIT to 0,
             SettingsCommandId.SCREEN_AUTO_OFF to 0,
             SettingsCommandId.LOGO_LIGHT_BRIGHTNESS to 0,
             SettingsCommandId.TAIL_LIGHT_MODE to 0,

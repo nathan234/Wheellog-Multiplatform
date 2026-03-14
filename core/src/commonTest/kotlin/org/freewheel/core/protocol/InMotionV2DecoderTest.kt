@@ -1782,6 +1782,123 @@ class InMotionV2DecoderTest {
         assertEquals(0x16, flagsByte, "P6 keep-alive should use EXTENDED flag")
     }
 
+    // ==================== Factory-Confirmed Extended Settings Commands ====================
+
+    // --- Berm angle mode (V13/V14 only, cmd 0x45) ---
+
+    @Test
+    fun `SetBermAngleMode on V13 uses sub-cmd 0x45`() {
+        val d = decoderForModel(8, 1) // V13
+        val result = d.buildCommand(WheelCommand.SetBermAngleMode(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x45, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `SetBermAngleMode on V14 uses sub-cmd 0x45`() {
+        val d = decoderForModel(9, 1) // V14g
+        val result = d.buildCommand(WheelCommand.SetBermAngleMode(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x45, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `SetBermAngleMode on V11 returns empty`() {
+        val d = decoderForModel(6, 1) // V11
+        val result = d.buildCommand(WheelCommand.SetBermAngleMode(true))
+        assertTrue(result.isEmpty())
+    }
+
+    // --- Safe speed limit (V13/V14 only, cmd 0x44) ---
+
+    @Test
+    fun `SetSafeSpeedLimit on V13 uses sub-cmd 0x44`() {
+        val d = decoderForModel(8, 1) // V13
+        val result = d.buildCommand(WheelCommand.SetSafeSpeedLimit(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x44, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `SetSafeSpeedLimit on V14 uses sub-cmd 0x44`() {
+        val d = decoderForModel(9, 2) // V14s
+        val result = d.buildCommand(WheelCommand.SetSafeSpeedLimit(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x44, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `SetSafeSpeedLimit on V11 returns empty`() {
+        val d = decoderForModel(6, 1) // V11
+        val result = d.buildCommand(WheelCommand.SetSafeSpeedLimit(true))
+        assertTrue(result.isEmpty())
+    }
+
+    // --- Light effect mode (V12/V13/V14 only, cmd 0x2D with mode value) ---
+
+    @Test
+    fun `SetLightEffectMode on V13 uses sub-cmd 0x2D with mode value`() {
+        val d = decoderForModel(8, 1) // V13
+        val result = d.buildCommand(WheelCommand.SetLightEffectMode(3))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x2D, 0x03)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `SetLightEffectMode on V12 returns empty`() {
+        val d = decoderForModel(7, 1) // V12HS — write cmd unknown (only read via genRequestCurrentLightEffectIdMsg)
+        val result = d.buildCommand(WheelCommand.SetLightEffectMode(5))
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `SetLightEffectMode on V11 returns empty`() {
+        val d = decoderForModel(6, 1) // V11
+        val result = d.buildCommand(WheelCommand.SetLightEffectMode(3))
+        assertTrue(result.isEmpty())
+    }
+
+    // --- Two battery mode (V14 only, cmd 0x48) ---
+
+    @Test
+    fun `SetTwoBatteryMode on V14 uses sub-cmd 0x48`() {
+        val d = decoderForModel(9, 1) // V14g
+        val result = d.buildCommand(WheelCommand.SetTwoBatteryMode(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x48, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `SetTwoBatteryMode on V13 returns empty`() {
+        val d = decoderForModel(8, 1) // V13
+        val result = d.buildCommand(WheelCommand.SetTwoBatteryMode(true))
+        assertTrue(result.isEmpty())
+    }
+
     @Test
     fun `reset clears mainBoardVersion`() {
         val d = decoderForModel(6, 1, fwMajor = 1, fwMinor = 5)

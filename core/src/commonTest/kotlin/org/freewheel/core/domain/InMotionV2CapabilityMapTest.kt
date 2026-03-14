@@ -41,27 +41,47 @@ class InMotionV2CapabilityMapTest {
     }
 
     @Test
-    fun `V13 V14 family gets base plus auto headlight only`() {
+    fun `V13 family gets base plus 4 extended commands`() {
         val commands = buildMap {
             putAll(InMotionV2Decoder.BASE_COMMANDS)
             putAll(InMotionV2Decoder.V13_V14_COMMANDS)
         }
         val cap = commands.resolveAt(firmwareLevel = 0)
-        assertEquals(18, cap.supportedCommands.size)
+        assertEquals(21, cap.supportedCommands.size)
         assertTrue(cap.supports(SettingsCommandId.AUTO_HEADLIGHT))
-        assertFalse(cap.supports(SettingsCommandId.SCREEN_AUTO_OFF))
+        assertTrue(cap.supports(SettingsCommandId.BERM_ANGLE_MODE))
+        assertTrue(cap.supports(SettingsCommandId.SAFE_SPEED_LIMIT))
+        assertTrue(cap.supports(SettingsCommandId.LIGHT_EFFECT_MODE))
+        assertFalse(cap.supports(SettingsCommandId.TWO_BATTERY_MODE))
         assertFalse(cap.supports(SettingsCommandId.FAN))
     }
 
     @Test
-    fun `P6 gets base plus 5 exclusive commands`() {
+    fun `V14 family gets V13 commands plus two battery mode`() {
+        val commands = buildMap {
+            putAll(InMotionV2Decoder.BASE_COMMANDS)
+            putAll(InMotionV2Decoder.V13_V14_COMMANDS)
+            putAll(InMotionV2Decoder.V14_COMMANDS)
+        }
+        val cap = commands.resolveAt(firmwareLevel = 0)
+        assertEquals(22, cap.supportedCommands.size)
+        assertTrue(cap.supports(SettingsCommandId.AUTO_HEADLIGHT))
+        assertTrue(cap.supports(SettingsCommandId.BERM_ANGLE_MODE))
+        assertTrue(cap.supports(SettingsCommandId.SAFE_SPEED_LIMIT))
+        assertTrue(cap.supports(SettingsCommandId.LIGHT_EFFECT_MODE))
+        assertTrue(cap.supports(SettingsCommandId.TWO_BATTERY_MODE))
+        assertFalse(cap.supports(SettingsCommandId.FAN))
+    }
+
+    @Test
+    fun `P6 gets base plus 4 exclusive commands`() {
         val commands = buildMap {
             putAll(InMotionV2Decoder.BASE_COMMANDS)
             putAll(InMotionV2Decoder.P6_COMMANDS)
         }
         val cap = commands.resolveAt(firmwareLevel = 0)
-        assertEquals(22, cap.supportedCommands.size)
-        assertTrue(cap.supports(SettingsCommandId.SAFE_SPEED_LIMIT))
+        assertEquals(21, cap.supportedCommands.size)
+        assertFalse(cap.supports(SettingsCommandId.SAFE_SPEED_LIMIT))
         assertTrue(cap.supports(SettingsCommandId.SCREEN_AUTO_OFF))
         assertTrue(cap.supports(SettingsCommandId.LOGO_LIGHT_BRIGHTNESS))
         assertTrue(cap.supports(SettingsCommandId.TAIL_LIGHT_MODE))
@@ -78,6 +98,7 @@ class InMotionV2CapabilityMapTest {
             InMotionV2Decoder.V11_COMMANDS,
             InMotionV2Decoder.V12_COMMANDS,
             InMotionV2Decoder.V13_V14_COMMANDS,
+            InMotionV2Decoder.V14_COMMANDS,
             InMotionV2Decoder.P6_COMMANDS
         )
         for (map in allMaps) {

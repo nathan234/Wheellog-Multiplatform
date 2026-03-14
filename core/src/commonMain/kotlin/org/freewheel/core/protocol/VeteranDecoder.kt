@@ -722,11 +722,19 @@ class VeteranDecoder : WheelDecoder {
             }
             is WheelCommand.SetAlarmSpeed -> {
                 if (!isSupported(SettingsCommandId.ALARM_SPEED_1)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommand(0x11, 12, command.speed + 10, byte5 = 0x01)))
+                val v = command.speed + 10
+                listOf(
+                    WheelCommand.SendBytes(buildVeteranCommand(0x11, 12, v, byte5 = 0x01)),
+                    WheelCommand.SendBytes(buildVeteranCommandNew(0x11, 12, v))
+                )
             }
             is WheelCommand.SetPedalTilt -> {
                 if (!isSupported(SettingsCommandId.PEDAL_TILT)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommand(0x10, 11, command.angle + 80, byte5 = 0x01)))
+                val v = command.angle + 80
+                listOf(
+                    WheelCommand.SendBytes(buildVeteranCommand(0x10, 11, v, byte5 = 0x01)),
+                    WheelCommand.SendBytes(buildVeteranCommandNew(0x10, 11, v))
+                )
             }
             is WheelCommand.SetTransportMode -> {
                 if (!isSupported(SettingsCommandId.TRANSPORT_MODE)) return emptyList()
@@ -755,7 +763,7 @@ class VeteranDecoder : WheelDecoder {
             }
             is WheelCommand.SetKeyTone -> {
                 if (!isSupported(SettingsCommandId.KEY_TONE)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommand(0x1C, 23, command.value, byte5 = 0x01)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1C, 23, command.value, byte6 = 0x02)))
             }
             is WheelCommand.PowerOff -> {
                 if (!isSupported(SettingsCommandId.POWER_OFF)) return emptyList()
@@ -772,31 +780,34 @@ class VeteranDecoder : WheelDecoder {
             }
             is WheelCommand.SetScreenBacklight -> {
                 if (!isSupported(SettingsCommandId.SCREEN_BACKLIGHT)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x14, 15, command.value)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x14, 15, command.value, byte6 = 0x02)))
             }
             is WheelCommand.SetStopSpeed -> {
                 if (!isSupported(SettingsCommandId.STOP_SPEED)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x11, 12, command.speed)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x11, 12, command.speed, byte6 = 0x02)))
             }
             is WheelCommand.SetVeteranPwmLimit -> {
                 if (!isSupported(SettingsCommandId.VETERAN_PWM_LIMIT)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x12, 13, command.limit)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x12, 13, command.limit, byte6 = 0x02)))
             }
             is WheelCommand.SetVoltageCorrection -> {
                 if (!isSupported(SettingsCommandId.VOLTAGE_CORRECTION)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x18, 19, command.value + 15)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x18, 19, command.value + 15, byte6 = 0x02)))
             }
             is WheelCommand.SetMaxChargeVoltage -> {
                 if (!isSupported(SettingsCommandId.MAX_CHARGE_VOLTAGE)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1D, 24, command.value)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1D, 24, command.value, byte6 = 0x02)))
             }
             is WheelCommand.SetLateralCutoffAngle -> {
                 if (!isSupported(SettingsCommandId.LATERAL_CUTOFF_ANGLE)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x16, 17, command.angle)))
+                listOf(
+                    WheelCommand.SendBytes(buildVeteranCommand(0x16, 17, command.angle, byte5 = 0x01)),
+                    WheelCommand.SendBytes(buildVeteranCommandNew(0x16, 17, command.angle))
+                )
             }
             is WheelCommand.Calibrate -> {
                 if (!isSupported(SettingsCommandId.CALIBRATE)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x15, 16, 0x01)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x15, 16, 0x01, byte6 = 0x02)))
             }
             else -> emptyList()
         }

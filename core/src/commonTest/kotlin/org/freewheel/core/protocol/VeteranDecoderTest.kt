@@ -1305,31 +1305,31 @@ class VeteranDecoderTest {
     fun `set alarm speed command for new firmware`() {
         val freshDecoder = decoderWithVer(5000) // mVer=5
         val commands = freshDecoder.buildCommand(WheelCommand.SetAlarmSpeed(50, 1))
-        assertEquals(1, commands.size)
-        val data = (commands[0] as WheelCommand.SendBytes).data
-        // Header: 4C 6B 41 70
-        assertEquals(0x4C.toByte(), data[0])
-        assertEquals(0x6B.toByte(), data[1])
-        assertEquals(0x41.toByte(), data[2])
-        assertEquals(0x70.toByte(), data[3])
-        // Command byte 0x11
-        assertEquals(0x11.toByte(), data[4])
-        // Value at byte 12 = speed + 10 = 60
-        assertEquals(60.toByte(), data[12])
-        // Total length = 13 payload + 4 CRC = 17
-        assertEquals(17, data.size)
+        assertEquals(2, commands.size) // old "LkAp" + new "LdAp" format
+        val oldData = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x6B.toByte(), oldData[1]) // "LkAp"
+        assertEquals(0x11.toByte(), oldData[4])
+        assertEquals(60.toByte(), oldData[12]) // speed + 10 = 60
+        assertEquals(17, oldData.size) // 13 payload + 4 CRC
+        val newData = (commands[1] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), newData[1]) // "LdAp"
+        assertEquals(0x11.toByte(), newData[4])
+        assertEquals(60.toByte(), newData[12])
     }
 
     @Test
     fun `set pedal tilt command for new firmware`() {
         val freshDecoder = decoderWithVer(5000)
         val commands = freshDecoder.buildCommand(WheelCommand.SetPedalTilt(0))
-        assertEquals(1, commands.size)
-        val data = (commands[0] as WheelCommand.SendBytes).data
-        assertEquals(0x10.toByte(), data[4]) // cmd byte
-        // Value at byte 11 = angle + 80 = 0 + 80 = 80
-        assertEquals(80.toByte(), data[11])
-        assertEquals(16, data.size) // 12 payload + 4 CRC
+        assertEquals(2, commands.size) // old "LkAp" + new "LdAp" format
+        val oldData = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x6B.toByte(), oldData[1]) // "LkAp"
+        assertEquals(0x10.toByte(), oldData[4])
+        assertEquals(80.toByte(), oldData[11]) // angle + 80 = 80
+        val newData = (commands[1] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), newData[1]) // "LdAp"
+        assertEquals(0x10.toByte(), newData[4])
+        assertEquals(80.toByte(), newData[11])
     }
 
     @Test
@@ -1366,6 +1366,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp" new format
         assertEquals(0x18.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(20.toByte(), data[19]) // value = 5 + 15 = 20
     }
 
@@ -1395,7 +1396,9 @@ class VeteranDecoderTest {
         val commands = freshDecoder.buildCommand(WheelCommand.SetKeyTone(75))
         assertEquals(1, commands.size)
         val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), data[1]) // "LdAp" new format
         assertEquals(0x1C.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(75.toByte(), data[23]) // value at byte 23
     }
 
@@ -1409,6 +1412,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x14.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(80.toByte(), data[15]) // value at byte 15
     }
 
@@ -1420,6 +1424,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x11.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(60.toByte(), data[12]) // value at byte 12
     }
 
@@ -1431,6 +1436,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x12.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(80.toByte(), data[13]) // value at byte 13
     }
 
@@ -1443,6 +1449,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x18.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(25.toByte(), data[19]) // value = 10 + 15
     }
 
@@ -1464,6 +1471,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x1D.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(100.toByte(), data[24]) // value at byte 24
     }
 
@@ -1471,11 +1479,15 @@ class VeteranDecoderTest {
     fun `set lateral cutoff angle command`() {
         val freshDecoder = decoderWithVer(5000)
         val commands = freshDecoder.buildCommand(WheelCommand.SetLateralCutoffAngle(70))
-        assertEquals(1, commands.size)
-        val data = (commands[0] as WheelCommand.SendBytes).data
-        assertEquals(0x64.toByte(), data[1]) // "LdAp"
-        assertEquals(0x16.toByte(), data[4]) // cmd byte
-        assertEquals(70.toByte(), data[17]) // value at byte 17
+        assertEquals(2, commands.size) // old "LkAp" + new "LdAp" format
+        val oldData = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x6B.toByte(), oldData[1]) // "LkAp"
+        assertEquals(0x16.toByte(), oldData[4])
+        assertEquals(70.toByte(), oldData[17])
+        val newData = (commands[1] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), newData[1]) // "LdAp"
+        assertEquals(0x16.toByte(), newData[4])
+        assertEquals(70.toByte(), newData[17])
     }
 
     @Test
@@ -1486,6 +1498,7 @@ class VeteranDecoderTest {
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x15.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
         assertEquals(0x01.toByte(), data[16]) // fixed value
     }
 

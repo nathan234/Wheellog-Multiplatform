@@ -40,6 +40,7 @@ enum class SettingsCommandId {
     HIGH_SPEED_MODE, LOW_VOLTAGE_MODE, KEY_TONE,
     SCREEN_BACKLIGHT, STOP_SPEED, VETERAN_PWM_LIMIT, VOLTAGE_CORRECTION,
     MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM, LATERAL_CUTOFF_ANGLE,
+    DYNAMIC_ASSIST, ACCELERATION_LIMIT, WHEEL_DISPLAY_UNIT,
     // InMotion P6 settings
     SCREEN_AUTO_OFF;
 
@@ -52,6 +53,7 @@ enum class SettingsCommandId {
         ALARM_SPEED_1, PEDAL_TILT, TRANSPORT_MODE, HIGH_SPEED_MODE, LOW_VOLTAGE_MODE,
         KEY_TONE, SCREEN_BACKLIGHT, STOP_SPEED, VETERAN_PWM_LIMIT, VOLTAGE_CORRECTION,
         MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM, LATERAL_CUTOFF_ANGLE,
+        DYNAMIC_ASSIST, ACCELERATION_LIMIT, WHEEL_DISPLAY_UNIT,
         // InMotion V2: model/protoVer gated
         BERM_ANGLE_MODE, BERM_ANGLE, TURNING_SENSITIVITY, ONE_PEDAL_MODE,
         SPEEDING_BRAKING_MODE, SPEEDING_BRAKING_ANGLE, SOUND_WAVE, SOUND_WAVE_SENSITIVITY,
@@ -100,6 +102,9 @@ enum class SettingsCommandId {
         MAX_CHARGE_VOLTAGE -> state.maxChargeVoltage.takeIf { it >= 0 }
         BRAKE_PRESSURE_ALARM -> state.brakePressureAlarm.takeIf { it >= 0 }
         LATERAL_CUTOFF_ANGLE -> state.lateralCutoffAngle.takeIf { it >= 0 }
+        DYNAMIC_ASSIST -> state.dynamicAssist.takeIf { it >= 0 }
+        ACCELERATION_LIMIT -> state.accelerationLimit.takeIf { it >= 0 }
+        WHEEL_DISPLAY_UNIT -> state.wheelDisplayUnit.takeIf { it >= 0 }
         else -> null
     }
 

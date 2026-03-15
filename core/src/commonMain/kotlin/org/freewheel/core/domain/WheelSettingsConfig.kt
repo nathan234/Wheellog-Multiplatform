@@ -83,6 +83,9 @@ object WheelSettingsConfig {
             ControlSpec.Slider("Pedal Tilt", -8, 8, "\u00B0", 0, SettingsCommandId.PEDAL_TILT),
             ControlSpec.Slider("Stop Speed", 10, 120, "km/h", 60, SettingsCommandId.STOP_SPEED),
             ControlSpec.Slider("PWM Limit", 30, 100, "%", 80, SettingsCommandId.VETERAN_PWM_LIMIT),
+            ControlSpec.Slider("Dynamic Assist", 0, 100, "%", 50, SettingsCommandId.DYNAMIC_ASSIST),
+            ControlSpec.Slider("Acceleration Limit", 0, 100, "%", 50, SettingsCommandId.ACCELERATION_LIMIT),
+            ControlSpec.Segmented("Wheel Display Unit", listOf("km/h", "mph"), SettingsCommandId.WHEEL_DISPLAY_UNIT),
             ControlSpec.Toggle("Transport Mode", SettingsCommandId.TRANSPORT_MODE),
             ControlSpec.Toggle("High Speed Mode", SettingsCommandId.HIGH_SPEED_MODE),
             ControlSpec.Toggle("Low Voltage Mode", SettingsCommandId.LOW_VOLTAGE_MODE)
@@ -93,7 +96,7 @@ object WheelSettingsConfig {
         SettingsSection("Battery", listOf(
             ControlSpec.Slider("Voltage Correction", -15, 15, "", 0, SettingsCommandId.VOLTAGE_CORRECTION),
             ControlSpec.Slider("Max Charge Voltage", 0, 120, "", 100, SettingsCommandId.MAX_CHARGE_VOLTAGE),
-            ControlSpec.Slider("Brake Pressure Alarm", 90, 125, "%", 100, SettingsCommandId.BRAKE_PRESSURE_ALARM)
+            ControlSpec.Slider("Brake Pressure Alarm", 80, 125, "%", 100, SettingsCommandId.BRAKE_PRESSURE_ALARM)
         )),
         SettingsSection("Dangerous Actions", listOf(
             ControlSpec.Slider("Lateral Cutoff Angle", 35, 90, "\u00B0", 70, SettingsCommandId.LATERAL_CUTOFF_ANGLE),

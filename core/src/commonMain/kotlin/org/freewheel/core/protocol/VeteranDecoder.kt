@@ -204,6 +204,10 @@ class VeteranDecoder : WheelDecoder {
         val maxChargeVol: Int? = null,
         val brakePressureAlarm: Int? = null,
         val lateralCutoffAngle: Int? = null,
+        val dynamicAssist: Int? = null,
+        val accelerationLimit: Int? = null,
+        val chargeVoltageBase: Int? = null,
+        val wheelDisplayUnit: Int? = null,
     )
 
     private val unpacker = VeteranUnpacker()
@@ -338,6 +342,10 @@ class VeteranDecoder : WheelDecoder {
                 maxChargeVoltage = subData.maxChargeVol ?: state.maxChargeVoltage,
                 brakePressureAlarm = subData.brakePressureAlarm ?: state.brakePressureAlarm,
                 lateralCutoffAngle = subData.lateralCutoffAngle ?: state.lateralCutoffAngle,
+                dynamicAssist = subData.dynamicAssist ?: state.dynamicAssist,
+                accelerationLimit = subData.accelerationLimit ?: state.accelerationLimit,
+                chargeVoltageBase = subData.chargeVoltageBase ?: state.chargeVoltageBase,
+                wheelDisplayUnit = subData.wheelDisplayUnit ?: state.wheelDisplayUnit,
             )
         }
 
@@ -402,12 +410,16 @@ class VeteranDecoder : WheelDecoder {
             stopPowerRate = readUnsigned(53),          // byte 53: PWM limit (raw, +30 encoding)
             screenBacklightRate = readUnsigned(55),    // byte 55: screen backlight 0-100%
             transportMode = readBool(57),              // byte 57: transport mode
-            voltageCorrection = readUnsigned(59)?.let { it - 15 }, // byte 59: raw 0-30, decoded -15 to +15
+            wheelDisplayUnit = readUnsigned(58),       // byte 58: wheel display unit (0=km, 1=miles)
+            voltageCorrection = readSigned(59),        // byte 59: signed byte -15 to +15
             lowVoltageMode = readBool(60),             // byte 60: low voltage mode
             highSpeedMode = readBool(61),              // byte 61: high speed mode
             keyTone = readUnsigned(63),                // byte 63: key tone 0-100%
             maxChargeVol = readUnsigned(64),           // byte 64: max charge voltage (0-120)
-            brakePressureAlarm = readUnsigned(65),       // byte 65: brake pressure alarm (90-125%)
+            chargeVoltageBase = readUnsigned(65)?.let { if (it == 0) 145 else it }, // byte 65: base voltage for charge limit
+            dynamicAssist = readUnsigned(66),          // byte 66: dynamic assist 0-100%
+            accelerationLimit = readUnsigned(68),      // byte 68: acceleration limit 0-100%
+            brakePressureAlarm = readUnsigned(69),     // byte 69: brake pressure alarm (80-125%)
         )
     }
 
@@ -792,7 +804,7 @@ class VeteranDecoder : WheelDecoder {
             }
             is WheelCommand.SetVoltageCorrection -> {
                 if (!isSupported(SettingsCommandId.VOLTAGE_CORRECTION)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x18, 19, command.value + 15, byte6 = 0x02)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x18, 19, command.value, byte6 = 0x02)))
             }
             is WheelCommand.SetMaxChargeVoltage -> {
                 if (!isSupported(SettingsCommandId.MAX_CHARGE_VOLTAGE)) return emptyList()
@@ -800,7 +812,7 @@ class VeteranDecoder : WheelDecoder {
             }
             is WheelCommand.SetBrakePressureAlarm -> {
                 if (!isSupported(SettingsCommandId.BRAKE_PRESSURE_ALARM)) return emptyList()
-                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1E, 25, command.value, byte6 = 0x02)))
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x22, 29, command.value, byte6 = 0x02)))
             }
             is WheelCommand.SetLateralCutoffAngle -> {
                 if (!isSupported(SettingsCommandId.LATERAL_CUTOFF_ANGLE)) return emptyList()
@@ -812,6 +824,18 @@ class VeteranDecoder : WheelDecoder {
             is WheelCommand.Calibrate -> {
                 if (!isSupported(SettingsCommandId.CALIBRATE)) return emptyList()
                 listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x15, 16, 0x01, byte6 = 0x02)))
+            }
+            is WheelCommand.SetDynamicAssist -> {
+                if (!isSupported(SettingsCommandId.DYNAMIC_ASSIST)) return emptyList()
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x1F, 26, command.value, byte6 = 0x02)))
+            }
+            is WheelCommand.SetAccelerationLimit -> {
+                if (!isSupported(SettingsCommandId.ACCELERATION_LIMIT)) return emptyList()
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x21, 28, command.value, byte6 = 0x02)))
+            }
+            is WheelCommand.SetWheelDisplayUnit -> {
+                if (!isSupported(SettingsCommandId.WHEEL_DISPLAY_UNIT)) return emptyList()
+                listOf(WheelCommand.SendBytes(buildVeteranCommandNew(0x17, 18, if (command.miles) 1 else 0, byte6 = 0x02)))
             }
             else -> emptyList()
         }
@@ -844,6 +868,9 @@ class VeteranDecoder : WheelDecoder {
             SettingsCommandId.MAX_CHARGE_VOLTAGE to 3,
             SettingsCommandId.BRAKE_PRESSURE_ALARM to 3,
             SettingsCommandId.LATERAL_CUTOFF_ANGLE to 3,
+            SettingsCommandId.DYNAMIC_ASSIST to 3,
+            SettingsCommandId.ACCELERATION_LIMIT to 3,
+            SettingsCommandId.WHEEL_DISPLAY_UNIT to 3,
             SettingsCommandId.CALIBRATE to 3,
             SettingsCommandId.POWER_OFF to 3,
         )

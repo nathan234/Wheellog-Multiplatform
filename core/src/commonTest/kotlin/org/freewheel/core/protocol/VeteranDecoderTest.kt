@@ -1193,9 +1193,9 @@ class VeteranDecoderTest {
     }
 
     @Test
-    fun `sub-type 8 parses voltage correction`() {
+    fun `sub-type 8 parses voltage correction positive`() {
         val result = decodeExtendedFrame(subType = 8) { frame ->
-            frame[59] = 20.toByte() // raw 20, decoded = 20 - 15 = +5
+            frame[59] = 5.toByte() // signed byte: +5
         }
         assertNotNull(result)
         assertEquals(5, result.newState.voltageCorrection)
@@ -1248,31 +1248,38 @@ class VeteranDecoderTest {
     }
 
     @Test
-    fun `sub-type 8 parses voltage correction negative`() {
+    fun `sub-type 8 parses voltage correction negative via signed byte`() {
         val result = decodeExtendedFrame(subType = 8) { frame ->
-            frame[59] = 5.toByte() // raw 5, decoded = 5 - 15 = -10
+            frame[59] = (-5).toByte() // 0xFB as signed byte = -5
         }
         assertNotNull(result)
-        assertEquals(-10, result.newState.voltageCorrection)
+        assertEquals(-5, result.newState.voltageCorrection)
     }
 
     @Test
     fun `sub-type 8 parses voltage correction zero`() {
         val result = decodeExtendedFrame(subType = 8) { frame ->
-            frame[59] = 15.toByte() // raw 15, decoded = 15 - 15 = 0
+            frame[59] = 0.toByte() // signed byte: 0
         }
         assertNotNull(result)
         assertEquals(0, result.newState.voltageCorrection)
     }
 
     @Test
-    fun `sub-type 8 parses max charge voltage and brake pressure alarm`() {
+    fun `sub-type 8 parses max charge voltage`() {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[64] = 100.toByte()
-            frame[65] = 105.toByte() // brake pressure alarm (105%)
         }
         assertNotNull(result)
         assertEquals(100, result.newState.maxChargeVoltage)
+    }
+
+    @Test
+    fun `sub-type 8 parses brake pressure alarm from byte 69`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[69] = 105.toByte() // brake pressure alarm (105%)
+        }
+        assertNotNull(result)
         assertEquals(105, result.newState.brakePressureAlarm)
     }
 
@@ -1287,6 +1294,69 @@ class VeteranDecoderTest {
         assertEquals(-1, result.newState.stopSpeed)
         assertEquals(-1, result.newState.pwmLimit)
         assertEquals(-1, result.newState.screenBacklight)
+    }
+
+    @Test
+    fun `sub-type 8 parses dynamic assist from byte 66`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[66] = 75.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(75, result.newState.dynamicAssist)
+    }
+
+    @Test
+    fun `sub-type 8 parses acceleration limit from byte 68`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[68] = 60.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(60, result.newState.accelerationLimit)
+    }
+
+    @Test
+    fun `sub-type 8 parses charge voltage base from byte 65`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[65] = 120.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(120, result.newState.chargeVoltageBase)
+    }
+
+    @Test
+    fun `sub-type 8 charge voltage base defaults to 145 when zero`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[65] = 0.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(145, result.newState.chargeVoltageBase)
+    }
+
+    @Test
+    fun `sub-type 8 charge voltage base unsupported (0x80) keeps default 145`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[65] = 0x80.toByte()
+        }
+        assertNotNull(result)
+        assertEquals(145, result.newState.chargeVoltageBase)
+    }
+
+    @Test
+    fun `sub-type 8 parses wheel display unit from byte 58`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[58] = 1.toByte() // miles
+        }
+        assertNotNull(result)
+        assertEquals(1, result.newState.wheelDisplayUnit)
+    }
+
+    @Test
+    fun `sub-type 8 parses wheel display unit km`() {
+        val result = decodeExtendedFrame(subType = 8) { frame ->
+            frame[58] = 0.toByte() // km
+        }
+        assertNotNull(result)
+        assertEquals(0, result.newState.wheelDisplayUnit)
     }
 
     // ==================== New Binary Commands (mVer >= 3) ====================
@@ -1359,7 +1429,7 @@ class VeteranDecoderTest {
     }
 
     @Test
-    fun `set voltage correction command for new firmware`() {
+    fun `set voltage correction command sends raw signed value`() {
         val freshDecoder = decoderWithVer(5000)
         val commands = freshDecoder.buildCommand(WheelCommand.SetVoltageCorrection(5))
         assertEquals(1, commands.size)
@@ -1367,7 +1437,7 @@ class VeteranDecoderTest {
         assertEquals(0x64.toByte(), data[1]) // "LdAp" new format
         assertEquals(0x18.toByte(), data[4]) // cmd byte
         assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
-        assertEquals(20.toByte(), data[19]) // value = 5 + 15 = 20
+        assertEquals(5.toByte(), data[19]) // raw signed value, no offset
     }
 
     @Test
@@ -1441,26 +1511,24 @@ class VeteranDecoderTest {
     }
 
     @Test
-    fun `set voltage correction encodes offset`() {
+    fun `set voltage correction positive sends raw value`() {
         val freshDecoder = decoderWithVer(5000)
-        // +10 → protocol value 25 (10 + 15)
         val commands = freshDecoder.buildCommand(WheelCommand.SetVoltageCorrection(10))
         assertEquals(1, commands.size)
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
         assertEquals(0x18.toByte(), data[4]) // cmd byte
         assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
-        assertEquals(25.toByte(), data[19]) // value = 10 + 15
+        assertEquals(10.toByte(), data[19]) // raw signed value
     }
 
     @Test
-    fun `set voltage correction negative encodes offset`() {
+    fun `set voltage correction negative sends raw signed value`() {
         val freshDecoder = decoderWithVer(5000)
-        // -10 → protocol value 5 (-10 + 15)
         val commands = freshDecoder.buildCommand(WheelCommand.SetVoltageCorrection(-10))
         assertEquals(1, commands.size)
         val data = (commands[0] as WheelCommand.SendBytes).data
-        assertEquals(5.toByte(), data[19]) // value = -10 + 15
+        assertEquals((-10).toByte(), data[19]) // raw signed value (0xF6)
     }
 
     @Test
@@ -1476,15 +1544,61 @@ class VeteranDecoderTest {
     }
 
     @Test
-    fun `set brake pressure alarm command`() {
+    fun `set brake pressure alarm command uses position 29`() {
         val freshDecoder = decoderWithVer(5000)
         val commands = freshDecoder.buildCommand(WheelCommand.SetBrakePressureAlarm(110))
         assertEquals(1, commands.size)
         val data = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x64.toByte(), data[1]) // "LdAp"
-        assertEquals(0x1E.toByte(), data[4]) // cmd byte
+        assertEquals(0x22.toByte(), data[4]) // cmd byte (readback 69 - 40 = 29 → 0x22 = 29+5)
         assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
-        assertEquals(110.toByte(), data[25]) // value at byte 25
+        assertEquals(110.toByte(), data[29]) // value at position 29
+    }
+
+    @Test
+    fun `set dynamic assist command`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetDynamicAssist(75))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), data[1]) // "LdAp"
+        assertEquals(0x1F.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
+        assertEquals(75.toByte(), data[26]) // value at position 26
+    }
+
+    @Test
+    fun `set acceleration limit command`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetAccelerationLimit(60))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), data[1]) // "LdAp"
+        assertEquals(0x21.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
+        assertEquals(60.toByte(), data[28]) // value at position 28
+    }
+
+    @Test
+    fun `set wheel display unit km command`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetWheelDisplayUnit(miles = false))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x64.toByte(), data[1]) // "LdAp"
+        assertEquals(0x17.toByte(), data[4]) // cmd byte
+        assertEquals(0x02.toByte(), data[6]) // byte6 = 0x02 for control setting
+        assertEquals(0.toByte(), data[18]) // 0 = km
+    }
+
+    @Test
+    fun `set wheel display unit miles command`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetWheelDisplayUnit(miles = true))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x17.toByte(), data[4]) // cmd byte
+        assertEquals(1.toByte(), data[18]) // 1 = miles
     }
 
     @Test
@@ -1524,6 +1638,9 @@ class VeteranDecoderTest {
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetMaxChargeVoltage(100)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetBrakePressureAlarm(100)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.SetLateralCutoffAngle(70)).isEmpty())
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetDynamicAssist(50)).isEmpty())
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetAccelerationLimit(50)).isEmpty())
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetWheelDisplayUnit(miles = true)).isEmpty())
         assertTrue(freshDecoder.buildCommand(WheelCommand.Calibrate).isEmpty())
     }
 
@@ -1546,6 +1663,14 @@ class VeteranDecoderTest {
         val freshDecoder = decoderWithVer(5000)
         val commands = freshDecoder.buildCommand(WheelCommand.SetSpeakerVolume(50))
         assertTrue(commands.isEmpty(), "Veteran has no speaker volume — byte 59 is voltage correction")
+    }
+
+    @Test
+    fun `new settings in CAPABILITY_MAP at mVer 3`() {
+        val freshDecoder = decoderWithVer(3000) // mVer=3
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetDynamicAssist(50)).isNotEmpty())
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetAccelerationLimit(50)).isNotEmpty())
+        assertTrue(freshDecoder.buildCommand(WheelCommand.SetWheelDisplayUnit(miles = false)).isNotEmpty())
     }
 
     @Test

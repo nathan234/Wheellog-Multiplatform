@@ -71,5 +71,9 @@ data class WheelSettingsState(
     val voltageCorrection: Int = -1,
     val maxChargeVoltage: Int = -1,
     val brakePressureAlarm: Int = -1,
-    val lateralCutoffAngle: Int = -1
+    val lateralCutoffAngle: Int = -1,
+    val dynamicAssist: Int = -1,
+    val accelerationLimit: Int = -1,
+    val chargeVoltageBase: Int = 145,
+    val wheelDisplayUnit: Int = -1
 )

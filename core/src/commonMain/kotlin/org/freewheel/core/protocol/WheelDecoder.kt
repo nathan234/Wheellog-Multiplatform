@@ -352,6 +352,9 @@ sealed class WheelCommand {
     data class SetMaxChargeVoltage(val value: Int) : WheelCommand()
     data class SetBrakePressureAlarm(val value: Int) : WheelCommand()
     data class SetLateralCutoffAngle(val angle: Int) : WheelCommand()
+    data class SetDynamicAssist(val value: Int) : WheelCommand()
+    data class SetAccelerationLimit(val value: Int) : WheelCommand()
+    data class SetWheelDisplayUnit(val miles: Boolean) : WheelCommand()
 
     // --- BMS requests (Kingsong) ---
 

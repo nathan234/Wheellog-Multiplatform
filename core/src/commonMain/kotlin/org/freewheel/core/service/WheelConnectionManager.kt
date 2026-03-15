@@ -395,6 +395,9 @@ class WheelConnectionManager(
             SettingsCommandId.MAX_CHARGE_VOLTAGE -> sendCommand(WheelCommand.SetMaxChargeVoltage(intValue))
             SettingsCommandId.BRAKE_PRESSURE_ALARM -> sendCommand(WheelCommand.SetBrakePressureAlarm(intValue))
             SettingsCommandId.LATERAL_CUTOFF_ANGLE -> sendCommand(WheelCommand.SetLateralCutoffAngle(intValue))
+            SettingsCommandId.DYNAMIC_ASSIST -> sendCommand(WheelCommand.SetDynamicAssist(intValue))
+            SettingsCommandId.ACCELERATION_LIMIT -> sendCommand(WheelCommand.SetAccelerationLimit(intValue))
+            SettingsCommandId.WHEEL_DISPLAY_UNIT -> sendCommand(WheelCommand.SetWheelDisplayUnit(intValue == 1))
             // InMotion V2 extended settings
             SettingsCommandId.BERM_ANGLE_MODE -> setBermAngleMode(boolValue)
             SettingsCommandId.BERM_ANGLE -> setBermAngle(intValue)

@@ -156,8 +156,12 @@ data class WheelState(
     val pwmLimit: Int = -1,          // 30-100% (-1=unknown)
     val voltageCorrection: Int = -1, // -15 to +15 (×0.1%), -1=unknown
     val maxChargeVoltage: Int = -1,  // 0-120 (×0.1V + base), -1=unknown
-    val brakePressureAlarm: Int = -1, // 90-125% brake overpressure alarm (-1=unknown)
+    val brakePressureAlarm: Int = -1, // 80-125% brake overpressure alarm (-1=unknown)
     val lateralCutoffAngle: Int = -1, // degrees, encoded +35 (-1=unknown)
+    val dynamicAssist: Int = -1,      // 0-100% acceleration/deceleration assist (-1=unknown)
+    val accelerationLimit: Int = -1,  // 0-100% acceleration reduction (-1=unknown)
+    val chargeVoltageBase: Int = 145, // base voltage for charge limit calculation (read-only)
+    val wheelDisplayUnit: Int = -1,   // 0=km, 1=miles (-1=unknown)
 
     // Error tracking
     val error: String = "",
@@ -266,7 +270,9 @@ data class WheelState(
         screenBacklight = screenBacklight, stopSpeed = stopSpeed,
         pwmLimit = pwmLimit, voltageCorrection = voltageCorrection,
         maxChargeVoltage = maxChargeVoltage, brakePressureAlarm = brakePressureAlarm,
-        lateralCutoffAngle = lateralCutoffAngle
+        lateralCutoffAngle = lateralCutoffAngle,
+        dynamicAssist = dynamicAssist, accelerationLimit = accelerationLimit,
+        chargeVoltageBase = chargeVoltageBase, wheelDisplayUnit = wheelDisplayUnit
     )
 
     /** Extract identity fields (set once per connection). */

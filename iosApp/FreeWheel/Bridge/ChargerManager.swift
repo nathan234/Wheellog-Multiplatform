@@ -10,6 +10,18 @@ class ChargerManager: ObservableObject {
     @Published private(set) var chargerState: ChargerState = ChargerState.companion.empty()
     @Published private(set) var connectionState: ConnectionStateWrapper = .disconnected
 
+    // MARK: - Scan State
+
+    struct DiscoveredCharger: Identifiable {
+        let address: String
+        let name: String
+        let rssi: Int
+        var id: String { address }
+    }
+
+    @Published private(set) var isScanning = false
+    @Published private(set) var discoveredChargers: [DiscoveredCharger] = []
+
     // MARK: - Saved Charger Profiles
 
     @Published private(set) var savedAddresses: Set<String> = {
@@ -91,9 +103,56 @@ class ChargerManager: ObservableObject {
         }
     }
 
+    // MARK: - Scanning
+
+    func startScan() {
+        guard let ble = bleManager else { return }
+        isScanning = true
+        discoveredChargers = []
+
+        ble.startScanForService(
+            serviceUuid: BleUuids.HwCharger.shared.SERVICE,
+            onDeviceFound: { [weak self] device in
+                Task { @MainActor in
+                    self?.onChargerDiscovered(device)
+                }
+            }
+        ) { error in
+            if let error = error {
+                print("Charger scan error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func stopScan() {
+        bleManager?.stopScan { [weak self] error in
+            Task { @MainActor in
+                self?.isScanning = false
+                if let error = error {
+                    print("Charger stop scan error: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func onChargerDiscovered(_ device: BleDevice) {
+        let charger = DiscoveredCharger(
+            address: device.address,
+            name: device.name ?? "HW Charger",
+            rssi: Int(device.rssi)
+        )
+        if let idx = discoveredChargers.firstIndex(where: { $0.address == device.address }) {
+            discoveredChargers[idx] = charger
+        } else {
+            discoveredChargers.append(charger)
+        }
+        discoveredChargers.sort { $0.rssi > $1.rssi }
+    }
+
     // MARK: - Connection
 
     func connect(address: String, password: String) {
+        stopScan()
         guard let ccm = chargerConnectionManager else { return }
         ChargerConnectionManagerHelper.shared.connect(manager: ccm, address: address, password: password)
     }

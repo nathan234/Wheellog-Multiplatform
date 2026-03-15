@@ -27,6 +27,7 @@ import org.freewheel.core.service.BluetoothAdapterState
 import org.freewheel.core.service.ConnectionState
 import org.freewheel.core.service.DemoDataProvider
 import org.freewheel.core.service.WheelConnectionManager
+import org.freewheel.core.ble.BleUuids
 import org.freewheel.core.charger.ChargerConnectionManager
 import org.freewheel.core.charger.ChargerState
 import org.freewheel.core.domain.CapabilitySet
@@ -94,6 +95,7 @@ class WheelViewModel(
 
     // Charger service references
     private var chargerConnectionManager: ChargerConnectionManager? = null
+    private var chargerBleManager: BleManager? = null
     private var chargerStateCollectionJob: Job? = null
     private var chargerConnectionCollectionJob: Job? = null
 
@@ -306,6 +308,7 @@ class WheelViewModel(
         connectionManager = cm
         bleManager = ble
         chargerConnectionManager = service.chargerConnectionManager
+        chargerBleManager = service.chargerBleManager
 
         pushDecoderConfig()
 
@@ -402,6 +405,7 @@ class WheelViewModel(
         connectionManager = null
         bleManager = null
         chargerConnectionManager = null
+        chargerBleManager = null
     }
 
     // --- Demo mode ---
@@ -659,9 +663,52 @@ class WheelViewModel(
         connectionManager?.executeCommand(commandId, intValue, boolValue)
     }
 
+    // --- Charger scanning ---
+
+    private val _isChargerScanning = MutableStateFlow(false)
+    val isChargerScanning: StateFlow<Boolean> = _isChargerScanning.asStateFlow()
+
+    private val _discoveredChargers = MutableStateFlow<List<DiscoveredDevice>>(emptyList())
+    val discoveredChargers: StateFlow<List<DiscoveredDevice>> = _discoveredChargers.asStateFlow()
+
+    fun scanForChargers() {
+        val ble = chargerBleManager ?: return
+        _isChargerScanning.value = true
+        _discoveredChargers.value = emptyList()
+        viewModelScope.launch {
+            ble.startScanForService(BleUuids.HwCharger.SERVICE) { device ->
+                addDiscoveredCharger(device)
+            }
+        }
+    }
+
+    fun stopChargerScan() {
+        _isChargerScanning.value = false
+        viewModelScope.launch {
+            chargerBleManager?.stopScan()
+        }
+    }
+
+    private fun addDiscoveredCharger(device: BleDevice) {
+        val current = _discoveredChargers.value.toMutableList()
+        val existing = current.indexOfFirst { it.address == device.address }
+        val discovered = DiscoveredDevice(
+            name = device.name ?: "HW Charger",
+            address = device.address,
+            rssi = device.rssi
+        )
+        if (existing >= 0) {
+            current[existing] = discovered
+        } else {
+            current.add(discovered)
+        }
+        _discoveredChargers.value = current.sortedByDescending { it.rssi }
+    }
+
     // --- Charger operations ---
 
     fun connectCharger(address: String, password: String) {
+        stopChargerScan()
         chargerConnectionManager?.connect(address, password)
     }
 

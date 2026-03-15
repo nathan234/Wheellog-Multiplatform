@@ -122,9 +122,8 @@ private struct ConnectedChargerContent: View {
 private struct DisconnectedChargerContent: View {
     @ObservedObject var chargerManager: ChargerManager
 
-    @State private var address = ""
+    @State private var selectedAddress: String?
     @State private var password = ""
-    @State private var displayName = ""
 
     var body: some View {
         // Connection status
@@ -184,40 +183,78 @@ private struct DisconnectedChargerContent: View {
             Divider()
         }
 
-        // Manual connect
-        Text("Connect to Charger")
-            .font(.headline)
-
-        TextField("MAC Address (AA:BB:CC:DD:EE:FF)", text: $address)
-            .textFieldStyle(.roundedBorder)
-            .autocapitalization(.allCharacters)
-            .disableAutocorrection(true)
-
-        SecureField("Password", text: $password)
-            .textFieldStyle(.roundedBorder)
-
-        TextField("Display Name (optional)", text: $displayName)
-            .textFieldStyle(.roundedBorder)
-
+        // Scan for chargers
         HStack {
-            Button("Connect & Save") {
-                let profile = ChargerManager.ChargerProfile(
-                    address: address,
-                    displayName: displayName.isEmpty ? "HW Charger" : displayName,
-                    password: password,
-                    lastConnectedMs: Date().timeIntervalSince1970 * 1000
-                )
-                chargerManager.saveProfile(profile)
-                chargerManager.connect(address: address, password: password)
+            Text("Find Chargers")
+                .font(.headline)
+            Spacer()
+            if chargerManager.isScanning {
+                ProgressView()
+                    .padding(.trailing, 4)
+                Button("Stop") { chargerManager.stopScan() }
+                    .buttonStyle(.bordered)
+            } else {
+                Button("Scan") { chargerManager.startScan() }
+                    .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(address.isEmpty || password.isEmpty)
+        }
 
-            Button("Connect Once") {
-                chargerManager.connect(address: address, password: password)
+        if !chargerManager.discoveredChargers.isEmpty {
+            ForEach(chargerManager.discoveredChargers) { charger in
+                let isSelected = selectedAddress == charger.address
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        selectedAddress = charger.address
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(charger.name)
+                                    .font(.body)
+                                Text(charger.address)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Text("\(charger.rssi) dBm")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if isSelected {
+                        SecureField("Password", text: $password)
+                            .textFieldStyle(.roundedBorder)
+
+                        HStack {
+                            Button("Connect & Save") {
+                                let profile = ChargerManager.ChargerProfile(
+                                    address: charger.address,
+                                    displayName: charger.name,
+                                    password: password,
+                                    lastConnectedMs: Date().timeIntervalSince1970 * 1000
+                                )
+                                chargerManager.saveProfile(profile)
+                                chargerManager.connect(address: charger.address, password: password)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(password.isEmpty)
+
+                            Button("Connect Once") {
+                                chargerManager.connect(address: charger.address, password: password)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(password.isEmpty)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
             }
-            .buttonStyle(.bordered)
-            .disabled(address.isEmpty || password.isEmpty)
+        } else if !chargerManager.isScanning {
+            Text("Tap Scan to search for nearby HW chargers")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
     }
 }

@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,6 +43,8 @@ import org.freewheel.core.service.ConnectionState
 fun ChargerScreen(viewModel: WheelViewModel) {
     val chargerState by viewModel.chargerState.collectAsStateWithLifecycle()
     val connectionState by viewModel.chargerConnectionState.collectAsStateWithLifecycle()
+    val isScanning by viewModel.isChargerScanning.collectAsStateWithLifecycle()
+    val discoveredChargers by viewModel.discoveredChargers.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -68,6 +72,10 @@ fun ChargerScreen(viewModel: WheelViewModel) {
             DisconnectedChargerContent(
                 connectionState = connectionState,
                 savedProfiles = viewModel.getSavedChargerProfiles(),
+                discoveredChargers = discoveredChargers,
+                isScanning = isScanning,
+                onScan = { viewModel.scanForChargers() },
+                onStopScan = { viewModel.stopChargerScan() },
                 onConnect = { address, password ->
                     viewModel.connectCharger(address, password)
                 },
@@ -217,6 +225,10 @@ private fun ConnectedChargerContent(
 private fun DisconnectedChargerContent(
     connectionState: ConnectionState,
     savedProfiles: List<ChargerProfile>,
+    discoveredChargers: List<WheelViewModel.DiscoveredDevice>,
+    isScanning: Boolean,
+    onScan: () -> Unit,
+    onStopScan: () -> Unit,
     onConnect: (address: String, password: String) -> Unit,
     onSaveProfile: (ChargerProfile) -> Unit,
     onDeleteProfile: (String) -> Unit,
@@ -280,66 +292,97 @@ private fun DisconnectedChargerContent(
         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
     }
 
-    // Manual connect
-    Text("Connect to Charger", style = MaterialTheme.typography.titleMedium)
+    // Scan for chargers
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Find Chargers", style = MaterialTheme.typography.titleMedium)
+        if (isScanning) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                OutlinedButton(onClick = onStopScan) { Text("Stop") }
+            }
+        } else {
+            Button(onClick = onScan) { Text("Scan") }
+        }
+    }
 
-    var address by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
+    if (discoveredChargers.isNotEmpty()) {
+        var selectedAddress by remember { mutableStateOf<String?>(null) }
+        var password by remember { mutableStateOf("") }
 
-    OutlinedTextField(
-        value = address,
-        onValueChange = { address = it.uppercase() },
-        label = { Text("MAC Address") },
-        placeholder = { Text("AA:BB:CC:DD:EE:FF") },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    OutlinedTextField(
-        value = password,
-        onValueChange = { password = it },
-        label = { Text("Password") },
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    OutlinedTextField(
-        value = name,
-        onValueChange = { name = it },
-        label = { Text("Display Name (optional)") },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(
-            onClick = {
-                if (address.isNotBlank() && password.isNotBlank()) {
-                    // Save the profile for later
-                    onSaveProfile(
-                        ChargerProfile(
-                            address = address,
-                            displayName = name.ifBlank { "HW Charger" },
-                            password = password,
-                            lastConnectedMs = System.currentTimeMillis()
+        discoveredChargers.forEach { device ->
+            val isSelected = selectedAddress == device.address
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { selectedAddress = device.address }
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(device.name, style = MaterialTheme.typography.bodyLarge)
+                            Text(device.address, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(
+                            "${device.rssi} dBm",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    )
-                    onConnect(address, password)
+                    }
+
+                    if (isSelected) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Password") },
+                            visualTransformation = PasswordVisualTransformation(),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = {
+                                    onSaveProfile(
+                                        ChargerProfile(
+                                            address = device.address,
+                                            displayName = device.name,
+                                            password = password,
+                                            lastConnectedMs = System.currentTimeMillis()
+                                        )
+                                    )
+                                    onConnect(device.address, password)
+                                },
+                                enabled = password.isNotBlank()
+                            ) {
+                                Text("Connect & Save")
+                            }
+                            OutlinedButton(
+                                onClick = { onConnect(device.address, password) },
+                                enabled = password.isNotBlank()
+                            ) {
+                                Text("Connect Once")
+                            }
+                        }
+                    }
                 }
-            },
-            enabled = address.isNotBlank() && password.isNotBlank()
-        ) {
-            Text("Connect & Save")
+            }
         }
-        OutlinedButton(
-            onClick = {
-                if (address.isNotBlank() && password.isNotBlank()) {
-                    onConnect(address, password)
-                }
-            },
-            enabled = address.isNotBlank() && password.isNotBlank()
-        ) {
-            Text("Connect Once")
-        }
+    } else if (!isScanning) {
+        Text(
+            "Tap Scan to search for nearby HW chargers",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

@@ -438,6 +438,17 @@ actual class BleManager : BleManagerPort {
         manager.scanForPeripherals()
     }
 
+    /**
+     * Start scanning for devices advertising a specific BLE service UUID.
+     * Used for charger discovery (FFE1 service).
+     */
+    suspend fun startScanForService(serviceUuid: String, onDeviceFound: (BleDevice) -> Unit) {
+        val manager = central ?: return
+        scanDeviceFoundCallback = onDeviceFound
+        _connectionState.value = ConnectionState.Scanning
+        manager.scanForPeripheralsWithServices(arrayOf(UUID.fromString(serviceUuid)))
+    }
+
     actual override suspend fun stopScan() {
         central?.stopScan()
         scanDeviceFoundCallback = null

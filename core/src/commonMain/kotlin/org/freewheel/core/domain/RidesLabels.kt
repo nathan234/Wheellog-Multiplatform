@@ -15,4 +15,14 @@ object RidesLabels {
     const val AVG_SPEED = "Avg Speed"
     const val MAX_POWER = "Max Power"
     const val ENERGY = "Energy"
+
+    // Ride replay
+    const val REPLAY = "Replay"
+    const val EXIT_REPLAY = "Exit Replay"
+    const val SPEED_LABEL = "Speed"
+    const val VOLTAGE_LABEL = "Voltage"
+    const val CURRENT_LABEL = "Current"
+    const val POWER_LABEL = "Power"
+    const val BATTERY_LABEL = "Battery"
+    const val TEMP_LABEL = "Temp"
 }

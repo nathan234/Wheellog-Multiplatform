@@ -44,6 +44,7 @@
 		M1000001221F000000002B /* ChargerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = M1000001221F000000001B /* ChargerView.swift */; };
 		N1000001221F000000002C /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N1000001221F000000001C /* SplashView.swift */; };
 		O1000001221F000000002D /* ReplayControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = O1000001221F000000001D /* ReplayControlsView.swift */; };
+		P1000001221F000000002E /* RideReplayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1000001221F000000001E /* RideReplayController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,6 +87,7 @@
 		M1000001221F000000001B /* ChargerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChargerView.swift; sourceTree = "<group>"; };
 		N1000001221F000000001C /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		O1000001221F000000001D /* ReplayControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplayControlsView.swift; sourceTree = "<group>"; };
+		P1000001221F000000001E /* RideReplayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideReplayController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,6 +150,7 @@
 				B1000001221F0000000007 /* TelemetryBuffer.swift */,
 				E1000001221F000000000E /* TelemetryHistory.swift */,
 				M1000001221F000000001A /* ChargerManager.swift */,
+				P1000001221F000000001E /* RideReplayController.swift */,
 			);
 			path = Bridge;
 			sourceTree = "<group>";
@@ -312,6 +315,7 @@
 				M1000001221F000000002B /* ChargerView.swift in Sources */,
 				N1000001221F000000002C /* SplashView.swift in Sources */,
 				O1000001221F000000002D /* ReplayControlsView.swift in Sources */,
+				P1000001221F000000002E /* RideReplayController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

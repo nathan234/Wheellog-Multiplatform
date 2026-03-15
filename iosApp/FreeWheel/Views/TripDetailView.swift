@@ -22,6 +22,9 @@ struct TripDetailView: View {
     @State private var mainChartDomain: TimeInterval = 0
     @State private var mainChartBaseDomain: TimeInterval = 0
 
+    @State private var replayController: RideReplayController?
+    private var isReplaying: Bool { replayController != nil }
+
     private func displaySpeed(_ kmh: Double) -> Double {
         displaySpeed(kmh, useMph: wheelManager.useMph)
     }
@@ -65,9 +68,14 @@ struct TripDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
             } else {
+                VStack(spacing: 0) {
                 ScrollView {
                     VStack(spacing: 16) {
-                        summaryCard
+                        if let controller = replayController {
+                            ReplayStatsView(controller: controller, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
+                        } else {
+                            summaryCard
+                        }
                         toggleChips
                         if !samples.isEmpty {
                             ZStack(alignment: .topTrailing) {
@@ -94,10 +102,36 @@ struct TripDetailView: View {
                     }
                     .padding(.vertical)
                 }
+
+                if let controller = replayController {
+                    RideReplayControlsView(controller: controller)
+                }
+                }
             }
         }
-        .navigationTitle(titleDate)
+        .navigationTitle(isReplaying ? RidesLabels.shared.REPLAY : titleDate)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !isReplaying && !samples.isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        replayController = RideReplayController(samples: samples)
+                    } label: {
+                        Image(systemName: "play.fill")
+                    }
+                }
+            }
+            if isReplaying {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        replayController?.stop()
+                        replayController = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                }
+            }
+        }
         .task {
             await loadCsvData()
         }
@@ -353,3 +387,151 @@ struct TripDetailView: View {
     }
 
 }
+
+// MARK: - Replay Stats Panel
+
+private struct ReplayStatsView: View {
+    @ObservedObject var controller: RideReplayController
+    let useMph: Bool
+    let useFahrenheit: Bool
+
+    var body: some View {
+        if let sample = controller.currentSample {
+            VStack(spacing: 8) {
+                HStack {
+                    replayStatItem(
+                        label: RidesLabels.shared.SPEED_LABEL,
+                        value: DisplayUtils.shared.formatSpeed(kmh: sample.speedKmh, useMph: useMph, decimals: 0)
+                    )
+                    Spacer()
+                    replayStatItem(
+                        label: RidesLabels.shared.VOLTAGE_LABEL,
+                        value: String(format: "%.1f V", sample.voltageV)
+                    )
+                    Spacer()
+                    replayStatItem(
+                        label: RidesLabels.shared.BATTERY_LABEL,
+                        value: String(format: "%.0f%%", sample.batteryPercent)
+                    )
+                }
+                HStack {
+                    replayStatItem(
+                        label: RidesLabels.shared.CURRENT_LABEL,
+                        value: String(format: "%.1f A", sample.currentA)
+                    )
+                    Spacer()
+                    replayStatItem(
+                        label: RidesLabels.shared.POWER_LABEL,
+                        value: String(format: "%.0f W", sample.powerW)
+                    )
+                    Spacer()
+                    replayStatItem(
+                        label: RidesLabels.shared.TEMP_LABEL,
+                        value: DisplayUtils.shared.formatTemperature(celsius: sample.temperatureC, useFahrenheit: useFahrenheit, decimals: 0)
+                    )
+                }
+            }
+            .padding()
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(12)
+            .padding(.horizontal)
+        }
+    }
+
+    private func replayStatItem(label: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.title3)
+                .fontWeight(.semibold)
+        }
+    }
+}
+
+// MARK: - Replay Controls
+
+private struct RideReplayControlsView: View {
+    @ObservedObject var controller: RideReplayController
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // Scrubber
+            HStack {
+                Text(formatTime(controller.elapsedMs))
+                    .font(.caption)
+                    .monospacedDigit()
+                Slider(
+                    value: Binding(
+                        get: { controller.progress },
+                        set: { controller.seekTo($0) }
+                    ),
+                    in: 0...1
+                )
+                Text(formatTime(controller.totalDurationMs))
+                    .font(.caption)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal)
+
+            // Controls
+            HStack {
+                // Skip / play / skip
+                HStack(spacing: 16) {
+                    Button { controller.skipBackward() } label: {
+                        Image(systemName: "gobackward.30")
+                            .font(.title3)
+                    }
+                    Button { controller.togglePlayPause() } label: {
+                        Image(systemName: controller.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.title2)
+                    }
+                    Button { controller.skipForward() } label: {
+                        Image(systemName: "goforward.30")
+                            .font(.title3)
+                    }
+                }
+
+                Spacer()
+
+                // Speed picker
+                HStack(spacing: 4) {
+                    ForEach([Float(1), 2, 4, 8], id: \.self) { mult in
+                        Button {
+                            controller.setSpeed(mult)
+                        } label: {
+                            Text("\(Int(mult))x")
+                                .font(.caption)
+                                .fontWeight(controller.speedMultiplier == mult ? .bold : .regular)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    controller.speedMultiplier == mult
+                                    ? Color.accentColor.opacity(0.2)
+                                    : Color(.tertiarySystemFill)
+                                )
+                                .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    private func formatTime(_ ms: Int64) -> String {
+        let totalSeconds = ms / 1000
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+

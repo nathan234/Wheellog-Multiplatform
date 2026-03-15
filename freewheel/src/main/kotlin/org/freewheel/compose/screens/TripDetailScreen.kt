@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,6 +51,9 @@ import org.freewheel.compose.components.POWER_COLOR
 import org.freewheel.compose.components.TEMP_COLOR
 import org.freewheel.compose.components.PWM_COLOR
 import org.freewheel.compose.components.VOLTAGE_COLOR
+import org.freewheel.compose.components.CsvReplayController
+import org.freewheel.compose.components.ReplayStatsPanel
+import org.freewheel.compose.components.RideReplayControls
 import org.freewheel.compose.components.ToggleChip
 import org.freewheel.compose.components.VicoLineChart
 import org.freewheel.compose.components.rememberChartMarker
@@ -84,6 +89,9 @@ fun TripDetailScreen(
     val useFahrenheit = viewModel.appConfig.useFahrenheit
 
     var state by remember { mutableStateOf<TripDetailState>(TripDetailState.Loading) }
+
+    var replayController by remember { mutableStateOf<CsvReplayController?>(null) }
+    val isReplaying = replayController != null
 
     var showSpeed by remember { mutableStateOf(true) }
     var showGpsSpeed by remember { mutableStateOf(false) }
@@ -133,10 +141,31 @@ fun TripDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(titleDate) },
+                title = { Text(if (isReplaying) RidesLabels.REPLAY else titleDate) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = CommonLabels.BACK)
+                    IconButton(onClick = {
+                        if (isReplaying) {
+                            replayController?.stop()
+                            replayController = null
+                        } else {
+                            onBack()
+                        }
+                    }) {
+                        Icon(
+                            if (isReplaying) Icons.Default.Close
+                            else Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = if (isReplaying) RidesLabels.EXIT_REPLAY else CommonLabels.BACK
+                        )
+                    }
+                },
+                actions = {
+                    if (!isReplaying && state is TripDetailState.Loaded) {
+                        IconButton(onClick = {
+                            val s = state as TripDetailState.Loaded
+                            replayController = CsvReplayController(s.samples)
+                        }) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = RidesLabels.REPLAY)
+                        }
                     }
                 },
             )
@@ -179,19 +208,36 @@ fun TripDetailScreen(
             }
 
             is TripDetailState.Loaded -> {
+                val rc = replayController
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
+                ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Summary card
-                    TripSummaryCard(
-                        trip = s.trip,
-                        samples = s.samples,
-                        useMph = useMph,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
+                    // Summary card or replay stats panel
+                    if (rc != null) {
+                        val sample = rc.currentSample
+                        if (sample != null) {
+                            ReplayStatsPanel(
+                                sample = sample,
+                                useMph = useMph,
+                                useFahrenheit = useFahrenheit,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                    } else {
+                        TripSummaryCard(
+                            trip = s.trip,
+                            samples = s.samples,
+                            useMph = useMph,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
 
                     // Toggle chips
                     LazyRow(
@@ -287,6 +333,12 @@ fun TripDetailScreen(
                     )
 
                     Spacer(Modifier.height(16.dp))
+                }
+
+                // Replay controls (fixed at bottom)
+                if (rc != null) {
+                    RideReplayControls(controller = rc)
+                }
                 }
             }
         }

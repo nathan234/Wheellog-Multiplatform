@@ -71,6 +71,14 @@ object BleUuids {
         const val DESCRIPTOR = CLIENT_CHARACTERISTIC_CONFIG
     }
 
+    // ==================== HW Charger (Roger/Pidzoom) ====================
+
+    object HwCharger {
+        const val SERVICE = "0000ffe1$BLE_UUID_SUFFIX"
+        const val CHARACTERISTIC = "0000ffe2$BLE_UUID_SUFFIX"
+        const val DESCRIPTOR = CLIENT_CHARACTERISTIC_CONFIG
+    }
+
     // ==================== Standard BLE Services ====================
 
     object StandardServices {

@@ -6,6 +6,10 @@ struct MetricDetailView: View {
     @EnvironmentObject var wheelManager: WheelManager
     let metricId: String
 
+    @State private var visibleDomain: TimeInterval = 0
+    @State private var baseDomain: TimeInterval = 0
+    @State private var selectedDate: Date?
+
     private var chartSamples: [TelemetrySample] {
         if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
             return wheelManager.telemetryBuffer.samples
@@ -105,28 +109,14 @@ struct MetricDetailView: View {
 
                 // Chart
                 if samples.count >= 2 {
-                    Chart {
-                        ForEach(samples) { sample in
-                            let raw = metric.extractValue(sample: sample)
-                            let converted = convertValue(raw)
-                            LineMark(
-                                x: .value("Time", sample.timestamp),
-                                y: .value(metric.label, converted)
-                            )
-                            .foregroundStyle(chartColor)
+                    ZStack(alignment: .topTrailing) {
+                        metricChartContent(samples: samples)
+                        ChartResetButton(visibleDomain: visibleDomain, samples: samples) {
+                            let domain = chartFullDomain(samples: samples)
+                            visibleDomain = domain
+                            baseDomain = domain
                         }
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
-                            AxisGridLine()
-                            AxisValueLabel(format: axisFormat)
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks { _ in
-                            AxisGridLine()
-                            AxisValueLabel()
-                        }
+                        .padding(4)
                     }
                     .frame(height: 280)
                     .padding(.horizontal)
@@ -157,6 +147,41 @@ struct MetricDetailView: View {
         .background(Color(UIColor.systemGroupedBackground))
         .navigationTitle(metric.label)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func metricChartContent(samples: [TelemetrySample]) -> some View {
+        let chart = Chart {
+            ForEach(samples) { sample in
+                let raw = metric.extractValue(sample: sample)
+                let converted = convertValue(raw)
+                LineMark(
+                    x: .value("Time", sample.timestamp),
+                    y: .value(metric.label, converted)
+                )
+                .foregroundStyle(chartColor)
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: axisFormat)
+            }
+        }
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisGridLine()
+                AxisValueLabel()
+            }
+        }
+
+        if #available(iOS 17, *) {
+            chart
+                .chartXSelection(value: $selectedDate)
+                .zoomableChart(samples: samples, visibleDomain: $visibleDomain, baseDomain: $baseDomain)
+        } else {
+            chart
+        }
     }
 
     private func formatValue(_ value: Double) -> String {

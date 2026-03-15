@@ -18,6 +18,9 @@ struct TripDetailView: View {
     @State private var showTemperature = false
     @State private var showPwm = false
     @State private var selectedSample: TelemetrySample?
+    @State private var selectedDate: Date?
+    @State private var mainChartDomain: TimeInterval = 0
+    @State private var mainChartBaseDomain: TimeInterval = 0
 
     private func displaySpeed(_ kmh: Double) -> Double {
         displaySpeed(kmh, useMph: wheelManager.useMph)
@@ -57,7 +60,16 @@ struct TripDetailView: View {
                         summaryCard
                         toggleChips
                         if !samples.isEmpty {
-                            mainChart
+                            ZStack(alignment: .topTrailing) {
+                                mainChart
+                                ChartResetButton(visibleDomain: mainChartDomain, samples: samples) {
+                                    let domain = chartFullDomain(samples: samples)
+                                    mainChartDomain = domain
+                                    mainChartBaseDomain = domain
+                                }
+                                .padding(.trailing, 20)
+                                .padding(.top, 4)
+                            }
                             voltageChart
                         }
                     }
@@ -141,8 +153,9 @@ struct TripDetailView: View {
 
     // MARK: - Main Chart
 
+    @ViewBuilder
     private var mainChart: some View {
-        Chart {
+        let chart = Chart {
             if showSpeed {
                 ForEach(samples) { sample in
                     LineMark(
@@ -228,16 +241,29 @@ struct TripDetailView: View {
                 AxisValueLabel()
             }
         }
-        .chartOverlay { proxy in
-            GeometryReader { geometry in
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
-            }
+
+        if #available(iOS 17, *) {
+            chart
+                .chartXSelection(value: $selectedDate)
+                .zoomableChart(samples: samples, visibleDomain: $mainChartDomain, baseDomain: $mainChartBaseDomain)
+                .onChange(of: selectedDate) { _, newDate in
+                    selectedSample = newDate.flatMap { nearestSample(to: $0, in: samples) }
+                }
+                .frame(height: 250)
+                .padding(.horizontal)
+        } else {
+            chart
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
+                    }
+                }
+                .frame(height: 250)
+                .padding(.horizontal)
         }
-        .frame(height: 250)
-        .padding(.horizontal)
     }
 
     private var axisStrideCount: Int {

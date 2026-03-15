@@ -33,28 +33,14 @@ import androidx.compose.ui.unit.dp
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.core.domain.CommonLabels
 import org.freewheel.compose.components.MarkerSeriesInfo
+import org.freewheel.compose.components.SeriesInfo
+import org.freewheel.compose.components.VicoLineChart
 import org.freewheel.compose.components.metricColor
 import org.freewheel.compose.components.rememberChartMarker
 import org.freewheel.compose.components.TimeRangePicker
 import org.freewheel.core.telemetry.ChartTimeRange
 import org.freewheel.core.telemetry.MetricType
-import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
-import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
-import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
-import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
-import com.patrykandpatrick.vico.compose.common.fill
-import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
-import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
-import com.patrykandpatrick.vico.core.cartesian.data.CartesianValueFormatter
-import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
-import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import org.freewheel.core.utils.DisplayUtils
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,22 +117,7 @@ fun MetricDetailScreen(
 
             // Chart
             if (values.isNotEmpty()) {
-                val modelProducer = remember { CartesianChartModelProducer() }
-
-                LaunchedEffect(values) {
-                    modelProducer.runTransaction {
-                        lineSeries { series(y = values) }
-                    }
-                }
-
                 val timeFormatPattern = if (selectedRange == ChartTimeRange.FIVE_MINUTES) "mm:ss" else "HH:mm"
-                val timeFormat = remember(timeFormatPattern) { SimpleDateFormat(timeFormatPattern, Locale.US) }
-                val bottomAxisFormatter = remember(samples.size, timeFormatPattern) {
-                    CartesianValueFormatter { _, value, _ ->
-                        val index = value.toInt().coerceIn(0, samples.lastIndex)
-                        timeFormat.format(Date(samples[index].timestampMs))
-                    }
-                }
 
                 val marker = rememberChartMarker(
                     samples,
@@ -154,25 +125,15 @@ fun MetricDetailScreen(
                     timeFormatPattern,
                 )
 
-                CartesianChartHost(
-                    chart = rememberCartesianChart(
-                        rememberLineCartesianLayer(
-                            LineCartesianLayer.LineProvider.series(
-                                LineCartesianLayer.rememberLine(
-                                    fill = LineCartesianLayer.LineFill.single(fill(chartColor)),
-                                    areaFill = null,
-                                )
-                            )
-                        ),
-                        startAxis = VerticalAxis.rememberStart(),
-                        bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
-                        marker = marker,
-                    ),
-                    modelProducer = modelProducer,
+                VicoLineChart(
+                    samples = samples,
+                    seriesList = listOf(SeriesInfo(chartColor, values)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(280.dp)
                         .padding(horizontal = 16.dp),
+                    timeFormatPattern = timeFormatPattern,
+                    marker = marker,
                 )
             }
 

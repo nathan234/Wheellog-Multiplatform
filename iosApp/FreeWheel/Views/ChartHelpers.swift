@@ -66,3 +66,70 @@ func chartSelectionOverlay(
             onSelect(nil)
         }
 }
+
+// MARK: - Chart Zoom/Pan Helpers
+
+func chartFullDomain(samples: [TelemetrySample]) -> TimeInterval {
+    guard let first = samples.first?.timestamp,
+          let last = samples.last?.timestamp else { return 1 }
+    return max(last.timeIntervalSince(first), 1)
+}
+
+func isChartZoomed(visibleDomain: TimeInterval, samples: [TelemetrySample]) -> Bool {
+    visibleDomain > 0 && visibleDomain < chartFullDomain(samples: samples) * 0.99
+}
+
+@available(iOS 17, *)
+extension View {
+    /// Adds horizontal scroll, pinch-to-zoom, and double-tap-to-reset to a Chart.
+    func zoomableChart(
+        samples: [TelemetrySample],
+        visibleDomain: Binding<TimeInterval>,
+        baseDomain: Binding<TimeInterval>
+    ) -> some View {
+        let fullDomain = chartFullDomain(samples: samples)
+        return self
+            .chartScrollableAxes(.horizontal)
+            .chartXVisibleDomain(length: max(visibleDomain.wrappedValue, 1))
+            .gesture(
+                MagnifyGesture()
+                    .onChanged { value in
+                        let base = baseDomain.wrappedValue > 0 ? baseDomain.wrappedValue : fullDomain
+                        let newDomain = base / value.magnification
+                        let minDomain = max(10, fullDomain / 50)
+                        visibleDomain.wrappedValue = min(max(newDomain, minDomain), fullDomain)
+                    }
+                    .onEnded { _ in
+                        baseDomain.wrappedValue = visibleDomain.wrappedValue
+                    }
+            )
+            .onTapGesture(count: 2) {
+                withAnimation {
+                    visibleDomain.wrappedValue = fullDomain
+                    baseDomain.wrappedValue = fullDomain
+                }
+            }
+    }
+}
+
+/// "Fit All" reset button shown when chart is zoomed in.
+struct ChartResetButton: View {
+    let visibleDomain: TimeInterval
+    let samples: [TelemetrySample]
+    let onReset: () -> Void
+
+    var body: some View {
+        if isChartZoomed(visibleDomain: visibleDomain, samples: samples) {
+            Button(action: {
+                withAnimation { onReset() }
+            }) {
+                Text("Fit All")
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+            }
+        }
+    }
+}

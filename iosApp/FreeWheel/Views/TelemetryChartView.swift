@@ -22,6 +22,11 @@ struct TelemetryChartView: View {
     @State private var showPower = false
     @State private var showTemperature = false
     @State private var selectedSample: TelemetrySample?
+    @State private var selectedDate: Date?
+    @State private var mainChartDomain: TimeInterval = 0
+    @State private var mainChartBaseDomain: TimeInterval = 0
+    @State private var voltageChartDomain: TimeInterval = 0
+    @State private var voltageChartBaseDomain: TimeInterval = 0
 
     private var chartSamples: [TelemetrySample] {
         if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
@@ -114,92 +119,18 @@ struct TelemetryChartView: View {
                     .frame(maxWidth: .infinity, minHeight: 300)
                 } else {
                     // Main telemetry chart
-                    Chart {
-                        if showSpeed {
-                            ForEach(chartSamples) { sample in
-                                LineMark(
-                                    x: .value("Time", sample.timestamp),
-                                    y: .value("Speed", displaySpeed(sample.speed)),
-                                    series: .value("Series", "Speed")
-                                )
-                                .foregroundStyle(.blue)
-                            }
+                    ZStack(alignment: .topTrailing) {
+                        mainChartContent
+                        ChartResetButton(visibleDomain: mainChartDomain, samples: chartSamples) {
+                            let domain = chartFullDomain(samples: chartSamples)
+                            mainChartDomain = domain
+                            mainChartBaseDomain = domain
                         }
-                        if showGpsSpeed {
-                            ForEach(chartSamples) { sample in
-                                LineMark(
-                                    x: .value("Time", sample.timestamp),
-                                    y: .value("GPS", displaySpeed(sample.gpsSpeed)),
-                                    series: .value("Series", "GPS")
-                                )
-                                .foregroundStyle(.cyan)
-                            }
-                        }
-                        if showCurrent {
-                            ForEach(chartSamples) { sample in
-                                LineMark(
-                                    x: .value("Time", sample.timestamp),
-                                    y: .value("Current", sample.current),
-                                    series: .value("Series", "Current")
-                                )
-                                .foregroundStyle(.orange)
-                            }
-                        }
-                        if showPower {
-                            ForEach(chartSamples) { sample in
-                                LineMark(
-                                    x: .value("Time", sample.timestamp),
-                                    y: .value("Power", sample.power),
-                                    series: .value("Series", "Power")
-                                )
-                                .foregroundStyle(.green)
-                            }
-                        }
-                        if showTemperature {
-                            ForEach(chartSamples) { sample in
-                                LineMark(
-                                    x: .value("Time", sample.timestamp),
-                                    y: .value("Temp", displayTemp(sample.temperature)),
-                                    series: .value("Series", "Temp")
-                                )
-                                .foregroundStyle(.red)
-                            }
-                        }
-
-                        if let selected = selectedSample {
-                            RuleMark(x: .value("Time", selected.timestamp))
-                                .foregroundStyle(.gray.opacity(0.5))
-                                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                                .annotation(position: chartAnnotationPosition(for: selected, in: chartSamples), spacing: 8) {
-                                    ChartAnnotationContent(
-                                        sample: selected,
-                                        visibleSeries: mainChartVisibleSeries(for: selected)
-                                    )
-                                }
-                        }
-                    }
-                    .chartXAxis {
-                        AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
-                            AxisGridLine()
-                            AxisValueLabel(format: axisFormat)
-                        }
-                    }
-                    .chartYAxis {
-                        AxisMarks { _ in
-                            AxisGridLine()
-                            AxisValueLabel()
-                        }
-                    }
-                    .chartOverlay { proxy in
-                        GeometryReader { geometry in
-                            Rectangle()
-                                .fill(Color.clear)
-                                .contentShape(Rectangle())
-                                .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: chartSamples) { selectedSample = $0 })
-                        }
+                        .padding(4)
                     }
                     .frame(height: 250)
                     .padding(.horizontal)
+                    .onChange(of: chartSamples.count) { _ in resetChartZoom() }
 
                     // Voltage chart
                     VoltageChartView(samples: chartSamples, axisStride: axisStride, axisStrideCount: axisStrideCount, axisFormat: axisFormat)
@@ -209,6 +140,113 @@ struct TelemetryChartView: View {
         }
         .navigationTitle(ChartLabels.shared.TITLE)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private var mainChartContent: some View {
+        let chart = Chart {
+            if showSpeed {
+                ForEach(chartSamples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Speed", displaySpeed(sample.speed)),
+                        series: .value("Series", "Speed")
+                    )
+                    .foregroundStyle(.blue)
+                }
+            }
+            if showGpsSpeed {
+                ForEach(chartSamples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("GPS", displaySpeed(sample.gpsSpeed)),
+                        series: .value("Series", "GPS")
+                    )
+                    .foregroundStyle(.cyan)
+                }
+            }
+            if showCurrent {
+                ForEach(chartSamples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Current", sample.current),
+                        series: .value("Series", "Current")
+                    )
+                    .foregroundStyle(.orange)
+                }
+            }
+            if showPower {
+                ForEach(chartSamples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Power", sample.power),
+                        series: .value("Series", "Power")
+                    )
+                    .foregroundStyle(.green)
+                }
+            }
+            if showTemperature {
+                ForEach(chartSamples) { sample in
+                    LineMark(
+                        x: .value("Time", sample.timestamp),
+                        y: .value("Temp", displayTemp(sample.temperature)),
+                        series: .value("Series", "Temp")
+                    )
+                    .foregroundStyle(.red)
+                }
+            }
+
+            if let selected = selectedSample {
+                RuleMark(x: .value("Time", selected.timestamp))
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: chartAnnotationPosition(for: selected, in: chartSamples), spacing: 8) {
+                        ChartAnnotationContent(
+                            sample: selected,
+                            visibleSeries: mainChartVisibleSeries(for: selected)
+                        )
+                    }
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: axisFormat)
+            }
+        }
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisGridLine()
+                AxisValueLabel()
+            }
+        }
+
+        if #available(iOS 17, *) {
+            chart
+                .chartXSelection(value: $selectedDate)
+                .zoomableChart(samples: chartSamples, visibleDomain: $mainChartDomain, baseDomain: $mainChartBaseDomain)
+                .onChange(of: selectedDate) { _, newDate in
+                    selectedSample = newDate.flatMap { nearestSample(to: $0, in: chartSamples) }
+                }
+        } else {
+            chart
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: chartSamples) { selectedSample = $0 })
+                    }
+                }
+        }
+    }
+
+    private func resetChartZoom() {
+        let domain = chartFullDomain(samples: chartSamples)
+        mainChartDomain = domain
+        mainChartBaseDomain = domain
+        voltageChartDomain = domain
+        voltageChartBaseDomain = domain
     }
 
     private func mainChartVisibleSeries(for selected: TelemetrySample) -> [(label: String, color: Color, value: String)] {
@@ -241,6 +279,9 @@ struct VoltageChartView: View {
     var axisFormat: Date.FormatStyle = .dateTime.minute().second()
 
     @State private var selectedSample: TelemetrySample?
+    @State private var selectedDate: Date?
+    @State private var visibleDomain: TimeInterval = 0
+    @State private var baseDomain: TimeInterval = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -250,57 +291,86 @@ struct VoltageChartView: View {
                 .foregroundColor(.purple)
                 .padding(.horizontal)
 
-            Chart {
-                ForEach(samples) { sample in
-                    LineMark(
-                        x: .value("Time", sample.timestamp),
-                        y: .value("Voltage", sample.voltage)
-                    )
-                    .foregroundStyle(.purple)
-                    .interpolationMethod(.catmullRom)
+            ZStack(alignment: .topTrailing) {
+                voltageChartContent
+                ChartResetButton(visibleDomain: visibleDomain, samples: samples) {
+                    let domain = chartFullDomain(samples: samples)
+                    visibleDomain = domain
+                    baseDomain = domain
                 }
-
-                if let selected = selectedSample {
-                    RuleMark(x: .value("Time", selected.timestamp))
-                        .foregroundStyle(.gray.opacity(0.5))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .annotation(position: chartAnnotationPosition(for: selected, in: samples), spacing: 8) {
-                            ChartAnnotationContent(
-                                sample: selected,
-                                visibleSeries: [("Voltage", .purple, String(format: "%.2f V", selected.voltage))]
-                            )
-                        }
-
-                    PointMark(
-                        x: .value("Time", selected.timestamp),
-                        y: .value("Voltage", selected.voltage)
-                    )
-                    .foregroundStyle(.purple)
-                    .symbolSize(60)
-                }
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
-                    AxisGridLine()
-                    AxisValueLabel(format: axisFormat)
-                }
-            }
-            .chartYAxis {
-                AxisMarks { _ in
-                    AxisGridLine()
-                    AxisValueLabel()
-                }
-            }
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(Color.clear)
-                        .contentShape(Rectangle())
-                        .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
-                }
+                .padding(4)
             }
             .frame(height: 200)
             .padding(.horizontal)
+            .onAppear {
+                let domain = chartFullDomain(samples: samples)
+                visibleDomain = domain
+                baseDomain = domain
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var voltageChartContent: some View {
+        let chart = Chart {
+            ForEach(samples) { sample in
+                LineMark(
+                    x: .value("Time", sample.timestamp),
+                    y: .value("Voltage", sample.voltage)
+                )
+                .foregroundStyle(.purple)
+                .interpolationMethod(.catmullRom)
+            }
+
+            if let selected = selectedSample {
+                RuleMark(x: .value("Time", selected.timestamp))
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: chartAnnotationPosition(for: selected, in: samples), spacing: 8) {
+                        ChartAnnotationContent(
+                            sample: selected,
+                            visibleSeries: [("Voltage", .purple, String(format: "%.2f V", selected.voltage))]
+                        )
+                    }
+
+                PointMark(
+                    x: .value("Time", selected.timestamp),
+                    y: .value("Voltage", selected.voltage)
+                )
+                .foregroundStyle(.purple)
+                .symbolSize(60)
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: axisFormat)
+            }
+        }
+        .chartYAxis {
+            AxisMarks { _ in
+                AxisGridLine()
+                AxisValueLabel()
+            }
+        }
+
+        if #available(iOS 17, *) {
+            chart
+                .chartXSelection(value: $selectedDate)
+                .zoomableChart(samples: samples, visibleDomain: $visibleDomain, baseDomain: $baseDomain)
+                .onChange(of: selectedDate) { _, newDate in
+                    selectedSample = newDate.flatMap { nearestSample(to: $0, in: samples) }
+                }
+        } else {
+            chart
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
+                    }
+                }
         }
     }
 }

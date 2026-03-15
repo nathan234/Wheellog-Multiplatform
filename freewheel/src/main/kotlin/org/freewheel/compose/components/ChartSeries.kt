@@ -1,10 +1,25 @@
 package org.freewheel.compose.components
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import org.freewheel.core.telemetry.MetricType
 import org.freewheel.core.telemetry.TelemetrySample
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -13,7 +28,10 @@ import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLine
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
+import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.fill
+import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
@@ -54,6 +72,7 @@ fun VicoLineChart(
     modifier: Modifier = Modifier,
     timeFormatPattern: String = "HH:mm",
     marker: CartesianMarker? = null,
+    zoomEnabled: Boolean = true,
 ) {
     if (samples.isEmpty() || seriesList.isEmpty()) return
 
@@ -78,23 +97,61 @@ fun VicoLineChart(
         }
     }
 
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberLineCartesianLayer(
-                LineCartesianLayer.LineProvider.series(
-                    seriesList.map { info ->
-                        LineCartesianLayer.rememberLine(
-                            fill = LineCartesianLayer.LineFill.single(fill(info.color)),
-                            areaFill = null,
+    var resetKey by remember { mutableIntStateOf(0) }
+    var isZoomed by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier) {
+        key(resetKey) {
+            val scrollState = rememberVicoScrollState(scrollEnabled = zoomEnabled)
+            val zoomState = rememberVicoZoomState(
+                zoomEnabled = zoomEnabled,
+                initialZoom = Zoom.Content,
+                minZoom = Zoom.Content,
+            )
+
+            LaunchedEffect(scrollState.maxValue > 0f) {
+                isZoomed = scrollState.maxValue > 0f
+            }
+
+            CartesianChartHost(
+                chart = rememberCartesianChart(
+                    rememberLineCartesianLayer(
+                        LineCartesianLayer.LineProvider.series(
+                            seriesList.map { info ->
+                                LineCartesianLayer.rememberLine(
+                                    fill = LineCartesianLayer.LineFill.single(fill(info.color)),
+                                    areaFill = null,
+                                )
+                            }
                         )
-                    }
+                    ),
+                    startAxis = VerticalAxis.rememberStart(),
+                    bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
+                    marker = marker,
+                ),
+                modelProducer = modelProducer,
+                scrollState = scrollState,
+                zoomState = zoomState,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
+        if (isZoomed) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .clickable { resetKey++; isZoomed = false },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+                tonalElevation = 2.dp,
+            ) {
+                Text(
+                    "Fit All",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 )
-            ),
-            startAxis = VerticalAxis.rememberStart(),
-            bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomAxisFormatter),
-            marker = marker,
-        ),
-        modelProducer = modelProducer,
-        modifier = modifier,
-    )
+            }
+        }
+    }
 }

@@ -101,9 +101,7 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
 
         val dateTime = formatTimestamp(currentTimeMs)
         val tripDistance = (state.totalDistance - startTotalDistance).toInt()
-        val gpsData = if (includeGps) gps else null
-
-        val row = CsvFormatter.row(dateTime, state, tripDistance, gpsData)
+        val row = CsvFormatter.row(dateTime, state, tripDistance, gps, includeGps)
         try {
             fileWriter.writeLine(row)
         } catch (e: Exception) {

@@ -32,6 +32,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.freewheel.core.domain.ChargerProfileStore
+import org.freewheel.core.domain.SharedPreferencesKeyValueStore
+import org.freewheel.core.domain.WheelProfileStore
 import org.freewheel.core.service.DemoDataProvider
 import org.junit.After
 import org.junit.Before
@@ -80,8 +83,8 @@ class WheelViewModelAutoConnectTest {
             rideLogger = RideLogger(),
             captureLogger = BleCaptureLogger(),
             telemetryFileIO = PlatformTelemetryFileIO(),
-            profileStore = WheelProfileStore(prefs),
-            chargerProfileStore = ChargerProfileStore(prefs),
+            profileStore = WheelProfileStore(SharedPreferencesKeyValueStore(prefs)),
+            chargerProfileStore = ChargerProfileStore(SharedPreferencesKeyValueStore(prefs)),
             demoDataProvider = DemoDataProvider()
         )
 

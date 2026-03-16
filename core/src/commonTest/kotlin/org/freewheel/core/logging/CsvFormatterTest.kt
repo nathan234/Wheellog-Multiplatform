@@ -228,6 +228,25 @@ class CsvFormatterTest {
     }
 
     @Test
+    fun `row with includeGps but null location writes empty GPS placeholders`() {
+        val state = WheelState(voltage = 23000) // 230.00 V
+        val row = CsvFormatter.row("2024-01-15,10:30:00.000", state, 0, gps = null, includeGps = true)
+        val cols = row.split(",")
+        // Should have 24 columns (same as with GPS data) so CsvParser reads correctly
+        assertEquals(24, cols.size)
+        // GPS columns should be empty
+        assertEquals("", cols[2])  // latitude
+        assertEquals("", cols[3])  // longitude
+        assertEquals("", cols[4])  // gps_speed
+        assertEquals("", cols[5])  // gps_alt
+        assertEquals("", cols[6])  // gps_heading
+        assertEquals("", cols[7])  // gps_distance
+        // Telemetry columns should be at correct positions
+        assertEquals("0.00", cols[8])    // speed
+        assertEquals("230.00", cols[9])  // voltage
+    }
+
+    @Test
     fun `row with default state produces all zeros`() {
         val state = WheelState()
         val row = CsvFormatter.row("2024-01-15,10:30:00.000", state, 0)

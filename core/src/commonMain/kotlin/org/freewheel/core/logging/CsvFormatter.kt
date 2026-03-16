@@ -42,10 +42,13 @@ object CsvFormatter {
         dateTime: String,
         state: WheelState,
         tripDistance: Int,
-        gps: GpsLocation? = null
+        gps: GpsLocation? = null,
+        includeGps: Boolean = false
     ): String {
         val gpsStr = if (gps != null) {
             "${gps.latitude},${gps.longitude},${gps.speedKmh},${gps.altitude},${gps.bearing},${formatFixed(gps.cumulativeDistance, 0)},"
+        } else if (includeGps) {
+            ",,,,,,"
         } else ""
 
         return buildString {

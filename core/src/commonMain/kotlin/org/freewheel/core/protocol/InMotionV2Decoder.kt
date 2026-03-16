@@ -610,7 +610,8 @@ class InMotionV2Decoder : WheelDecoder {
                 if (protoVer < 2) parseRealTimeInfoV11Old(message.data, currentState)
                 else parseByLayout(Layouts.V11_1_4, message.data, currentState)
             }
-            Model.V11Y, Model.V9, Model.V12S, Model.P6 -> parseByLayout(Layouts.EXTENDED, message.data, currentState)
+            Model.V11Y, Model.V9, Model.V12S -> parseByLayout(Layouts.EXTENDED, message.data, currentState)
+            Model.P6 -> parseByLayout(Layouts.P6, message.data, currentState)
             Model.V12HS, Model.V12HT, Model.V12PRO -> parseByLayout(Layouts.V12, message.data, currentState)
             Model.V13, Model.V13PRO -> parseByLayout(Layouts.V13, message.data, currentState)
             Model.V14g, Model.V14s -> parseByLayout(Layouts.V14, message.data, currentState)
@@ -625,7 +626,7 @@ class InMotionV2Decoder : WheelDecoder {
     // ==================== Layout-driven Real-Time Parsing ====================
 
     private enum class MileageType { SHORT_TIMES_10, INT_REV_LE }
-    private enum class BatLevelType { SINGLE_BYTE_MASKED, SHORT_DIV_100, DUAL_SHORT_AVG }
+    private enum class BatLevelType { SINGLE_BYTE_MASKED, SHORT_DIV_100, DUAL_SHORT_AVG, INVERTED_SHORT_DIV_100 }
 
     /**
      * Describes the byte-offset layout for a model's real-time telemetry frame.
@@ -709,6 +710,22 @@ class InMotionV2Decoder : WheelDecoder {
             batLevelType = BatLevelType.DUAL_SHORT_AVG,
             liftedByteOffset = 1
         )
+        /**
+         * P6 layout — shares most offsets with EXTENDED/V14 but battery level
+         * is at offset 14 using an inverted formula: the wheel reports "discharge
+         * percentage" (how much has been used × 100), so remaining % = 100 - abs(value)/100.
+         * Confirmed via EUC World decompilation (m8820V parser).
+         */
+        val P6 = RealTimeLayout(
+            minSize = 78, voltage = 0, current = 2, speed = 8, torque = 12, pwm = 34,
+            batPower = 16, motPower = 18, pitchAngle = 20, rollAngle = 22,
+            mileage = 28, batLevel = 14, speedLimit = 40, currentLimit = 50,
+            mosTemp = 58, temp2 = 59, cpuTemp = 62, imuTemp = 63,
+            modeString = 74, error = 77,
+            mileageType = MileageType.SHORT_TIMES_10,
+            batLevelType = BatLevelType.INVERTED_SHORT_DIV_100,
+            liftedByteOffset = 1
+        )
     }
 
     /**
@@ -739,6 +756,11 @@ class InMotionV2Decoder : WheelDecoder {
                 ((b1 + b2) / 200.0).roundToInt()
             }
             BatLevelType.SINGLE_BYTE_MASKED -> data[layout.batLevel].toInt() and 0x7F
+            BatLevelType.INVERTED_SHORT_DIV_100 -> {
+                // P6: wheel reports "discharge %" (× 100). Remaining = 100 - abs(value)/100.
+                val discharge = ByteUtils.signedShortFromBytesLE(data, layout.batLevel)
+                (100 - kotlin.math.abs(discharge) / 100.0).roundToInt().coerceIn(0, 100)
+            }
         }
 
         val mosTemp = decodeTemperature(data[layout.mosTemp])

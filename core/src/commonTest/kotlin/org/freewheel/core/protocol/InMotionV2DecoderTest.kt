@@ -1792,7 +1792,8 @@ class InMotionV2DecoderTest {
         // speed at [8:9] = 12490 (124.90 km/h)
         payload[8] = 0xCA.toByte(); payload[9] = 0x30
         // torque at [12:13] = 0
-        // pwm at [14:15] = 0
+        // battery at [14:15] = 278 → 100 - abs(278)/100 = 97%
+        payload[14] = 0x16; payload[15] = 0x01
         // mosTemp at [58] = 0xC2 → (194 + 80 - 256) = 18°C
         payload[58] = 0xC2.toByte()
         // temp2 at [59] = 0xC6 → 22°C
@@ -1806,7 +1807,50 @@ class InMotionV2DecoderTest {
         assertEquals(21858, result!!.newState.voltage, "Voltage should be 21858 (raw centivolts)")
         assertEquals(-36, result.newState.current, "Current should be -36")
         assertEquals(12490, result.newState.speed, "Speed should be 12490")
+        assertEquals(97, result.newState.batteryLevel, "Battery should be 97% (100 - 278/100)")
         assertEquals(1800, result.newState.temperature, "MosTemp should be 18°C × 100")
+    }
+
+    @Test
+    fun `P6 battery percentage uses inverted discharge formula`() {
+        val decoder = InMotionV2Decoder()
+        // Detect model as P6
+        val initData = ByteArray(80)
+        initData[0] = 0x02; initData[1] = 0x86.toByte()
+        initData[27] = 0x0D; initData[28] = 0x01
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultState, defaultConfig)
+
+        // Test with real captured data: discharge=278 → battery=97%
+        val payload1 = ByteArray(96)
+        payload1[0] = 0x6E; payload1[1] = 0x5A  // voltage = 23150
+        payload1[14] = 0x16; payload1[15] = 0x01 // discharge = 278
+        val frame1 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload1)
+        val r1 = decoder.decode(frame1, defaultState, defaultConfig)
+        assertEquals(97, r1!!.newState.batteryLevel, "278 discharge → 97% remaining")
+
+        // Test with discharge=5000 → battery=50%
+        val payload2 = ByteArray(96)
+        payload2[0] = 0x6E; payload2[1] = 0x5A
+        payload2[14] = 0x88.toByte(); payload2[15] = 0x13 // discharge = 5000
+        val frame2 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload2)
+        val r2 = decoder.decode(frame2, defaultState, defaultConfig)
+        assertEquals(50, r2!!.newState.batteryLevel, "5000 discharge → 50% remaining")
+
+        // Test with discharge=9900 → battery=1%
+        val payload3 = ByteArray(96)
+        payload3[0] = 0x6E; payload3[1] = 0x5A
+        payload3[14] = 0xAC.toByte(); payload3[15] = 0x26 // discharge = 9900
+        val frame3 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload3)
+        val r3 = decoder.decode(frame3, defaultState, defaultConfig)
+        assertEquals(1, r3!!.newState.batteryLevel, "9900 discharge → 1% remaining")
+
+        // Test with discharge=0 → battery=100%
+        val payload4 = ByteArray(96)
+        payload4[0] = 0x6E; payload4[1] = 0x5A
+        // payload4[14:15] already 0
+        val frame4 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload4)
+        val r4 = decoder.decode(frame4, defaultState, defaultConfig)
+        assertEquals(100, r4!!.newState.batteryLevel, "0 discharge → 100% remaining")
     }
 
     @Test

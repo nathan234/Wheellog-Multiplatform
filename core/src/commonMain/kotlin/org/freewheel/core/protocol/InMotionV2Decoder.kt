@@ -400,7 +400,8 @@ class InMotionV2Decoder : WheelDecoder {
             Model.V12HS, Model.V12HT, Model.V12PRO -> parseSettingsV12(message.data, currentState)
             Model.V13, Model.V13PRO -> parseSettingsV13(message.data, currentState)
             Model.V14g, Model.V14s -> parseSettingsV14(message.data, currentState)
-            Model.V9, Model.V12S, Model.P6 -> parseSettingsExtended(message.data, currentState)
+            Model.P6 -> parseSettingsP6(message.data, currentState)
+            Model.V9, Model.V12S -> parseSettingsExtended(message.data, currentState)
             else -> parseSettingsV13V14(message.data, currentState)
         }
     }
@@ -1107,6 +1108,47 @@ class InMotionV2Decoder : WheelDecoder {
         )
     }
 
+    /**
+     * Parse P6 settings response.
+     *
+     * Layout confirmed via BLE captures with known setting values:
+     * - data[0]: sub-type echo (0x20)
+     * - data[9:10]: max speed (LE, km/h × 100)
+     * - data[11:12]: speed alarm (LE, km/h × 100)
+     * - data[25]: ride mode flags (bit 4 = fancier/sport)
+     * - data[26]: comfort sensitivity (0-100%)
+     * - data[27]: classic sensitivity (0-100%)
+     * - data[41]: logo light brightness (0-100%)
+     * - data[42]: cutout angle / tilt angle limit (degrees)
+     * - data[46]: flags A (bit 3 = auto headlight)
+     * - data[48]: flags B (bit 5 = DRL)
+     */
+    private fun parseSettingsP6(data: ByteArray, currentState: WheelState): FrameResult? {
+        if (data.size < 49) return null
+
+        val maxSpd = ByteUtils.shortFromBytesLE(data, 9) / 100
+        val comfSens = data[26].toInt() and 0xFF
+        val classSens = data[27].toInt() and 0xFF
+        val fancier = ((data[25].toInt() shr 4) and 0x01) != 0
+        val sensitivity = if (fancier) classSens else comfSens
+        val logoBrightness = data[41].toInt() and 0xFF
+        val cutout = data[42].toInt() and 0xFF
+        val autoHeadlight = ((data[46].toInt() shr 3) and 0x01) != 0
+        val drlFlag = ((data[48].toInt() shr 5) and 0x01) != 0
+
+        return FrameResult(
+            state = currentState.copy(
+                maxSpeed = maxSpd,
+                pedalSensitivity = sensitivity,
+                fancierMode = fancier,
+                logoLightBrightness = logoBrightness,
+                cutoutAngle = cutout,
+                drl = drlFlag
+            ),
+            hasNewData = false
+        )
+    }
+
     // ==================== Helper Functions ====================
 
     /**
@@ -1245,6 +1287,10 @@ class InMotionV2Decoder : WheelDecoder {
                     // P6 has no manual headlight toggle or brightness (auto-only headlight)
                     remove(SettingsCommandId.LIGHT_MODE)
                     remove(SettingsCommandId.LIGHT_BRIGHTNESS)
+                    // P6 has no pedal tilt setting, standby timer, or speaker
+                    remove(SettingsCommandId.PEDAL_TILT)
+                    remove(SettingsCommandId.STANDBY_TIME)
+                    remove(SettingsCommandId.SPEAKER_VOLUME)
                     putAll(P6_COMMANDS)
                 }
             }

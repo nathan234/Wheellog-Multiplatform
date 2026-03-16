@@ -22,12 +22,15 @@ class ChargerManager: ObservableObject {
     @Published private(set) var isScanning = false
     @Published private(set) var discoveredChargers: [DiscoveredCharger] = []
 
-    // MARK: - Saved Charger Profiles
+    // MARK: - Saved Charger Profiles (KMP-backed)
 
-    @Published private(set) var savedAddresses: Set<String> = {
-        let arr = UserDefaults.standard.stringArray(forKey: PreferenceKeys.shared.SAVED_CHARGER_ADDRESSES) ?? []
-        return Set(arr)
-    }()
+    private let chargerProfileStore = ChargerProfileStore(store: UserDefaultsKeyValueStore(defaults: .standard))
+
+    @Published private(set) var savedAddresses: Set<String> = Set()
+
+    private func refreshSavedAddresses() {
+        savedAddresses = chargerProfileStore.getSavedAddresses()
+    }
 
     // MARK: - Private KMP Components
 
@@ -43,6 +46,7 @@ class ChargerManager: ObservableObject {
 
     init() {
         setupKmpComponents()
+        refreshSavedAddresses()
     }
 
     deinit {
@@ -201,51 +205,27 @@ class ChargerManager: ObservableObject {
 
     // MARK: - Profile Management
 
-    struct ChargerProfile {
-        let address: String
-        var displayName: String
-        var password: String
-        var lastConnectedMs: Double
+    func getSavedProfiles() -> [FreeWheelCore.ChargerProfile] {
+        chargerProfileStore.getSavedProfiles()
     }
 
-    func getSavedProfiles() -> [ChargerProfile] {
-        savedAddresses.map { address in
-            ChargerProfile(
-                address: address,
-                displayName: UserDefaults.standard.string(forKey: address + PreferenceKeys.shared.SUFFIX_CHARGER_NAME) ?? "",
-                password: UserDefaults.standard.string(forKey: address + PreferenceKeys.shared.SUFFIX_CHARGER_PASSWORD) ?? "",
-                lastConnectedMs: UserDefaults.standard.double(forKey: address + PreferenceKeys.shared.SUFFIX_CHARGER_LAST_CONNECTED)
-            )
-        }.sorted { $0.lastConnectedMs > $1.lastConnectedMs }
-    }
-
-    func saveProfile(_ profile: ChargerProfile) {
-        var addresses = savedAddresses
-        addresses.insert(profile.address)
-        UserDefaults.standard.set(Array(addresses), forKey: PreferenceKeys.shared.SAVED_CHARGER_ADDRESSES)
-        UserDefaults.standard.set(profile.displayName, forKey: profile.address + PreferenceKeys.shared.SUFFIX_CHARGER_NAME)
-        UserDefaults.standard.set(profile.password, forKey: profile.address + PreferenceKeys.shared.SUFFIX_CHARGER_PASSWORD)
-        UserDefaults.standard.set(profile.lastConnectedMs, forKey: profile.address + PreferenceKeys.shared.SUFFIX_CHARGER_LAST_CONNECTED)
-        savedAddresses = addresses
+    func saveProfile(_ profile: FreeWheelCore.ChargerProfile) {
+        chargerProfileStore.saveProfile(profile: profile)
+        refreshSavedAddresses()
     }
 
     func deleteProfile(address: String) {
-        var addresses = savedAddresses
-        addresses.remove(address)
-        UserDefaults.standard.set(Array(addresses), forKey: PreferenceKeys.shared.SAVED_CHARGER_ADDRESSES)
-        UserDefaults.standard.removeObject(forKey: address + PreferenceKeys.shared.SUFFIX_CHARGER_NAME)
-        UserDefaults.standard.removeObject(forKey: address + PreferenceKeys.shared.SUFFIX_CHARGER_PASSWORD)
-        UserDefaults.standard.removeObject(forKey: address + PreferenceKeys.shared.SUFFIX_CHARGER_LAST_CONNECTED)
-        savedAddresses = addresses
+        chargerProfileStore.deleteProfile(address: address)
+        refreshSavedAddresses()
     }
 
     private func autoSaveProfile(address: String) {
-        let existing = getSavedProfiles().first { $0.address == address }
-        saveProfile(ChargerProfile(
+        let existing = chargerProfileStore.getProfile(address: address)
+        saveProfile(FreeWheelCore.ChargerProfile(
             address: address,
             displayName: existing?.displayName ?? "HW Charger",
             password: existing?.password ?? "",
-            lastConnectedMs: Date().timeIntervalSince1970 * 1000
+            lastConnectedMs: Int64(Date().timeIntervalSince1970 * 1000)
         ))
     }
 }

@@ -229,11 +229,11 @@ private struct DisconnectedChargerContent: View {
 
                         HStack {
                             Button("Connect & Save") {
-                                let profile = ChargerManager.ChargerProfile(
+                                let profile = ChargerProfile(
                                     address: charger.address,
                                     displayName: charger.name,
                                     password: password,
-                                    lastConnectedMs: Date().timeIntervalSince1970 * 1000
+                                    lastConnectedMs: Int64(Date().timeIntervalSince1970 * 1000)
                                 )
                                 chargerManager.saveProfile(profile)
                                 chargerManager.connect(address: charger.address, password: password)

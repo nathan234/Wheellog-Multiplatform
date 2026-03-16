@@ -124,9 +124,9 @@ iOS also handles background transitions: `onEnterBackground()` saves telemetry h
 
 | Component | Platform | Storage | Role |
 |---|---|---|---|
-| `TripDatabase` | Android | Room SQLite (`trip_database`, v2) | Singleton factory with migrations (v1→v2 adds distance/consumption columns) |
+| `TripDatabase` | Android | Room SQLite (`trip_database`, v3) | Singleton factory with migrations (v1→v2 adds distance/consumption, v2→v3 drops unused columns) |
 | `TripDao` | Android | Room DAO | CRUD queries, unique constraint on `fileName`, `onConflict = IGNORE` for inserts |
-| `TripDataDbEntry` | Android | Room Entity | Trip record: stats, timing, ElectroClub sync fields (`ecId`, `ecUrl`, etc.) |
+| `TripDataDbEntry` | Android | Room Entity | Trip record: stats, timing, consumption |
 | `TripRepository` | Android | Repository | `suspend` wrapper dispatching to `Dispatchers.IO` |
 | `RideStore` | iOS | JSON (`metadata.json`) + CSV in `Documents/rides/` | `@MainActor ObservableObject` with `@Published rides` array |
 | `RideLogger` | KMP shared | CSV file | Writes samples at 1Hz, produces `RideMetadata` on stop |

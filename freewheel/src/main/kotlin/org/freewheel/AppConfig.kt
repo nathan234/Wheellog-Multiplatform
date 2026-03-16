@@ -208,25 +208,9 @@ class AppConfig(
         get() = getValue(R.string.auto_watch, false)
         set(value) = setValue(R.string.auto_watch, value)
 
-    var autoUploadEc: Boolean
-        get() = getValue(R.string.auto_upload_ec, false)
-        set(value) = setValue(R.string.auto_upload_ec, value)
-
     var logLocationData: Boolean
         get() = getValue(R.string.log_location_data, false)
         set(value) = setValue(R.string.log_location_data, value)
-
-    var ecUserId: String?
-        get() = getValue(R.string.ec_user_id, null)
-        set(value) = setValue(R.string.ec_user_id, value)
-
-    var ecToken: String?
-        get() = getValue(R.string.ec_token, null)
-        set(value) = setValue(R.string.ec_token, value)
-
-    var ecGarage: String?
-        get() = getSpecific(R.string.ec_garage, null)
-        set(value) = setSpecific(R.string.ec_garage, value)
 
     var enableRawData: Boolean
         get() = getValue(R.string.use_raw_data, false)

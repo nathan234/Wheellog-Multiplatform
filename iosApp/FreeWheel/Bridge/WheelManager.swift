@@ -262,43 +262,33 @@ class WheelManager: ObservableObject {
         customTabLayouts.removeValue(forKey: tabId)
     }
 
-    // MARK: - Saved Wheel Profiles
+    // MARK: - Saved Wheel Profiles (KMP-backed)
 
-    private static var savedAddressesKey: String { PreferenceKeys.shared.SAVED_WHEEL_ADDRESSES }
-    private static var profileNameSuffix: String { PreferenceKeys.shared.SUFFIX_PROFILE_NAME }
-    private static var wheelTypeSuffix: String { PreferenceKeys.shared.SUFFIX_WHEEL_TYPE }
-    private static var lastConnectedSuffix: String { PreferenceKeys.shared.SUFFIX_LAST_CONNECTED }
+    private let wheelProfileStore = WheelProfileStore(store: UserDefaultsKeyValueStore(defaults: .standard))
 
-    @Published private(set) var savedAddresses: Set<String> = {
-        let arr = UserDefaults.standard.stringArray(forKey: WheelManager.savedAddressesKey) ?? []
-        return Set(arr)
-    }()
+    @Published private(set) var savedAddresses: Set<String> = Set()
+
+    private func refreshSavedAddresses() {
+        savedAddresses = wheelProfileStore.getSavedAddresses()
+    }
 
     func getSavedDisplayName(address: String) -> String? {
-        let name = UserDefaults.standard.string(forKey: address + Self.profileNameSuffix)
-        return (name?.isEmpty ?? true) ? nil : name
+        wheelProfileStore.getDisplayName(address: address)
     }
 
     func saveProfile(address: String, displayName: String, wheelTypeName: String) {
-        var addresses = savedAddresses
-        addresses.insert(address)
-        UserDefaults.standard.set(Array(addresses), forKey: Self.savedAddressesKey)
-        if !displayName.isEmpty {
-            UserDefaults.standard.set(displayName, forKey: address + Self.profileNameSuffix)
-        }
-        UserDefaults.standard.set(wheelTypeName, forKey: address + Self.wheelTypeSuffix)
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: address + Self.lastConnectedSuffix)
-        savedAddresses = addresses
+        wheelProfileStore.saveProfile(profile: WheelProfile(
+            address: address,
+            displayName: displayName,
+            wheelTypeName: wheelTypeName,
+            lastConnectedMs: Int64(Date().timeIntervalSince1970 * 1000)
+        ))
+        refreshSavedAddresses()
     }
 
     func forgetProfile(address: String) {
-        var addresses = savedAddresses
-        addresses.remove(address)
-        UserDefaults.standard.set(Array(addresses), forKey: Self.savedAddressesKey)
-        UserDefaults.standard.removeObject(forKey: address + Self.wheelTypeSuffix)
-        UserDefaults.standard.removeObject(forKey: address + Self.lastConnectedSuffix)
-        // Keep profile_name — may be reused if wheel reconnects
-        savedAddresses = addresses
+        wheelProfileStore.deleteProfile(address: address)
+        refreshSavedAddresses()
     }
 
     // MARK: - KMP Components
@@ -390,6 +380,7 @@ class WheelManager: ObservableObject {
             self.rideStore.initialize()
             self.backgroundManager.requestNotificationPermission()
 
+            self.refreshSavedAddresses()
             self.startupScan()
 
             // Auto-enable mock mode on simulator

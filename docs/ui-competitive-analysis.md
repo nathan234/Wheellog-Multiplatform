@@ -57,7 +57,7 @@ Comparative analysis of 5 EUC companion apps conducted March 2026. Covers UI/UX 
 - Auto-torch: activates headlight automatically at sunset or above a speed threshold. A safety feature, not bloat.
 - Flic button integration -- physical handlebar button mapped to horn, light, or recording toggle.
 - ActiveLook smart glasses support for HUD telemetry display.
-- GPS track recording with ElectroClub sharing.
+- GPS track recording.
 - Range prediction based on current consumption patterns.
 - Premium tier is honest: pay for cosmetic features (themes, splash) and power features (recorder, sharing, prediction), not for basic telemetry.
 - Clean, consistent design language throughout.

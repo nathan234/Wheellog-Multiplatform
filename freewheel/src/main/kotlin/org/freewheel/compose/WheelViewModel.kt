@@ -38,7 +38,10 @@ import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.AlarmAction
 import org.freewheel.core.domain.AlarmType
 import org.freewheel.core.domain.SettingsCommandId
+import org.freewheel.core.domain.ChargerProfile
+import org.freewheel.core.domain.ChargerProfileStore
 import org.freewheel.core.domain.WheelProfile
+import org.freewheel.core.domain.WheelProfileStore
 import org.freewheel.core.domain.PreferenceDefaults
 import org.freewheel.core.domain.PreferenceKeys
 import org.freewheel.core.domain.dashboard.DashboardLayout

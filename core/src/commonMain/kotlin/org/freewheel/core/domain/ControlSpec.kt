@@ -65,7 +65,15 @@ enum class SettingsCommandId {
         WEAK_MAGNETISM, EXTENDED_ROLL_ANGLE, POWER_ALARM, PLATE_PROTECTION,
         // InMotion V2 thermal (V11-only)
         FAN_QUIET -> true
-        else -> false
+        // Base commands — always available for their wheel type
+        LIGHT_MODE, LED, LED_MODE, STROBE_MODE, TAIL_LIGHT, DRL, LIGHT_BRIGHTNESS,
+        PEDALS_MODE, ROLL_ANGLE_MODE, CUTOUT_ANGLE, HANDLE_BUTTON, BRAKE_ASSIST,
+        RIDE_MODE, GO_HOME_MODE, FANCIER_MODE,
+        PEDAL_SENSITIVITY, MAX_SPEED, LIMITED_MODE, LIMITED_SPEED,
+        ALARM_ENABLED_1, ALARM_ENABLED_2, ALARM_ENABLED_3,
+        ALARM_SPEED_2, ALARM_SPEED_3,
+        SPEAKER_VOLUME, BEEPER_VOLUME, MUTE, FAN,
+        CALIBRATE, POWER_OFF, LOCK, RESET_TRIP -> false
     }
 
     /** Read current int value from WheelState, or null if no readback. */
@@ -105,7 +113,19 @@ enum class SettingsCommandId {
         DYNAMIC_ASSIST -> state.dynamicAssist.takeIf { it >= 0 }
         ACCELERATION_LIMIT -> state.accelerationLimit.takeIf { it >= 0 }
         WHEEL_DISPLAY_UNIT -> state.wheelDisplayUnit.takeIf { it >= 0 }
-        else -> null
+        // No int readback: bool-only, action-only, or no WheelState field
+        LED, STROBE_MODE, TAIL_LIGHT, DRL, HANDLE_BUTTON, BRAKE_ASSIST,
+        RIDE_MODE, GO_HOME_MODE, FANCIER_MODE, TRANSPORT_MODE,
+        LIMITED_MODE, LIMITED_SPEED,
+        ALARM_ENABLED_1, ALARM_ENABLED_2, ALARM_ENABLED_3,
+        ALARM_SPEED_1, ALARM_SPEED_2, ALARM_SPEED_3,
+        MUTE, FAN, FAN_QUIET,
+        CALIBRATE, POWER_OFF, LOCK, RESET_TRIP,
+        BERM_ANGLE_MODE, ONE_PEDAL_MODE, SPEEDING_BRAKING_MODE,
+        SOUND_WAVE, SAFE_SPEED_LIMIT, BACKWARD_OVERSPEED_ALERT,
+        AUTO_HEADLIGHT, LIGHT_EFFECT, TWO_BATTERY_MODE, LOW_BATTERY_SAFE_MODE,
+        SPIN_KILL, CRUISE, LOAD_DETECT, PLATE_PROTECTION,
+        HIGH_SPEED_MODE, LOW_VOLTAGE_MODE, SCREEN_AUTO_OFF -> null
     }
 
     /** Read current bool value from WheelState, or null if no readback. */
@@ -135,7 +155,23 @@ enum class SettingsCommandId {
         PLATE_PROTECTION -> state.plateProtection
         HIGH_SPEED_MODE -> state.highSpeedMode
         LOW_VOLTAGE_MODE -> state.lowVoltageMode
-        else -> null
+        // No bool readback: int-only, action-only, or no WheelState field
+        PEDALS_MODE, LIGHT_MODE, LED_MODE, STROBE_MODE, TAIL_LIGHT,
+        ROLL_ANGLE_MODE, CUTOUT_ANGLE, BRAKE_ASSIST, LIGHT_BRIGHTNESS,
+        PEDAL_TILT, PEDAL_SENSITIVITY, MAX_SPEED, LIMITED_MODE, LIMITED_SPEED,
+        ALARM_ENABLED_1, ALARM_ENABLED_2, ALARM_ENABLED_3,
+        ALARM_SPEED_1, ALARM_SPEED_2, ALARM_SPEED_3,
+        SPEAKER_VOLUME, BEEPER_VOLUME, FAN,
+        CALIBRATE, POWER_OFF, LOCK, RESET_TRIP,
+        BERM_ANGLE, TURNING_SENSITIVITY, SPEEDING_BRAKING_ANGLE,
+        SOUND_WAVE_SENSITIVITY, TAIL_LIGHT_MODE, TURN_SIGNAL_MODE,
+        LOGO_LIGHT_BRIGHTNESS, LIGHT_EFFECT_MODE,
+        STANDBY_TIME, CHARGE_LIMIT,
+        WEAK_MAGNETISM, EXTENDED_ROLL_ANGLE, POWER_ALARM,
+        KEY_TONE, SCREEN_BACKLIGHT, STOP_SPEED, VETERAN_PWM_LIMIT,
+        VOLTAGE_CORRECTION, MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM,
+        LATERAL_CUTOFF_ANGLE, DYNAMIC_ASSIST, ACCELERATION_LIMIT,
+        WHEEL_DISPLAY_UNIT, SCREEN_AUTO_OFF -> null
     }
 }
 

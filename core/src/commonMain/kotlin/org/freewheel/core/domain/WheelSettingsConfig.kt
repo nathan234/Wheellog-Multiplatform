@@ -19,7 +19,7 @@ object WheelSettingsConfig {
             WheelType.NINEBOT_Z -> ninebotZSections()
             WheelType.INMOTION -> inmotionSections()
             WheelType.INMOTION_V2 -> inmotionV2Sections()
-            else -> emptyList()
+            WheelType.NINEBOT, WheelType.Unknown -> emptyList()
         }
 
         // Show all controls until capabilities are resolved

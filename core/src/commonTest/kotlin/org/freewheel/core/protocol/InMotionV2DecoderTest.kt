@@ -1024,63 +1024,34 @@ class InMotionV2DecoderTest {
         assertEquals(56, model.cellCount)
     }
 
-    // ==================== Unknown Model Fallback Parser ====================
+    // ==================== Unknown Model Skips Parsing ====================
 
     @Test
-    fun `unknown model fallback parser extracts basic telemetry`() {
+    fun `unknown model returns null for real-time telemetry`() {
         // Don't send a wheel type first — model stays UNKNOWN
-        // Build a REAL_TIME_INFO frame with V14/V11Y-like layout
-        // Minimum 24 bytes of data for the generic parser to work
         val data = ByteArray(78)
-        // voltage = 13000 (130.00V) → 0x32C8 LE
         data[0] = 0xC8.toByte()
         data[1] = 0x32
-        // current = 500 (5.00A) → 0x01F4 LE
-        data[2] = 0xF4.toByte()
-        data[3] = 0x01
-        // speed = 2500 (25.00 km/h) → 0x09C4 LE at offset 8
-        data[8] = 0xC4.toByte()
-        data[9] = 0x09
-        // pwm = 300 → 0x012C LE at offset 14
-        data[14] = 0x2C
-        data[15] = 0x01
 
-        // Build a valid frame: flags=0x14 (DEFAULT), command=0x84 (REAL_TIME_INFO|0x80 response)
         val frame = buildIM2Frame(0x14, 0x84, data)
 
         decoder.reset()
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result, "Generic fallback should parse the frame")
-        assertTrue(result!!.hasNewData, "Should have new data")
-
-        val state = result.newState
-        assertEquals(13000, state.voltage, "Voltage should be 13000 (130.00V)")
-        assertEquals(500, state.current, "Current should be 500 (5.00A)")
-        assertEquals(2500, state.speed, "Speed should be 2500 (25.00 km/h)")
-        assertEquals(300, state.output, "PWM should be 300")
-        assertEquals("InMotion Unknown", state.model, "Model should be 'InMotion Unknown'")
-        assertEquals(WheelType.INMOTION_V2, state.wheelType)
+        assertNull(result, "UNKNOWN model should not attempt to parse telemetry")
     }
 
-    // ==================== isReady Telemetry Fallback ====================
-
     @Test
-    fun `isReady returns true after receiving telemetry without model detection`() {
-        // Don't send wheel type — model stays UNKNOWN
+    fun `unknown model returns null for settings`() {
+        val data = ByteArray(50)
+        data[0] = 0x20 // sub-type echo
+
+        val frame = buildIM2Frame(0x14, 0xA0, data)
+
         decoder.reset()
-        assertFalse(decoder.isReady(), "Should not be ready initially")
-
-        // Build a REAL_TIME_INFO frame that the generic parser can handle
-        val data = ByteArray(24)
-        data[0] = 0x10  // voltage = 0x0010 = 16
-        data[2] = 0x01  // current = 1
-
-        val frame = buildIM2Frame(0x14, 0x84, data)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result, "Generic fallback should parse the frame")
-        assertTrue(decoder.isReady(), "Should be ready after receiving telemetry data")
+        assertNull(result, "UNKNOWN model should not attempt to parse settings")
     }
 
     // ==================== Keep-Alive Behavior ====================

@@ -254,15 +254,11 @@ class WheelCommandTest {
     }
 
     @Test
-    fun `InMotionV2Decoder SetLight returns non-empty result`() {
+    fun `InMotionV2Decoder SetLight returns empty when model is unknown`() {
         val decoder = InMotionV2Decoder()
+        // Model is UNKNOWN — light command requires known model for correct sub-command
         val commandsOn = decoder.buildCommand(WheelCommand.SetLight(true))
-        assertEquals(1, commandsOn.size)
-        assertTrue((commandsOn[0] as WheelCommand.SendBytes).data.isNotEmpty())
-
-        val commandsOff = decoder.buildCommand(WheelCommand.SetLight(false))
-        assertEquals(1, commandsOff.size)
-        assertTrue((commandsOff[0] as WheelCommand.SendBytes).data.isNotEmpty())
+        assertTrue(commandsOn.isEmpty(), "UNKNOWN model should not build light command")
     }
 
     @Test

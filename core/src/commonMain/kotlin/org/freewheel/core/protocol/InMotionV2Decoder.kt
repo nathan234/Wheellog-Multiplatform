@@ -406,7 +406,7 @@ class InMotionV2Decoder : WheelDecoder {
             Model.V14g, Model.V14s -> parseSettingsV14(message.data, currentState)
             Model.P6 -> parseSettingsP6(message.data, currentState)
             Model.V9, Model.V12S -> parseSettingsExtended(message.data, currentState)
-            else -> parseSettingsV13V14(message.data, currentState)
+            Model.UNKNOWN -> null
         }
     }
 
@@ -618,7 +618,7 @@ class InMotionV2Decoder : WheelDecoder {
             Model.V12HS, Model.V12HT, Model.V12PRO -> parseByLayout(Layouts.V12, message.data, currentState)
             Model.V13, Model.V13PRO -> parseByLayout(Layouts.V13, message.data, currentState)
             Model.V14g, Model.V14s -> parseByLayout(Layouts.V14, message.data, currentState)
-            else -> parseRealTimeInfoGeneric(message.data, currentState)
+            Model.UNKNOWN -> null
         }
         if (result?.hasNewData == true) {
             hasReceivedTelemetry = true
@@ -864,70 +864,6 @@ class InMotionV2Decoder : WheelDecoder {
             ),
             hasNewData = true,
             news = alert.ifEmpty { null }
-        )
-    }
-
-    // ==================== Generic Fallback Parsing ====================
-
-    /**
-     * Generic fallback parser for unknown models.
-     * Uses the V14/V11Y layout (newest known format) to extract universally common fields.
-     * This ensures new/unknown wheels get at least basic telemetry (voltage, current, speed, PWM).
-     */
-    private fun parseRealTimeInfoGeneric(data: ByteArray, currentState: WheelState): FrameResult? {
-        // Need at least enough data for the core fields (V14/V11Y layout)
-        if (data.size < 24) return null
-
-        val voltage = ByteUtils.shortFromBytesLE(data, 0)
-        val current = ByteUtils.signedShortFromBytesLE(data, 2)
-        val speed = ByteUtils.signedShortFromBytesLE(data, 8)
-        val torque = ByteUtils.signedShortFromBytesLE(data, 12)
-        val pwm = ByteUtils.signedShortFromBytesLE(data, 14)
-        val batPower = ByteUtils.signedShortFromBytesLE(data, 16)
-        val motPower = ByteUtils.signedShortFromBytesLE(data, 18)
-        val pitchAngle = ByteUtils.signedShortFromBytesLE(data, 20)
-        val rollAngle = if (data.size > 23) ByteUtils.signedShortFromBytesLE(data, 22) else 0
-
-        // Optional fields — only parse if data is long enough
-        val mileage = if (data.size > 29) ByteUtils.shortFromBytesLE(data, 28) * 10 else 0
-        val batLevel = if (data.size > 37) {
-            val b1 = ByteUtils.shortFromBytesLE(data, 34)
-            val b2 = ByteUtils.shortFromBytesLE(data, 36)
-            ((b1 + b2) / 200.0).roundToInt()
-        } else 0
-        val dynamicSpeedLimit = if (data.size > 41) ByteUtils.shortFromBytesLE(data, 40) else 0
-        val dynamicCurrentLimit = if (data.size > 51) ByteUtils.shortFromBytesLE(data, 50) else 0
-        val mosTemp = if (data.size > 58) decodeTemperature(data[58]) else 0
-        val motTemp = if (data.size > 59) decodeTemperature(data[59]) else 0
-        val cpuTemp = if (data.size > 62) decodeTemperature(data[62]) else 0
-        val imuTemp = if (data.size > 63) decodeTemperature(data[63]) else 0
-
-        val displayName = if (model != Model.UNKNOWN) model.displayName else "InMotion Unknown"
-
-        return FrameResult(
-            state = currentState.copy(
-                voltage = voltage,
-                current = current,
-                speed = speed,
-                torque = torque / 100.0,
-                motorPower = motPower.toDouble(),
-                power = batPower * 100,
-                wheelDistance = mileage.toLong(),
-                batteryLevel = batLevel,
-                temperature = mosTemp * 100,
-                temperature2 = motTemp * 100,
-                angle = pitchAngle / 100.0,
-                roll = rollAngle / 100.0,
-                speedLimit = if (dynamicSpeedLimit > 0) dynamicSpeedLimit / 100.0 else currentState.speedLimit,
-                currentLimit = if (dynamicCurrentLimit > 0) dynamicCurrentLimit / 100.0 else currentState.currentLimit,
-                cpuTemp = cpuTemp,
-                imuTemp = imuTemp,
-                output = pwm,
-                calculatedPwm = pwm / 10000.0,
-                model = displayName,
-                wheelType = WheelType.INMOTION_V2
-            ),
-            hasNewData = true
         )
     }
 
@@ -1274,18 +1210,17 @@ class InMotionV2Decoder : WheelDecoder {
     }
 
     override fun getCapabilities(): CapabilitySet = stateLock.withLock {
-        if (model == Model.UNKNOWN) return@withLock CapabilitySet()
         val commands = buildMap {
             putAll(BASE_COMMANDS)
-            when {
-                isV11Family -> putAll(V11_COMMANDS)
-                isV12Family -> putAll(V12_COMMANDS)
-                isV13Family -> putAll(V13_V14_COMMANDS)
-                isV14Family -> {
+            when (model) {
+                Model.V11, Model.V11Y -> putAll(V11_COMMANDS)
+                Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S -> putAll(V12_COMMANDS)
+                Model.V13, Model.V13PRO -> putAll(V13_V14_COMMANDS)
+                Model.V14g, Model.V14s -> {
                     putAll(V13_V14_COMMANDS)
                     putAll(V14_COMMANDS)
                 }
-                model == Model.P6 -> {
+                Model.P6 -> {
                     // P6 has no manual headlight toggle or brightness (auto-only headlight)
                     remove(SettingsCommandId.LIGHT_MODE)
                     remove(SettingsCommandId.LIGHT_BRIGHTNESS)
@@ -1295,6 +1230,8 @@ class InMotionV2Decoder : WheelDecoder {
                     remove(SettingsCommandId.SPEAKER_VOLUME)
                     putAll(P6_COMMANDS)
                 }
+                Model.V9 -> { /* base commands only */ }
+                Model.UNKNOWN -> return@withLock CapabilitySet()
             }
         }
         commands.resolveAt(
@@ -1369,19 +1306,24 @@ class InMotionV2Decoder : WheelDecoder {
 
             is WheelCommand.SetPedalSensitivity -> {
                 val s = (command.sensitivity.coerceIn(0, 100) and 0xFF).toByte()
-                if (isV9Like) controlMsg(0x25, 0x64, s)
-                else controlMsg(0x25, s, 0x64)
+                when (model) {
+                    Model.V9, Model.P6 -> controlMsg(0x25, 0x64, s)
+                    Model.V11, Model.V11Y, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S,
+                    Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> controlMsg(0x25, s, 0x64)
+                    Model.UNKNOWN -> null
+                }
             }
 
             is WheelCommand.SetMaxSpeed -> {
                 val value = (command.speed * 100).toShort()
                 val lo = leShortLo(value)
                 val hi = leShortHi(value)
-                if (isV14Family) {
-                    buildMessage(Flag.EXTENDED, Command.MAIN_INFO,
+                when (model) {
+                    Model.V14g, Model.V14s -> buildMessage(Flag.EXTENDED, Command.MAIN_INFO,
                         byteArrayOf(0x21, 0x60, 0x21, lo, hi, 0x00, 0x00))
-                } else {
-                    controlMsg(0x21, lo, hi)
+                    Model.V11, Model.V11Y, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S,
+                    Model.V13, Model.V13PRO, Model.V9, Model.P6 -> controlMsg(0x21, lo, hi)
+                    Model.UNKNOWN -> null
                 }
             }
 
@@ -1389,10 +1331,12 @@ class InMotionV2Decoder : WheelDecoder {
                 controlMsg(0x32, boolByte(command.enabled))
 
             is WheelCommand.SetDrl -> {
-                val subCmd: Byte = when {
-                    model == Model.P6 -> 0x4e  // P6 DRL (logo light) toggle
-                    model == Model.V9 -> 0x44  // V9 DRL
-                    else -> 0x2D
+                val subCmd: Byte = when (model) {
+                    Model.P6 -> 0x4e  // P6 DRL (logo light) toggle
+                    Model.V9 -> 0x44  // V9 DRL
+                    Model.V11, Model.V11Y, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S,
+                    Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> 0x2D
+                    Model.UNKNOWN -> return null
                 }
                 controlMsg(subCmd, boolByte(command.enabled))
             }
@@ -1470,12 +1414,20 @@ class InMotionV2Decoder : WheelDecoder {
             }
 
             is WheelCommand.SetSplitRidingModes -> {
-                val subCmd: Byte = if (isV9OrV12) 0x42 else 0x3E
+                val subCmd: Byte = when (model) {
+                    Model.V9, Model.P6, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S -> 0x42
+                    Model.V11, Model.V11Y, Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> 0x3E
+                    Model.UNKNOWN -> return null
+                }
                 controlMsg(subCmd, boolByte(command.enabled))
             }
 
             is WheelCommand.SetSplitRidingModesSettings -> {
-                val subCmd: Byte = if (isV9OrV12) 0x40 else 0x3F
+                val subCmd: Byte = when (model) {
+                    Model.V9, Model.P6, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S -> 0x40
+                    Model.V11, Model.V11Y, Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> 0x3F
+                    Model.UNKNOWN -> return null
+                }
                 val accel = (command.acceleration.coerceIn(0, 100) and 0xFF).toByte()
                 val braking = (command.braking.coerceIn(0, 100) and 0xFF).toByte()
                 controlMsg(subCmd, accel, braking)
@@ -1539,12 +1491,16 @@ class InMotionV2Decoder : WheelDecoder {
      */
     private fun buildLightMessage(on: Boolean): ByteArray? {
         val enable = boolByte(on)
-        return when {
-            model == Model.P6 -> null // P6 has no manual headlight toggle (auto-only)
-            isV12Family -> controlMsg(0x50, enable, 0x00) // Simple on/off (low beam)
-            model == Model.V9 -> controlMsg(0x50, enable, enable)
-            isV11Family && !isFirmwareAtLeast(1, 4) -> controlMsg(0x40, enable)
-            else -> controlMsg(0x50, enable) // V11 fw>=1.4, V13, V14
+        return when (model) {
+            Model.P6 -> null // P6 has no manual headlight toggle (auto-only)
+            Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S -> controlMsg(0x50, enable, 0x00)
+            Model.V9 -> controlMsg(0x50, enable, enable)
+            Model.V11, Model.V11Y -> {
+                if (!isFirmwareAtLeast(1, 4)) controlMsg(0x40, enable)
+                else controlMsg(0x50, enable)
+            }
+            Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> controlMsg(0x50, enable)
+            Model.UNKNOWN -> null
         }
     }
 
@@ -1584,13 +1540,17 @@ class InMotionV2Decoder : WheelDecoder {
         } else if (isModelDetected && keepAliveCounter % 4 == 3) {
             // Every 4th tick (~1s): send next BMS poll request
             getNextBmsPollCommand()
-        } else if (model == Model.P6) {
-            // P6 uses extended telemetry poll
-            WheelCommand.SendBytes(
-                buildMessage(Flag.EXTENDED, Command.MAIN_INFO, byteArrayOf(0x21, 0x07))
-            )
         } else {
-            WheelCommand.SendBytes(buildMessage(Flag.DEFAULT, Command.REAL_TIME_INFO, byteArrayOf()))
+            when (model) {
+                Model.P6 -> WheelCommand.SendBytes(
+                    buildMessage(Flag.EXTENDED, Command.MAIN_INFO, byteArrayOf(0x21, 0x07))
+                )
+                Model.V11, Model.V11Y, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S,
+                Model.V13, Model.V13PRO, Model.V14g, Model.V14s, Model.V9,
+                Model.UNKNOWN -> WheelCommand.SendBytes(
+                    buildMessage(Flag.DEFAULT, Command.REAL_TIME_INFO, byteArrayOf())
+                )
+            }
         }
     }
 

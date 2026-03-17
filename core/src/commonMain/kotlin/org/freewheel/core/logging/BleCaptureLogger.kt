@@ -96,14 +96,15 @@ class BleCaptureLogger(private val fileWriter: FileWriter = FileWriter()) {
      * @param data Raw packet bytes.
      * @param direction RX (received from wheel) or TX (sent to wheel).
      * @param currentTimeMs Current epoch time in milliseconds.
+     * @param decodeAnnotation Decode result annotation (e.g., "success", "buffering", "unhandled:reason").
      */
-    fun logPacket(data: ByteArray, direction: BlePacketDirection, currentTimeMs: Long) {
+    fun logPacket(data: ByteArray, direction: BlePacketDirection, currentTimeMs: Long, decodeAnnotation: String = "") {
         lock.withLock {
             if (!active) return
 
             val hex = ByteUtils.bytesToHex(data)
             try {
-                fileWriter.writeLine("$currentTimeMs,${direction.name},${data.size},$hex,")
+                fileWriter.writeLine("$currentTimeMs,${direction.name},${data.size},$hex,$decodeAnnotation,")
             } catch (e: Exception) {
                 Logger.e(TAG, "Failed to write packet", e)
                 return
@@ -129,7 +130,7 @@ class BleCaptureLogger(private val fileWriter: FileWriter = FileWriter()) {
 
             val escaped = label.replace(",", ";").replace("\n", " ").replace("\r", "")
             try {
-                fileWriter.writeLine("$currentTimeMs,,,,$escaped")
+                fileWriter.writeLine("$currentTimeMs,,,,,$escaped")
             } catch (e: Exception) {
                 Logger.e(TAG, "Failed to write marker", e)
                 return
@@ -176,7 +177,7 @@ class BleCaptureLogger(private val fileWriter: FileWriter = FileWriter()) {
 
     companion object {
         private const val TAG = "BleCaptureLogger"
-        private const val CSV_HEADER = "timestamp_ms,direction,length,hex_data,marker"
+        private const val CSV_HEADER = "timestamp_ms,direction,length,hex_data,decode_result,marker"
     }
 }
 

@@ -18,7 +18,7 @@ interface WheelConnectionManagerPort {
     val connectionState: StateFlow<ConnectionState>
     val capabilities: StateFlow<CapabilitySet>
 
-    var captureCallback: ((data: ByteArray, direction: BlePacketDirection) -> Unit)?
+    var captureCallback: ((data: ByteArray, direction: BlePacketDirection, annotation: String) -> Unit)?
     var unhandledCallback: ((reason: String, frameData: ByteArray) -> Unit)?
 
     fun connect(address: String, wheelType: WheelType? = null)

@@ -235,4 +235,68 @@ class BleCaptureReaderTest {
         assertEquals("", header.firmware)
         assertEquals("", header.appVersion)
     }
+
+    // ==================== V2 format (with decode_result column) ====================
+
+    private val headerLinesV2 = listOf(
+        "# FreeWheel BLE Capture",
+        "# wheel_type: INMOTION_V2",
+        "# wheel_name: V14",
+        "# firmware: 2.3.7",
+        "# capture_start: 2025_01_15_10_30_00",
+        "# app_version: 1.2.3",
+        "timestamp_ms,direction,length,hex_data,decode_result,marker"
+    )
+
+    private fun csvV2(vararg dataLines: String): String {
+        return (headerLinesV2 + dataLines.toList()).joinToString("\n")
+    }
+
+    @Test
+    fun parseV2FormatWithAnnotations() {
+        val csvContent = csvV2(
+            "1000,RX,4,AABBCCDD,success,",
+            "1050,TX,2,1122,,",
+            "1100,,,,,toggled light",
+            "1200,RX,3,DDEEFF,buffering,"
+        )
+
+        val capture = reader.parse(csvContent)
+        assertNotNull(capture)
+        assertEquals(4, capture.entries.size)
+
+        val p0 = capture.entries[0] as CaptureEntry.Packet
+        assertEquals("success", p0.packet.decodeAnnotation)
+
+        val p1 = capture.entries[1] as CaptureEntry.Packet
+        assertEquals("", p1.packet.decodeAnnotation)
+
+        val m = capture.entries[2] as CaptureEntry.Marker
+        assertEquals("toggled light", m.marker.label)
+
+        val p2 = capture.entries[3] as CaptureEntry.Packet
+        assertEquals("buffering", p2.packet.decodeAnnotation)
+    }
+
+    @Test
+    fun parseV2FormatWithUnhandledAnnotation() {
+        val csvContent = csvV2(
+            "1000,RX,4,AABBCCDD,unhandled:unknown_command:0x15,"
+        )
+
+        val capture = reader.parse(csvContent)
+        assertNotNull(capture)
+        val p = capture.entries[0] as CaptureEntry.Packet
+        assertEquals("unhandled:unknown_command:0x15", p.packet.decodeAnnotation)
+    }
+
+    @Test
+    fun v1FormatPacketsHaveEmptyAnnotation() {
+        val csvContent = csv("1000,RX,4,AABBCCDD,")
+
+        val capture = reader.parse(csvContent)
+        assertNotNull(capture)
+        val p = capture.entries[0] as CaptureEntry.Packet
+        assertEquals("", p.packet.decodeAnnotation)
+    }
 }

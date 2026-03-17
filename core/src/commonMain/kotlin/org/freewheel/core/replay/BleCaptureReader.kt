@@ -15,20 +15,23 @@ data class CaptureHeader(
 data class CapturedPacket(
     val timestampMs: Long,
     val direction: BlePacketDirection,
-    val data: ByteArray
+    val data: ByteArray,
+    val decodeAnnotation: String = ""
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is CapturedPacket) return false
         return timestampMs == other.timestampMs &&
             direction == other.direction &&
-            data.contentEquals(other.data)
+            data.contentEquals(other.data) &&
+            decodeAnnotation == other.decodeAnnotation
     }
 
     override fun hashCode(): Int {
         var result = timestampMs.hashCode()
         result = 31 * result + direction.hashCode()
         result = 31 * result + data.contentHashCode()
+        result = 31 * result + decodeAnnotation.hashCode()
         return result
     }
 }
@@ -64,17 +67,19 @@ class BleCaptureReader {
     /**
      * Parse a complete capture CSV file.
      * Returns null if the header is missing or malformed.
+     * Supports both old (5-column) and new (6-column, with decode_result) formats.
      */
     fun parse(csvContent: String): CaptureFile? {
         val header = parseHeader(csvContent) ?: return null
+        val hasAnnotation = csvContent.lines().any { it == CSV_HEADER_V2 }
         val entries = mutableListOf<CaptureEntry>()
 
         for (line in csvContent.lines()) {
             if (line.isBlank() || line.startsWith("#")) continue
-            if (line == CSV_HEADER) continue
+            if (line == CSV_HEADER_V1 || line == CSV_HEADER_V2) continue
 
-            val entry = parseLine(line) ?: continue
-            entries.add(entry)
+            val entry = if (hasAnnotation) parseLineV2(line) else parseLineV1(line)
+            if (entry != null) entries.add(entry)
         }
 
         val durationMs = if (entries.size >= 2) {
@@ -99,7 +104,7 @@ class BleCaptureReader {
         for (line in csvContent.lines()) {
             if (!line.startsWith("#")) {
                 // Past the header comments — stop looking
-                if (line == CSV_HEADER || line.isBlank()) continue
+                if (line == CSV_HEADER_V1 || line == CSV_HEADER_V2 || line.isBlank()) continue
                 break
             }
             val content = line.removePrefix("#").trim()
@@ -125,8 +130,8 @@ class BleCaptureReader {
         )
     }
 
-    private fun parseLine(line: String): CaptureEntry? {
-        // CSV format: timestamp_ms,direction,length,hex_data,marker
+    /** Parse a line in the old 5-column format: timestamp_ms,direction,length,hex_data,marker */
+    private fun parseLineV1(line: String): CaptureEntry? {
         val parts = line.split(",", limit = 5)
         if (parts.size < 5) return null
 
@@ -135,12 +140,37 @@ class BleCaptureReader {
         val hexData = parts[3].trim()
         val markerLabel = parts[4].trim()
 
-        // Marker row: direction is empty, marker label is present
         if (directionStr.isEmpty() && markerLabel.isNotEmpty()) {
             return CaptureEntry.Marker(CapturedMarker(timestampMs, markerLabel))
         }
 
-        // Packet row: direction is RX or TX
+        return parsePacket(timestampMs, directionStr, hexData)
+    }
+
+    /** Parse a line in the new 6-column format: timestamp_ms,direction,length,hex_data,decode_result,marker */
+    private fun parseLineV2(line: String): CaptureEntry? {
+        val parts = line.split(",", limit = 6)
+        if (parts.size < 6) return null
+
+        val timestampMs = parts[0].toLongOrNull() ?: return null
+        val directionStr = parts[1].trim()
+        val hexData = parts[3].trim()
+        val annotation = parts[4].trim()
+        val markerLabel = parts[5].trim()
+
+        if (directionStr.isEmpty() && markerLabel.isNotEmpty()) {
+            return CaptureEntry.Marker(CapturedMarker(timestampMs, markerLabel))
+        }
+
+        return parsePacket(timestampMs, directionStr, hexData, annotation)
+    }
+
+    private fun parsePacket(
+        timestampMs: Long,
+        directionStr: String,
+        hexData: String,
+        annotation: String = ""
+    ): CaptureEntry? {
         if (directionStr.isEmpty()) return null
         val direction = try {
             BlePacketDirection.valueOf(directionStr)
@@ -155,10 +185,11 @@ class BleCaptureReader {
             return null
         }
 
-        return CaptureEntry.Packet(CapturedPacket(timestampMs, direction, data))
+        return CaptureEntry.Packet(CapturedPacket(timestampMs, direction, data, annotation))
     }
 
     companion object {
-        private const val CSV_HEADER = "timestamp_ms,direction,length,hex_data,marker"
+        private const val CSV_HEADER_V1 = "timestamp_ms,direction,length,hex_data,marker"
+        private const val CSV_HEADER_V2 = "timestamp_ms,direction,length,hex_data,decode_result,marker"
     }
 }

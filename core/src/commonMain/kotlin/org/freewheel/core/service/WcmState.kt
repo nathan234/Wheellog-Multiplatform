@@ -39,7 +39,7 @@ sealed class WcmEffect {
     data object StopTimers : WcmEffect()
     data object CancelBleConnect : WcmEffect()
     data object CancelCommands : WcmEffect()
-    class CapturePacket(val data: ByteArray, val direction: BlePacketDirection) : WcmEffect()
+    class CapturePacket(val data: ByteArray, val direction: BlePacketDirection, val annotation: String = "") : WcmEffect()
     class NotifyUnhandled(val reason: String, val frameData: ByteArray) : WcmEffect()
     class ResetDecoder(val decoder: WheelDecoder) : WcmEffect()
     class ConfigureBle(

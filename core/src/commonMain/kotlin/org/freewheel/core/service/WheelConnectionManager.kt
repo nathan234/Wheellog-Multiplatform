@@ -76,7 +76,7 @@ class WheelConnectionManager(
      * Set by the UI layer to capture raw traffic for protocol debugging.
      * Runs in the WCM event loop (single-threaded) — zero overhead when null.
      */
-    override var captureCallback: ((data: ByteArray, direction: BlePacketDirection) -> Unit)? = null
+    override var captureCallback: ((data: ByteArray, direction: BlePacketDirection, annotation: String) -> Unit)? = null
 
     /**
      * Optional callback invoked when the decoder encounters an unhandled frame.
@@ -585,12 +585,12 @@ class WheelConnectionManager(
     }
 
     private fun reduceDataReceived(state: WcmState, event: WheelEvent.DataReceived): WcmTransition {
-        val captureEffect = WcmEffect.CapturePacket(event.data, BlePacketDirection.RX)
-
         val decoder = state.decoder
         if (decoder == null) {
             Logger.w(TAG, "Data received (${event.data.size} bytes) but no decoder set")
-            return WcmTransition(state, listOf(captureEffect))
+            return WcmTransition(state, listOf(
+                WcmEffect.CapturePacket(event.data, BlePacketDirection.RX)
+            ))
         }
 
         val result = try {
@@ -599,9 +599,16 @@ class WheelConnectionManager(
             Logger.e(TAG, "decode() threw for ${event.data.size} bytes (decoder=${decoder.wheelType})", e)
             return WcmTransition(
                 state.copy(consecutiveDecodeErrors = state.consecutiveDecodeErrors + 1),
-                listOf(captureEffect)
+                listOf(WcmEffect.CapturePacket(event.data, BlePacketDirection.RX, "error"))
             )
         }
+
+        val annotation = when (result) {
+            is DecodeResult.Success -> "success"
+            is DecodeResult.Buffering -> "buffering"
+            is DecodeResult.Unhandled -> "unhandled:${result.reason}"
+        }
+        val captureEffect = WcmEffect.CapturePacket(event.data, BlePacketDirection.RX, annotation)
 
         when (result) {
             is DecodeResult.Buffering -> {
@@ -793,7 +800,7 @@ class WheelConnectionManager(
                     commandScheduler.cancelAll()
                 }
                 is WcmEffect.CapturePacket -> {
-                    captureCallback?.invoke(effect.data, effect.direction)
+                    captureCallback?.invoke(effect.data, effect.direction, effect.annotation)
                 }
                 is WcmEffect.NotifyUnhandled -> {
                     unhandledCallback?.invoke(effect.reason, effect.frameData)
@@ -856,7 +863,7 @@ class WheelConnectionManager(
 
     private suspend fun sendBleData(data: ByteArray, delayMs: Long = 0) {
         if (delayMs > 0) delay(delayMs)
-        captureCallback?.invoke(data, BlePacketDirection.TX)
+        captureCallback?.invoke(data, BlePacketDirection.TX, "")
         bleManager.write(data)
     }
 

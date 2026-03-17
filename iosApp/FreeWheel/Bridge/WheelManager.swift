@@ -1173,12 +1173,12 @@ class WheelManager: ObservableObject {
     }
 
     private func wireCaptureCallback(_ cm: WheelConnectionManager) {
-        WheelConnectionManagerHelper.shared.setCaptureCallback(manager: cm) { [weak self] data, directionStr in
+        WheelConnectionManagerHelper.shared.setCaptureCallback(manager: cm) { [weak self] data, directionStr, annotation in
             Task { @MainActor in
                 guard let self = self else { return }
                 let direction: FreeWheelCore.BlePacketDirection = directionStr == "TX" ? .tx : .rx
                 let currentMs = Int64(Date().timeIntervalSince1970 * 1000)
-                self.captureLogger.logPacket(data: data, direction: direction, currentTimeMs: currentMs)
+                self.captureLogger.logPacket(data: data, direction: direction, currentTimeMs: currentMs, decodeAnnotation: annotation)
                 if directionStr == "TX" {
                     self.captureTxCount += 1
                 } else {

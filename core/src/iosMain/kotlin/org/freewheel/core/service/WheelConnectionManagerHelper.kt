@@ -295,14 +295,14 @@ object WheelConnectionManagerHelper {
 
     /**
      * Set a capture callback on the WheelConnectionManager.
-     * Swift-friendly: passes direction as a String ("RX" or "TX").
+     * Swift-friendly: passes direction as a String ("RX" or "TX") and decode annotation.
      */
-    fun setCaptureCallback(manager: WheelConnectionManager, callback: ((ByteArray, String) -> Unit)?) {
+    fun setCaptureCallback(manager: WheelConnectionManager, callback: ((ByteArray, String, String) -> Unit)?) {
         if (callback == null) {
             manager.captureCallback = null
         } else {
-            manager.captureCallback = { data, direction ->
-                callback(data, direction.name)
+            manager.captureCallback = { data, direction, annotation ->
+                callback(data, direction.name, annotation)
             }
         }
     }

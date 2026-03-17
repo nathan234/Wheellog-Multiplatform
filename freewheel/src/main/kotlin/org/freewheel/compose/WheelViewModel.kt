@@ -1042,8 +1042,8 @@ class WheelViewModel(
     }
 
     private fun wireCaptureCallback(cm: WheelConnectionManagerPort) {
-        cm.captureCallback = { data, direction ->
-            captureLogger.logPacket(data, direction, System.currentTimeMillis())
+        cm.captureCallback = { data, direction, annotation ->
+            captureLogger.logPacket(data, direction, System.currentTimeMillis(), annotation)
             val stats = _captureStats.value
             _captureStats.value = when (direction) {
                 BlePacketDirection.RX -> stats.copy(rxCount = stats.rxCount + 1)

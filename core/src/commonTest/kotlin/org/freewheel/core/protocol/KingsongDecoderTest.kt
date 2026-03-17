@@ -4,11 +4,11 @@ import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import kotlin.math.roundToInt
 import org.freewheel.core.domain.SettingsCommandId
+import org.freewheel.core.protocol.DecodeResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -43,7 +43,7 @@ class KingsongDecoderTest {
             val data = ByteArray(size) { 0x55 }
             val result = decoder.decode(data, defaultState, defaultConfig)
             if (size < 20) {
-                assertNull(result, "Should return null for data of size $size")
+                assertTrue(result is DecodeResult.Buffering, "Should return Buffering for data of size $size")
             }
         }
     }
@@ -60,7 +60,7 @@ class KingsongDecoderTest {
         data[19] = 0x5A
 
         val result = decoder.decode(data, defaultState, defaultConfig)
-        assertNull(result, "Wrong header should return null")
+        assertTrue(result is DecodeResult.Buffering, "Wrong header should return Buffering")
     }
 
     @Test
@@ -71,7 +71,7 @@ class KingsongDecoderTest {
         assertEquals(0x55.toByte(), packet[1])
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result, "AA 55 header should be accepted")
+        assertTrue(result is DecodeResult.Success, "AA 55 header should be accepted")
     }
 
     // ==================== Live Data (0xA9) Tests ====================
@@ -82,10 +82,11 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6505)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertTrue(result.hasNewData, "0xA9 should set hasNewData")
-        assertEquals(6505, result.newState.voltage, "Raw voltage should be 6505")
-        assertEquals(65.05, result.newState.voltageV, 0.01, "Voltage should be 65.05V")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.hasNewData, "0xA9 should set hasNewData")
+        assertEquals(6505, decoded.newState.voltage, "Raw voltage should be 6505")
+        assertEquals(65.05, decoded.newState.voltageV, 0.01, "Voltage should be 65.05V")
     }
 
     @Test
@@ -94,10 +95,11 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000, speed = 515)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
         // Speed is stored directly as the raw value from getInt2R
-        assertEquals(515, result.newState.speed)
-        assertEquals(5.15, result.newState.speedKmh, 0.01, "Speed should be 5.15 km/h")
+        assertEquals(515, decoded.newState.speed)
+        assertEquals(5.15, decoded.newState.speedKmh, 0.01, "Speed should be 5.15 km/h")
     }
 
     @Test
@@ -110,8 +112,9 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000, current = 215)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(215, result.newState.current, "Current should be 215 (2.15A)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(215, decoded.newState.current, "Current should be 215 (2.15A)")
     }
 
     @Test
@@ -120,9 +123,10 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000, temperature = 3600)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(3600, result.newState.temperature, "Raw temperature should be 3600")
-        assertEquals(36, result.newState.temperatureC, "Temperature should be 36C")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(3600, decoded.newState.temperature, "Raw temperature should be 3600")
+        assertEquals(36, decoded.newState.temperatureC, "Temperature should be 36C")
     }
 
     @Test
@@ -134,9 +138,10 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000, current = 1000)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
         val expectedPower = ((1000 / 100.0) * 6000).roundToInt()
-        assertEquals(expectedPower, result.newState.power)
+        assertEquals(expectedPower, decoded.newState.power)
     }
 
     @Test
@@ -147,8 +152,9 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(62, result.newState.batteryLevel, "Battery should be 62% for 67v default")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(62, decoded.newState.batteryLevel, "Battery should be 62% for 67v default")
     }
 
     @Test
@@ -162,8 +168,9 @@ class KingsongDecoderTest {
         val livePacket = buildKsLivePacket(voltage = 6505)
         val result = decoder.decode(livePacket, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(12, result.newState.batteryLevel, "Battery should be 12% for 84v KS-S18")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(12, decoded.newState.batteryLevel, "Battery should be 12% for 84v KS-S18")
     }
 
     @Test
@@ -172,8 +179,9 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(WheelType.KINGSONG, result.newState.wheelType)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(WheelType.KINGSONG, decoded.newState.wheelType)
     }
 
     @Test
@@ -182,8 +190,9 @@ class KingsongDecoderTest {
         val packet = buildKsLivePacket(voltage = 6000, mode = 2)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("2", result.newState.modeStr, "Mode string should reflect the mode byte")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("2", decoded.newState.modeStr, "Mode string should reflect the mode byte")
     }
 
     // ==================== Name/Type (0xBB) Tests ====================
@@ -194,9 +203,10 @@ class KingsongDecoderTest {
         val packet = buildKsNamePacket("KS-S18-0205")
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("KS-S18-0205", result.newState.name, "Name should be KS-S18-0205")
-        assertEquals("KS-S18", result.newState.model, "Model should be KS-S18")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("KS-S18-0205", decoded.newState.name, "Name should be KS-S18-0205")
+        assertEquals("KS-S18", decoded.newState.model, "Model should be KS-S18")
     }
 
     @Test
@@ -205,8 +215,9 @@ class KingsongDecoderTest {
         val packet = buildKsNamePacket("KS-S18-0205")
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("2.05", result.newState.version, "Version should be 2.05")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("2.05", decoded.newState.version, "Version should be 2.05")
     }
 
     @Test
@@ -215,9 +226,10 @@ class KingsongDecoderTest {
         val packet = buildKsNamePacket("KS-16X-1234")
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("KS-16X", result.newState.model, "Model should be KS-16X")
-        assertEquals("12.34", result.newState.version, "Version should be 12.34")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("KS-16X", decoded.newState.model, "Model should be KS-16X")
+        assertEquals("12.34", decoded.newState.version, "Version should be 12.34")
     }
 
     @Test
@@ -226,8 +238,9 @@ class KingsongDecoderTest {
         val packet = buildKsNamePacket("ROCKWHEEL")
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("ROCKWHEEL", result.newState.model, "Single-segment name should be model")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("ROCKWHEEL", decoded.newState.model, "Single-segment name should be model")
     }
 
     // ==================== Serial Number (0xB3) Tests ====================
@@ -238,10 +251,11 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB3)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertTrue(result.commands.isNotEmpty(), "Serial frame should trigger alarm request command")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.commands.isNotEmpty(), "Serial frame should trigger alarm request command")
         assertTrue(
-            result.commands[0] is WheelCommand.SendBytes,
+            decoded.commands[0] is WheelCommand.SendBytes,
             "Command should be SendBytes"
         )
     }
@@ -255,9 +269,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB3, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
         assertTrue(
-            result.newState.serialNumber.isNotEmpty(),
+            decoded.newState.serialNumber.isNotEmpty(),
             "Serial number should be set"
         )
     }
@@ -270,9 +285,10 @@ class KingsongDecoderTest {
         val packet = buildKsDistancePacket(fanStatus = 1, chargingStatus = 1)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(1, result.newState.fanStatus, "Fan status should be 1")
-        assertEquals(1, result.newState.chargingStatus, "Charging status should be 1")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.fanStatus, "Fan status should be 1")
+        assertEquals(1, decoded.newState.chargingStatus, "Charging status should be 1")
     }
 
     @Test
@@ -281,9 +297,10 @@ class KingsongDecoderTest {
         val packet = buildKsDistancePacket(temperature2 = 4000)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(4000, result.newState.temperature2, "Temperature2 should be 4000")
-        assertEquals(40, result.newState.temperature2C, "Temperature2 should be 40C")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(4000, decoded.newState.temperature2, "Temperature2 should be 4000")
+        assertEquals(40, decoded.newState.temperature2C, "Temperature2 should be 40C")
     }
 
     // ==================== CPU Load/PWM (0xF5) Tests ====================
@@ -302,11 +319,12 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(64, result.newState.cpuLoad, "CPU load should be 64")
-        assertEquals(1200, result.newState.output, "Output should be 1200")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(64, decoded.newState.cpuLoad, "CPU load should be 64")
+        assertEquals(1200, decoded.newState.output, "Output should be 1200")
         // calculatedPwm = output / 10000.0 = 1200 / 10000.0 = 0.12
-        assertEquals(0.12, result.newState.calculatedPwm, 0.001)
+        assertEquals(0.12, decoded.newState.calculatedPwm, 0.001)
     }
 
     // ==================== Speed Limit (0xF6) Tests ====================
@@ -322,8 +340,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(32.05, result.newState.speedLimit, 0.01, "Speed limit should be 32.05 km/h")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(32.05, decoded.newState.speedLimit, 0.01, "Speed limit should be 32.05 km/h")
     }
 
     // ==================== Max Speed/Alerts (0xA4) Tests ====================
@@ -339,10 +358,11 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xA4, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.hasNewData, "0xA4 should set hasNewData")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.hasNewData, "0xA4 should set hasNewData")
         assertTrue(
-            result.commands.isNotEmpty(),
+            decoded.commands.isNotEmpty(),
             "0xA4 frame should trigger alarm request response"
         )
     }
@@ -353,10 +373,11 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB5)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertTrue(result.hasNewData, "0xB5 should set hasNewData")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.hasNewData, "0xB5 should set hasNewData")
         assertTrue(
-            result.commands.isEmpty(),
+            decoded.commands.isEmpty(),
             "0xB5 frame should NOT trigger alarm request (only 0xA4 does)"
         )
     }
@@ -394,12 +415,12 @@ class KingsongDecoderTest {
 
         val namePacket = buildKsNamePacket("KS-16X-0100")
         val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        assertNotNull(nameResult)
-        state = nameResult.newState
+        assertTrue(nameResult is DecodeResult.Success)
+        state = (nameResult as DecodeResult.Success).data.newState
 
         val livePacket = buildKsLivePacket(voltage = 6000)
         val liveResult = decoder.decode(livePacket, state, defaultConfig)
-        assertNotNull(liveResult)
+        assertTrue(liveResult is DecodeResult.Success)
 
         assertTrue(decoder.isReady(), "Should be ready after name + voltage")
     }
@@ -411,8 +432,8 @@ class KingsongDecoderTest {
 
         val namePacket = buildKsNamePacket("KS-16X-0100")
         val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        assertNotNull(nameResult)
-        state = nameResult.newState
+        assertTrue(nameResult is DecodeResult.Success)
+        state = (nameResult as DecodeResult.Success).data.newState
 
         // voltage = 0 should not set hasReceivedVoltage
         val livePacket = buildKsLivePacket(voltage = 0)
@@ -430,8 +451,9 @@ class KingsongDecoderTest {
 
         // Get to ready state
         val namePacket = buildKsNamePacket("KS-16X-0100")
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)!!
-        state = nameResult.newState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        assertTrue(nameResult is DecodeResult.Success)
+        state = (nameResult as DecodeResult.Success).data.newState
 
         val livePacket = buildKsLivePacket(voltage = 6000)
         decoder.decode(livePacket, state, defaultConfig)
@@ -448,8 +470,9 @@ class KingsongDecoderTest {
 
         // First connection
         val namePacket = buildKsNamePacket("KS-S18-0205")
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)!!
-        state = nameResult.newState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        assertTrue(nameResult is DecodeResult.Success)
+        state = (nameResult as DecodeResult.Success).data.newState
         val livePacket = buildKsLivePacket(voltage = 6505)
         decoder.decode(livePacket, state, defaultConfig)
         assertTrue(decoder.isReady())
@@ -460,15 +483,18 @@ class KingsongDecoderTest {
 
         // Second connection with different wheel (KS-14D is a 67v wheel)
         val namePacket2 = buildKsNamePacket("KS-14D-0100")
-        val nameResult2 = decoder.decode(namePacket2, state, defaultConfig)!!
-        state = nameResult2.newState
+        val nameResult2 = decoder.decode(namePacket2, state, defaultConfig)
+        assertTrue(nameResult2 is DecodeResult.Success)
+        state = (nameResult2 as DecodeResult.Success).data.newState
         assertEquals("KS-14D", state.model, "Model should reflect new wheel after reset")
 
         val livePacket2 = buildKsLivePacket(voltage = 6000)
-        val liveResult2 = decoder.decode(livePacket2, state, defaultConfig)!!
+        val liveResult2 = decoder.decode(livePacket2, state, defaultConfig)
+        assertTrue(liveResult2 is DecodeResult.Success)
+        val decoded2 = (liveResult2 as DecodeResult.Success).data
         assertTrue(decoder.isReady())
         // 67v battery: (6000 - 5000) / 16 = 62
-        assertEquals(62, liveResult2.newState.batteryLevel, "Battery should use 67v calc for KS-14D")
+        assertEquals(62, decoded2.newState.batteryLevel, "Battery should use 67v calc for KS-14D")
     }
 
     // ==================== buildCommand Tests ====================
@@ -606,8 +632,9 @@ class KingsongDecoderTest {
         val packet = buildKsBmsInfoFrame(voltage = 8400, current = 500)
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        val bms = result.newState.bms1
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        val bms = decoded.newState.bms1
         assertNotNull(bms, "bms1 snapshot should be present")
         assertEquals(84.0, bms.voltage, 0.01, "BMS voltage should be 84.00V")
         assertEquals(5.0, bms.current, 0.01, "BMS current should be 5.00A")
@@ -626,8 +653,9 @@ class KingsongDecoderTest {
         )
         val result = decoder.decode(packet, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        val bms = result.newState.bms1!!
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        val bms = decoded.newState.bms1!!
         assertEquals(2000, bms.remCap, "Remaining capacity should be 2000 (200*10)")
         assertEquals(3000, bms.factoryCap, "Factory capacity should be 3000 (300*10)")
         assertEquals(50, bms.fullCycles, "Full cycles should be 50")
@@ -651,8 +679,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF1, data, byte17 = 0x01)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        val bms = result.newState.bms1!!
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        val bms = decoded.newState.bms1!!
         assertEquals(25.0, bms.temp1, 0.01, "Temp1 should be 25.0C")
         assertEquals(26.0, bms.temp2, 0.01, "Temp2 should be 26.0C")
     }
@@ -666,29 +695,29 @@ class KingsongDecoderTest {
         val cells02 = listOf(4200, 4190, 4180, 4170, 4160, 4150, 4140)
         val packet02 = buildKsBmsCellFrame(0x02, cells02)
         val result02 = decoder.decode(packet02, state, defaultConfig)
-        assertNotNull(result02)
-        state = result02.newState
+        assertTrue(result02 is DecodeResult.Success)
+        state = (result02 as DecodeResult.Success).data.newState
 
         // pNum 0x03: cells 7-13
         val cells03 = listOf(4130, 4120, 4110, 4100, 4090, 4080, 4070)
         val packet03 = buildKsBmsCellFrame(0x03, cells03)
         val result03 = decoder.decode(packet03, state, defaultConfig)
-        assertNotNull(result03)
-        state = result03.newState
+        assertTrue(result03 is DecodeResult.Success)
+        state = (result03 as DecodeResult.Success).data.newState
 
         // pNum 0x04: cells 14-20
         val cells04 = listOf(4060, 4050, 4040, 4030, 4020, 4010, 4000)
         val packet04 = buildKsBmsCellFrame(0x04, cells04)
         val result04 = decoder.decode(packet04, state, defaultConfig)
-        assertNotNull(result04)
-        state = result04.newState
+        assertTrue(result04 is DecodeResult.Success)
+        state = (result04 as DecodeResult.Success).data.newState
 
         // pNum 0x05: cells 21-27
         val cells05 = listOf(3990, 3980, 3970, 3960, 3950, 3940, 3930)
         val packet05 = buildKsBmsCellFrame(0x05, cells05)
         val result05 = decoder.decode(packet05, state, defaultConfig)
-        assertNotNull(result05)
-        state = result05.newState
+        assertTrue(result05 is DecodeResult.Success)
+        state = (result05 as DecodeResult.Success).data.newState
 
         // Verify cells accumulated across frames
         val bms = state.bms1!!
@@ -708,11 +737,11 @@ class KingsongDecoderTest {
         // Use all cells with known voltages across pNum 0x02 and 0x03
         val cells02 = listOf(4200, 4100, 4150, 4180, 4120, 4130, 4170)
         val packet02 = buildKsBmsCellFrame(0x02, cells02)
-        state = decoder.decode(packet02, state, defaultConfig)!!.newState
+        state = (decoder.decode(packet02, state, defaultConfig) as DecodeResult.Success).data.newState
 
         val cells03 = listOf(4160, 4140, 4110, 4190, 4090, 4050, 4080)
         val packet03 = buildKsBmsCellFrame(0x03, cells03)
-        state = decoder.decode(packet03, state, defaultConfig)!!.newState
+        state = (decoder.decode(packet03, state, defaultConfig) as DecodeResult.Success).data.newState
 
         // pNum 0x06: last 2 cells (cells[28] and cells[29]) plus tempMosEnv
         // For a 16-cell wheel, cells 28-29 are beyond range but still written
@@ -728,7 +757,7 @@ class KingsongDecoderTest {
         data06[8] = (tempRaw and 0xFF).toByte()
         data06[9] = ((tempRaw shr 8) and 0xFF).toByte()
         val packet06 = buildKsFrame(0xF1, data06, byte17 = 0x06)
-        state = decoder.decode(packet06, state, defaultConfig)!!.newState
+        state = (decoder.decode(packet06, state, defaultConfig) as DecodeResult.Success).data.newState
 
         val bms = state.bms1!!
         // Cell stats computed over getCellsForWheel() = 16 cells (default model)
@@ -748,7 +777,7 @@ class KingsongDecoderTest {
 
         // 0xF1 -> bms1
         val bms1Packet = buildKsBmsInfoFrame(voltage = 8400, current = 500)
-        state = decoder.decode(bms1Packet, state, defaultConfig)!!.newState
+        state = (decoder.decode(bms1Packet, state, defaultConfig) as DecodeResult.Success).data.newState
         assertEquals(84.0, state.bms1!!.voltage, 0.01, "BMS1 voltage should be 84.00V")
 
         // 0xF2 -> bms2
@@ -757,7 +786,7 @@ class KingsongDecoderTest {
         data[0] = (bms2Voltage and 0xFF).toByte()
         data[1] = ((bms2Voltage shr 8) and 0xFF).toByte()
         val bms2Packet = buildKsFrame(0xF2, data, byte17 = 0x00)
-        state = decoder.decode(bms2Packet, state, defaultConfig)!!.newState
+        state = (decoder.decode(bms2Packet, state, defaultConfig) as DecodeResult.Success).data.newState
 
         assertEquals(82.0, state.bms2!!.voltage, 0.01, "BMS2 voltage should be 82.00V")
         // BMS1 should still be intact
@@ -767,7 +796,7 @@ class KingsongDecoderTest {
     // ==================== BMS Serial/Firmware Tests ====================
 
     @Test
-    fun `BMS serial frame 0xE1 returns null state but stores serial`() {
+    fun `BMS serial frame 0xE1 returns Unhandled but stores serial`() {
         decoder.reset()
         // BMS serial frames (0xE1/0xE2) return null state from processBmsSerial
         // but still set the serial in the SmartBms object
@@ -775,27 +804,27 @@ class KingsongDecoderTest {
         "BMS-SN123".encodeToByteArray().copyInto(data, 0, 0, 9)
         val packet = buildKsFrame(0xE1, data)
 
-        // processBmsSerial returns null, so decode returns null (no state update)
+        // processBmsSerial returns null, so decode returns Unhandled (no state update)
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNull(result, "BMS serial frame should return null (no state update path)")
+        assertTrue(result is DecodeResult.Unhandled, "BMS serial frame should return Unhandled (no state update path)")
     }
 
     @Test
-    fun `BMS firmware frame 0xE5 returns null state`() {
+    fun `BMS firmware frame 0xE5 returns Unhandled`() {
         decoder.reset()
         val packet = buildKsFrame(0xE5)
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNull(result, "BMS firmware frame should return null")
+        assertTrue(result is DecodeResult.Unhandled, "BMS firmware frame should return Unhandled")
     }
 
     // ==================== Unknown Frame Type Tests ====================
 
     @Test
-    fun `unknown frame type returns null`() {
+    fun `unknown frame type returns Unhandled`() {
         decoder.reset()
         val packet = buildKsFrame(0xFF)  // 0xFF is not a known frame type
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNull(result, "Unknown frame type should return null")
+        assertTrue(result is DecodeResult.Unhandled, "Unknown frame type should return Unhandled")
     }
 
     // ==================== Multi-Frame Integration Test ====================
@@ -808,23 +837,29 @@ class KingsongDecoderTest {
 
         // 1. Name packet
         val namePacket = buildKsNamePacket("KS-S18-0205")
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)!!
-        state = nameResult.newState
+        val nameResult = decoder.decode(namePacket, state, defaultConfig)
+        assertTrue(nameResult is DecodeResult.Success)
+        val nameDecoded = (nameResult as DecodeResult.Success).data
+        state = nameDecoded.newState
         assertEquals("KS-S18", state.model)
         assertEquals("2.05", state.version)
         assertFalse(decoder.isReady())
 
         // 2. Serial packet (triggers alarm request)
         val serialPacket = buildKsFrame(0xB3)
-        val serialResult = decoder.decode(serialPacket, state, defaultConfig)!!
-        state = serialResult.newState
-        assertTrue(serialResult.commands.isNotEmpty(), "Serial should trigger alarm request")
+        val serialResult = decoder.decode(serialPacket, state, defaultConfig)
+        assertTrue(serialResult is DecodeResult.Success)
+        val serialDecoded = (serialResult as DecodeResult.Success).data
+        state = serialDecoded.newState
+        assertTrue(serialDecoded.commands.isNotEmpty(), "Serial should trigger alarm request")
         assertFalse(decoder.isReady(), "Still not ready without voltage")
 
         // 3. Live data packet
         val livePacket = buildKsLivePacket(voltage = 6505, speed = 515, current = 215, temperature = 1300)
-        val liveResult = decoder.decode(livePacket, state, defaultConfig)!!
-        state = liveResult.newState
+        val liveResult = decoder.decode(livePacket, state, defaultConfig)
+        assertTrue(liveResult is DecodeResult.Success)
+        val liveDecoded = (liveResult as DecodeResult.Success).data
+        state = liveDecoded.newState
 
         assertTrue(decoder.isReady(), "Should be ready after name + voltage")
         assertEquals(6505, state.voltage)
@@ -857,10 +892,11 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.hwFaults, "No faults should give hwFaults=0")
-        assertEquals("", result.newState.alert, "No faults should give empty alert")
-        assertEquals(50, result.newState.cpuLoad, "CPU load should still be parsed")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.hwFaults, "No faults should give hwFaults=0")
+        assertEquals("", decoded.newState.alert, "No faults should give empty alert")
+        assertEquals(50, decoded.newState.cpuLoad, "CPU load should still be parsed")
     }
 
     @Test
@@ -872,9 +908,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(KingsongDecoder.HwFault.CURRENT_AMPLITUDE, result.newState.hwFaults)
-        assertTrue(result.newState.alert.contains("Current amplitude fault"))
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(KingsongDecoder.HwFault.CURRENT_AMPLITUDE, decoded.newState.hwFaults)
+        assertTrue(decoded.newState.alert.contains("Current amplitude fault"))
     }
 
     @Test
@@ -886,9 +923,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(KingsongDecoder.HwFault.TEMPERATURE, result.newState.hwFaults)
-        assertTrue(result.newState.alert.contains("Temperature fault"))
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(KingsongDecoder.HwFault.TEMPERATURE, decoded.newState.hwFaults)
+        assertTrue(decoded.newState.alert.contains("Temperature fault"))
     }
 
     @Test
@@ -900,9 +938,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(KingsongDecoder.HwFault.MOTOR_PHASE_SHORT, result.newState.hwFaults)
-        assertTrue(result.newState.alert.contains("Motor phase short"))
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(KingsongDecoder.HwFault.MOTOR_PHASE_SHORT, decoded.newState.hwFaults)
+        assertTrue(decoded.newState.alert.contains("Motor phase short"))
     }
 
     @Test
@@ -914,9 +953,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(KingsongDecoder.HwFault.GYROSCOPE_ERROR, result.newState.hwFaults)
-        assertTrue(result.newState.alert.contains("Gyroscope error"))
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(KingsongDecoder.HwFault.GYROSCOPE_ERROR, decoded.newState.hwFaults)
+        assertTrue(decoded.newState.alert.contains("Gyroscope error"))
     }
 
     @Test
@@ -928,9 +968,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(KingsongDecoder.HwFault.MOTOR_HALL_ERROR, result.newState.hwFaults)
-        assertTrue(result.newState.alert.contains("Motor hall error"))
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(KingsongDecoder.HwFault.MOTOR_HALL_ERROR, decoded.newState.hwFaults)
+        assertTrue(decoded.newState.alert.contains("Motor hall error"))
     }
 
     @Test
@@ -942,9 +983,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(KingsongDecoder.HwFault.SN_BOARD_ERROR, result.newState.hwFaults)
-        assertTrue(result.newState.alert.contains("SN board error"))
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(KingsongDecoder.HwFault.SN_BOARD_ERROR, decoded.newState.hwFaults)
+        assertTrue(decoded.newState.alert.contains("SN board error"))
     }
 
     @Test
@@ -958,12 +1000,13 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
         val expected = KingsongDecoder.HwFault.CURRENT_AMPLITUDE or KingsongDecoder.HwFault.GYROSCOPE_ERROR
-        assertEquals(expected, result.newState.hwFaults, "Should have both faults set")
-        assertTrue(result.newState.alert.contains("Current amplitude fault"))
-        assertTrue(result.newState.alert.contains("Gyroscope error"))
-        assertEquals(75, result.newState.cpuLoad, "cpuLoad should be preserved")
+        assertEquals(expected, decoded.newState.hwFaults, "Should have both faults set")
+        assertTrue(decoded.newState.alert.contains("Current amplitude fault"))
+        assertTrue(decoded.newState.alert.contains("Gyroscope error"))
+        assertEquals(75, decoded.newState.cpuLoad, "cpuLoad should be preserved")
     }
 
     // ==================== Speed Limit / BMS SOC / Energy / Fault Code (0xF6) Tests ====================
@@ -980,9 +1023,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(85, result.newState.bmsSoc, "BMS SOC raw 86 should be 85%")
-        assertEquals(30.0, result.newState.speedLimit, 0.01, "Speed limit should still be parsed")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(85, decoded.newState.bmsSoc, "BMS SOC raw 86 should be 85%")
+        assertEquals(30.0, decoded.newState.speedLimit, 0.01, "Speed limit should still be parsed")
     }
 
     @Test
@@ -993,8 +1037,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.bmsSoc, "BMS SOC raw 1 should be 0%")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.bmsSoc, "BMS SOC raw 1 should be 0%")
     }
 
     @Test
@@ -1005,8 +1050,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(100, result.newState.bmsSoc, "BMS SOC raw 101 should be 100%")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(100, decoded.newState.bmsSoc, "BMS SOC raw 101 should be 100%")
     }
 
     @Test
@@ -1017,8 +1063,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(-1, result.newState.bmsSoc, "BMS SOC raw 0 should be unknown (-1)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-1, decoded.newState.bmsSoc, "BMS SOC raw 0 should be unknown (-1)")
     }
 
     @Test
@@ -1029,8 +1076,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(-1, result.newState.bmsSoc, "BMS SOC > 101 should be unknown (-1)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-1, decoded.newState.bmsSoc, "BMS SOC > 101 should be unknown (-1)")
     }
 
     @Test
@@ -1046,8 +1094,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(12345L, result.newState.totalEnergyWh, "Energy should be 12345 Wh")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(12345L, decoded.newState.totalEnergyWh, "Energy should be 12345 Wh")
     }
 
     @Test
@@ -1061,9 +1110,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(42, result.newState.faultCode, "Fault code should be 42")
-        assertEquals("Fault code: 42", result.newState.error, "Error string should contain fault code")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(42, decoded.newState.faultCode, "Fault code should be 42")
+        assertEquals("Fault code: 42", decoded.newState.error, "Error string should contain fault code")
     }
 
     @Test
@@ -1074,9 +1124,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.faultCode, "Fault code should be 0")
-        assertEquals("", result.newState.error, "Error should be empty for zero fault code")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.faultCode, "Fault code should be 0")
+        assertEquals("", decoded.newState.error, "Error should be empty for zero fault code")
     }
 
     // ==================== 16-bit Alarm Speed (0xA4/0xB5) Tests ====================
@@ -1104,12 +1155,13 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xA4, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.commands.isNotEmpty(), "0xA4 should trigger alarm request")
-        assertEquals(300, result.newState.ksAlarm1Speed, "Alarm 1 speed should be surfaced")
-        assertEquals(350, result.newState.ksAlarm2Speed, "Alarm 2 speed should be surfaced")
-        assertEquals(400, result.newState.ksAlarm3Speed, "Alarm 3 speed should be surfaced")
-        assertEquals(500, result.newState.ksTiltbackSpeed, "Tiltback speed should be surfaced")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.commands.isNotEmpty(), "0xA4 should trigger alarm request")
+        assertEquals(300, decoded.newState.ksAlarm1Speed, "Alarm 1 speed should be surfaced")
+        assertEquals(350, decoded.newState.ksAlarm2Speed, "Alarm 2 speed should be surfaced")
+        assertEquals(400, decoded.newState.ksAlarm3Speed, "Alarm 3 speed should be surfaced")
+        assertEquals(500, decoded.newState.ksTiltbackSpeed, "Tiltback speed should be surfaced")
     }
 
     @Test
@@ -1124,12 +1176,13 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB5, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.commands.isEmpty(), "0xB5 should NOT trigger command")
-        assertEquals(30, result.newState.ksAlarm1Speed, "Alarm 1 should be 30")
-        assertEquals(35, result.newState.ksAlarm2Speed, "Alarm 2 should be 35")
-        assertEquals(40, result.newState.ksAlarm3Speed, "Alarm 3 should be 40")
-        assertEquals(50, result.newState.ksTiltbackSpeed, "Tiltback should be 50")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.commands.isEmpty(), "0xB5 should NOT trigger command")
+        assertEquals(30, decoded.newState.ksAlarm1Speed, "Alarm 1 should be 30")
+        assertEquals(35, decoded.newState.ksAlarm2Speed, "Alarm 2 should be 35")
+        assertEquals(40, decoded.newState.ksAlarm3Speed, "Alarm 3 should be 40")
+        assertEquals(50, decoded.newState.ksTiltbackSpeed, "Tiltback should be 50")
     }
 
     // ==================== Keep-Alive Tests ====================
@@ -1173,8 +1226,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x5F, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1, result.newState.lockState, "Lock status 1 should set lockState=1")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.lockState, "Lock status 1 should set lockState=1")
     }
 
     @Test
@@ -1185,8 +1239,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x5F, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1, result.newState.lockState, "Lock status 2 should also set lockState=1")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.lockState, "Lock status 2 should also set lockState=1")
     }
 
     @Test
@@ -1197,8 +1252,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x5F, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.lockState, "Lock status 0 should set lockState=0")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.lockState, "Lock status 0 should set lockState=0")
     }
 
     @Test
@@ -1210,8 +1266,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB1, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1, result.newState.lockState, "Lock result cmd=1,result=0 should set lockState=1")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.lockState, "Lock result cmd=1,result=0 should set lockState=1")
     }
 
     @Test
@@ -1223,8 +1280,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB1, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.lockState, "Lock result cmd!=1 should set lockState=0")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.lockState, "Lock result cmd!=1 should set lockState=0")
     }
 
     @Test
@@ -1264,8 +1322,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(3600, result.newState.rideTime, "Ride time should be 3600 seconds")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(3600, decoded.newState.rideTime, "Ride time should be 3600 seconds")
     }
 
     @Test
@@ -1279,8 +1338,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(4200, result.newState.topSpeed, "Top speed should be 4200 (42.00 km/h)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(4200, decoded.newState.topSpeed, "Top speed should be 4200 (42.00 km/h)")
     }
 
     @Test
@@ -1292,8 +1352,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(2, result.newState.lightMode, "Light mode 0x14 should normalize to 2 (auto)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(2, decoded.newState.lightMode, "Light mode 0x14 should normalize to 2 (auto)")
     }
 
     @Test
@@ -1304,8 +1365,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.lightMode, "Light mode 0x12 should normalize to 0 (off)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.lightMode, "Light mode 0x12 should normalize to 0 (off)")
     }
 
     @Test
@@ -1317,8 +1379,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.newState.mute, "Voice off flag 1 should set mute=true")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.newState.mute, "Voice off flag 1 should set mute=true")
     }
 
     @Test
@@ -1329,8 +1392,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xB9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertFalse(result.newState.mute, "Voice off flag 0 should set mute=false")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertFalse(decoded.newState.mute, "Voice off flag 0 should set mute=false")
     }
 
     // ==================== New 0xF6 Fields Tests ====================
@@ -1346,8 +1410,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xF6, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(12345, result.newState.totalOnTime, "Total on time should be 12345 seconds")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(12345, decoded.newState.totalOnTime, "Total on time should be 12345 seconds")
     }
 
     // ==================== New Frame Type Tests ====================
@@ -1362,8 +1427,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xA2, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(2, result.newState.pedalsMode, "Pedals mode should be updated to 2 on success")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(2, decoded.newState.pedalsMode, "Pedals mode should be updated to 2 on success")
     }
 
     @Test
@@ -1377,8 +1443,9 @@ class KingsongDecoderTest {
 
         val stateWithMode = defaultState.copy(pedalsMode = 1)
         val result = decoder.decode(packet, stateWithMode, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1, result.newState.pedalsMode, "Pedals mode should not change on failure")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.pedalsMode, "Pedals mode should not change on failure")
     }
 
     @Test
@@ -1394,9 +1461,10 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xC9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(3500, result.newState.temperature2, "Battery temp should be 3500")
-        assertEquals(1, result.newState.chargingStatus, "Charging flag should be 1")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(3500, decoded.newState.temperature2, "Battery temp should be 3500")
+        assertEquals(1, decoded.newState.chargingStatus, "Charging flag should be 1")
     }
 
     @Test
@@ -1407,8 +1475,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0xC9, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.chargingStatus, "Charging flag should be 0")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.chargingStatus, "Charging flag should be 0")
     }
 
     @Test
@@ -1419,8 +1488,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x46, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1, result.newState.lockState, "Lock state should be 1 (locked)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.lockState, "Lock state should be 1 (locked)")
     }
 
     @Test
@@ -1431,8 +1501,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x46, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(0, result.newState.lockState, "Lock state should be 0 (unlocked)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.lockState, "Lock state should be 0 (unlocked)")
     }
 
     @Test
@@ -1443,8 +1514,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x4C, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.newState.handleButton, "Handle button should be true when lift sensor on")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.newState.handleButton, "Handle button should be true when lift sensor on")
     }
 
     @Test
@@ -1455,8 +1527,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x4C, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertFalse(result.newState.handleButton, "Handle button should be false when lift sensor off")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertFalse(decoded.newState.handleButton, "Handle button should be false when lift sensor off")
     }
 
     @Test
@@ -1467,8 +1540,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x55, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1, result.newState.lightMode, "Normal headlight mode should map to lightMode 1 (on)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.lightMode, "Normal headlight mode should map to lightMode 1 (on)")
     }
 
     @Test
@@ -1479,8 +1553,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x55, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(2, result.newState.lightMode, "Strobe headlight mode should map to lightMode 2")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(2, decoded.newState.lightMode, "Strobe headlight mode should map to lightMode 2")
     }
 
     @Test
@@ -1491,8 +1566,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x4D, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(5, result.newState.ledMode, "LED mode should be 5")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(5, decoded.newState.ledMode, "LED mode should be 5")
     }
 
     @Test
@@ -1507,8 +1583,9 @@ class KingsongDecoderTest {
         val packet = buildKsFrame(0x3F, data)
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertEquals(1800, result.newState.autoOffTime, "Timer 30 min should be 1800 seconds")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1800, decoded.newState.autoOffTime, "Timer 30 min should be 1800 seconds")
     }
 
     // ==================== New Command Tests ====================
@@ -1638,8 +1715,9 @@ class KingsongDecoderTest {
         packet[19] = (nameSum and 0xFF).toByte()
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.commands.isEmpty(), "Valid checksum should not trigger re-request")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.commands.isEmpty(), "Valid checksum should not trigger re-request")
     }
 
     @Test
@@ -1665,7 +1743,8 @@ class KingsongDecoderTest {
         packet[19] = 0xFF.toByte()
 
         val result = decoder.decode(packet, defaultState, defaultConfig)
-        assertNotNull(result)
-        assertTrue(result.commands.isNotEmpty(), "Invalid checksum should trigger name re-request")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.commands.isNotEmpty(), "Invalid checksum should trigger name re-request")
     }
 }

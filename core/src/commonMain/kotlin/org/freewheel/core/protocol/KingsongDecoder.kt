@@ -67,13 +67,13 @@ class KingsongDecoder : WheelDecoder {
     private var currentLightMode = 0x13  // last-known light mode byte (default: on), for SetMute
     private var versionNum = 0           // firmware version number (e.g., 205 for v2.05)
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        if (data.size < 20) return null
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+        if (data.size < 20) return DecodeResult.Buffering
 
         // Check header (AA 55)
         val a1 = data[0].toInt() and 0xFF
         val a2 = data[1].toInt() and 0xFF
-        if (a1 != 0xAA || a2 != 0x55) return null
+        if (a1 != 0xAA || a2 != 0x55) return DecodeResult.Buffering
 
         val frameType = data[16].toInt() and 0xFF
         val commands = mutableListOf<WheelCommand>()
@@ -103,12 +103,17 @@ class KingsongDecoder : WheelDecoder {
             }
 
             if (newState != null) {
-                DecodedData(
+                DecodeResult.Success(DecodedData(
                     newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
                     commands = commands,
                     hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5
+                ))
+            } else {
+                DecodeResult.Unhandled(
+                    reason = "unknown Kingsong frame type 0x${frameType.toString(16)}",
+                    frameData = data.copyOf()
                 )
-            } else null
+            }
         }
     }
 

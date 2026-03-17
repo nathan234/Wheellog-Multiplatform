@@ -121,7 +121,7 @@ class GotwayDecoder : WheelDecoder {
     private var bms1 = SmartBms()
     private var bms2 = SmartBms()
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
             var newState = currentState
 
@@ -164,15 +164,18 @@ class GotwayDecoder : WheelDecoder {
             }
 
             // Unpacker loop
-            val result = decodeFrames(data, unpacker, newState) { buffer, state ->
+            val loopResult = decodeFrames(data, unpacker, newState) { buffer, state ->
                 processFrame(buffer, state, config)
             }
 
+            // Extract success data if available
+            val successData = (loopResult as? DecodeResult.Success)?.data
+
             // Merge pre-loop state changes with unpacker loop results
-            var finalState = result?.newState ?: newState
-            var finalHasNewData = result?.hasNewData ?: false
-            val commands = result?.commands?.toMutableList() ?: mutableListOf()
-            var news = result?.news
+            var finalState = successData?.newState ?: newState
+            var finalHasNewData = successData?.hasNewData ?: false
+            val commands = successData?.commands?.toMutableList() ?: mutableListOf()
+            var news = successData?.news
 
             // Retry firmware/model requests until both are populated (like legacy adapter)
             if (finalHasNewData && (fw.isEmpty() || model.isEmpty())) {
@@ -197,8 +200,8 @@ class GotwayDecoder : WheelDecoder {
                 }
             }
 
-            if (result != null || finalState != currentState) {
-                DecodedData(
+            if (successData != null || finalState != currentState) {
+                DecodeResult.Success(DecodedData(
                     newState = finalState.copy(
                         bms1 = bms1.toSnapshot(),
                         bms2 = bms2.toSnapshot()
@@ -206,8 +209,10 @@ class GotwayDecoder : WheelDecoder {
                     commands = commands,
                     hasNewData = finalHasNewData,
                     news = news
-                )
-            } else null
+                ))
+            } else {
+                loopResult
+            }
         }
     }
 

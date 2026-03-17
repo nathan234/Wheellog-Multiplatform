@@ -29,8 +29,8 @@ class AutoDetectDecoder(
     private val veteranDecoder by lazy { factory.createDecoder(WheelType.VETERAN)!! }
     private val leaperkimDecoder by lazy { factory.createDecoder(WheelType.LEAPERKIM)!! }
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-        if (data.isEmpty()) return null
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+        if (data.isEmpty()) return DecodeResult.Buffering
 
         // If we've already detected the wheel type, delegate to that decoder
         detectedDecoder?.let { decoder ->
@@ -45,18 +45,7 @@ class AutoDetectDecoder(
                 data[1] == 0xAA.toByte() -> {
                     detectedDecoder = leaperkimDecoder
                     detectedType = WheelType.LEAPERKIM
-                    val result = leaperkimDecoder.decode(data, currentState, config)
-                    return result?.let {
-                        DecodedData(
-                            newState = it.newState.copy(
-                                wheelType = WheelType.LEAPERKIM,
-                                model = it.newState.model
-                            ),
-                            commands = it.commands,
-                            hasNewData = it.hasNewData,
-                            news = it.news
-                        )
-                    }
+                    return leaperkimDecoder.decode(data, currentState, config).withWheelType(WheelType.LEAPERKIM)
                 }
 
                 // Veteran header: DC 5A 5C
@@ -65,18 +54,7 @@ class AutoDetectDecoder(
                 data[2] == 0x5C.toByte() -> {
                     detectedDecoder = veteranDecoder
                     detectedType = WheelType.VETERAN
-                    val result = veteranDecoder.decode(data, currentState, config)
-                    return result?.let {
-                        DecodedData(
-                            newState = it.newState.copy(
-                                wheelType = WheelType.VETERAN,
-                                model = it.newState.model
-                            ),
-                            commands = it.commands,
-                            hasNewData = it.hasNewData,
-                            news = it.news
-                        )
-                    }
+                    return veteranDecoder.decode(data, currentState, config).withWheelType(WheelType.VETERAN)
                 }
 
                 // Gotway header: 55 AA
@@ -84,24 +62,25 @@ class AutoDetectDecoder(
                 data[1] == 0xAA.toByte() -> {
                     detectedDecoder = gotwayDecoder
                     detectedType = WheelType.GOTWAY
-                    val result = gotwayDecoder.decode(data, currentState, config)
-                    return result?.let {
-                        DecodedData(
-                            newState = it.newState.copy(
-                                wheelType = WheelType.GOTWAY,
-                                model = it.newState.model
-                            ),
-                            commands = it.commands,
-                            hasNewData = it.hasNewData,
-                            news = it.news
-                        )
-                    }
+                    return gotwayDecoder.decode(data, currentState, config).withWheelType(WheelType.GOTWAY)
                 }
             }
         }
 
         // Not enough data or unrecognized header
-        return null
+        return DecodeResult.Unhandled(
+            reason = "unrecognized header",
+            frameData = data.copyOf()
+        )
+    }
+
+    /** Stamps wheelType on success results from delegated decoders. */
+    private fun DecodeResult.withWheelType(type: WheelType): DecodeResult = when (this) {
+        is DecodeResult.Success -> DecodeResult.Success(data.copy(
+            newState = data.newState.copy(wheelType = type)
+        ))
+        is DecodeResult.Buffering -> this
+        is DecodeResult.Unhandled -> this
     }
 
     override fun isReady(): Boolean {

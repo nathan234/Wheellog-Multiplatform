@@ -6,7 +6,6 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -36,15 +35,15 @@ class VeteranDecoderComparisonTest {
         // Feed first packet
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
 
         // Feed second packet (should complete the frame)
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
         // Verify we got valid data
-        assertTrue(result2?.hasNewData == true, "Should decode complete frame")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = result2!!.newState
+        val finalState = (result2 as DecodeResult.Success).data.newState
 
         // Expected from legacy test:
         // - speed = 0
@@ -72,13 +71,13 @@ class VeteranDecoderComparisonTest {
 
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
 
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Should decode complete frame")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = result2!!.newState
+        val finalState = (result2 as DecodeResult.Success).data.newState
 
         // Expected from legacy test:
         // - speed = 274 (absolute value) - legacy stores raw value in 1/10 km/h
@@ -109,13 +108,13 @@ class VeteranDecoderComparisonTest {
 
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
 
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Should decode complete frame")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = result2!!.newState
+        val finalState = (result2 as DecodeResult.Success).data.newState
 
         // Expected from legacy test:
         // - speed = 0 (absolute value)
@@ -144,13 +143,13 @@ class VeteranDecoderComparisonTest {
 
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
 
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Should decode complete frame")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = result2!!.newState
+        val finalState = (result2 as DecodeResult.Success).data.newState
 
         // Expected from legacy test:
         // - speed = 0 (absolute value)
@@ -182,7 +181,7 @@ class VeteranDecoderComparisonTest {
         val result = decoder.decode(withoutHeader, defaultState, defaultConfig)
 
         // Without proper header, should not produce valid data
-        assertTrue(result == null || !result.hasNewData,
+        assertTrue(result !is DecodeResult.Success || !result.data.hasNewData,
             "Invalid header should not produce valid data")
     }
 
@@ -194,7 +193,7 @@ class VeteranDecoderComparisonTest {
         decoder.reset()
         val result = decoder.decode(partialHeader, defaultState, defaultConfig)
 
-        assertTrue(result == null || !result.hasNewData,
+        assertTrue(result !is DecodeResult.Success || !result.data.hasNewData,
             "Partial header should not produce valid data")
     }
 
@@ -266,12 +265,12 @@ class VeteranDecoderComparisonTest {
         // First packet should not produce complete data
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
 
         // Second packet should complete the frame
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Second packet should complete frame")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Second packet should complete frame")
     }
 
     // ==================== Battery Calculation ====================
@@ -346,7 +345,7 @@ class VeteranDecoderComparisonTest {
         var state = defaultState
         for (packet in listOf(byteArray1, byteArray2, byteArray3)) {
             val result = decoder.decode(packet, state, defaultConfig)
-            if (result != null) state = result.newState
+            if (result is DecodeResult.Success) state = result.data.newState
         }
 
         // Expected from legacy test:
@@ -375,8 +374,8 @@ class VeteranDecoderComparisonTest {
 
         for (packet in listOf(byteArray1, byteArray2, byteArray3, byteArray4, byteArray5)) {
             val result = decoder.decode(packet, state, defaultConfig)
-            if (result != null) {
-                state = result.newState
+            if (result is DecodeResult.Success) {
+                state = result.data.newState
             }
         }
 
@@ -400,15 +399,16 @@ class VeteranDecoderComparisonTest {
         decoder.reset()
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Should decode data")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode data")
+        val decoded2 = (result2 as DecodeResult.Success).data
         // Raw speed = 0x0112 = 274, * 10 = 2740
         // With veteranNegative=1, speed = 2740 * 1 = 2740 (positive)
-        assertEquals(2740, result2!!.newState.speed,
+        assertEquals(2740, decoded2.newState.speed,
             "Speed should be 2740 (27.40 km/h)")
-        assertTrue(result2.newState.speed > 0, "Speed should be positive")
+        assertTrue(decoded2.newState.speed > 0, "Speed should be positive")
     }
 
     @Test
@@ -424,14 +424,15 @@ class VeteranDecoderComparisonTest {
         var state = defaultState
         // defaultConfig has gotwayNegative=0 → abs() applied
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Should decode data")
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode data")
+        val decoded2 = (result2 as DecodeResult.Success).data
         // Raw speed = -274, * 10 = -2740, abs() → 2740
-        assertEquals(2740, result2!!.newState.speed,
+        assertEquals(2740, decoded2.newState.speed,
             "gotwayNegative=0: speed should be absolute (27.40 km/h)")
-        assertTrue(result2.newState.speed > 0, "Speed should be positive with gotwayNegative=0")
+        assertTrue(decoded2.newState.speed > 0, "Speed should be positive with gotwayNegative=0")
     }
 
     // ==================== Sherman S Variant Header ====================
@@ -446,11 +447,11 @@ class VeteranDecoderComparisonTest {
         decoder.reset()
         var state = defaultState
         val result1 = decoder.decode(byteArray1, state, defaultConfig)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
-        assertTrue(result2?.hasNewData == true, "Sherman S header variant should decode")
-        val finalState = result2!!.newState
+        assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Sherman S header variant should decode")
+        val finalState = (result2 as DecodeResult.Success).data.newState
 
         // Expected from legacy test:
         assertEquals(0, abs(finalState.speed), "Speed should be 0")
@@ -557,8 +558,8 @@ class VeteranDecoderComparisonTest {
             mVer = 1
         )
         val result = vetDecoder.decode(frame, defaultState, config)
-        assertNotNull(result, "Veteran frame should decode")
-        return result.newState
+        assertTrue(result is DecodeResult.Success, "Veteran frame should decode")
+        return (result as DecodeResult.Success).data.newState
     }
 
     /**
@@ -580,8 +581,8 @@ class VeteranDecoderComparisonTest {
             mVer = 1
         )
         val result = vetDecoder.decode(frame, defaultState, config)
-        assertNotNull(result, "Veteran frame should decode")
-        return result.newState
+        assertTrue(result is DecodeResult.Success, "Veteran frame should decode")
+        return (result as DecodeResult.Success).data.newState
     }
 
     /**

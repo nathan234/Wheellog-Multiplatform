@@ -8,7 +8,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -16,7 +15,7 @@ import kotlin.test.assertTrue
  *
  * Tests cover:
  * - Frame unpacking (header, escape, checksum, trailer)
- * - Init state machine (PASSWORD → INIT_COMM → INIT_STATUS → POLLING)
+ * - Init state machine (PASSWORD -> INIT_COMM -> INIT_STATUS -> POLLING)
  * - Telemetry parsing from READ_VALUES responses
  * - Status parsing from INIT_STATUS/READ_STATUS responses
  * - Command encoding (buildCommand)
@@ -116,7 +115,7 @@ class LeaperkimCanDecoderTest {
 
     @Test
     fun `getKeepAliveCommand returns null before ready`() {
-        assertNull(decoder.getKeepAliveCommand())
+        assertEquals(null, decoder.getKeepAliveCommand())
     }
 
     // ==================== Init Sequence ====================
@@ -138,9 +137,10 @@ class LeaperkimCanDecoderTest {
         val ackFrame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_PASSWORD, ByteArray(8))
         val result = decoder.decode(ackFrame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(1, result.commands.size)
-        assertTrue(result.commands[0] is WheelCommand.SendBytes)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.commands.size)
+        assertTrue(decoded.commands[0] is WheelCommand.SendBytes)
         assertFalse(decoder.isReady())
     }
 
@@ -154,8 +154,9 @@ class LeaperkimCanDecoderTest {
         val ack2 = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_COMM, ByteArray(8))
         val result = decoder.decode(ack2, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(1, result.commands.size)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.commands.size)
         assertFalse(decoder.isReady())
     }
 
@@ -183,8 +184,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(expectedSpeed, result.newState.speed)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(expectedSpeed, decoded.newState.speed)
     }
 
     @Test
@@ -192,14 +194,15 @@ class LeaperkimCanDecoderTest {
         completeInitSequence()
 
         val payload = ByteArray(64)
-        // Voltage at offset 24: 8400 (= 84.00V stored as ×100)
+        // Voltage at offset 24: 8400 (= 84.00V stored as x100)
         putIntLE(payload, 24, 8400)
 
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(8400, result.newState.voltage)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(8400, decoded.newState.voltage)
     }
 
     @Test
@@ -214,8 +217,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(49, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(49, decoded.newState.batteryLevel)
     }
 
     @Test
@@ -228,8 +232,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0, decoded.newState.batteryLevel)
     }
 
     @Test
@@ -242,8 +247,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(100, decoded.newState.batteryLevel)
     }
 
     @Test
@@ -251,15 +257,16 @@ class LeaperkimCanDecoderTest {
         completeInitSequence()
 
         val payload = ByteArray(64)
-        // Temperature at offset 32: 35 (°C as uint8)
+        // Temperature at offset 32: 35 (deg C as uint8)
         payload[32] = 35
         // Expected: 35 * 100 = 3500
 
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(3500, result.newState.temperature)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(3500, decoded.newState.temperature)
     }
 
     @Test
@@ -268,14 +275,15 @@ class LeaperkimCanDecoderTest {
 
         val payload = ByteArray(64)
         // Current at offset 48: 15000 (= 15000 * 0.001 = 15A)
-        // Stored as ×100: 15000 * 0.1 = 1500
+        // Stored as x100: 15000 * 0.1 = 1500
         putIntLE(payload, 48, 15000)
 
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(1500, result.newState.phaseCurrent)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1500, decoded.newState.phaseCurrent)
     }
 
     @Test
@@ -289,8 +297,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(5000L, result.newState.wheelDistance)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(5000L, decoded.newState.wheelDistance)
     }
 
     @Test
@@ -304,8 +313,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(2.0, result.newState.angle, 0.001)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(2.0, decoded.newState.angle, 0.001)
     }
 
     @Test
@@ -316,8 +326,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(WheelType.LEAPERKIM, result.newState.wheelType)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(WheelType.LEAPERKIM, decoded.newState.wheelType)
     }
 
     // ==================== Status Parsing ====================
@@ -337,8 +348,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("123456789ABCDEF", result.newState.serialNumber)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("123456789ABCDEF", decoded.newState.serialNumber)
     }
 
     @Test
@@ -356,8 +368,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("2.1.5", result.newState.version)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("2.1.5", decoded.newState.version)
     }
 
     @Test
@@ -373,8 +386,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("Sherman", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("Sherman", decoded.newState.model)
     }
 
     @Test
@@ -390,8 +404,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("Abrams", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("Abrams", decoded.newState.model)
     }
 
     @Test
@@ -407,8 +422,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(1, result.newState.lightMode)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1, decoded.newState.lightMode)
     }
 
     @Test
@@ -424,8 +440,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertTrue(result.newState.handleButton)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.newState.handleButton)
     }
 
     @Test
@@ -441,8 +458,9 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertTrue(result.newState.transportMode)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.newState.transportMode)
     }
 
     // ==================== Escape Handling ====================
@@ -454,15 +472,16 @@ class LeaperkimCanDecoderTest {
         // Build a frame manually with a payload containing 0xA5
         val payload = ByteArray(64)
         // Put a value that will have 0xA5 in it
-        payload[32] = 0xA5.toByte() // temperature = 0xA5 = 165°C → 16500
+        payload[32] = 0xA5.toByte() // temperature = 0xA5 = 165 deg C -> 16500
 
         // The buildTestFrame helper handles escaping
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_VALUES, payload)
 
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals(16500, result.newState.temperature) // 165 * 100
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(16500, decoded.newState.temperature) // 165 * 100
     }
 
     // ==================== Command Encoding ====================
@@ -604,19 +623,19 @@ class LeaperkimCanDecoderTest {
     // ==================== Invalid Frames ====================
 
     @Test
-    fun `returns null for empty data`() {
+    fun `returns Buffering for empty data`() {
         val result = decoder.decode(byteArrayOf(), defaultState, defaultConfig)
-        assertNull(result)
+        assertTrue(result is DecodeResult.Buffering)
     }
 
     @Test
-    fun `returns null for incomplete frame`() {
+    fun `returns Buffering for incomplete frame`() {
         val result = decoder.decode(byteArrayOf(0xAA.toByte(), 0xAA.toByte(), 0x01, 0x02), defaultState, defaultConfig)
-        assertNull(result)
+        assertTrue(result is DecodeResult.Buffering)
     }
 
     @Test
-    fun `returns null for bad checksum`() {
+    fun `returns Unhandled for bad checksum`() {
         // Build a frame but corrupt the checksum
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_INIT_PASSWORD, ByteArray(8))
         // Corrupt the checksum byte (second to last before 55 55)
@@ -624,7 +643,7 @@ class LeaperkimCanDecoderTest {
         frame[checksumIndex] = ((frame[checksumIndex].toInt() + 1) and 0xFF).toByte()
 
         val result = decoder.decode(frame, defaultState, defaultConfig)
-        assertNull(result)
+        assertTrue(result is DecodeResult.Unhandled)
     }
 
     // ==================== Status Polling ====================
@@ -640,9 +659,10 @@ class LeaperkimCanDecoderTest {
         val frame = buildTestFrame(LeaperkimCanDecoder.CAN_READ_STATUS, payload)
         val result = decoder.decode(frame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        assertEquals("Glide 3", result.newState.model)
-        assertEquals(1, result.newState.lightMode)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals("Glide 3", decoded.newState.model)
+        assertEquals(1, decoded.newState.lightMode)
     }
 
     // ==================== buildCanFrame verification ====================

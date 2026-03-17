@@ -36,7 +36,7 @@ class NinebotZDecoderComparisonTest {
         val result = decoder.decode(withoutHeader, defaultState, defaultConfig)
 
         // Without proper header, should not produce valid data
-        assertTrue(result == null || !result.hasNewData,
+        assertTrue(result !is DecodeResult.Success || !result.data.hasNewData,
             "Invalid header should not produce valid data")
     }
 
@@ -370,7 +370,7 @@ class NinebotZDecoderComparisonTest {
         val result = decoder.decode(truncated, defaultState, defaultConfig)
 
         // Should not crash, should not produce data
-        assertTrue(result == null || !result.hasNewData,
+        assertTrue(result !is DecodeResult.Success || !result.data.hasNewData,
             "Truncated frame should not produce valid data")
     }
 
@@ -617,9 +617,9 @@ class NinebotZDecoderComparisonTest {
         // Feed all packets through the decoder
         for (hex in packets) {
             val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result != null) {
-                state = result.newState
-                if (result.hasNewData) hasNewData = true
+            if (result is DecodeResult.Success) {
+                state = result.data.newState
+                if (result.data.hasNewData) hasNewData = true
             }
         }
 

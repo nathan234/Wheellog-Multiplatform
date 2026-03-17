@@ -3,8 +3,6 @@ package org.freewheel.core.protocol
 import org.freewheel.core.domain.WheelState
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -48,9 +46,9 @@ class DecodeLoopTest {
     }
 
     @Test
-    fun frameProcessedButStateUnchanged_returnsNonNull() {
+    fun frameProcessedButStateUnchanged_returnsSuccess() {
         // A frame is processed but processFrame returns the same state unchanged.
-        // Result should still be non-null (frame was processed).
+        // Result should be Success (frame was processed).
         val state = WheelState()
         val unpacker = FakeUnpacker(frameAtByte = mapOf(0 to byteArrayOf(1)))
 
@@ -58,13 +56,14 @@ class DecodeLoopTest {
             FrameResult(s) // same state, no new data
         }
 
-        assertNotNull(result)
-        assertEquals(state, result.newState)
-        assertEquals(false, result.hasNewData)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(state, decoded.newState)
+        assertEquals(false, decoded.hasNewData)
     }
 
     @Test
-    fun noFrameAssembled_returnsNull() {
+    fun noFrameAssembled_returnsBuffering() {
         // Unpacker never returns true, processFrame is never called.
         val state = WheelState()
         val unpacker = FakeUnpacker() // no frames configured
@@ -75,7 +74,7 @@ class DecodeLoopTest {
             FrameResult(state)
         }
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Buffering)
         assertEquals(false, processFrameCalled)
     }
 
@@ -98,8 +97,8 @@ class DecodeLoopTest {
             }
         }
 
-        assertNotNull(result)
-        assertTrue(result.hasNewData)
+        assertTrue(result is DecodeResult.Success)
+        assertTrue((result as DecodeResult.Success).data.hasNewData)
     }
 
     @Test
@@ -122,10 +121,11 @@ class DecodeLoopTest {
             }
         }
 
-        assertNotNull(result)
-        assertEquals(2, result.commands.size)
-        assertEquals(cmd1, result.commands[0])
-        assertEquals(cmd2, result.commands[1])
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(2, decoded.commands.size)
+        assertEquals(cmd1, decoded.commands[0])
+        assertEquals(cmd2, decoded.commands[1])
     }
 
     @Test
@@ -144,5 +144,19 @@ class DecodeLoopTest {
 
         // reset() should have been called twice — once after each frame extraction
         assertEquals(2, unpacker.resetCount)
+    }
+
+    @Test
+    fun framesExtractedButAllUnrecognized_returnsUnhandled() {
+        // Unpacker yields a complete frame but processFrame returns null
+        // for all frames. Result should be Unhandled.
+        val state = WheelState()
+        val unpacker = FakeUnpacker(frameAtByte = mapOf(0 to byteArrayOf(0xFF.toByte())))
+
+        val result = decodeFrames(byteArrayOf(0x42), unpacker, state) { _, _ ->
+            null // unrecognized frame
+        }
+
+        assertTrue(result is DecodeResult.Unhandled)
     }
 }

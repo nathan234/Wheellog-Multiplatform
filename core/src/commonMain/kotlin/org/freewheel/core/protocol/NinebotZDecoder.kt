@@ -418,16 +418,22 @@ class NinebotZDecoder : WheelDecoder {
     private var driveFlags = 0
     private var speakerVolume = 0
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
-            decodeFrames(data, unpacker, currentState) { buffer, state ->
+            val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
                 val msg = CANMessage.verify(buffer, gamma) ?: return@decodeFrames null
                 processMessage(msg, state)
-            }?.let { result ->
-                result.copy(newState = result.newState.copy(
-                    bms1 = bms1.toSnapshot(),
-                    bms2 = bms2.toSnapshot()
+            }
+
+            when (loopResult) {
+                is DecodeResult.Success -> DecodeResult.Success(loopResult.data.copy(
+                    newState = loopResult.data.newState.copy(
+                        bms1 = bms1.toSnapshot(),
+                        bms2 = bms2.toSnapshot()
+                    )
                 ))
+                is DecodeResult.Buffering -> loopResult
+                is DecodeResult.Unhandled -> loopResult
             }
         }
     }

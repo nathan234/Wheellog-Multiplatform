@@ -46,7 +46,7 @@ class InMotionDecoder : WheelDecoder {
     private var isReady = false
     private var needSlowData = true
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
             decodeFrames(data, unpacker, currentState) { buffer, state ->
                 processFrame(buffer, state, config)

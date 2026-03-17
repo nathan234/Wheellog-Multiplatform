@@ -10,6 +10,7 @@ import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettingsState
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
+import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoderFactory
@@ -595,18 +596,26 @@ class WheelConnectionManager(
                 listOf(captureEffect)
             )
         }
-        if (result == null) {
-            Logger.d(TAG, "decode() returned null for ${event.data.size} bytes (decoder=${decoder.wheelType})")
-            return WcmTransition(
-                state.copy(consecutiveDecodeErrors = state.consecutiveDecodeErrors + 1),
-                listOf(captureEffect)
-            )
+
+        when (result) {
+            is DecodeResult.Buffering -> {
+                return WcmTransition(state, listOf(captureEffect))
+            }
+            is DecodeResult.Unhandled -> {
+                Logger.d(TAG, "Unhandled frame: ${result.reason} (${result.frameData.size} bytes, decoder=${decoder.wheelType})")
+                return WcmTransition(state, listOf(captureEffect))
+            }
+            is DecodeResult.Success -> {
+                // continue below
+            }
         }
+
+        val decoded = result.data
 
         val newConnectionState = if (decoder.isReady() && state.connectionState !is ConnectionState.Connected) {
             val address = getCurrentAddress(state) ?: ""
             Logger.d(TAG, "Decoder ready, transitioning to Connected")
-            ConnectionState.Connected(address = address, wheelName = result.newState.displayName)
+            ConnectionState.Connected(address = address, wheelName = decoded.newState.displayName)
         } else {
             if (!decoder.isReady()) {
                 Logger.d(TAG, "Decoded OK but isReady()=false (decoder=${decoder.wheelType})")
@@ -616,8 +625,8 @@ class WheelConnectionManager(
 
         val effects = buildList {
             add(captureEffect)
-            if (result.commands.isNotEmpty()) {
-                add(WcmEffect.DispatchCommands(result.commands))
+            if (decoded.commands.isNotEmpty()) {
+                add(WcmEffect.DispatchCommands(decoded.commands))
             }
         }
 
@@ -631,7 +640,7 @@ class WheelConnectionManager(
 
         return WcmTransition(
             state = state.copy(
-                wheelState = result.newState,
+                wheelState = decoded.newState,
                 connectionState = newConnectionState,
                 capabilities = mergedCapabilities,
                 consecutiveDecodeErrors = 0,

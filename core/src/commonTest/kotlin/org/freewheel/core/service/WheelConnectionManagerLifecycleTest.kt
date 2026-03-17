@@ -12,6 +12,7 @@ import org.freewheel.core.ble.DiscoveredServices
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecodedData
+import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
@@ -140,9 +141,9 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
 
         // Make decoder ready → Connected
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500, name = "KS-S18")
-        )
+        ))
         fakeDecoder.ready = true
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
@@ -313,9 +314,9 @@ class WheelConnectionManagerLifecycleTest {
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500, voltage = 8400, batteryLevel = 85)
-        )
+        ))
 
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
@@ -339,22 +340,22 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
-    fun `onDataReceived with null decode result does not update state`() = runTest(timeout = 0.1.seconds) {
+    fun `onDataReceived with Buffering decode result does not update state`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
         // Set initial state via a decode
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500)
-        )
+        ))
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
         assertEquals(2500, manager.wheelState.value.speed)
 
-        // Now return null (incomplete frame)
-        fakeDecoder.decodeResult = null
+        // Now return Buffering (incomplete frame)
+        fakeDecoder.decodeResult = DecodeResult.Buffering
         manager.onDataReceived(byteArrayOf(0x02))
         runCurrent()
 
@@ -371,9 +372,9 @@ class WheelConnectionManagerLifecycleTest {
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500, name = "KS-S18")
-        )
+        ))
         fakeDecoder.ready = true
 
         manager.onDataReceived(byteArrayOf(0x01))
@@ -391,9 +392,9 @@ class WheelConnectionManagerLifecycleTest {
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500)
-        )
+        ))
         fakeDecoder.ready = false
 
         manager.onDataReceived(byteArrayOf(0x01))
@@ -412,9 +413,9 @@ class WheelConnectionManagerLifecycleTest {
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500, name = "KS-S18")
-        )
+        ))
         fakeDecoder.ready = true
 
         manager.onDataReceived(byteArrayOf(0x01))
@@ -422,9 +423,9 @@ class WheelConnectionManagerLifecycleTest {
         val firstState = manager.connectionState.value
 
         // Send more data — state should remain Connected (same instance)
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 3000, name = "KS-S18")
-        )
+        ))
         manager.onDataReceived(byteArrayOf(0x02))
         runCurrent()
 
@@ -455,9 +456,9 @@ class WheelConnectionManagerLifecycleTest {
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 100, name = "KS-S18")
-        )
+        ))
         fakeDecoder.ready = true
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
@@ -504,10 +505,10 @@ class WheelConnectionManagerLifecycleTest {
         fakeBle.clearWrittenData()
 
         // Decoder returns a response command (like KS 0xA4 → 0x98 acknowledgment)
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500),
             commands = listOf(WheelCommand.SendBytes(responseData))
-        )
+        ))
 
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
@@ -528,13 +529,13 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
         fakeBle.clearWrittenData()
 
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500),
             commands = listOf(
                 WheelCommand.SendBytes(resp1),
                 WheelCommand.SendBytes(resp2)
             )
-        )
+        ))
 
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
@@ -635,9 +636,9 @@ class WheelConnectionManagerLifecycleTest {
         assertEquals(3, manager.consecutiveBleErrors.value)
 
         // Successful data resets the counter
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500)
-        )
+        ))
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
 
@@ -652,9 +653,9 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
 
         // Make decoder ready → Connected
-        fakeDecoder.decodeResult = DecodedData(
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
             newState = WheelState(speed = 2500, name = "KS-S18")
-        )
+        ))
         fakeDecoder.ready = true
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
@@ -719,14 +720,14 @@ class FakeDecoder(
 ) : WheelDecoder {
 
     var ready = false
-    var decodeResult: DecodedData? = null
+    var decodeResult: DecodeResult = DecodeResult.Buffering
     var initCommandList: List<WheelCommand> = emptyList()
     var buildCommandResult: List<WheelCommand> = emptyList()
     private var _keepAliveCommand: WheelCommand? = keepAliveCommand
     var resetCalled = false
     var decodeCallCount = 0
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
         decodeCallCount++
         return decodeResult
     }

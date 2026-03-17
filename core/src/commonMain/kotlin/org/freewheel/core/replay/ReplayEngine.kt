@@ -2,6 +2,7 @@ package org.freewheel.core.replay
 
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.logging.BlePacketDirection
+import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
 import org.freewheel.core.protocol.WheelDecoder
@@ -166,8 +167,8 @@ class ReplayEngine(
         var state = WheelState()
         for (i in 0 until targetIndex) {
             val result = dec.decode(packets[i].data, state, config)
-            if (result != null) {
-                state = result.newState
+            if (result is DecodeResult.Success) {
+                state = result.data.newState
             }
         }
 
@@ -222,8 +223,8 @@ class ReplayEngine(
             }
 
             val result = dec.decode(packets[i].data, state, config)
-            if (result != null) {
-                state = result.newState
+            if (result is DecodeResult.Success) {
+                state = result.data.newState
                 _wheelState.value = state
                 // Commands are intentionally discarded — no BLE to send to during replay
             }

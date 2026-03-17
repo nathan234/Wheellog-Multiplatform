@@ -5,6 +5,7 @@ import org.freewheel.core.domain.WheelType
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.DecodedData
+import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
 import org.freewheel.core.protocol.WheelDecoderFactory
@@ -27,14 +28,14 @@ class ReplayEngineTest {
         override val wheelType = WheelType.KINGSONG
         private var ready = false
 
-        override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
-            if (data.size < 2) return null
+        override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+            if (data.size < 2) return DecodeResult.Buffering
             val speed = ((data[0].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF)
             ready = true
-            return DecodedData(
+            return DecodeResult.Success(DecodedData(
                 newState = currentState.copy(speed = speed),
                 commands = listOf(WheelCommand.Beep) // Commands should be discarded
-            )
+            ))
         }
 
         override fun isReady(): Boolean = ready

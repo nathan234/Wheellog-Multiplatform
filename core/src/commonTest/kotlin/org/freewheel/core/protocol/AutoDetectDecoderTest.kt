@@ -66,7 +66,7 @@ class AutoDetectDecoderTest {
 
         val result = decoder.decode(veteranPacket, defaultState, defaultConfig)
 
-        // Result may be null if packet doesn't have enough valid data for full decode
+        // Result may not be Success if packet doesn't have enough valid data for full decode
         // but detection should still work
         assertEquals(WheelType.VETERAN, decoder.getDetectedType())
     }
@@ -106,31 +106,31 @@ class AutoDetectDecoderTest {
     // ==================== No Detection Cases ====================
 
     @Test
-    fun `returns null for empty data`() {
+    fun `returns Buffering for empty data`() {
         val result = decoder.decode(byteArrayOf(), defaultState, defaultConfig)
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Buffering)
         assertNull(decoder.getDetectedType())
     }
 
     @Test
-    fun `returns null for insufficient data - 1 byte`() {
+    fun `returns Unhandled for insufficient data - 1 byte`() {
         val result = decoder.decode(byteArrayOf(0xDC.toByte()), defaultState, defaultConfig)
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Unhandled)
         assertNull(decoder.getDetectedType())
     }
 
     @Test
-    fun `returns null for insufficient data - 2 bytes`() {
+    fun `returns Unhandled for insufficient data - 2 bytes`() {
         val result = decoder.decode(byteArrayOf(0xDC.toByte(), 0x5A), defaultState, defaultConfig)
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Unhandled)
         assertNull(decoder.getDetectedType())
     }
 
     @Test
-    fun `returns null for unrecognized header`() {
+    fun `returns Unhandled for unrecognized header`() {
         val unknownPacket = byteArrayOf(
             0x12, 0x34, 0x56,
             0x00, 0x00, 0x00, 0x00
@@ -138,29 +138,29 @@ class AutoDetectDecoderTest {
 
         val result = decoder.decode(unknownPacket, defaultState, defaultConfig)
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Unhandled)
         assertNull(decoder.getDetectedType())
     }
 
     @Test
-    fun `returns null for partial Veteran header`() {
+    fun `returns Unhandled for partial Veteran header`() {
         // DC 5A but not 5C
         val partialVeteran = byteArrayOf(0xDC.toByte(), 0x5A, 0x00)
 
         val result = decoder.decode(partialVeteran, defaultState, defaultConfig)
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Unhandled)
         assertNull(decoder.getDetectedType())
     }
 
     @Test
-    fun `returns null for partial Gotway header`() {
+    fun `returns Unhandled for partial Gotway header`() {
         // 55 but not AA
         val partialGotway = byteArrayOf(0x55, 0x00, 0x00)
 
         val result = decoder.decode(partialGotway, defaultState, defaultConfig)
 
-        assertNull(result)
+        assertTrue(result is DecodeResult.Unhandled)
         assertNull(decoder.getDetectedType())
     }
 

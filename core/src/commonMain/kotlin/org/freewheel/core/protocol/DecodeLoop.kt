@@ -25,33 +25,37 @@ data class FrameResult(
  * The unpacker is automatically reset after each frame extraction, enabling
  * multi-frame BLE notifications for all decoders.
  *
- * Returns null only when no frame was processed and no state change occurred —
- * this eliminates the null-return-on-valid-frame bug that previously existed
- * when each decoder copy-pasted this loop.
+ * Returns a [DecodeResult] that distinguishes between:
+ * - [DecodeResult.Success] — at least one frame was processed successfully
+ * - [DecodeResult.Unhandled] — unpacker yielded frame(s) but none were recognized
+ * - [DecodeResult.Buffering] — no complete frames extracted yet
  *
  * @param data Raw bytes from a BLE notification
  * @param unpacker The protocol-specific frame unpacker
  * @param currentState Current wheel state to build upon
  * @param processFrame Lambda that processes a single complete frame buffer,
  *   returning a [FrameResult] or null if the frame is invalid/unrecognized
- * @return [DecodedData] if any frame was processed or state changed, null otherwise
+ * @return [DecodeResult] indicating success, unhandled, or buffering
  */
 internal inline fun decodeFrames(
     data: ByteArray,
     unpacker: Unpacker,
     currentState: WheelState,
     processFrame: (buffer: ByteArray, state: WheelState) -> FrameResult?
-): DecodedData? {
+): DecodeResult {
     var newState = currentState
     var hasNewData = false
     var frameProcessed = false
     val commands = mutableListOf<WheelCommand>()
     var news: String? = null
+    var hadCompleteFrame = false
+    var firstUnhandledBuffer: ByteArray? = null
 
     for (byte in data) {
         if (unpacker.addChar(byte.toInt() and 0xFF)) {
             val buffer = unpacker.getBuffer()
             unpacker.reset()
+            hadCompleteFrame = true
             val result = processFrame(buffer, newState)
             if (result != null) {
                 frameProcessed = true
@@ -59,11 +63,22 @@ internal inline fun decodeFrames(
                 hasNewData = hasNewData || result.hasNewData
                 commands.addAll(result.commands)
                 result.news?.let { news = it }
+            } else if (firstUnhandledBuffer == null) {
+                firstUnhandledBuffer = buffer.copyOf()
             }
         }
     }
 
-    return if (frameProcessed || hasNewData || newState != currentState) {
-        DecodedData(newState, commands, hasNewData, news)
-    } else null
+    return when {
+        frameProcessed || hasNewData || newState != currentState -> {
+            DecodeResult.Success(DecodedData(newState, commands, hasNewData, news))
+        }
+        hadCompleteFrame -> {
+            DecodeResult.Unhandled(
+                reason = "frame not recognized by decoder",
+                frameData = firstUnhandledBuffer ?: byteArrayOf()
+            )
+        }
+        else -> DecodeResult.Buffering
+    }
 }

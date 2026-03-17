@@ -222,7 +222,7 @@ class VeteranDecoder : WheelDecoder {
     private var bms1 = SmartBms()
     private var bms2 = SmartBms()
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
             val currentTime = currentTimeMillis()
 
@@ -232,22 +232,28 @@ class VeteranDecoder : WheelDecoder {
             }
             lastPacketTime = currentTime
 
-            decodeFrames(data, unpacker, currentState) { buffer, state ->
+            val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
                 processFrame(buffer, state, config)?.let {
                     FrameResult(it, hasNewData = true)
                 }
-            }?.let { result ->
-                val extraCommands = if (!hasSyncedTime && mVer >= 3) {
-                    hasSyncedTime = true
-                    buildTimeSyncCommands()
-                } else emptyList()
-                result.copy(
-                    newState = result.newState.copy(
-                        bms1 = bms1.toSnapshot(),
-                        bms2 = bms2.toSnapshot()
-                    ),
-                    commands = result.commands + extraCommands
-                )
+            }
+
+            when (loopResult) {
+                is DecodeResult.Success -> {
+                    val extraCommands = if (!hasSyncedTime && mVer >= 3) {
+                        hasSyncedTime = true
+                        buildTimeSyncCommands()
+                    } else emptyList()
+                    DecodeResult.Success(loopResult.data.copy(
+                        newState = loopResult.data.newState.copy(
+                            bms1 = bms1.toSnapshot(),
+                            bms2 = bms2.toSnapshot()
+                        ),
+                        commands = loopResult.data.commands + extraCommands
+                    ))
+                }
+                is DecodeResult.Buffering -> loopResult
+                is DecodeResult.Unhandled -> loopResult
             }
         }
     }

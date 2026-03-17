@@ -8,6 +8,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.freewheel.core.protocol.DecodeResult
 
 /**
  * Tests for InMotionDecoder (V1 protocol) and InMotionV2Decoder.

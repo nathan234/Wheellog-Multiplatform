@@ -2,13 +2,13 @@ package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
+import org.freewheel.core.protocol.DecodeResult
 import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.test.assertNull
 
 /**
  * Tests for NinebotDecoder and NinebotZDecoder.
@@ -380,7 +380,7 @@ class NinebotDecoderTest {
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
         val result = decoder.decode(frame, WheelState(), config)
-        assertNull(result, "LiveData2 with < 6 data bytes should return null")
+        assertTrue(result is DecodeResult.Unhandled, "LiveData2 with < 6 data bytes should be Unhandled")
     }
 
     @Test
@@ -393,7 +393,7 @@ class NinebotDecoderTest {
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
         val result = decoder.decode(frame, WheelState(), config)
-        assertNull(result, "LiveData3 with < 6 data bytes should return null")
+        assertTrue(result is DecodeResult.Unhandled, "LiveData3 with < 6 data bytes should be Unhandled")
     }
 
     @Test
@@ -406,7 +406,7 @@ class NinebotDecoderTest {
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
         val result = decoder.decode(frame, WheelState(), config)
-        assertNull(result, "LiveData4 with < 6 data bytes should return null")
+        assertTrue(result is DecodeResult.Unhandled, "LiveData4 with < 6 data bytes should be Unhandled")
     }
 
     @Test
@@ -419,7 +419,7 @@ class NinebotDecoderTest {
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
         val result = decoder.decode(frame, WheelState(), config)
-        assertNull(result, "LiveData5 with < 4 data bytes should return null")
+        assertTrue(result is DecodeResult.Unhandled, "LiveData5 with < 4 data bytes should be Unhandled")
     }
 
     // ==================== Power Calculation Tests ====================
@@ -457,8 +457,9 @@ class NinebotDecoderTest {
 
         val decoder = NinebotDecoder()
         val result = decoder.decode(frame, WheelState(), config)
-        assertNotNull(result, "LiveData frame should decode")
-        assertEquals(expectedPower, result.newState.power,
+        assertTrue(result is DecodeResult.Success, "LiveData frame should decode")
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(expectedPower, decoded.newState.power,
             "Power should be (current/100)*voltage = $expectedPower, not ${voltage * current}")
     }
 
@@ -489,8 +490,9 @@ class NinebotDecoderTest {
         feedNinebotInit(decoder)
 
         val result = decoder.decode(frame, WheelState(), config)
-        assertNotNull(result, "LiveData5 frame should decode")
-        assertEquals(expectedPower, result.newState.power,
+        assertTrue(result is DecodeResult.Success, "LiveData5 frame should decode")
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(expectedPower, decoded.newState.power,
             "LiveData5 power should use same formula as LiveData")
     }
 
@@ -514,8 +516,9 @@ class NinebotDecoderTest {
 
         val decoder = NinebotDecoder()
         val result = decoder.decode(frame, WheelState(), config)
-        assertNotNull(result, "LiveData frame should decode")
-        assertEquals(expectedPower, result.newState.power,
+        assertTrue(result is DecodeResult.Success, "LiveData frame should decode")
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(expectedPower, decoded.newState.power,
             "Power should be 0 when current is 0")
     }
 

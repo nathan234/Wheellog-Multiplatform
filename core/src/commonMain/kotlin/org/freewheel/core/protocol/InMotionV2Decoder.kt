@@ -137,7 +137,7 @@ class InMotionV2Decoder : WheelDecoder {
         const val RESP_SERIAL = 0x84    // per-battery serial number + init
     }
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData? = stateLock.withLock {
+    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult = stateLock.withLock {
         decodeFrames(data, unpacker, currentState) { buffer, state ->
             val msg = verifyAndParse(buffer) ?: return@decodeFrames null
             processMessage(msg, state)

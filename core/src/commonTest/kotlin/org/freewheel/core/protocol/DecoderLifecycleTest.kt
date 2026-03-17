@@ -78,9 +78,10 @@ class DecoderLifecycleTest {
         val liveFrame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
         val result = decoder.decode(liveFrame, defaultState, defaultConfig)
 
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
         // Should emit a V command to request firmware
-        val vCommands = result.commands.filterIsInstance<WheelCommand.SendBytes>()
+        val vCommands = decoded.commands.filterIsInstance<WheelCommand.SendBytes>()
             .filter { it.data.decodeToString() == "V" }
         assertTrue(vCommands.isNotEmpty(), "Should retry V when fw is empty")
     }
@@ -96,8 +97,9 @@ class DecoderLifecycleTest {
         val liveFrame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
         val result = decoder.decode(liveFrame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        val nCommands = result.commands.filterIsInstance<WheelCommand.SendBytes>()
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        val nCommands = decoded.commands.filterIsInstance<WheelCommand.SendBytes>()
             .filter { it.data.decodeToString() == "N" }
         assertTrue(nCommands.isNotEmpty(), "Should retry N when model is empty")
     }
@@ -112,16 +114,17 @@ class DecoderLifecycleTest {
         // Send 51 live data frames without any NAME response.
         // Counter goes 0→1→...→50 over 50 frames; fallback triggers on frame 51.
         var state = defaultState
-        var result: DecodedData? = null
+        var lastResult: DecodeResult = DecodeResult.Buffering
         for (i in 1..51) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-            result = decoder.decode(frame, state, defaultConfig)
-            if (result != null) state = result.newState
+            lastResult = decoder.decode(frame, state, defaultConfig)
+            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.newState
         }
 
         // After exceeding MAX_INFO_ATTEMPTS, model should fall back to "Begode" (the fwProt value)
-        assertNotNull(result)
-        assertEquals("Begode", result!!.newState.model,
+        assertTrue(lastResult is DecodeResult.Success)
+        val decoded = (lastResult as DecodeResult.Success).data
+        assertEquals("Begode", decoded.newState.model,
             "Model should fall back to fwProt after MAX_INFO_ATTEMPTS")
     }
 
@@ -132,18 +135,19 @@ class DecoderLifecycleTest {
 
         // Send 51 live data frames (counter goes 0→50 over 50 frames; fallback on frame 51)
         var state = defaultState
-        var result: DecodedData? = null
+        var lastResult: DecodeResult = DecodeResult.Buffering
         for (i in 1..51) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-            result = decoder.decode(frame, state, defaultConfig)
-            if (result != null) state = result.newState
+            lastResult = decoder.decode(frame, state, defaultConfig)
+            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.newState
         }
 
         // After exceeding MAX_INFO_ATTEMPTS, version should be "-" and model should be "Begode"
-        assertNotNull(result)
-        assertEquals("-", result!!.newState.version,
+        assertTrue(lastResult is DecodeResult.Success)
+        val decoded = (lastResult as DecodeResult.Success).data
+        assertEquals("-", decoded.newState.version,
             "Version should fall back to '-' after MAX_INFO_ATTEMPTS")
-        assertEquals("Begode", result.newState.model,
+        assertEquals("Begode", decoded.newState.model,
             "Model should fall back to 'Begode' when fwProt is empty")
     }
 
@@ -161,8 +165,9 @@ class DecoderLifecycleTest {
         val liveFrame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
         val result = decoder.decode(liveFrame, defaultState, defaultConfig)
 
-        assertNotNull(result)
-        val retryCommands = result.commands.filterIsInstance<WheelCommand.SendBytes>()
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        val retryCommands = decoded.commands.filterIsInstance<WheelCommand.SendBytes>()
             .filter { it.data.decodeToString() in listOf("V", "N") }
         assertTrue(retryCommands.isEmpty(),
             "Should not retry V/N when both fw and model are populated")
@@ -183,8 +188,9 @@ class DecoderLifecycleTest {
         // After reset, should start retrying again (emit V)
         val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
         val result = decoder.decode(frame, defaultState, defaultConfig)
-        assertNotNull(result)
-        val vCommands = result.commands.filterIsInstance<WheelCommand.SendBytes>()
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        val vCommands = decoded.commands.filterIsInstance<WheelCommand.SendBytes>()
             .filter { it.data.decodeToString() == "V" }
         assertTrue(vCommands.isNotEmpty(),
             "Should retry V after reset (counter cleared)")
@@ -448,11 +454,12 @@ class DecoderLifecycleTest {
         frame[19] = 0x5A
 
         val result = decoder.decode(frame, defaultState, defaultConfig)
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
 
         // Should have a response command with type 0x98
-        assertTrue(result.commands.isNotEmpty(), "Should emit response command")
-        val response = result.commands[0] as WheelCommand.SendBytes
+        assertTrue(decoded.commands.isNotEmpty(), "Should emit response command")
+        val response = decoded.commands[0] as WheelCommand.SendBytes
         assertEquals(0x98.toByte(), response.data[16],
             "Response to 0xA4 should be 0x98 (alarm settings ACK)")
     }
@@ -478,8 +485,8 @@ class DecoderLifecycleTest {
         val result = decoder.decode(frame, defaultState, defaultConfig)
         // A Veteran frame should be parseable if it has the right header
         // The model is derived from ver byte
-        if (result != null) {
-            assertTrue(result.newState.model.isNotEmpty(),
+        if (result is DecodeResult.Success) {
+            assertTrue(result.data.newState.model.isNotEmpty(),
                 "Model should be set after first frame")
         }
     }

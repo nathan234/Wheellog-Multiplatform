@@ -7,7 +7,6 @@ import kotlin.math.roundToInt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -164,7 +163,7 @@ class VeteranDecoderTest {
         pitchAngle: Int = 0,
         hwPwm: Int = 0,
         cfg: DecoderConfig = config
-    ): DecodedData? {
+    ): DecodeResult {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(
             voltage = voltage,
@@ -190,13 +189,14 @@ class VeteranDecoderTest {
     @Test
     fun `minimum valid frame decodes successfully`() {
         val result = decodeSingleFrame()
-        assertNotNull(result, "36-byte frame with valid header should decode")
-        assertTrue(result.hasNewData)
-        assertEquals(WheelType.VETERAN, result.newState.wheelType)
+        assertTrue(result is DecodeResult.Success, "36-byte frame with valid header should decode")
+        val decoded = (result as DecodeResult.Success).data
+        assertTrue(decoded.hasNewData)
+        assertEquals(WheelType.VETERAN, decoded.newState.wheelType)
     }
 
     @Test
-    fun `frame too short returns null`() {
+    fun `frame too short returns Unhandled`() {
         val freshDecoder = VeteranDecoder()
         // 35 bytes — one byte short of minimum
         val frame = ByteArray(35)
@@ -209,11 +209,11 @@ class VeteranDecoderTest {
         // byte 30: 0x00 (default)
 
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNull(result, "Frame shorter than 36 bytes should return null")
+        assertTrue(result is DecodeResult.Unhandled, "Frame shorter than 36 bytes should return Unhandled")
     }
 
     @Test
-    fun `corrupted header returns null`() {
+    fun `corrupted header returns Buffering`() {
         val freshDecoder = VeteranDecoder()
         // Valid-sized frame but wrong header
         val frame = ByteArray(36)
@@ -223,7 +223,7 @@ class VeteranDecoderTest {
         frame[3] = 32
         frame[22] = 0x00
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNull(result, "Frame with wrong header should return null")
+        assertTrue(result is DecodeResult.Buffering, "Frame with wrong header should return Buffering")
     }
 
     @Test
@@ -233,7 +233,7 @@ class VeteranDecoderTest {
         val frame = buildVeteranFrame()
         frame[22] = 0x01 // invalid: must be 0x00
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNull(result, "Frame with byte 22 != 0x00 should be rejected by unpacker")
+        assertTrue(result is DecodeResult.Buffering, "Frame with byte 22 != 0x00 should be rejected by unpacker")
     }
 
     @Test
@@ -243,13 +243,13 @@ class VeteranDecoderTest {
         val frame = buildVeteranFrame()
         frame[23] = 0x02 // invalid: (0x02 & 0xFE) = 0x02 != 0x00
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNull(result, "Frame with byte 23 & 0xFE != 0x00 should be rejected by unpacker")
+        assertTrue(result is DecodeResult.Buffering, "Frame with byte 23 & 0xFE != 0x00 should be rejected by unpacker")
     }
 
     @Test
     fun `unpacker accepts byte 23 equal to 0x01`() {
         val result = decodeSingleFrame(chargeModeLow = 1)
-        assertNotNull(result, "Frame with byte 23 = 0x01 should pass unpacker validation")
+        assertTrue(result is DecodeResult.Success, "Frame with byte 23 = 0x01 should pass unpacker validation")
     }
 
     @Test
@@ -259,7 +259,7 @@ class VeteranDecoderTest {
         val frame = buildVeteranFrame()
         frame[30] = 0x02 // invalid: must be 0x00 or 0x07
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNull(result, "Frame with byte 30 not 0x00 or 0x07 should be rejected by unpacker")
+        assertTrue(result is DecodeResult.Buffering, "Frame with byte 30 not 0x00 or 0x07 should be rejected by unpacker")
     }
 
     @Test
@@ -267,7 +267,7 @@ class VeteranDecoderTest {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(pedalsMode = 0x07)
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result, "Frame with byte 30 = 0x07 should pass unpacker validation")
+        assertTrue(result is DecodeResult.Success, "Frame with byte 30 = 0x07 should pass unpacker validation")
     }
 
     // ==================== Voltage Parsing ====================
@@ -275,24 +275,27 @@ class VeteranDecoderTest {
     @Test
     fun `voltage is parsed correctly`() {
         val result = decodeSingleFrame(voltage = 9686)
-        assertNotNull(result)
-        assertEquals(9686, result.newState.voltage, "Voltage should be 9686 (96.86V)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(9686, decoded.newState.voltage, "Voltage should be 9686 (96.86V)")
     }
 
     @Test
     fun `voltage at full charge level`() {
         val result = decodeSingleFrame(voltage = 9870, ver = 1000) // mVer=1 → Sherman
-        assertNotNull(result)
-        assertEquals(9870, result.newState.voltage)
-        assertEquals(100, result.newState.batteryLevel, "9870 should be 100% for Sherman (100V)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(9870, decoded.newState.voltage)
+        assertEquals(100, decoded.newState.batteryLevel, "9870 should be 100% for Sherman (100V)")
     }
 
     @Test
     fun `voltage at empty level`() {
         val result = decodeSingleFrame(voltage = 7935, ver = 1000) // mVer=1 → Sherman
-        assertNotNull(result)
-        assertEquals(7935, result.newState.voltage)
-        assertEquals(0, result.newState.batteryLevel, "7935 should be 0% for Sherman (100V)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(7935, decoded.newState.voltage)
+        assertEquals(0, decoded.newState.batteryLevel, "7935 should be 0% for Sherman (100V)")
     }
 
     // ==================== Speed with gotwayNegative ====================
@@ -302,8 +305,9 @@ class VeteranDecoderTest {
         // speed = -100, decoder multiplies by 10 → -1000, abs() → 1000
         val cfg = config.copy(gotwayNegative = 0)
         val result = decodeSingleFrame(speed = -100, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(1000, result.newState.speed, "gotwayNegative=0 should abs(speed*10)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1000, decoded.newState.speed, "gotwayNegative=0 should abs(speed*10)")
     }
 
     @Test
@@ -311,8 +315,9 @@ class VeteranDecoderTest {
         // speed = -100, decoder multiplies by 10 → -1000, * 1 → -1000
         val cfg = config.copy(gotwayNegative = 1)
         val result = decodeSingleFrame(speed = -100, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(-1000, result.newState.speed, "gotwayNegative=1 should keep sign")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-1000, decoded.newState.speed, "gotwayNegative=1 should keep sign")
     }
 
     @Test
@@ -320,16 +325,18 @@ class VeteranDecoderTest {
         // speed = 100, decoder multiplies by 10 → 1000, * -1 → -1000
         val cfg = config.copy(gotwayNegative = -1)
         val result = decodeSingleFrame(speed = 100, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(-1000, result.newState.speed, "gotwayNegative=-1 should invert sign")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-1000, decoded.newState.speed, "gotwayNegative=-1 should invert sign")
     }
 
     @Test
     fun `positive speed with gotwayNegative 0 stays positive`() {
         val cfg = config.copy(gotwayNegative = 0)
         val result = decodeSingleFrame(speed = 50, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(500, result.newState.speed, "gotwayNegative=0 should abs(speed*10)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(500, decoded.newState.speed, "gotwayNegative=0 should abs(speed*10)")
     }
 
     // ==================== Phase Current with gotwayNegative ====================
@@ -338,24 +345,27 @@ class VeteranDecoderTest {
     fun `phaseCurrent with gotwayNegative 0 uses abs`() {
         val cfg = config.copy(gotwayNegative = 0)
         val result = decodeSingleFrame(phaseCurrent = -34, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(340, result.newState.phaseCurrent, "gotwayNegative=0 should abs(phaseCurrent*10)")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(340, decoded.newState.phaseCurrent, "gotwayNegative=0 should abs(phaseCurrent*10)")
     }
 
     @Test
     fun `phaseCurrent with gotwayNegative 1 keeps sign`() {
         val cfg = config.copy(gotwayNegative = 1)
         val result = decodeSingleFrame(phaseCurrent = -34, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(-340, result.newState.phaseCurrent, "gotwayNegative=1 should keep sign")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-340, decoded.newState.phaseCurrent, "gotwayNegative=1 should keep sign")
     }
 
     @Test
     fun `phaseCurrent with gotwayNegative -1 inverts sign`() {
         val cfg = config.copy(gotwayNegative = -1)
         val result = decodeSingleFrame(phaseCurrent = 34, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(-340, result.newState.phaseCurrent, "gotwayNegative=-1 should invert sign")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-340, decoded.newState.phaseCurrent, "gotwayNegative=-1 should invert sign")
     }
 
     // ==================== Temperature ====================
@@ -365,16 +375,18 @@ class VeteranDecoderTest {
         // Veteran temperature is stored directly as the raw signed BE value
         // (unlike Gotway which uses the MPU6050 formula)
         val result = decodeSingleFrame(temperature = 5017) // 0x1399 = 5017
-        assertNotNull(result)
-        assertEquals(5017, result.newState.temperature)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(5017, decoded.newState.temperature)
     }
 
     @Test
     fun `negative temperature is handled correctly`() {
         // -10 as signed short = 0xFFF6
         val result = decodeSingleFrame(temperature = -10)
-        assertNotNull(result)
-        assertEquals(-10, result.newState.temperature)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-10, decoded.newState.temperature)
     }
 
     // ==================== Distance (revBE encoding) ====================
@@ -382,8 +394,9 @@ class VeteranDecoderTest {
     @Test
     fun `distance zero decodes correctly`() {
         val result = decodeSingleFrame(distance = 0)
-        assertNotNull(result)
-        assertEquals(0L, result.newState.wheelDistance)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(0L, decoded.newState.wheelDistance)
     }
 
     @Test
@@ -393,15 +406,17 @@ class VeteranDecoderTest {
         // intFromBytesRevBE reads: (frame[10]<<24)|(frame[11]<<16)|(frame[8]<<8)|frame[9]
         // = (0x00<<24)|(0x00<<16)|(0x3B<<8)|0xF5 = 0x3BF5 = 15349
         val result = decodeSingleFrame(distance = 15349)
-        assertNotNull(result)
-        assertEquals(15349L, result.newState.wheelDistance)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(15349L, decoded.newState.wheelDistance)
     }
 
     @Test
     fun `totalDistance non-zero decodes correctly via revBE`() {
         val result = decodeSingleFrame(totalDistance = 15349)
-        assertNotNull(result)
-        assertEquals(15349L, result.newState.totalDistance)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(15349L, decoded.newState.totalDistance)
     }
 
     @Test
@@ -417,8 +432,9 @@ class VeteranDecoderTest {
         // Read back: (C<<24)|(D<<16)|(A<<8)|B = (0x00<<24)|(0x0F<<16)|(0x42<<8)|0x40
         //          = 0x000F4240 = 1000000. Correct!
         val result = decodeSingleFrame(distance = 1000000)
-        assertNotNull(result)
-        assertEquals(1000000L, result.newState.wheelDistance)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1000000L, decoded.newState.wheelDistance)
     }
 
     // ==================== Pitch Angle ====================
@@ -428,16 +444,18 @@ class VeteranDecoderTest {
         // Decoder: angle = pitchAngle / 100.0
         // pitchAngle = 150 → angle = 1.5
         val result = decodeSingleFrame(pitchAngle = 150)
-        assertNotNull(result)
-        assertEquals(1.5, result.newState.angle, "Pitch angle should be raw/100")
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(1.5, decoded.newState.angle, "Pitch angle should be raw/100")
     }
 
     @Test
     fun `negative pitch angle works`() {
         // pitchAngle = -250 → angle = -2.5
         val result = decodeSingleFrame(pitchAngle = -250)
-        assertNotNull(result)
-        assertEquals(-2.5, result.newState.angle)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(-2.5, decoded.newState.angle)
     }
 
     // ==================== HW PWM ====================
@@ -447,9 +465,10 @@ class VeteranDecoderTest {
         val cfg = config.copy(hwPwmEnabled = true)
         // hwPwm = 5000 → output = 5000, calculatedPwm = 5000/10000.0 = 0.5
         val result = decodeSingleFrame(hwPwm = 5000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(5000, result.newState.output)
-        assertEquals(0.5, result.newState.calculatedPwm, 0.001)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(5000, decoded.newState.output)
+        assertEquals(0.5, decoded.newState.calculatedPwm, 0.001)
     }
 
     // ==================== Model Detection ====================
@@ -458,85 +477,85 @@ class VeteranDecoderTest {
     fun `model from mVer 0 is Leaperkim Sherman`() {
         // mVer=0 maps to "Leaperkim Sherman" but isReady will be false
         val result = decodeSingleFrame(ver = 0) // mVer = 0/1000 = 0
-        assertNotNull(result)
-        assertEquals("Leaperkim Sherman", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Sherman", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 1 is Leaperkim Sherman`() {
         val result = decodeSingleFrame(ver = 1000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Sherman", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Sherman", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 2 is Leaperkim Abrams`() {
         val result = decodeSingleFrame(ver = 2000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Abrams", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Abrams", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 3 is Leaperkim Sherman S`() {
         val result = decodeSingleFrame(ver = 3000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Sherman S", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Sherman S", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 4 is Leaperkim Patton`() {
         val result = decodeSingleFrame(ver = 4000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Patton", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Patton", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 5 is Leaperkim Lynx`() {
         val result = decodeSingleFrame(ver = 5000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Lynx", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Lynx", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 6 is Leaperkim Sherman L`() {
         val result = decodeSingleFrame(ver = 6000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Sherman L", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Sherman L", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 7 is Leaperkim Patton S`() {
         val result = decodeSingleFrame(ver = 7000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Patton S", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Patton S", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 8 is Leaperkim Oryx`() {
         val result = decodeSingleFrame(ver = 8000)
-        assertNotNull(result)
-        assertEquals("Leaperkim Oryx", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Leaperkim Oryx", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 42 is Nosfet Apex`() {
         val result = decodeSingleFrame(ver = 42000)
-        assertNotNull(result)
-        assertEquals("Nosfet Apex", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Nosfet Apex", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `model from mVer 43 is Nosfet Aero`() {
         val result = decodeSingleFrame(ver = 43000)
-        assertNotNull(result)
-        assertEquals("Nosfet Aero", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Nosfet Aero", (result as DecodeResult.Success).data.newState.model)
     }
 
     @Test
     fun `unknown mVer returns Unknown`() {
         val result = decodeSingleFrame(ver = 99000) // mVer=99
-        assertNotNull(result)
-        assertEquals("Unknown", result.newState.model)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Unknown", (result as DecodeResult.Success).data.newState.model)
     }
 
     // ==================== Battery Percentage (Standard) ====================
@@ -545,16 +564,16 @@ class VeteranDecoderTest {
     fun `battery 100V wheel (Sherman) at full charge`() {
         // mVer < 4 → Sherman class, standard %: voltage >= 9870 → 100%
         val result = decodeSingleFrame(voltage = 9870, ver = 1000)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 100V wheel (Sherman) at empty`() {
         // mVer < 4 → Sherman class, standard %: voltage <= 7935 → 0%
         val result = decodeSingleFrame(voltage = 7935, ver = 1000)
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -562,64 +581,64 @@ class VeteranDecoderTest {
         // mVer < 4, standard %: (voltage - 7935) / 19.5
         // voltage = 9686 → (9686 - 7935) / 19.5 = 89.7... → 90
         val result = decodeSingleFrame(voltage = 9686, ver = 1000)
-        assertNotNull(result)
-        assertEquals(((9686 - 7935) / 19.5).roundToInt(), result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(((9686 - 7935) / 19.5).roundToInt(), (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 126V wheel (Patton) at full charge`() {
         // mVer=4 → Patton, standard %: voltage >= 12337 → 100%
         val result = decodeSingleFrame(voltage = 12337, ver = 4000)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 126V wheel (Patton) at empty`() {
         // mVer=4, standard %: voltage <= 9918 → 0%
         val result = decodeSingleFrame(voltage = 9918, ver = 4000)
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 151V wheel (Lynx) at full charge`() {
         // mVer=5 → Lynx, standard %: voltage >= 14805 → 100%
         val result = decodeSingleFrame(voltage = 14805, ver = 5000)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 151V wheel (Lynx) at empty`() {
         // mVer=5, standard %: voltage <= 11902 → 0%
         val result = decodeSingleFrame(voltage = 11902, ver = 5000)
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 176V wheel (Oryx) at full charge`() {
         // mVer=8 → Oryx, standard %: voltage >= 17272 → 100%
         val result = decodeSingleFrame(voltage = 17272, ver = 8000)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery 176V wheel (Oryx) at empty`() {
         // mVer=8, standard %: voltage <= 13886 → 0%
         val result = decodeSingleFrame(voltage = 13886, ver = 8000)
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
     fun `battery unknown mVer defaults to 1 percent`() {
         // mVer=99 → unknown wheel → returns 1%
         val result = decodeSingleFrame(voltage = 10000, ver = 99000)
-        assertNotNull(result)
-        assertEquals(1, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(1, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     // ==================== Battery Percentage (SOC Table Lookup) ====================
@@ -630,8 +649,8 @@ class VeteranDecoderTest {
         // Voltage >= last table entry (9900) → 100%
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 9950, ver = 1000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -639,8 +658,8 @@ class VeteranDecoderTest {
         // Voltage below first table entry (7560) → 0%
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 7500, ver = 1000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -648,8 +667,8 @@ class VeteranDecoderTest {
         // Voltage exactly at table[50] = 8837 → 50%
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 8837, ver = 1000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(50, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(50, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -657,8 +676,8 @@ class VeteranDecoderTest {
         // mVer=4 (Patton), table[50] = 11046
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 11046, ver = 4000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(50, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(50, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -666,8 +685,8 @@ class VeteranDecoderTest {
         // mVer=5 (Lynx), table[50] = 13255
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 13255, ver = 5000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(50, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(50, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -676,8 +695,8 @@ class VeteranDecoderTest {
         // Voltage 8828 is about halfway → should interpolate to ~49
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 8828, ver = 1000, cfg = cfg)
-        assertNotNull(result)
-        val battery = result.newState.batteryLevel
+        assertTrue(result is DecodeResult.Success)
+        val battery = (result as DecodeResult.Success).data.newState.batteryLevel
         assertTrue(battery in 49..50, "Expected ~49-50 but got $battery")
     }
 
@@ -686,8 +705,8 @@ class VeteranDecoderTest {
         // mVer=8 (Oryx) has no official table → uses piecewise-linear even with useCustomPercents
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 17272, ver = 8000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -695,8 +714,8 @@ class VeteranDecoderTest {
         // mVer=43 (Nosfet Aero) has no official table → piecewise fallback
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 12337, ver = 43000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -704,8 +723,8 @@ class VeteranDecoderTest {
         // mVer=42 (Nosfet Apex) shares Lynx table, table[50] = 13255
         val cfg = config.copy(useCustomPercents = true)
         val result = decodeSingleFrame(voltage = 13255, ver = 42000, cfg = cfg)
-        assertNotNull(result)
-        assertEquals(50, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(50, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     // ==================== Version String ====================
@@ -716,16 +735,16 @@ class VeteranDecoderTest {
         // version = "${ver/1000}.${(ver%1000)/100}.${ver%100}".padStart(9, '0')
         // ver=5000 → "5.0.0".padStart(9, '0') = "00005.0.0"
         val result = decodeSingleFrame(ver = 5000)
-        assertNotNull(result)
-        assertEquals("00005.0.0", result.newState.version)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("00005.0.0", (result as DecodeResult.Success).data.newState.version)
     }
 
     @Test
     fun `version string with non-trivial values`() {
         // ver=5123 → "${5}.${1}.${23}" = "5.1.23".padStart(9, '0') = "0005.1.23"
         val result = decodeSingleFrame(ver = 5123)
-        assertNotNull(result)
-        assertEquals("0005.1.23", result.newState.version)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("0005.1.23", (result as DecodeResult.Success).data.newState.version)
     }
 
     // ==================== isReady ====================
@@ -737,7 +756,7 @@ class VeteranDecoderTest {
 
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
         assertTrue(freshDecoder.isReady(), "Should be ready after frame with mVer=5")
     }
 
@@ -780,8 +799,8 @@ class VeteranDecoderTest {
         // First decode
         val frame1 = buildVeteranFrame(ver = 5000, voltage = 9686)
         val result1 = freshDecoder.decode(frame1, WheelState(), config)
-        assertNotNull(result1)
-        assertEquals("Leaperkim Lynx", result1.newState.model)
+        assertTrue(result1 is DecodeResult.Success)
+        assertEquals("Leaperkim Lynx", (result1 as DecodeResult.Success).data.newState.model)
 
         // Reset
         freshDecoder.reset()
@@ -790,8 +809,8 @@ class VeteranDecoderTest {
         // Second decode with different model
         val frame2 = buildVeteranFrame(ver = 4000, voltage = 12000)
         val result2 = freshDecoder.decode(frame2, WheelState(), config)
-        assertNotNull(result2)
-        assertEquals("Leaperkim Patton", result2.newState.model)
+        assertTrue(result2 is DecodeResult.Success)
+        assertEquals("Leaperkim Patton", (result2 as DecodeResult.Success).data.newState.model)
         assertTrue(freshDecoder.isReady())
     }
 
@@ -807,11 +826,11 @@ class VeteranDecoderTest {
         var state = WheelState()
 
         val result1 = freshDecoder.decode(byteArray1, state, config)
-        if (result1 != null) state = result1.newState
+        if (result1 is DecodeResult.Success) state = result1.data.newState
 
         val result2 = freshDecoder.decode(byteArray2, state, config)
-        assertNotNull(result2)
-        state = result2.newState
+        assertTrue(result2 is DecodeResult.Success)
+        state = (result2 as DecodeResult.Success).data.newState
 
         // Original expected values from VeteranAdapterTest
         // gotwayNegative=0 (default) → abs() applied to speed and phaseCurrent
@@ -831,15 +850,15 @@ class VeteranDecoderTest {
         // chargeMode = shortFromBytesBE(buff, 22)
         // byte 22 = 0x00 (must be for validation), byte 23 = 0x01 → chargeMode = 1
         val result = decodeSingleFrame(chargeModeLow = 1)
-        assertNotNull(result)
-        assertEquals(1, result.newState.chargingStatus)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(1, (result as DecodeResult.Success).data.newState.chargingStatus)
     }
 
     @Test
     fun `chargeMode zero when both bytes zero`() {
         val result = decodeSingleFrame(chargeModeLow = 0)
-        assertNotNull(result)
-        assertEquals(0, result.newState.chargingStatus)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.chargingStatus)
     }
 
     // ==================== Build Command ====================
@@ -960,12 +979,12 @@ class VeteranDecoderTest {
         val part2 = "0DEF0000024602460000000000000000".hexToByteArray()
 
         val result1 = freshDecoder.decode(part1, WheelState(), config)
-        // First part is incomplete — may return null
-        val state = result1?.newState ?: WheelState()
+        // First part is incomplete — may return Buffering
+        val state = if (result1 is DecodeResult.Success) result1.data.newState else WheelState()
 
         val result2 = freshDecoder.decode(part2, state, config)
-        assertNotNull(result2, "Complete frame should decode after second notification")
-        assertEquals(9686, result2.newState.voltage)
+        assertTrue(result2 is DecodeResult.Success, "Complete frame should decode after second notification")
+        assertEquals(9686, (result2 as DecodeResult.Success).data.newState.voltage)
     }
 
     // ==================== Wheel Type ====================
@@ -975,8 +994,8 @@ class VeteranDecoderTest {
         assertEquals(WheelType.VETERAN, decoder.wheelType)
 
         val result = decodeSingleFrame()
-        assertNotNull(result)
-        assertEquals(WheelType.VETERAN, result.newState.wheelType)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(WheelType.VETERAN, (result as DecodeResult.Success).data.newState.wheelType)
     }
 
     // ==================== New Fields from Main Frame ====================
@@ -994,8 +1013,8 @@ class VeteranDecoderTest {
         frame[26] = ((450 shr 8) and 0xFF).toByte()
         frame[27] = (450 and 0xFF).toByte()
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
-        assertEquals(450, result.newState.tiltBackSpeed)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(450, (result as DecodeResult.Success).data.newState.tiltBackSpeed)
     }
 
     @Test
@@ -1007,8 +1026,8 @@ class VeteranDecoderTest {
         frame[30] = 0x00
         frame[31] = 0x02
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
-        assertEquals(2, result.newState.pedalsMode)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(2, (result as DecodeResult.Success).data.newState.pedalsMode)
     }
 
     @Test
@@ -1017,30 +1036,30 @@ class VeteranDecoderTest {
         // alertSpeed = speedAlert / 10 = raw value
         // Raw value 85 -> alertSpeed = 85 km/h
         val result = decodeSingleFrame(speedAlert = 85)
-        assertNotNull(result)
-        assertEquals(85, result.newState.alertSpeed)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(85, (result as DecodeResult.Success).data.newState.alertSpeed)
     }
 
     @Test
     fun `alertSpeed zero means off`() {
         val result = decodeSingleFrame(speedAlert = 0)
-        assertNotNull(result)
-        assertEquals(0, result.newState.alertSpeed)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.alertSpeed)
     }
 
     @Test
     fun `autoOffTime is populated from frame`() {
         // autoOffSec = shortFromBytesBE(buff, 20) — stored directly in seconds
         val result = decodeSingleFrame(autoOffSec = 1172)
-        assertNotNull(result)
-        assertEquals(1172, result.newState.autoOffTime)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(1172, (result as DecodeResult.Success).data.newState.autoOffTime)
     }
 
     @Test
     fun `autoOffTime zero means disabled`() {
         val result = decodeSingleFrame(autoOffSec = 0)
-        assertNotNull(result)
-        assertEquals(0, result.newState.autoOffTime)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.autoOffTime)
     }
 
     @Test
@@ -1055,8 +1074,8 @@ class VeteranDecoderTest {
         frame[36] = 0x00
         frame[37] = 0x6F
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
-        assertEquals(111, result.newState.batteryTempMode)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(111, (result as DecodeResult.Success).data.newState.batteryTempMode)
     }
 
     @Test
@@ -1070,16 +1089,16 @@ class VeteranDecoderTest {
         frame[36] = 0x00
         frame[37] = 0x64
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
-        assertEquals(100, result.newState.batteryTempMode)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.batteryTempMode)
     }
 
     @Test
     fun `batteryTempMode defaults to 0 for short frame`() {
         // Standard 36-byte frame — no bytes 36-37
         val result = decodeSingleFrame()
-        assertNotNull(result)
-        assertEquals(0, result.newState.batteryTempMode)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.batteryTempMode)
     }
 
     // ==================== Extended Frame Builder ====================
@@ -1132,7 +1151,7 @@ class VeteranDecoderTest {
         subType: Int = 0,
         extraSize: Int = 40,
         frameModifier: (ByteArray) -> Unit = {}
-    ): DecodedData? {
+    ): DecodeResult {
         val freshDecoder = VeteranDecoder()
         val frame = buildExtendedFrame(voltage = voltage, ver = ver, subType = subType, extraSize = extraSize)
 
@@ -1161,8 +1180,8 @@ class VeteranDecoderTest {
             frame[67] = ((250 shr 8) and 0xFF).toByte()
             frame[68] = (250 and 0xFF).toByte()
         }
-        assertNotNull(result)
-        assertEquals(2.5, result.newState.roll, 0.001)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(2.5, (result as DecodeResult.Success).data.newState.roll, 0.001)
     }
 
     @Test
@@ -1170,8 +1189,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 5) { frame ->
             frame[51] = 0x50.toByte() // locked + password set
         }
-        assertNotNull(result)
-        assertEquals(0x50, result.newState.lockState)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0x50, (result as DecodeResult.Success).data.newState.lockState)
     }
 
     @Test
@@ -1179,8 +1198,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 2) { frame ->
             frame[50] = 75.toByte()
         }
-        assertNotNull(result)
-        assertEquals(75, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(75, (result as DecodeResult.Success).data.newState.batteryLevel)
     }
 
     @Test
@@ -1188,8 +1207,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 2) { frame ->
             frame[47] = 70.toByte()
         }
-        assertNotNull(result)
-        assertEquals(70, result.newState.lateralCutoffAngle)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(70, (result as DecodeResult.Success).data.newState.lateralCutoffAngle)
     }
 
     @Test
@@ -1198,9 +1217,10 @@ class VeteranDecoderTest {
             frame[47] = 55.toByte()
             frame[50] = 80.toByte()
         }
-        assertNotNull(result)
-        assertEquals(55, result.newState.lateralCutoffAngle)
-        assertEquals(80, result.newState.batteryLevel)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
+        assertEquals(55, decoded.newState.lateralCutoffAngle)
+        assertEquals(80, decoded.newState.batteryLevel)
     }
 
     @Test
@@ -1209,9 +1229,10 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 2, voltage = 9686) { frame ->
             frame[50] = 200.toByte() // invalid (> 100)
         }
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
+        val decoded = (result as DecodeResult.Success).data
         // Should use voltage-based calculation, not 200
-        assertTrue(result.newState.batteryLevel in 0..100,
+        assertTrue(decoded.newState.batteryLevel in 0..100,
             "Battery should use voltage-based calc when sub-type 2 value > 100")
     }
 
@@ -1220,8 +1241,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[57] = 1.toByte()
         }
-        assertNotNull(result)
-        assertTrue(result.newState.transportMode)
+        assertTrue(result is DecodeResult.Success)
+        assertTrue((result as DecodeResult.Success).data.newState.transportMode)
     }
 
     @Test
@@ -1229,8 +1250,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[61] = 1.toByte()
         }
-        assertNotNull(result)
-        assertTrue(result.newState.highSpeedMode)
+        assertTrue(result is DecodeResult.Success)
+        assertTrue((result as DecodeResult.Success).data.newState.highSpeedMode)
     }
 
     @Test
@@ -1238,8 +1259,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[60] = 1.toByte()
         }
-        assertNotNull(result)
-        assertTrue(result.newState.lowVoltageMode)
+        assertTrue(result is DecodeResult.Success)
+        assertTrue((result as DecodeResult.Success).data.newState.lowVoltageMode)
     }
 
     @Test
@@ -1247,8 +1268,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[63] = 75.toByte()
         }
-        assertNotNull(result)
-        assertEquals(75, result.newState.keyTone)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(75, (result as DecodeResult.Success).data.newState.keyTone)
     }
 
     @Test
@@ -1256,8 +1277,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[59] = 5.toByte() // signed byte: +5
         }
-        assertNotNull(result)
-        assertEquals(5, result.newState.voltageCorrection)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(5, (result as DecodeResult.Success).data.newState.voltageCorrection)
     }
 
     @Test
@@ -1266,8 +1287,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[57] = 0x80.toByte() // transport mode = not supported
         }
-        assertNotNull(result)
-        assertFalse(result.newState.transportMode, "0x80 should be treated as unsupported, keeping default false")
+        assertTrue(result is DecodeResult.Success)
+        assertFalse((result as DecodeResult.Success).data.newState.transportMode, "0x80 should be treated as unsupported, keeping default false")
     }
 
     @Test
@@ -1275,8 +1296,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[50] = 65.toByte()
         }
-        assertNotNull(result)
-        assertEquals(65, result.newState.pedalSensitivity)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(65, (result as DecodeResult.Success).data.newState.pedalSensitivity)
     }
 
     @Test
@@ -1284,8 +1305,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[52] = 50.toByte() // raw protocol value 50
         }
-        assertNotNull(result)
-        assertEquals(50, result.newState.stopSpeed)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(50, (result as DecodeResult.Success).data.newState.stopSpeed)
     }
 
     @Test
@@ -1293,8 +1314,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[53] = 70.toByte()
         }
-        assertNotNull(result)
-        assertEquals(70, result.newState.pwmLimit)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(70, (result as DecodeResult.Success).data.newState.pwmLimit)
     }
 
     @Test
@@ -1302,8 +1323,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[55] = 80.toByte()
         }
-        assertNotNull(result)
-        assertEquals(80, result.newState.screenBacklight)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(80, (result as DecodeResult.Success).data.newState.screenBacklight)
     }
 
     @Test
@@ -1311,8 +1332,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[59] = (-5).toByte() // 0xFB as signed byte = -5
         }
-        assertNotNull(result)
-        assertEquals(-5, result.newState.voltageCorrection)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(-5, (result as DecodeResult.Success).data.newState.voltageCorrection)
     }
 
     @Test
@@ -1320,8 +1341,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[59] = 0.toByte() // signed byte: 0
         }
-        assertNotNull(result)
-        assertEquals(0, result.newState.voltageCorrection)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.voltageCorrection)
     }
 
     @Test
@@ -1329,8 +1350,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[64] = 100.toByte()
         }
-        assertNotNull(result)
-        assertEquals(100, result.newState.maxChargeVoltage)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(100, (result as DecodeResult.Success).data.newState.maxChargeVoltage)
     }
 
     @Test
@@ -1338,8 +1359,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[69] = 105.toByte() // brake pressure alarm (105%)
         }
-        assertNotNull(result)
-        assertEquals(105, result.newState.brakePressureAlarm)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(105, (result as DecodeResult.Success).data.newState.brakePressureAlarm)
     }
 
     @Test
@@ -1349,10 +1370,10 @@ class VeteranDecoderTest {
             frame[53] = 0x80.toByte() // PWM limit = not supported
             frame[55] = 0x80.toByte() // backlight = not supported
         }
-        assertNotNull(result)
-        assertEquals(-1, result.newState.stopSpeed)
-        assertEquals(-1, result.newState.pwmLimit)
-        assertEquals(-1, result.newState.screenBacklight)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(-1, (result as DecodeResult.Success).data.newState.stopSpeed)
+        assertEquals(-1, (result as DecodeResult.Success).data.newState.pwmLimit)
+        assertEquals(-1, (result as DecodeResult.Success).data.newState.screenBacklight)
     }
 
     @Test
@@ -1360,8 +1381,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[66] = 75.toByte()
         }
-        assertNotNull(result)
-        assertEquals(75, result.newState.dynamicAssist)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(75, (result as DecodeResult.Success).data.newState.dynamicAssist)
     }
 
     @Test
@@ -1369,8 +1390,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[68] = 60.toByte()
         }
-        assertNotNull(result)
-        assertEquals(60, result.newState.accelerationLimit)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(60, (result as DecodeResult.Success).data.newState.accelerationLimit)
     }
 
     @Test
@@ -1378,8 +1399,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[65] = 120.toByte()
         }
-        assertNotNull(result)
-        assertEquals(120, result.newState.chargeVoltageBase)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(120, (result as DecodeResult.Success).data.newState.chargeVoltageBase)
     }
 
     @Test
@@ -1387,8 +1408,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[65] = 0.toByte()
         }
-        assertNotNull(result)
-        assertEquals(145, result.newState.chargeVoltageBase)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(145, (result as DecodeResult.Success).data.newState.chargeVoltageBase)
     }
 
     @Test
@@ -1396,8 +1417,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[65] = 0x80.toByte()
         }
-        assertNotNull(result)
-        assertEquals(145, result.newState.chargeVoltageBase)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(145, (result as DecodeResult.Success).data.newState.chargeVoltageBase)
     }
 
     @Test
@@ -1405,8 +1426,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[58] = 1.toByte() // miles
         }
-        assertNotNull(result)
-        assertEquals(1, result.newState.wheelDisplayUnit)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(1, (result as DecodeResult.Success).data.newState.wheelDisplayUnit)
     }
 
     @Test
@@ -1414,8 +1435,8 @@ class VeteranDecoderTest {
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[58] = 0.toByte() // km
         }
-        assertNotNull(result)
-        assertEquals(0, result.newState.wheelDisplayUnit)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.newState.wheelDisplayUnit)
     }
 
     // ==================== New Binary Commands (mVer >= 3) ====================
@@ -1805,9 +1826,9 @@ class VeteranDecoderTest {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
+        assertTrue(result is DecodeResult.Success)
         // Should contain 2 time sync commands (immediate + delayed)
-        val syncCmds = result.commands.filter { cmd ->
+        val syncCmds = (result as DecodeResult.Success).data.commands.filter { cmd ->
             when (cmd) {
                 is WheelCommand.SendBytes -> cmd.data.size >= 7 &&
                         cmd.data[0] == 0x4C.toByte() && cmd.data[1] == 0x64.toByte() &&
@@ -1829,8 +1850,8 @@ class VeteranDecoderTest {
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
         freshDecoder.decode(frame, WheelState(), config) // first frame
         val result2 = freshDecoder.decode(frame, WheelState(), config) // second frame
-        assertNotNull(result2)
-        val syncCmds = result2.commands.filter { cmd ->
+        assertTrue(result2 is DecodeResult.Success)
+        val syncCmds = (result2 as DecodeResult.Success).data.commands.filter { cmd ->
             when (cmd) {
                 is WheelCommand.SendBytes -> cmd.data.size >= 7 && cmd.data[4] == 0x12.toByte()
                 is WheelCommand.SendDelayed -> cmd.data.size >= 7 && cmd.data[4] == 0x12.toByte()
@@ -1845,8 +1866,8 @@ class VeteranDecoderTest {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 1000) // mVer=1
         val result = freshDecoder.decode(frame, WheelState(), config)
-        assertNotNull(result)
-        assertTrue(result.commands.isEmpty(), "Old firmware should not get time sync commands")
+        assertTrue(result is DecodeResult.Success)
+        assertTrue((result as DecodeResult.Success).data.commands.isEmpty(), "Old firmware should not get time sync commands")
     }
 
     @Test
@@ -1856,8 +1877,8 @@ class VeteranDecoderTest {
         freshDecoder.decode(frame, WheelState(), config) // first frame — syncs
         freshDecoder.reset()
         val result = freshDecoder.decode(frame, WheelState(), config) // after reset
-        assertNotNull(result)
-        val syncCmds = result.commands.filter { cmd ->
+        assertTrue(result is DecodeResult.Success)
+        val syncCmds = (result as DecodeResult.Success).data.commands.filter { cmd ->
             when (cmd) {
                 is WheelCommand.SendBytes -> cmd.data.size >= 7 && cmd.data[4] == 0x12.toByte()
                 is WheelCommand.SendDelayed -> cmd.data.size >= 7 && cmd.data[4] == 0x12.toByte()

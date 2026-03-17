@@ -21,9 +21,9 @@ interface WheelDecoder {
      * @param data Raw bytes received from the wheel
      * @param currentState The current wheel state
      * @param config Decoder configuration options
-     * @return Decoded result containing new state and any commands to send, or null if data was incomplete
+     * @return A [DecodeResult] indicating success, buffering, or unhandled frame
      */
-    fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodedData?
+    fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult
 
     /**
      * Check if the decoder has received enough data to be considered ready.
@@ -66,6 +66,30 @@ interface WheelDecoder {
      * Decoders populate this from their [CapabilityMap] as identification frames arrive.
      */
     fun getCapabilities(): CapabilitySet = CapabilitySet()
+}
+
+/**
+ * Result from a [WheelDecoder.decode] call.
+ *
+ * Replaces the previous `DecodedData?` return type, which conflated three distinct states
+ * (buffering, unhandled frame, success) into a single `null`.
+ */
+sealed class DecodeResult {
+    /** Successfully decoded frame(s) into updated wheel state. */
+    data class Success(val data: DecodedData) : DecodeResult()
+
+    /** Unpacker hasn't assembled a complete frame yet — normal, not an error. */
+    data object Buffering : DecodeResult()
+
+    /** Got a complete frame but the decoder doesn't recognize it. */
+    data class Unhandled(val reason: String, val frameData: ByteArray) : DecodeResult() {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is Unhandled) return false
+            return reason == other.reason && frameData.contentEquals(other.frameData)
+        }
+        override fun hashCode(): Int = 31 * reason.hashCode() + frameData.contentHashCode()
+    }
 }
 
 /**

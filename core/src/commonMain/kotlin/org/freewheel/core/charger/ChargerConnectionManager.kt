@@ -124,6 +124,13 @@ class ChargerConnectionManager(
         ))
     }
 
+    override fun setAutoStop(enabled: Boolean) {
+        val payload = byteArrayOf(if (enabled) 1 else 0)
+        events.trySend(ChargerEvent.SendBytes(
+            HwChargerProtocol.buildFrame(HwChargerProtocol.CMD_AUTO_STOP, payload)
+        ))
+    }
+
     override fun setTwoStageCharging(enabled: Boolean) {
         val payload = byteArrayOf(if (enabled) 1 else 0)
         events.trySend(ChargerEvent.SendBytes(
@@ -134,13 +141,6 @@ class ChargerConnectionManager(
     override fun setEndOfChargeCurrent(current: Float) {
         events.trySend(ChargerEvent.SendBytes(
             HwChargerProtocol.buildFloatCommand(HwChargerProtocol.CMD_END_CHARGE_CUR, current)
-        ))
-    }
-
-    override fun setPowerOnOutput(enabled: Boolean) {
-        val payload = byteArrayOf(if (enabled) 1 else 0)
-        events.trySend(ChargerEvent.SendBytes(
-            HwChargerProtocol.buildFrame(HwChargerProtocol.CMD_POWER_ON_OUT, payload)
         ))
     }
 

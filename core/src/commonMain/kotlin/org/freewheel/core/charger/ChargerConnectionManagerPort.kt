@@ -17,7 +17,7 @@ interface ChargerConnectionManagerPort {
     fun setOutputCurrent(current: Float)
     fun toggleOutput(enable: Boolean)
     fun setPowerLimit(watts: Int)
+    fun setAutoStop(enabled: Boolean)
     fun setTwoStageCharging(enabled: Boolean)
     fun setEndOfChargeCurrent(current: Float)
-    fun setPowerOnOutput(enabled: Boolean)
 }

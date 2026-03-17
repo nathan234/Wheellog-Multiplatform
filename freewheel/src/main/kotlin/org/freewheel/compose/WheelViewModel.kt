@@ -791,16 +791,16 @@ class WheelViewModel(
         chargerConnectionManager?.setPowerLimit(watts)
     }
 
+    fun setChargerAutoStop(enabled: Boolean) {
+        chargerConnectionManager?.setAutoStop(enabled)
+    }
+
     fun setChargerTwoStageCharging(enabled: Boolean) {
         chargerConnectionManager?.setTwoStageCharging(enabled)
     }
 
     fun setChargerEndOfChargeCurrent(current: Float) {
         chargerConnectionManager?.setEndOfChargeCurrent(current)
-    }
-
-    fun setChargerPowerOnOutput(enabled: Boolean) {
-        chargerConnectionManager?.setPowerOnOutput(enabled)
     }
 
     // --- Charger profiles ---

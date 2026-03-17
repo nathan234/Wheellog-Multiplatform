@@ -79,16 +79,16 @@ object ChargerConnectionManagerHelper {
         manager.setPowerLimit(watts)
     }
 
+    fun setAutoStop(manager: ChargerConnectionManager, enabled: Boolean) {
+        manager.setAutoStop(enabled)
+    }
+
     fun setTwoStageCharging(manager: ChargerConnectionManager, enabled: Boolean) {
         manager.setTwoStageCharging(enabled)
     }
 
     fun setEndOfChargeCurrent(manager: ChargerConnectionManager, current: Float) {
         manager.setEndOfChargeCurrent(current)
-    }
-
-    fun setPowerOnOutput(manager: ChargerConnectionManager, enabled: Boolean) {
-        manager.setPowerOnOutput(enabled)
     }
 
     // MARK: - Flow Observers

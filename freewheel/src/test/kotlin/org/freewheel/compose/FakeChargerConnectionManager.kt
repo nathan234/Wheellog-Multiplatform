@@ -24,9 +24,9 @@ class FakeChargerConnectionManager : ChargerConnectionManagerPort {
     override fun setOutputCurrent(current: Float) {}
     override fun toggleOutput(enable: Boolean) {}
     override fun setPowerLimit(watts: Int) {}
+    override fun setAutoStop(enabled: Boolean) {}
     override fun setTwoStageCharging(enabled: Boolean) {}
     override fun setEndOfChargeCurrent(current: Float) {}
-    override fun setPowerOnOutput(enabled: Boolean) {}
 
     // Test helpers
     fun setConnectionState(state: ConnectionState) { _connectionState.value = state }

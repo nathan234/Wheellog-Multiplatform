@@ -188,6 +188,11 @@ class ChargerManager: ObservableObject {
         ChargerConnectionManagerHelper.shared.setPowerLimit(manager: ccm, watts: watts)
     }
 
+    func setAutoStop(_ enabled: Bool) {
+        guard let ccm = chargerConnectionManager else { return }
+        ChargerConnectionManagerHelper.shared.setAutoStop(manager: ccm, enabled: enabled)
+    }
+
     func setTwoStageCharging(_ enabled: Bool) {
         guard let ccm = chargerConnectionManager else { return }
         ChargerConnectionManagerHelper.shared.setTwoStageCharging(manager: ccm, enabled: enabled)
@@ -196,11 +201,6 @@ class ChargerManager: ObservableObject {
     func setEndOfChargeCurrent(_ current: Float) {
         guard let ccm = chargerConnectionManager else { return }
         ChargerConnectionManagerHelper.shared.setEndOfChargeCurrent(manager: ccm, current: current)
-    }
-
-    func setPowerOnOutput(_ enabled: Bool) {
-        guard let ccm = chargerConnectionManager else { return }
-        ChargerConnectionManagerHelper.shared.setPowerOnOutput(manager: ccm, enabled: enabled)
     }
 
     // MARK: - Profile Management

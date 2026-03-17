@@ -22,9 +22,9 @@ object HwChargerProtocol {
     const val CMD_SET_CURRENT: Byte = 0x08
     const val CMD_POWER_ON_OFF: Byte = 0x0B
     const val CMD_START_STOP: Byte = 0x0C
-    const val CMD_TWO_STAGE: Byte = 0x14
+    const val CMD_AUTO_STOP: Byte = 0x14
     const val CMD_END_CHARGE_CUR: Byte = 0x15
-    const val CMD_POWER_ON_OUT: Byte = 0x20
+    const val CMD_TWO_STAGE: Byte = 0x20
     const val CMD_POWER_LIMIT: Byte = 0x27
 
     // Status frame offsets

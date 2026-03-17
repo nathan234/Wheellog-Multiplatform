@@ -25,6 +25,17 @@ internal class GotwayUnpacker : Unpacker {
     private var state = State.UNKNOWN
     private var oldC = -1
 
+    // Error counters (persist across reset(), cleared by resetStats())
+    private var _errorResets = 0
+    private var _bytesDiscarded = 0
+
+    override val stats: UnpackerStats get() = UnpackerStats(_errorResets, _bytesDiscarded)
+
+    override fun resetStats() {
+        _errorResets = 0
+        _bytesDiscarded = 0
+    }
+
     /**
      * Reset the unpacker state.
      */
@@ -53,7 +64,9 @@ internal class GotwayUnpacker : Unpacker {
 
                 // Check footer bytes (should be 5A 5A 5A 5A)
                 if (size > 20 && size <= 24 && byte != 0x5A) {
-                    // Invalid frame footer
+                    // Invalid frame footer — partial frame discarded
+                    _errorResets++
+                    _bytesDiscarded += size
                     state = State.UNKNOWN
                     return false
                 }

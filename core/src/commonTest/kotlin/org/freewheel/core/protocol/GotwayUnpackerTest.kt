@@ -95,6 +95,99 @@ class GotwayUnpackerTest {
     }
 
     @Test
+    fun stats_initiallyZero() {
+        val unpacker = GotwayUnpacker()
+        assertEquals(0, unpacker.stats.errorResets)
+        assertEquals(0, unpacker.stats.bytesDiscarded)
+    }
+
+    @Test
+    fun stats_invalidFooter_incrementsCounters() {
+        val unpacker = GotwayUnpacker()
+        val frame = ByteArray(24)
+        frame[0] = 0x55.toByte()
+        frame[1] = 0xAA.toByte()
+        frame[18] = 0x04.toByte()
+        frame[19] = 0x18.toByte()
+        frame[20] = 0x5A.toByte()
+        frame[21] = 0xFF.toByte() // invalid footer → error reset
+        frame[22] = 0x5A.toByte()
+        frame[23] = 0x5A.toByte()
+
+        feedBytes(unpacker, frame)
+        assertEquals(1, unpacker.stats.errorResets)
+        assertTrue(unpacker.stats.bytesDiscarded > 0)
+    }
+
+    @Test
+    fun stats_persistAcrossReset() {
+        val unpacker = GotwayUnpacker()
+        // Trigger an error
+        val badFrame = ByteArray(24)
+        badFrame[0] = 0x55.toByte()
+        badFrame[1] = 0xAA.toByte()
+        badFrame[20] = 0x5A.toByte()
+        badFrame[21] = 0xFF.toByte() // invalid footer
+        feedBytes(unpacker, badFrame)
+
+        unpacker.reset()
+
+        // Stats should persist after reset()
+        assertEquals(1, unpacker.stats.errorResets)
+    }
+
+    @Test
+    fun stats_clearedByResetStats() {
+        val unpacker = GotwayUnpacker()
+        val badFrame = ByteArray(24)
+        badFrame[0] = 0x55.toByte()
+        badFrame[1] = 0xAA.toByte()
+        badFrame[20] = 0x5A.toByte()
+        badFrame[21] = 0xFF.toByte() // invalid footer
+        feedBytes(unpacker, badFrame)
+
+        unpacker.resetStats()
+
+        assertEquals(0, unpacker.stats.errorResets)
+        assertEquals(0, unpacker.stats.bytesDiscarded)
+    }
+
+    @Test
+    fun stats_validFrame_doesNotIncrement() {
+        val unpacker = GotwayUnpacker()
+        val frame = ByteArray(24)
+        frame[0] = 0x55.toByte()
+        frame[1] = 0xAA.toByte()
+        frame[18] = 0x04.toByte()
+        frame[19] = 0x18.toByte()
+        frame[20] = 0x5A.toByte()
+        frame[21] = 0x5A.toByte()
+        frame[22] = 0x5A.toByte()
+        frame[23] = 0x5A.toByte()
+
+        feedBytes(unpacker, frame)
+        assertEquals(0, unpacker.stats.errorResets)
+        assertEquals(0, unpacker.stats.bytesDiscarded)
+    }
+
+    @Test
+    fun stats_multipleErrors_accumulate() {
+        val unpacker = GotwayUnpacker()
+        val badFrame = ByteArray(24)
+        badFrame[0] = 0x55.toByte()
+        badFrame[1] = 0xAA.toByte()
+        badFrame[20] = 0x5A.toByte()
+        badFrame[21] = 0xFF.toByte() // invalid footer
+
+        // First error
+        feedBytes(unpacker, badFrame)
+        // Second error
+        feedBytes(unpacker, badFrame)
+
+        assertEquals(2, unpacker.stats.errorResets)
+    }
+
+    @Test
     fun garbageBeforeHeader_isSkipped() {
         val unpacker = GotwayUnpacker()
         // Feed garbage bytes, then a valid frame

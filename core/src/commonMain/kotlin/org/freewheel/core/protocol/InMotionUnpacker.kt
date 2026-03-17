@@ -31,6 +31,17 @@ internal class InMotionUnpacker : Unpacker {
     private var lenBasic = 0    // Basic packet length field
     private var lenExtended = 0 // Extended packet data length
 
+    // Error counters (persist across reset(), cleared by resetStats())
+    private var _errorResets = 0
+    private var _bytesDiscarded = 0
+
+    override val stats: UnpackerStats get() = UnpackerStats(_errorResets, _bytesDiscarded)
+
+    override fun resetStats() {
+        _errorResets = 0
+        _bytesDiscarded = 0
+    }
+
     /**
      * Reset the unpacker state.
      */
@@ -75,7 +86,9 @@ internal class InMotionUnpacker : Unpacker {
                     // Header(2) + ID(4) + data(8) + len(1) + ch(1) + format(1) + type(1) + extended_data + checksum(1) + footer(2)
                     // = 18 + extended_data + 3 = 21 + extended_data
                     if (size > lenExtended + 21 && lenBasic == 0xFE) {
-                        // Packet is longer than expected, reset
+                        // Extended packet overflow — partial frame discarded
+                        _errorResets++
+                        _bytesDiscarded += size
                         reset()
                         return false
                     }

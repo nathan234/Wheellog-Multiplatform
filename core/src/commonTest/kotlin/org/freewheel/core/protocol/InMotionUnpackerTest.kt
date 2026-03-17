@@ -181,4 +181,88 @@ class InMotionUnpackerTest {
 
         assertTrue(feedBytes(unpacker, frame), "Second frame should complete after reset")
     }
+
+    @Test
+    fun stats_initiallyZero() {
+        val unpacker = InMotionUnpacker()
+        assertEquals(0, unpacker.stats.errorResets)
+        assertEquals(0, unpacker.stats.bytesDiscarded)
+    }
+
+    @Test
+    fun stats_extendedOverflow_incrementsCounters() {
+        val unpacker = InMotionUnpacker()
+        // Build an extended frame (len=0xFE) with lenExtended=0 at buffer position 7.
+        // Overflow triggers when size > lenExtended + 21 = 22 (buffer holds 22 bytes).
+        // Need buffer size > 21 (= lenExtended(0) + 21), so 22 bytes in buffer.
+        // header(2) + id(4) + data(8) + lenBasic(1) + 3 + extra(4) = 22 raw bytes
+        val frame = mutableListOf<Byte>()
+        // Header
+        frame.add(0xAA.toByte())
+        frame.add(0xAA.toByte())
+        // ID (4 bytes)
+        repeat(4) { frame.add(0x01.toByte()) }
+        // Data: byte at buffer size=7 sets lenExtended=0
+        frame.add(0x00.toByte()) // lenExtended = 0
+        repeat(7) { frame.add(0x00.toByte()) }
+        // Length = 0xFE (extended mode) at buffer size=15
+        frame.add(0xFE.toByte())
+        // ch, format, type
+        repeat(3) { frame.add(0x00.toByte()) }
+        // 4 more bytes to push buffer to size 22 (> 21 triggers overflow)
+        // Use non-0x55 to avoid footer match, non-0xA5 to avoid escape
+        repeat(4) { frame.add(0x01.toByte()) }
+
+        feedBytes(unpacker, frame.toByteArray())
+        assertEquals(1, unpacker.stats.errorResets)
+        assertTrue(unpacker.stats.bytesDiscarded > 0)
+    }
+
+    @Test
+    fun stats_validFrame_doesNotIncrement() {
+        val unpacker = InMotionUnpacker()
+        feedBytes(unpacker, buildBasicFrame())
+        assertEquals(0, unpacker.stats.errorResets)
+        assertEquals(0, unpacker.stats.bytesDiscarded)
+    }
+
+    @Test
+    fun stats_persistAcrossReset() {
+        val unpacker = InMotionUnpacker()
+        // Trigger an overflow error — same frame as extendedOverflow test
+        val frame = mutableListOf<Byte>()
+        frame.add(0xAA.toByte())
+        frame.add(0xAA.toByte())
+        repeat(4) { frame.add(0x01.toByte()) }
+        frame.add(0x00.toByte()) // lenExtended = 0
+        repeat(7) { frame.add(0x00.toByte()) }
+        frame.add(0xFE.toByte()) // extended mode
+        repeat(3) { frame.add(0x00.toByte()) }
+        repeat(4) { frame.add(0x01.toByte()) } // push past overflow
+
+        feedBytes(unpacker, frame.toByteArray())
+        unpacker.reset()
+
+        assertEquals(1, unpacker.stats.errorResets, "Stats should persist across reset()")
+    }
+
+    @Test
+    fun stats_clearedByResetStats() {
+        val unpacker = InMotionUnpacker()
+        val frame = mutableListOf<Byte>()
+        frame.add(0xAA.toByte())
+        frame.add(0xAA.toByte())
+        repeat(4) { frame.add(0x01.toByte()) }
+        frame.add(0x00.toByte()) // lenExtended = 0
+        repeat(7) { frame.add(0x00.toByte()) }
+        frame.add(0xFE.toByte()) // extended mode
+        repeat(3) { frame.add(0x00.toByte()) }
+        repeat(4) { frame.add(0x01.toByte()) } // push past overflow
+
+        feedBytes(unpacker, frame.toByteArray())
+        unpacker.resetStats()
+
+        assertEquals(0, unpacker.stats.errorResets)
+        assertEquals(0, unpacker.stats.bytesDiscarded)
+    }
 }

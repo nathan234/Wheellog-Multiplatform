@@ -83,6 +83,17 @@ internal class VeteranUnpacker : Unpacker {
     private var state = State.UNKNOWN
     private var usingCrc = false
 
+    // Error counters (persist across reset(), cleared by resetStats())
+    private var _errorResets = 0
+    private var _bytesDiscarded = 0
+
+    override val stats: UnpackerStats get() = UnpackerStats(_errorResets, _bytesDiscarded)
+
+    override fun resetStats() {
+        _errorResets = 0
+        _bytesDiscarded = 0
+    }
+
     override fun reset() {
         old1 = 0
         old2 = 0
@@ -102,6 +113,9 @@ internal class VeteranUnpacker : Unpacker {
                 if ((bsize == 22 && byte != 0x00) ||
                     (bsize == 30 && !(byte == 0x00 || byte == 0x07)) ||
                     (bsize == 23 && (byte and 0xFE) != 0x00)) {
+                    // Data validation failed — partial frame discarded
+                    _errorResets++
+                    _bytesDiscarded += bsize + 1  // buffer size + current byte
                     state = State.DONE
                     reset()
                     return false
@@ -122,6 +136,9 @@ internal class VeteranUnpacker : Unpacker {
                             usingCrc = true
                             return true
                         } else {
+                            // CRC mismatch — fully assembled frame discarded
+                            _errorResets++
+                            _bytesDiscarded += data.size
                             return false
                         }
                     }

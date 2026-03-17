@@ -13,7 +13,8 @@ data class FrameResult(
     val state: WheelState,
     val hasNewData: Boolean = false,
     val commands: List<WheelCommand> = emptyList(),
-    val news: String? = null
+    val news: String? = null,
+    val frameType: String? = null
 )
 
 /**
@@ -50,6 +51,7 @@ internal inline fun decodeFrames(
     var news: String? = null
     var hadCompleteFrame = false
     var firstUnhandledBuffer: ByteArray? = null
+    val frameTypes = mutableListOf<String>()
 
     for (byte in data) {
         if (unpacker.addChar(byte.toInt() and 0xFF)) {
@@ -63,6 +65,7 @@ internal inline fun decodeFrames(
                 hasNewData = hasNewData || result.hasNewData
                 commands.addAll(result.commands)
                 result.news?.let { news = it }
+                result.frameType?.let { frameTypes.add(it) }
             } else if (firstUnhandledBuffer == null) {
                 firstUnhandledBuffer = buffer.copyOf()
             }
@@ -71,7 +74,7 @@ internal inline fun decodeFrames(
 
     return when {
         frameProcessed || hasNewData || newState != currentState -> {
-            DecodeResult.Success(DecodedData(newState, commands, hasNewData, news))
+            DecodeResult.Success(DecodedData(newState, commands, hasNewData, news, frameTypes))
         }
         hadCompleteFrame -> {
             DecodeResult.Unhandled(

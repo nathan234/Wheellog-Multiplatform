@@ -235,10 +235,30 @@ class NinebotDecoder(
     }
 
     /**
+     * Map from Param enum to UPPER_SNAKE_CASE frame type names.
+     */
+    private val paramTypeNames = mapOf(
+        Param.SerialNumber to "SERIAL_NUMBER",
+        Param.SerialNumber2 to "SERIAL_NUMBER_2",
+        Param.SerialNumber3 to "SERIAL_NUMBER_3",
+        Param.Firmware to "FIRMWARE",
+        Param.Angles to "ANGLES",
+        Param.BatteryLevel to "BATTERY_LEVEL",
+        Param.ActivationDate to "ACTIVATION_DATE",
+        Param.LiveData to "LIVE_DATA",
+        Param.LiveData2 to "LIVE_DATA_2",
+        Param.LiveData3 to "LIVE_DATA_3",
+        Param.LiveData4 to "LIVE_DATA_4",
+        Param.LiveData5 to "LIVE_DATA_5",
+        Param.LiveData6 to "LIVE_DATA_6"
+    )
+
+    /**
      * Process a parsed CAN message and update state.
      */
     private fun processMessage(message: CANMessage, currentState: WheelState): FrameResult? {
         val param = Param.fromValue(message.parameter)
+        val typeName = param?.let { paramTypeNames[it] } ?: "UNKNOWN"
 
         return when (param) {
             Param.SerialNumber -> {
@@ -252,7 +272,8 @@ class NinebotDecoder(
                             serialNumber = serialNumber,
                             model = getModelName()
                         ),
-                        hasNewData = false
+                        hasNewData = false,
+                        frameType = typeName
                     )
                 } else null
             }
@@ -271,7 +292,8 @@ class NinebotDecoder(
                         serialNumber = serialNumber,
                         model = getModelName()
                     ),
-                    hasNewData = false
+                    hasNewData = false,
+                    frameType = typeName
                 )
             }
 
@@ -280,30 +302,31 @@ class NinebotDecoder(
                 connectionState = ConnectionState.READY
                 FrameResult(
                     state = currentState.copy(version = version),
-                    hasNewData = false
+                    hasNewData = false,
+                    frameType = typeName
                 )
             }
 
             Param.LiveData -> {
                 if (message.len - 2 == 32) {
-                    parseLiveData(message.data, currentState)
+                    parseLiveData(message.data, currentState)?.copy(frameType = typeName)
                 } else null
             }
 
             Param.LiveData2 -> {
-                parseLiveData2(message.data, currentState)
+                parseLiveData2(message.data, currentState)?.copy(frameType = typeName)
             }
 
             Param.LiveData3 -> {
-                parseLiveData3(message.data, currentState)
+                parseLiveData3(message.data, currentState)?.copy(frameType = typeName)
             }
 
             Param.LiveData4 -> {
-                parseLiveData4(message.data, currentState)
+                parseLiveData4(message.data, currentState)?.copy(frameType = typeName)
             }
 
             Param.LiveData5 -> {
-                parseLiveData5(message.data, currentState)
+                parseLiveData5(message.data, currentState)?.copy(frameType = typeName)
             }
 
             Param.LiveData6 -> {
@@ -311,7 +334,11 @@ class NinebotDecoder(
                 null
             }
 
-            else -> null
+            Param.Angles,
+            Param.BatteryLevel,
+            Param.ActivationDate -> null
+
+            null -> null
         }
     }
 
@@ -470,6 +497,8 @@ class NinebotDecoder(
                     voltage != 0
         }
     }
+
+    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
 
     override fun reset() {
         stateLock.withLock {

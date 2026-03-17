@@ -328,7 +328,7 @@ class InMotionV2Decoder : WheelDecoder {
             }
         }
 
-        return FrameResult(newState, false)
+        return FrameResult(newState, false, frameType = "MAIN_INFO")
     }
 
     // ==================== P6 Extended Protocol ====================
@@ -357,7 +357,7 @@ class InMotionV2Decoder : WheelDecoder {
             wheelType = WheelType.INMOTION_V2
         )
 
-        return FrameResult(newState, false)
+        return FrameResult(newState, false, frameType = "EXT_INIT")
     }
 
     /**
@@ -370,6 +370,7 @@ class InMotionV2Decoder : WheelDecoder {
         // Strip the 4-byte sub-header to get the raw telemetry payload
         val payload = data.copyOfRange(4, data.size)
         return processRealTimeInfo(Message(Flag.EXTENDED, data.size, 0, payload), currentState)
+            ?.copy(frameType = "EXT_REAL_TIME")
     }
 
     /**
@@ -390,7 +391,8 @@ class InMotionV2Decoder : WheelDecoder {
         val totalDistance = ByteUtils.intFromBytesLE(data, 2).toLong() * 10
         return FrameResult(
             currentState.copy(totalDistance = totalDistance),
-            false
+            false,
+            frameType = "EXT_TOTAL_STATS"
         )
     }
 
@@ -464,7 +466,8 @@ class InMotionV2Decoder : WheelDecoder {
                 bms1 = bms1.toSnapshot(),
                 bms2 = if (model.batteryCount > 1) bms2.toSnapshot() else currentState.bms2
             ),
-            false
+            false,
+            frameType = "BMS${bmsNum}_SERIAL"
         )
     }
 
@@ -503,7 +506,8 @@ class InMotionV2Decoder : WheelDecoder {
                 bms1 = bms1.toSnapshot(),
                 bms2 = if (model.batteryCount > 1) bms2.toSnapshot() else currentState.bms2
             ),
-            false
+            false,
+            frameType = "BMS${bmsNum}_STATUS"
         )
     }
 
@@ -530,7 +534,8 @@ class InMotionV2Decoder : WheelDecoder {
                 bms1 = bms1.toSnapshot(),
                 bms2 = if (model.batteryCount > 1) bms2.toSnapshot() else currentState.bms2
             ),
-            false
+            false,
+            frameType = "BMS${bmsNum}_VOLTAGES"
         )
     }
 
@@ -571,7 +576,8 @@ class InMotionV2Decoder : WheelDecoder {
 
         return FrameResult(
             currentState.copy(totalDistance = totalDistance),
-            false
+            false,
+            frameType = "TOTAL_STATS"
         )
     }
 
@@ -801,7 +807,8 @@ class InMotionV2Decoder : WheelDecoder {
                 wheelType = WheelType.INMOTION_V2
             ),
             hasNewData = true,
-            news = alert.ifEmpty { null }
+            news = alert.ifEmpty { null },
+            frameType = "REAL_TIME_INFO"
         )
     }
 
@@ -863,7 +870,8 @@ class InMotionV2Decoder : WheelDecoder {
                 wheelType = WheelType.INMOTION_V2
             ),
             hasNewData = true,
-            news = alert.ifEmpty { null }
+            news = alert.ifEmpty { null },
+            frameType = "REAL_TIME_INFO"
         )
     }
 
@@ -916,7 +924,8 @@ class InMotionV2Decoder : WheelDecoder {
                 goHomeMode = lowBat,
                 fanQuiet = fanQuietMode
             ),
-            hasNewData = false
+            hasNewData = false,
+            frameType = "SETTINGS"
         )
     }
 
@@ -951,7 +960,8 @@ class InMotionV2Decoder : WheelDecoder {
                 handleButton = handleBtn,
                 transportMode = transpMode
             ),
-            hasNewData = false
+            hasNewData = false,
+            frameType = "SETTINGS"
         )
     }
 
@@ -989,7 +999,8 @@ class InMotionV2Decoder : WheelDecoder {
                 drl = drlFlag,
                 transportMode = transpMode
             ),
-            hasNewData = false
+            hasNewData = false,
+            frameType = "SETTINGS"
         )
     }
 
@@ -1042,7 +1053,8 @@ class InMotionV2Decoder : WheelDecoder {
                 transportMode = transpMode,
                 goHomeMode = goHome
             ),
-            hasNewData = false
+            hasNewData = false,
+            frameType = "SETTINGS"
         )
     }
 
@@ -1083,7 +1095,8 @@ class InMotionV2Decoder : WheelDecoder {
                 cutoutAngle = cutout,
                 drl = drlFlag
             ),
-            hasNewData = false
+            hasNewData = false,
+            frameType = "SETTINGS"
         )
     }
 
@@ -1192,6 +1205,8 @@ class InMotionV2Decoder : WheelDecoder {
     override fun isReady(): Boolean = stateLock.withLock {
         hasReceivedTelemetry || (isModelDetected && version.isNotEmpty())
     }
+
+    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
 
     override fun reset() = stateLock.withLock {
         unpacker.reset()

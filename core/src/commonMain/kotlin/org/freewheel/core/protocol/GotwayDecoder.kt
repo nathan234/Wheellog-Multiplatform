@@ -201,6 +201,10 @@ class GotwayDecoder : WheelDecoder {
             }
 
             if (successData != null || finalState != currentState) {
+                val frameTypes = successData?.frameTypes?.toMutableList() ?: mutableListOf()
+                if (newState != currentState && successData?.newState != newState) {
+                    frameTypes.add(0, "IDENTITY")
+                }
                 DecodeResult.Success(DecodedData(
                     newState = finalState.copy(
                         bms1 = bms1.toSnapshot(),
@@ -208,7 +212,8 @@ class GotwayDecoder : WheelDecoder {
                     ),
                     commands = commands,
                     hasNewData = finalHasNewData,
-                    news = news
+                    news = news,
+                    frameTypes = frameTypes
                 ))
             } else {
                 loopResult
@@ -228,12 +233,13 @@ class GotwayDecoder : WheelDecoder {
         val gotwayNegative = config.gotwayNegative
 
         return when (frameType) {
-            FRAME_LIVE_DATA -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative)
-            FRAME_EXTENDED -> processExtendedFrame(buff, currentState, config, isAlexovikFW)
-            FRAME_BMS_CELLS_1, FRAME_BMS_CELLS_2 -> processBmsCellsFrame(buff, frameType)
-            FRAME_TOTAL_DISTANCE -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW)
-            FRAME_CURRENT_TEMP -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)
-            FRAME_SETTINGS -> processSettingsFrame(buff, currentState)
+            FRAME_LIVE_DATA -> processLiveDataFrame(buff, currentState, config, isAlexovikFW, gotwayNegative).copy(frameType = "LIVE_DATA")
+            FRAME_EXTENDED -> processExtendedFrame(buff, currentState, config, isAlexovikFW)?.copy(frameType = "EXTENDED")
+            FRAME_BMS_CELLS_1 -> processBmsCellsFrame(buff, frameType)?.copy(frameType = "BMS_CELLS_1")
+            FRAME_BMS_CELLS_2 -> processBmsCellsFrame(buff, frameType)?.copy(frameType = "BMS_CELLS_2")
+            FRAME_TOTAL_DISTANCE -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW).copy(frameType = "TOTAL_DISTANCE")
+            FRAME_CURRENT_TEMP -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)?.copy(frameType = "CURRENT_TEMP")
+            FRAME_SETTINGS -> processSettingsFrame(buff, currentState).copy(frameType = "SETTINGS")
             else -> null
         }
     }
@@ -640,6 +646,8 @@ class GotwayDecoder : WheelDecoder {
             isResolved = true
         )
     }
+
+    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
 
     override fun reset() {
         stateLock.withLock {

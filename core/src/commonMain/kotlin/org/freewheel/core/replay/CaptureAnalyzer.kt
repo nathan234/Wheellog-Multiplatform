@@ -5,6 +5,7 @@ import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
+import org.freewheel.core.protocol.UnpackerStats
 import org.freewheel.core.protocol.WheelDecoderFactory
 import org.freewheel.core.utils.ByteUtils
 
@@ -59,6 +60,15 @@ data class AnnotatedPacket(
 )
 
 /**
+ * Frame type distribution entry for a single frame type.
+ */
+data class FrameTypeEntry(
+    val frameType: String,
+    val count: Int,
+    val isUnhandled: Boolean
+)
+
+/**
  * Summary statistics for a capture analysis run.
  */
 data class AnalysisSummary(
@@ -70,7 +80,9 @@ data class AnalysisSummary(
     val unhandledCount: Int,
     val errorCount: Int,
     val durationMs: Long,
-    val unhandledReasons: Map<String, Int>
+    val unhandledReasons: Map<String, Int>,
+    val frameTypeDistribution: List<FrameTypeEntry> = emptyList(),
+    val unpackerStats: UnpackerStats = UnpackerStats()
 )
 
 /**
@@ -94,8 +106,9 @@ data class CaptureAnalysis(
         val sb = StringBuilder()
 
         // Header
+        val durationStr = formatDuration(summary.durationMs)
         sb.appendLine("=== Capture Analysis: ${header.wheelTypeName} (${header.wheelName}) ===")
-        sb.appendLine("Firmware: ${header.firmware}  Duration: ${summary.durationMs}ms")
+        sb.appendLine("Firmware: ${header.firmware}  Duration: $durationStr")
         sb.appendLine()
 
         // Packet table
@@ -125,6 +138,23 @@ data class CaptureAnalysis(
         sb.appendLine("Total: ${summary.totalPackets} (RX: ${summary.rxPackets}, TX: ${summary.txPackets})")
         sb.appendLine("Success: ${summary.successCount}  Buffering: ${summary.bufferingCount}  Unhandled: ${summary.unhandledCount}  Error: ${summary.errorCount}")
 
+        // Frame type distribution histogram
+        if (summary.frameTypeDistribution.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("--- Frame Type Distribution ---")
+            val maxNameLen = summary.frameTypeDistribution.maxOf { it.frameType.length }
+            for (entry in summary.frameTypeDistribution) {
+                val name = entry.frameType.padEnd(maxNameLen)
+                val status = if (entry.isUnhandled) "<- unhandled" else "ok"
+                sb.appendLine("  $name: ${entry.count.toString().padStart(6)} frames  $status")
+            }
+        }
+
+        // Unpacker stats
+        if (summary.unpackerStats.errorResets > 0 || summary.unpackerStats.bytesDiscarded > 0) {
+            sb.appendLine("  Unpacker resets: ${summary.unpackerStats.errorResets} (${summary.unpackerStats.bytesDiscarded} bytes discarded)")
+        }
+
         if (summary.unhandledReasons.isNotEmpty()) {
             sb.appendLine()
             sb.appendLine("Unhandled reasons:")
@@ -135,6 +165,13 @@ data class CaptureAnalysis(
 
         return sb.toString()
     }
+}
+
+private fun formatDuration(ms: Long): String {
+    val totalSec = ms / 1000
+    val min = totalSec / 60
+    val sec = totalSec % 60
+    return if (min > 0) "${min}m ${sec}s" else "${sec}s"
 }
 
 /**
@@ -172,6 +209,8 @@ class CaptureAnalyzer(
         var rxCount = 0
         var txCount = 0
         val unhandledReasons = mutableMapOf<String, Int>()
+        val successFrameTypes = mutableMapOf<String, Int>()
+        val unhandledFrameTypes = mutableMapOf<String, Int>()
 
         for ((index, entry) in capture.entries.withIndex()) {
             when (entry) {
@@ -209,6 +248,9 @@ class CaptureAnalyzer(
                                 state = newState
                                 successCount++
                                 packetResult = PacketResult.Success
+                                for (ft in decodeResult.data.frameTypes) {
+                                    successFrameTypes[ft] = (successFrameTypes[ft] ?: 0) + 1
+                                }
                             }
                             is DecodeResult.Buffering -> {
                                 bufferingCount++
@@ -220,6 +262,8 @@ class CaptureAnalyzer(
                                 unhandledReasons[reasonStr] =
                                     (unhandledReasons[reasonStr] ?: 0) + 1
                                 packetResult = PacketResult.Unhandled(reasonStr)
+                                val unhandledType = decodeResult.reason.detail.ifEmpty { reasonStr }
+                                unhandledFrameTypes[unhandledType] = (unhandledFrameTypes[unhandledType] ?: 0) + 1
                             }
                         }
                     } catch (e: Exception) {
@@ -240,6 +284,16 @@ class CaptureAnalyzer(
             }
         }
 
+        // Build frame type distribution: successful types first (sorted by count desc),
+        // then unhandled types (sorted by count desc)
+        val distribution = mutableListOf<FrameTypeEntry>()
+        for ((ft, count) in successFrameTypes.entries.sortedByDescending { it.value }) {
+            distribution.add(FrameTypeEntry(ft, count, isUnhandled = false))
+        }
+        for ((ft, count) in unhandledFrameTypes.entries.sortedByDescending { it.value }) {
+            distribution.add(FrameTypeEntry(ft, count, isUnhandled = true))
+        }
+
         val summary = AnalysisSummary(
             totalPackets = rxCount + txCount,
             rxPackets = rxCount,
@@ -249,7 +303,9 @@ class CaptureAnalyzer(
             unhandledCount = unhandledCount,
             errorCount = errorCount,
             durationMs = capture.durationMs,
-            unhandledReasons = unhandledReasons
+            unhandledReasons = unhandledReasons,
+            frameTypeDistribution = distribution,
+            unpackerStats = decoder.getUnpackerStats() ?: UnpackerStats()
         )
 
         return CaptureAnalysis(

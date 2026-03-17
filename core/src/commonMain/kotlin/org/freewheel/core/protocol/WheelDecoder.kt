@@ -66,6 +66,12 @@ interface WheelDecoder {
      * Decoders populate this from their [CapabilityMap] as identification frames arrive.
      */
     fun getCapabilities(): CapabilitySet = CapabilitySet()
+
+    /**
+     * Cumulative unpacker error statistics since last reset.
+     * Returns null if the decoder doesn't use a separate unpacker.
+     */
+    fun getUnpackerStats(): UnpackerStats? = null
 }
 
 /**
@@ -157,7 +163,14 @@ data class DecodedData(
     /**
      * Optional news/message from the wheel.
      */
-    val news: String? = null
+    val news: String? = null,
+
+    /**
+     * Frame types decoded in this notification (e.g., "LIVE_DATA", "SETTINGS").
+     * Populated by decoders to enable frame type distribution analysis.
+     * May contain multiple entries when a single BLE notification contains multiple frames.
+     */
+    val frameTypes: List<String> = emptyList()
 )
 
 /**

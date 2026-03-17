@@ -251,7 +251,7 @@ class VeteranDecoder : WheelDecoder {
 
             val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
                 processFrame(buffer, state, config)?.let {
-                    FrameResult(it, hasNewData = true)
+                    FrameResult(it, hasNewData = true, frameType = "TELEMETRY")
                 }
             }
 
@@ -646,6 +646,8 @@ class VeteranDecoder : WheelDecoder {
             firmwareVersion = version
         )
     }
+
+    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
 
     override fun reset() {
         stateLock.withLock {

@@ -61,23 +61,26 @@ class InMotionDecoder : WheelDecoder {
     ): FrameResult? {
         val canMessage = CANMessage.verify(buffer) ?: return null
         val idValue = IDValue.fromInt(canMessage.id)
+            ?: return FrameResult(currentState, frameType = "UNKNOWN")
+
+        val typeName = idValue.name.uppercase()
 
         return when (idValue) {
             IDValue.GetFastInfo -> {
                 val result = canMessage.parseFastInfoMessage(model, currentState, config)
                 if (result != null) {
-                    FrameResult(result.state, hasNewData = true, news = result.news)
+                    FrameResult(result.state, hasNewData = true, news = result.news, frameType = typeName)
                 } else {
-                    FrameResult(currentState)
+                    FrameResult(currentState, frameType = typeName)
                 }
             }
 
             IDValue.Alert -> {
                 val alertResult = canMessage.parseAlertInfoMessage(currentState)
                 if (alertResult != null) {
-                    FrameResult(alertResult.state, news = alertResult.news)
+                    FrameResult(alertResult.state, news = alertResult.news, frameType = typeName)
                 } else {
-                    FrameResult(currentState)
+                    FrameResult(currentState, frameType = typeName)
                 }
             }
 
@@ -91,14 +94,14 @@ class InMotionDecoder : WheelDecoder {
                         model = result.detectedModel
                         isReady = true
                     }
-                    FrameResult(result.state)
+                    FrameResult(result.state, frameType = typeName)
                 } else {
-                    FrameResult(currentState)
+                    FrameResult(currentState, frameType = typeName)
                 }
             }
 
             IDValue.PinCode -> {
-                FrameResult(currentState)
+                FrameResult(currentState, frameType = typeName)
             }
 
             IDValue.Calibration -> {
@@ -107,7 +110,7 @@ class InMotionDecoder : WheelDecoder {
                 } else {
                     "Calibration failed"
                 }
-                FrameResult(currentState, news = news)
+                FrameResult(currentState, news = news, frameType = typeName)
             }
 
             IDValue.RideMode -> {
@@ -116,7 +119,7 @@ class InMotionDecoder : WheelDecoder {
                 } else {
                     "Ride mode change failed"
                 }
-                FrameResult(currentState, news = news)
+                FrameResult(currentState, news = news, frameType = typeName)
             }
 
             IDValue.Light -> {
@@ -125,7 +128,7 @@ class InMotionDecoder : WheelDecoder {
                 } else {
                     "Light toggle failed"
                 }
-                FrameResult(currentState, news = news)
+                FrameResult(currentState, news = news, frameType = typeName)
             }
 
             IDValue.HandleButton -> {
@@ -134,7 +137,7 @@ class InMotionDecoder : WheelDecoder {
                 } else {
                     "Handle button setting failed"
                 }
-                FrameResult(currentState, news = news)
+                FrameResult(currentState, news = news, frameType = typeName)
             }
 
             IDValue.SpeakerVolume -> {
@@ -143,11 +146,11 @@ class InMotionDecoder : WheelDecoder {
                 } else {
                     "Speaker volume change failed"
                 }
-                FrameResult(currentState, news = news)
+                FrameResult(currentState, news = news, frameType = typeName)
             }
 
-            else -> {
-                FrameResult(currentState)
+            IDValue.NoOp, IDValue.RemoteControl, IDValue.PlaySound -> {
+                FrameResult(currentState, frameType = typeName)
             }
         }
     }
@@ -162,6 +165,8 @@ class InMotionDecoder : WheelDecoder {
             isResolved = true
         )
     }
+
+    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
 
     override fun reset() {
         stateLock.withLock {

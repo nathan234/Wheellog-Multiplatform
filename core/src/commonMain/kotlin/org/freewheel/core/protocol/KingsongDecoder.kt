@@ -102,11 +102,14 @@ class KingsongDecoder : WheelDecoder {
                 else -> null
             }
 
+            val typeName = FRAME_TYPE_NAMES[frameType] ?: "0x${frameType.toString(16)}"
+
             if (newState != null) {
                 DecodeResult.Success(DecodedData(
                     newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
                     commands = commands,
-                    hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5
+                    hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5,
+                    frameTypes = listOf(typeName)
                 ))
             } else {
                 DecodeResult.Unhandled(
@@ -979,6 +982,32 @@ class KingsongDecoder : WheelDecoder {
         const val LED_MODE_READBACK = 0x4D
         const val TURN_OFF_TIMER = 0x3F
     }
+
+    private val FRAME_TYPE_NAMES = mapOf(
+        FrameType.LIVE_DATA to "LIVE_DATA",
+        FrameType.DISTANCE_TIME to "DISTANCE_TIME",
+        FrameType.NAME_TYPE to "NAME_TYPE",
+        FrameType.SERIAL_NUMBER to "SERIAL_NUMBER",
+        FrameType.CPU_LOAD_PWM to "CPU_LOAD_PWM",
+        FrameType.SPEED_LIMIT to "SPEED_LIMIT",
+        FrameType.MAX_SPEED_ALERTS to "MAX_SPEED_ALERTS",
+        FrameType.MAX_SPEED_ALERTS_2 to "MAX_SPEED_ALERTS_2",
+        FrameType.BMS_DATA_1 to "BMS_DATA_1",
+        FrameType.BMS_DATA_2 to "BMS_DATA_2",
+        FrameType.BMS_SERIAL_1 to "BMS_SERIAL_1",
+        FrameType.BMS_SERIAL_2 to "BMS_SERIAL_2",
+        FrameType.BMS_FW_1 to "BMS_FW_1",
+        FrameType.BMS_FW_2 to "BMS_FW_2",
+        FrameType.LOCK_STATUS to "LOCK_STATUS",
+        FrameType.LOCK_RESULT to "LOCK_RESULT",
+        FrameType.RIDE_MODE_CONFIRM to "RIDE_MODE_CONFIRM",
+        FrameType.BATTERY_TEMP to "BATTERY_TEMP",
+        FrameType.PASSWORD_LOGIN to "PASSWORD_LOGIN",
+        FrameType.LIFT_SENSOR to "LIFT_SENSOR",
+        FrameType.HEADLIGHT_MODE to "HEADLIGHT_MODE",
+        FrameType.LED_MODE_READBACK to "LED_MODE_READBACK",
+        FrameType.TURN_OFF_TIMER to "TURN_OFF_TIMER"
+    )
 
     private object InitCmd {
         const val REQUEST_NAME = 0x9B

@@ -8,6 +8,7 @@ import org.freewheel.core.protocol.DecodedData
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.UnhandledReason
+import org.freewheel.core.protocol.UnpackerStats
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
 import org.freewheel.core.protocol.WheelDecoderFactory
@@ -19,8 +20,12 @@ import kotlin.test.assertTrue
 
 class CaptureAnalyzerTest {
 
-    // Decoder that reads speed from first 2 bytes (big-endian), voltage from bytes 2-3
-    private class TestDecoder : WheelDecoder {
+    // Decoder that reads speed from first 2 bytes (big-endian), voltage from bytes 2-3.
+    // Byte 0 determines frame type: 0x01=TELEMETRY, 0x02=SETTINGS, others=TELEMETRY.
+    // 0xFF 0xFF triggers Unhandled with detail "0xFF".
+    private class TestDecoder(
+        private val unpackerStatsToReport: UnpackerStats? = null
+    ) : WheelDecoder {
         override val wheelType = WheelType.KINGSONG
         private var ready = false
 
@@ -32,6 +37,7 @@ class CaptureAnalyzerTest {
                     data
                 )
             }
+            val frameType = if (data[0].toInt() and 0xFF == 0x02) "SETTINGS" else "TELEMETRY"
             val speed = ((data[0].toInt() and 0xFF) shl 8) or (data[1].toInt() and 0xFF)
             val voltage = if (data.size >= 4) {
                 ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
@@ -41,12 +47,14 @@ class CaptureAnalyzerTest {
             ready = true
             return DecodeResult.Success(DecodedData(
                 newState = currentState.copy(speed = speed, voltage = voltage, wheelType = WheelType.KINGSONG),
-                commands = if (speed > 1000) listOf(WheelCommand.Beep) else emptyList()
+                commands = if (speed > 1000) listOf(WheelCommand.Beep) else emptyList(),
+                frameTypes = listOf(frameType)
             ))
         }
 
         override fun isReady(): Boolean = ready
         override fun reset() { ready = false }
+        override fun getUnpackerStats(): UnpackerStats? = unpackerStatsToReport
     }
 
     // Decoder that always throws
@@ -416,6 +424,133 @@ class CaptureAnalyzerTest {
         val fields = changes.map { it.field }.toSet()
         assertTrue("pedalsMode" in fields)
         assertTrue("lightMode" in fields)
+    }
+
+    // --- Frame type distribution ---
+
+    @Test
+    fun analyzeTracksFrameTypeDistribution() {
+        val capture = makeCapture(packets = listOf(
+            rxPacket(1000, 0x00, 0x64, 0x20, 0x00), // TELEMETRY (byte 0 != 0x02)
+            rxPacket(1100, 0x00, 0x65, 0x20, 0x00), // TELEMETRY
+            rxPacket(1200, 0x02, 0x01, 0x20, 0x00)  // SETTINGS (byte 0 == 0x02)
+        ))
+
+        val result = analyzer.analyze(capture)!!
+
+        val dist = result.summary.frameTypeDistribution
+        assertEquals(2, dist.size)
+
+        val telemetry = dist.find { it.frameType == "TELEMETRY" }
+        assertNotNull(telemetry)
+        assertEquals(2, telemetry.count)
+        kotlin.test.assertFalse(telemetry.isUnhandled)
+
+        val settings = dist.find { it.frameType == "SETTINGS" }
+        assertNotNull(settings)
+        assertEquals(1, settings.count)
+        kotlin.test.assertFalse(settings.isUnhandled)
+    }
+
+    @Test
+    fun analyzeTracksUnhandledFrameTypes() {
+        val capture = makeCapture(packets = listOf(
+            rxPacket(1000, 0x00, 0x64), // TELEMETRY
+            rxPacket(1100, 0xFF, 0xFF), // Unhandled: 0xFF
+            rxPacket(1200, 0xFF, 0xFF)  // Unhandled: 0xFF
+        ))
+
+        val result = analyzer.analyze(capture)!!
+
+        val dist = result.summary.frameTypeDistribution
+        val telemetry = dist.find { it.frameType == "TELEMETRY" && !it.isUnhandled }
+        assertNotNull(telemetry)
+        assertEquals(1, telemetry.count)
+
+        val unhandled = dist.find { it.isUnhandled }
+        assertNotNull(unhandled)
+        assertEquals(2, unhandled.count)
+        assertTrue(unhandled.isUnhandled)
+    }
+
+    @Test
+    fun analyzeDistributionSortedByCountDescending() {
+        val capture = makeCapture(packets = listOf(
+            rxPacket(1000, 0x02, 0x01, 0x20, 0x00), // SETTINGS
+            rxPacket(1100, 0x00, 0x64),              // TELEMETRY
+            rxPacket(1200, 0x00, 0x65),              // TELEMETRY
+            rxPacket(1300, 0x00, 0x66)               // TELEMETRY
+        ))
+
+        val result = analyzer.analyze(capture)!!
+
+        val successDist = result.summary.frameTypeDistribution.filter { !it.isUnhandled }
+        assertEquals(2, successDist.size)
+        // TELEMETRY (3) should come before SETTINGS (1)
+        assertEquals("TELEMETRY", successDist[0].frameType)
+        assertEquals(3, successDist[0].count)
+        assertEquals("SETTINGS", successDist[1].frameType)
+        assertEquals(1, successDist[1].count)
+    }
+
+    @Test
+    fun analyzeIncludesUnpackerStats() {
+        val statsDecoder = TestDecoder(unpackerStatsToReport = UnpackerStats(errorResets = 5, bytesDiscarded = 120))
+        val factory = object : WheelDecoderFactory {
+            override fun createDecoder(wheelType: WheelType): WheelDecoder = statsDecoder
+            override fun supportedTypes() = listOf(WheelType.KINGSONG)
+        }
+        val analyzerWithStats = CaptureAnalyzer(factory)
+
+        val capture = makeCapture(packets = listOf(rxPacket(1000, 0x00, 0x64)))
+        val result = analyzerWithStats.analyze(capture)!!
+
+        assertEquals(5, result.summary.unpackerStats.errorResets)
+        assertEquals(120, result.summary.unpackerStats.bytesDiscarded)
+    }
+
+    @Test
+    fun formatReportIncludesDistributionHistogram() {
+        val capture = makeCapture(packets = listOf(
+            rxPacket(1000, 0x00, 0x64),              // TELEMETRY
+            rxPacket(1100, 0x00, 0x65),              // TELEMETRY
+            rxPacket(1200, 0x02, 0x01, 0x20, 0x00),  // SETTINGS
+            rxPacket(1300, 0xFF, 0xFF)                // Unhandled
+        ))
+
+        val report = analyzer.analyze(capture)!!.formatReport()
+
+        assertTrue(report.contains("Frame Type Distribution"))
+        assertTrue(report.contains("TELEMETRY"))
+        assertTrue(report.contains("SETTINGS"))
+        assertTrue(report.contains("ok"))
+        assertTrue(report.contains("unhandled"))
+    }
+
+    @Test
+    fun formatReportIncludesUnpackerStats() {
+        val statsDecoder = TestDecoder(unpackerStatsToReport = UnpackerStats(errorResets = 3, bytesDiscarded = 45))
+        val factory = object : WheelDecoderFactory {
+            override fun createDecoder(wheelType: WheelType): WheelDecoder = statsDecoder
+            override fun supportedTypes() = listOf(WheelType.KINGSONG)
+        }
+        val analyzerWithStats = CaptureAnalyzer(factory)
+
+        val capture = makeCapture(packets = listOf(rxPacket(1000, 0x00, 0x64)))
+        val report = analyzerWithStats.analyze(capture)!!.formatReport()
+
+        assertTrue(report.contains("Unpacker resets: 3"))
+        assertTrue(report.contains("45 bytes discarded"))
+    }
+
+    @Test
+    fun analyzeEmptyCaptureHasEmptyDistribution() {
+        val capture = makeCapture(packets = emptyList())
+        val result = analyzer.analyze(capture)!!
+
+        assertTrue(result.summary.frameTypeDistribution.isEmpty())
+        assertEquals(0, result.summary.unpackerStats.errorResets)
+        assertEquals(0, result.summary.unpackerStats.bytesDiscarded)
     }
 
 }

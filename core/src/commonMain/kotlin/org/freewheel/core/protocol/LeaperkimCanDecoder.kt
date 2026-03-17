@@ -98,6 +98,13 @@ class LeaperkimCanDecoder : WheelDecoder {
 
         // Keep-alive interval
         const val KEEP_ALIVE_INTERVAL_MS = 500L
+
+        // Map CAN IDs to frame type labels for the polling phase
+        private val CAN_ID_FRAME_TYPES = mapOf(
+            CAN_READ_VALUES to "TELEMETRY",
+            CAN_READ_STATUS to "STATUS",
+            CAN_INIT_STATUS to "STATUS"
+        )
     }
 
     // ==================== Internal State ====================
@@ -235,7 +242,8 @@ class LeaperkimCanDecoder : WheelDecoder {
                 val cmd = buildCanFrame(CAN_INIT_COMM, ByteArray(CMD_PAYLOAD_SIZE))
                 FrameResult(
                     state = currentState,
-                    commands = listOf(WheelCommand.SendBytes(cmd))
+                    commands = listOf(WheelCommand.SendBytes(cmd)),
+                    frameType = "INIT_PASSWORD"
                 )
             }
 
@@ -245,7 +253,8 @@ class LeaperkimCanDecoder : WheelDecoder {
                 val cmd = buildCanFrame(CAN_INIT_STATUS, ByteArray(CMD_PAYLOAD_SIZE))
                 FrameResult(
                     state = currentState,
-                    commands = listOf(WheelCommand.SendBytes(cmd))
+                    commands = listOf(WheelCommand.SendBytes(cmd)),
+                    frameType = "INIT_COMM"
                 )
             }
 
@@ -253,23 +262,20 @@ class LeaperkimCanDecoder : WheelDecoder {
                 // Status response → parse settings, enter polling
                 phase = InitPhase.POLLING
                 val newState = parseStatusResponse(payload, currentState)
-                FrameResult(state = newState, hasNewData = true)
+                FrameResult(state = newState, hasNewData = true, frameType = "INIT_STATUS")
             }
 
             InitPhase.POLLING -> {
-                when (canId) {
-                    CAN_READ_VALUES -> {
-                        val newState = parseTelemetryResponse(payload, currentState)
-                        FrameResult(state = newState, hasNewData = true)
-                    }
-                    CAN_READ_STATUS, CAN_INIT_STATUS -> {
-                        val newState = parseStatusResponse(payload, currentState)
-                        FrameResult(state = newState, hasNewData = true)
-                    }
-                    else -> {
-                        // Unknown CAN ID — ignore
-                        FrameResult(state = currentState)
-                    }
+                val frameType = CAN_ID_FRAME_TYPES[canId] ?: "POLLING_UNKNOWN"
+                if (canId == CAN_READ_VALUES) {
+                    val newState = parseTelemetryResponse(payload, currentState)
+                    FrameResult(state = newState, hasNewData = true, frameType = frameType)
+                } else if (canId == CAN_READ_STATUS || canId == CAN_INIT_STATUS) {
+                    val newState = parseStatusResponse(payload, currentState)
+                    FrameResult(state = newState, hasNewData = true, frameType = frameType)
+                } else {
+                    // Unknown CAN ID — ignore
+                    FrameResult(state = currentState, frameType = frameType)
                 }
             }
         }
@@ -643,6 +649,8 @@ class LeaperkimCanDecoder : WheelDecoder {
             isResolved = true
         )
     }
+
+    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
 
     override fun reset() {
         stateLock.withLock {

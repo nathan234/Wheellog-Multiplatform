@@ -105,8 +105,21 @@ class KingsongDecoder : WheelDecoder {
             val typeName = FRAME_TYPE_NAMES[frameType] ?: "0x${frameType.toString(16)}"
 
             if (newState != null) {
+                // Ensure wheelType is set for proper WheelSettings extraction
+                var finalState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
+                if (finalState.wheelType == WheelType.Unknown) {
+                    finalState = finalState.copy(wheelType = WheelType.KINGSONG)
+                }
+                // Extract domain pieces, only including those that changed
+                val initialTelemetry = currentState.toTelemetryState()
+                val initialIdentity = currentState.toIdentity()
+                val initialBms = currentState.toBmsState()
+                val initialSettings = currentState.toWheelSettings()
                 DecodeResult.Success(DecodedData(
-                    newState = newState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
+                    telemetry = finalState.toTelemetryState().takeIf { it != initialTelemetry },
+                    identity = finalState.toIdentity().takeIf { it != initialIdentity },
+                    bms = finalState.toBmsState().takeIf { it != initialBms },
+                    settings = finalState.toWheelSettings().takeIf { it != initialSettings },
                     commands = commands,
                     hasNewData = frameType == 0xA9 || frameType == 0xA4 || frameType == 0xB5,
                     frameTypes = listOf(typeName)

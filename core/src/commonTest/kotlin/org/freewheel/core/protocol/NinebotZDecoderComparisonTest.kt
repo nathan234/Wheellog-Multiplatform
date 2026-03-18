@@ -618,7 +618,7 @@ class NinebotZDecoderComparisonTest {
         for (hex in packets) {
             val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.newState!!
+                state = result.data.stateFrom(state)
                 if (result.data.hasNewData) hasNewData = true
             }
         }

@@ -1,5 +1,11 @@
 package org.freewheel.core.protocol
 
+import org.freewheel.core.domain.BmsState
+import org.freewheel.core.domain.TelemetryState
+import org.freewheel.core.domain.WheelIdentity
+import org.freewheel.core.domain.WheelSettings
+import org.freewheel.core.domain.WheelState
+
 /**
  * Convert a hex string (with optional spaces) to a ByteArray.
  * Handles both uppercase and lowercase hex digits.
@@ -24,3 +30,30 @@ internal fun shortToBytesBE(value: Short): ByteArray = byteArrayOf(
  * Encode an Int as a 2-byte big-endian array (delegates to Short overload).
  */
 internal fun shortToBytesBE(value: Int): ByteArray = shortToBytesBE(value.toShort())
+
+// --- Domain piece assertion helpers (Phase 2 decoder migration) ---
+
+internal fun DecodedData.assertTelemetry(): TelemetryState =
+    telemetry ?: error("Expected telemetry update")
+
+internal fun DecodedData.assertSettings(): WheelSettings =
+    settings ?: error("Expected settings update")
+
+internal fun DecodedData.assertIdentity(): WheelIdentity =
+    identity ?: error("Expected identity update")
+
+internal fun DecodedData.assertBms(): BmsState =
+    bms ?: error("Expected BMS update")
+
+/**
+ * Reconstruct a [WheelState] by applying non-null domain pieces from this
+ * [DecodedData] onto [currentState]. Used in tests that chain multiple decode
+ * calls and need accumulated state for subsequent calls.
+ */
+internal fun DecodedData.stateFrom(currentState: WheelState): WheelState =
+    WheelState.compose(
+        telemetry = telemetry ?: currentState.toTelemetryState(),
+        identity = identity ?: currentState.toIdentity(),
+        bms = bms ?: currentState.toBmsState(),
+        settings = settings ?: currentState.toWheelSettings()
+    )

@@ -118,13 +118,13 @@ class DecoderLifecycleTest {
         for (i in 1..51) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
             lastResult = decoder.decode(frame, state, defaultConfig)
-            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.newState!!
+            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.stateFrom(state)
         }
 
         // After exceeding MAX_INFO_ATTEMPTS, model should fall back to "Begode" (the fwProt value)
         assertTrue(lastResult is DecodeResult.Success)
         val decoded = (lastResult as DecodeResult.Success).data
-        assertEquals("Begode", decoded.newState!!.model,
+        assertEquals("Begode", decoded.assertIdentity().model,
             "Model should fall back to fwProt after MAX_INFO_ATTEMPTS")
     }
 
@@ -139,15 +139,16 @@ class DecoderLifecycleTest {
         for (i in 1..51) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
             lastResult = decoder.decode(frame, state, defaultConfig)
-            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.newState!!
+            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.stateFrom(state)
         }
 
         // After exceeding MAX_INFO_ATTEMPTS, version should be "-" and model should be "Begode"
         assertTrue(lastResult is DecodeResult.Success)
         val decoded = (lastResult as DecodeResult.Success).data
-        assertEquals("-", decoded.newState!!.version,
+        val identity = decoded.assertIdentity()
+        assertEquals("-", identity.version,
             "Version should fall back to '-' after MAX_INFO_ATTEMPTS")
-        assertEquals("Begode", decoded.newState!!.model,
+        assertEquals("Begode", identity.model,
             "Model should fall back to 'Begode' when fwProt is empty")
     }
 
@@ -486,7 +487,7 @@ class DecoderLifecycleTest {
         // A Veteran frame should be parseable if it has the right header
         // The model is derived from ver byte
         if (result is DecodeResult.Success) {
-            assertTrue(result.data.newState!!.model.isNotEmpty(),
+            assertTrue(result.data.assertIdentity().model.isNotEmpty(),
                 "Model should be set after first frame")
         }
     }

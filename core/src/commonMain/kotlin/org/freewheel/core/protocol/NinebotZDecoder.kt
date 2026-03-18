@@ -427,9 +427,30 @@ class NinebotZDecoder : WheelDecoder {
 
             when (loopResult) {
                 is DecodeResult.Success -> {
-                    val ws = loopResult.data.newState!!
-                    DecodeResult.Success(loopResult.data.copy(
-                        newState = ws.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
+                    var finalState = loopResult.data.newState!!
+                    // Ensure wheelType is always NINEBOT_Z for domain piece extraction
+                    if (finalState.wheelType == WheelType.Unknown) {
+                        finalState = finalState.copy(wheelType = WheelType.NINEBOT_Z)
+                    }
+                    // Build final state with BMS snapshots for domain piece extraction
+                    val stateWithBms = finalState.copy(
+                        bms1 = bms1.toSnapshot(),
+                        bms2 = bms2.toSnapshot()
+                    )
+                    // Extract domain pieces, only including those that changed
+                    val initialTelemetry = currentState.toTelemetryState()
+                    val initialIdentity = currentState.toIdentity()
+                    val initialBms = currentState.toBmsState()
+                    val initialSettings = currentState.toWheelSettings()
+                    DecodeResult.Success(DecodedData(
+                        telemetry = stateWithBms.toTelemetryState().takeIf { it != initialTelemetry },
+                        identity = stateWithBms.toIdentity().takeIf { it != initialIdentity },
+                        bms = stateWithBms.toBmsState().takeIf { it != initialBms },
+                        settings = stateWithBms.toWheelSettings().takeIf { it != initialSettings },
+                        commands = loopResult.data.commands,
+                        hasNewData = loopResult.data.hasNewData,
+                        news = loopResult.data.news,
+                        frameTypes = loopResult.data.frameTypes
                     ))
                 }
                 is DecodeResult.Buffering -> loopResult

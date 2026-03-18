@@ -261,10 +261,25 @@ class VeteranDecoder : WheelDecoder {
                         hasSyncedTime = true
                         buildTimeSyncCommands()
                     } else emptyList()
-                    val ws = loopResult.data.newState!!
-                    DecodeResult.Success(loopResult.data.copy(
-                        newState = ws.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot()),
-                        commands = loopResult.data.commands + extraCommands
+                    var finalState = loopResult.data.newState!!
+                    finalState = finalState.copy(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
+                    // Ensure wheelType is always VETERAN for domain piece extraction
+                    if (finalState.wheelType == WheelType.Unknown) {
+                        finalState = finalState.copy(wheelType = WheelType.VETERAN)
+                    }
+                    // Extract domain pieces, only including those that changed
+                    val initialTelemetry = currentState.toTelemetryState()
+                    val initialIdentity = currentState.toIdentity()
+                    val initialBms = currentState.toBmsState()
+                    val initialSettings = currentState.toWheelSettings()
+                    DecodeResult.Success(DecodedData(
+                        telemetry = finalState.toTelemetryState().takeIf { it != initialTelemetry },
+                        identity = finalState.toIdentity().takeIf { it != initialIdentity },
+                        bms = finalState.toBmsState().takeIf { it != initialBms },
+                        settings = finalState.toWheelSettings().takeIf { it != initialSettings },
+                        commands = loopResult.data.commands + extraCommands,
+                        hasNewData = loopResult.data.hasNewData,
+                        frameTypes = loopResult.data.frameTypes
                     ))
                 }
                 is DecodeResult.Buffering -> loopResult

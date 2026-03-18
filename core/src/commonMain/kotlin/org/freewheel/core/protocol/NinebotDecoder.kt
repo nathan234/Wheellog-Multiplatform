@@ -168,10 +168,33 @@ class NinebotDecoder(
 
     override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
-            decodeFrames(data, unpacker, currentState) { buffer, state ->
+            val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
                 val msg = verifyAndParse(buffer) ?: return@decodeFrames null
                 processMessage(msg, state)
             }
+
+            val successData = (loopResult as? DecodeResult.Success)?.data
+                ?: return@withLock loopResult
+
+            var finalState = successData.newState ?: currentState
+            if (finalState.wheelType == WheelType.Unknown) {
+                finalState = finalState.copy(wheelType = WheelType.NINEBOT)
+            }
+
+            val initialTelemetry = currentState.toTelemetryState()
+            val initialIdentity = currentState.toIdentity()
+            val initialBms = currentState.toBmsState()
+            val initialSettings = currentState.toWheelSettings()
+            DecodeResult.Success(DecodedData(
+                telemetry = finalState.toTelemetryState().takeIf { it != initialTelemetry },
+                identity = finalState.toIdentity().takeIf { it != initialIdentity },
+                bms = finalState.toBmsState().takeIf { it != initialBms },
+                settings = finalState.toWheelSettings().takeIf { it != initialSettings },
+                commands = successData.commands,
+                hasNewData = successData.hasNewData,
+                news = successData.news,
+                frameTypes = successData.frameTypes
+            ))
         }
     }
 

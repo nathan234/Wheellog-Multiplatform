@@ -205,11 +205,25 @@ class GotwayDecoder : WheelDecoder {
                 if (newState != currentState && successData?.newState != newState) {
                     frameTypes.add(0, "IDENTITY")
                 }
+                // Ensure wheelType is always GOTWAY for domain piece extraction
+                if (finalState.wheelType == WheelType.Unknown) {
+                    finalState = finalState.copy(wheelType = WheelType.GOTWAY)
+                }
+                // Build final state with BMS snapshots for domain piece extraction
+                val stateWithBms = finalState.copy(
+                    bms1 = bms1.toSnapshot(),
+                    bms2 = bms2.toSnapshot()
+                )
+                // Extract domain pieces, only including those that changed
+                val initialTelemetry = currentState.toTelemetryState()
+                val initialIdentity = currentState.toIdentity()
+                val initialBms = currentState.toBmsState()
+                val initialSettings = currentState.toWheelSettings()
                 DecodeResult.Success(DecodedData(
-                    newState = finalState.copy(
-                        bms1 = bms1.toSnapshot(),
-                        bms2 = bms2.toSnapshot()
-                    ),
+                    telemetry = stateWithBms.toTelemetryState().takeIf { it != initialTelemetry },
+                    identity = stateWithBms.toIdentity().takeIf { it != initialIdentity },
+                    bms = stateWithBms.toBmsState().takeIf { it != initialBms },
+                    settings = stateWithBms.toWheelSettings().takeIf { it != initialSettings },
                     commands = commands,
                     hasNewData = finalHasNewData,
                     news = news,

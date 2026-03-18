@@ -517,7 +517,7 @@ object WheelConnectionManagerHelper {
         config: AlarmConfig,
         currentTimeMs: Long
     ): AlarmResult {
-        return checker.check(state, config, currentTimeMs)
+        return checker.check(state.toTelemetryState(), config, currentTimeMs)
     }
 
     fun resetAlarmChecker(checker: AlarmChecker) {

@@ -150,7 +150,8 @@ fun DashboardContent(
                 )
             } else {
                 // Generic hero gauge for non-speed metrics
-                val heroRawValue = heroMetric.extractValue(wheelState) ?: 0.0
+                val telemetry = wheelState.toTelemetryState()
+                val heroRawValue = heroMetric.extractValue(telemetry) ?: 0.0
                 val heroDisplayValue = DisplayUtils.convertMetricValue(heroRawValue, heroMetric, useMph, useFahrenheit)
                 val heroUnit = DisplayUtils.metricUnit(heroMetric, useMph, useFahrenheit)
                 val heroMax = heroMetric.maxValue.let { if (it > 0) it else kotlin.math.abs(heroRawValue).coerceAtLeast(1.0) }
@@ -181,7 +182,7 @@ fun DashboardContent(
                 for (metric in row) {
                     RenderGaugeTile(
                         metric = metric,
-                        wheelState = wheelState,
+                        telemetry = wheelState.toTelemetryState(),
                         gpsSpeed = gpsSpeed,
                         telemetryBuffer = telemetryBuffer,
                         samples = samples,
@@ -205,7 +206,7 @@ fun DashboardContent(
                 for (metric in effectiveLayout.stats) {
                     RenderStatRow(
                         metric = metric,
-                        wheelState = wheelState,
+                        telemetry = wheelState.toTelemetryState(),
                         gpsSpeed = gpsSpeed,
                         useMph = useMph,
                         useFahrenheit = useFahrenheit

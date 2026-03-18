@@ -4,7 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.dashboard.ColorZone
 import org.freewheel.core.domain.dashboard.DashboardMetric
 import org.freewheel.core.telemetry.TelemetryBuffer
@@ -25,7 +25,7 @@ import kotlin.math.abs
 @Composable
 fun RenderGaugeTile(
     metric: DashboardMetric,
-    wheelState: WheelState,
+    telemetry: TelemetryState,
     gpsSpeed: Double,
     telemetryBuffer: TelemetryBuffer,
     samples: List<TelemetrySample>,
@@ -35,7 +35,7 @@ fun RenderGaugeTile(
     onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val rawValue = metric.extractValue(wheelState) ?: gpsSpeed
+    val rawValue = metric.extractValue(telemetry) ?: gpsSpeed
 
     val displayValue = DisplayUtils.convertMetricValue(rawValue, metric, useMph, useFahrenheit)
     val displayUnit = DisplayUtils.metricUnit(metric, useMph, useFahrenheit)
@@ -48,7 +48,7 @@ fun RenderGaugeTile(
     }
 
     val progress = if (maxValue > 0) (abs(displayValue) / maxValue).toFloat() else 0f
-    val effectiveMax = metric.effectiveMax(wheelState)
+    val effectiveMax = metric.effectiveMax(telemetry)
     val rawProgress = if (effectiveMax > 0) (abs(rawValue) / effectiveMax) else 0.0
     val color = tileColorForMetric(metric, rawProgress)
 
@@ -81,13 +81,13 @@ fun RenderGaugeTile(
 @Composable
 fun RenderStatRow(
     metric: DashboardMetric,
-    wheelState: WheelState,
+    telemetry: TelemetryState,
     gpsSpeed: Double,
     useMph: Boolean,
     useFahrenheit: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val rawValue = metric.extractValue(wheelState) ?: gpsSpeed
+    val rawValue = metric.extractValue(telemetry) ?: gpsSpeed
 
     val displayValue = DisplayUtils.convertMetricValue(rawValue, metric, useMph, useFahrenheit)
     val displayUnit = DisplayUtils.metricUnit(metric, useMph, useFahrenheit)
@@ -98,7 +98,7 @@ fun RenderStatRow(
         else -> "${StringUtil.formatDecimal(displayValue, metric.decimals)} $displayUnit"
     }
 
-    val effectiveMax = metric.effectiveMax(wheelState)
+    val effectiveMax = metric.effectiveMax(telemetry)
     val rawProgress = if (effectiveMax > 0) (abs(rawValue) / effectiveMax) else 0.0
     val zone = metric.colorZone(rawProgress)
     val valueColor = if (zone != ColorZone.GREEN) tileColorForMetric(metric, rawProgress) else Color.Unspecified

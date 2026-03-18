@@ -1,7 +1,7 @@
 package org.freewheel.core.alarm
 
 import org.freewheel.core.domain.AlarmType
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.utils.Lock
 import org.freewheel.core.utils.withLock
 import kotlin.math.abs
@@ -72,15 +72,15 @@ class AlarmChecker {
      * @param currentTimeMs Current time in milliseconds (for throttling)
      * @return Result containing all triggered alarms
      */
-    fun check(state: WheelState, config: AlarmConfig, currentTimeMs: Long): AlarmResult = lock.withLock {
+    fun check(telemetry: TelemetryState, config: AlarmConfig, currentTimeMs: Long): AlarmResult = lock.withLock {
         val alarms = mutableListOf<TriggeredAlarm>()
         var preWarning: PreWarning? = null
 
         // Check speed/PWM alarms
         val speedResult = if (config.pwmBasedAlarms) {
-            checkPwmAlarms(state, config, currentTimeMs)
+            checkPwmAlarms(telemetry, config, currentTimeMs)
         } else {
-            checkOldStyleSpeedAlarms(state, config, currentTimeMs)
+            checkOldStyleSpeedAlarms(telemetry, config, currentTimeMs)
         }
         speedResult.alarm?.let { alarms.add(it) }
         if (speedResult.preWarning != null) {
@@ -88,16 +88,16 @@ class AlarmChecker {
         }
 
         // Check current alarm
-        checkCurrentAlarm(state, config, currentTimeMs)?.let { alarms.add(it) }
+        checkCurrentAlarm(telemetry, config, currentTimeMs)?.let { alarms.add(it) }
 
         // Check temperature alarm
-        checkTemperatureAlarm(state, config, currentTimeMs)?.let { alarms.add(it) }
+        checkTemperatureAlarm(telemetry, config, currentTimeMs)?.let { alarms.add(it) }
 
         // Check battery alarm
-        checkBatteryAlarm(state, config, currentTimeMs)?.let { alarms.add(it) }
+        checkBatteryAlarm(telemetry, config, currentTimeMs)?.let { alarms.add(it) }
 
         // Check wheel-reported alarm
-        checkWheelAlarm(state, config, currentTimeMs)?.let { alarms.add(it) }
+        checkWheelAlarm(telemetry, config, currentTimeMs)?.let { alarms.add(it) }
 
         AlarmResult(
             triggeredAlarms = alarms,
@@ -143,11 +143,11 @@ class AlarmChecker {
     )
 
     private fun checkPwmAlarms(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): SpeedCheckResult {
-        val pwm = state.calculatedPwm  // Already 0.0-1.0
+        val pwm = telemetry.calculatedPwm  // Already 0.0-1.0
 
         val factor1 = config.alarmFactor1 / 100.0
         val factor2 = config.alarmFactor2 / 100.0
@@ -181,13 +181,13 @@ class AlarmChecker {
         pwmAlarmThreshold = 0.0
 
         // Check for pre-warning
-        val preWarning = checkPreWarning(state, config, currentTimeMs)
+        val preWarning = checkPreWarning(telemetry, config, currentTimeMs)
 
         return SpeedCheckResult(alarm = null, preWarning = preWarning)
     }
 
     private fun checkPreWarning(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): PreWarning? {
@@ -199,7 +199,7 @@ class AlarmChecker {
         if (lastPreWarningTime > 0 && currentTimeMs - lastPreWarningTime < warningPeriodMs) return null
 
         val warningPwm = config.warningPwm / 100.0
-        val pwm = state.calculatedPwm
+        val pwm = telemetry.calculatedPwm
 
         if (warningPwm > 0 && pwm >= warningPwm) {
             lastPreWarningTime = currentTimeMs
@@ -207,21 +207,21 @@ class AlarmChecker {
         }
 
         val warningSpeed = config.warningSpeed
-        if (warningSpeed > 0 && state.speedKmh >= warningSpeed) {
+        if (warningSpeed > 0 && telemetry.speedKmh >= warningSpeed) {
             lastPreWarningTime = currentTimeMs
-            return PreWarning(PreWarningType.SPEED, state.speedKmh)
+            return PreWarning(PreWarningType.SPEED, telemetry.speedKmh)
         }
 
         return null
     }
 
     private fun checkOldStyleSpeedAlarms(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): SpeedCheckResult {
-        val speed = state.speedKmh
-        val battery = state.batteryLevel
+        val speed = telemetry.speedKmh
+        val battery = telemetry.batteryLevel
 
         // Apply hysteresis: once a speed alarm is active, require speed to drop
         // further below the threshold before clearing it
@@ -296,7 +296,7 @@ class AlarmChecker {
     }
 
     private fun checkCurrentAlarm(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): TriggeredAlarm? {
@@ -307,22 +307,22 @@ class AlarmChecker {
         val alarmPhaseCurrent = config.alarmPhaseCurrent
 
         // Check regular current
-        if (alarmCurrent > 0 && abs(state.currentA) >= alarmCurrent) {
+        if (alarmCurrent > 0 && abs(telemetry.currentA) >= alarmCurrent) {
             currentAlarmExecutingUntil = currentTimeMs + CURRENT_ALARM_COOLDOWN_MS
             return TriggeredAlarm(
                 type = AlarmType.CURRENT,
-                triggerValue = state.currentA,
+                triggerValue = telemetry.currentA,
                 threshold = alarmCurrent.toDouble(),
                 toneDuration = 100
             )
         }
 
         // Check phase current
-        if (alarmPhaseCurrent > 0 && abs(state.phaseCurrentA) >= alarmPhaseCurrent) {
+        if (alarmPhaseCurrent > 0 && abs(telemetry.phaseCurrentA) >= alarmPhaseCurrent) {
             currentAlarmExecutingUntil = currentTimeMs + CURRENT_ALARM_COOLDOWN_MS
             return TriggeredAlarm(
                 type = AlarmType.CURRENT,
-                triggerValue = state.phaseCurrentA,
+                triggerValue = telemetry.phaseCurrentA,
                 threshold = alarmPhaseCurrent.toDouble(),
                 toneDuration = 100
             )
@@ -332,7 +332,7 @@ class AlarmChecker {
     }
 
     private fun checkTemperatureAlarm(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): TriggeredAlarm? {
@@ -343,22 +343,22 @@ class AlarmChecker {
         val alarmMotorTemp = config.alarmMotorTemperature
 
         // Check board temperature
-        if (alarmTemp > 0 && state.temperatureC >= alarmTemp) {
+        if (alarmTemp > 0 && telemetry.temperatureC >= alarmTemp) {
             temperatureAlarmExecutingUntil = currentTimeMs + TEMPERATURE_ALARM_COOLDOWN_MS
             return TriggeredAlarm(
                 type = AlarmType.TEMPERATURE,
-                triggerValue = state.temperatureC.toDouble(),
+                triggerValue = telemetry.temperatureC.toDouble(),
                 threshold = alarmTemp.toDouble(),
                 toneDuration = 100
             )
         }
 
         // Check motor temperature
-        if (alarmMotorTemp > 0 && state.temperature2C >= alarmMotorTemp) {
+        if (alarmMotorTemp > 0 && telemetry.temperature2C >= alarmMotorTemp) {
             temperatureAlarmExecutingUntil = currentTimeMs + TEMPERATURE_ALARM_COOLDOWN_MS
             return TriggeredAlarm(
                 type = AlarmType.TEMPERATURE,
-                triggerValue = state.temperature2C.toDouble(),
+                triggerValue = telemetry.temperature2C.toDouble(),
                 threshold = alarmMotorTemp.toDouble(),
                 toneDuration = 100
             )
@@ -368,7 +368,7 @@ class AlarmChecker {
     }
 
     private fun checkBatteryAlarm(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): TriggeredAlarm? {
@@ -377,11 +377,11 @@ class AlarmChecker {
 
         val alarmBattery = config.alarmBattery
 
-        if (alarmBattery > 0 && state.batteryLevel <= alarmBattery) {
+        if (alarmBattery > 0 && telemetry.batteryLevel <= alarmBattery) {
             batteryAlarmExecutingUntil = currentTimeMs + BATTERY_ALARM_COOLDOWN_MS
             return TriggeredAlarm(
                 type = AlarmType.BATTERY,
-                triggerValue = state.batteryLevel.toDouble(),
+                triggerValue = telemetry.batteryLevel.toDouble(),
                 threshold = alarmBattery.toDouble(),
                 toneDuration = 100
             )
@@ -391,18 +391,18 @@ class AlarmChecker {
     }
 
     private fun checkWheelAlarm(
-        state: WheelState,
+        telemetry: TelemetryState,
         config: AlarmConfig,
         currentTimeMs: Long
     ): TriggeredAlarm? {
         // Still in cooldown
         if (currentTimeMs < wheelAlarmExecutingUntil) return null
 
-        if (config.alarmWheel && state.wheelAlarm) {
+        if (config.alarmWheel && telemetry.wheelAlarm) {
             wheelAlarmExecutingUntil = currentTimeMs + WHEEL_ALARM_COOLDOWN_MS
             return TriggeredAlarm(
                 type = AlarmType.WHEEL,
-                triggerValue = state.calculatedPwm * 100,
+                triggerValue = telemetry.calculatedPwm * 100,
                 threshold = 0.0,  // No threshold, wheel reports alarm
                 toneDuration = 100
             )

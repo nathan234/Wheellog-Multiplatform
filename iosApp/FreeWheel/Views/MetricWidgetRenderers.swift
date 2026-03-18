@@ -13,8 +13,12 @@ struct MetricGaugeTile: View {
     let action: () -> Void
     var onLongPress: (() -> Void)? = nil
 
+    private var telemetry: TelemetryState {
+        wheelState.toTelemetryState()
+    }
+
     private var rawValue: Double {
-        metric.extractValue(state: wheelState)?.doubleValue ?? gpsSpeed
+        metric.extractValue(telemetry: telemetry)?.doubleValue ?? gpsSpeed
     }
 
     private var displayValue: Double {
@@ -38,7 +42,7 @@ struct MetricGaugeTile: View {
     }
 
     private var color: Color {
-        let effMax = metric.effectiveMax(wheelState: wheelState)
+        let effMax = metric.effectiveMax(telemetry: telemetry)
         let rawProgress = effMax > 0 ? abs(rawValue) / effMax : 0
         let zone = metric.colorZone(progress: rawProgress)
         switch zone {
@@ -77,8 +81,12 @@ struct MetricStatRow: View {
     let useMph: Bool
     let useFahrenheit: Bool
 
+    private var telemetry: TelemetryState {
+        wheelState.toTelemetryState()
+    }
+
     private var rawValue: Double {
-        metric.extractValue(state: wheelState)?.doubleValue ?? gpsSpeed
+        metric.extractValue(telemetry: telemetry)?.doubleValue ?? gpsSpeed
     }
 
     private var formattedValue: String {
@@ -94,7 +102,7 @@ struct MetricStatRow: View {
     }
 
     private var valueColor: Color? {
-        let effMax = metric.effectiveMax(wheelState: wheelState)
+        let effMax = metric.effectiveMax(telemetry: telemetry)
         let rawProgress = effMax > 0 ? abs(rawValue) / effMax : 0
         let zone = metric.colorZone(progress: rawProgress)
         switch zone {

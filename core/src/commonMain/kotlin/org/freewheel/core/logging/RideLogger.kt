@@ -1,6 +1,6 @@
 package org.freewheel.core.logging
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.utils.Logger
 
 /**
@@ -70,11 +70,12 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
     /**
      * Write a telemetry sample if at least 1 second has elapsed since the last write.
      *
-     * @param state Current wheel telemetry state.
+     * @param telemetry Current telemetry state.
+     * @param modeStr Ride mode string (from WheelIdentity).
      * @param gps Optional GPS location (ignored if [start] was called with withGps=false).
      * @param currentTimeMs Current epoch time in milliseconds.
      */
-    fun writeSample(state: WheelState, gps: GpsLocation?, currentTimeMs: Long) {
+    fun writeSample(telemetry: TelemetryState, modeStr: String = "", gps: GpsLocation?, currentTimeMs: Long) {
         if (!isActive) return
 
         // 1Hz throttle
@@ -83,25 +84,25 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
 
         // Track metadata
         if (sampleCount == 0) {
-            startTotalDistance = state.totalDistance
+            startTotalDistance = telemetry.totalDistance
         }
-        val speedKmh = state.speedKmh
+        val speedKmh = telemetry.speedKmh
         if (speedKmh > maxSpeedKmh) maxSpeedKmh = speedKmh
         totalSpeedKmh += speedKmh
 
-        val currentA = kotlin.math.abs(state.currentA)
+        val currentA = kotlin.math.abs(telemetry.currentA)
         if (currentA > maxCurrentA) maxCurrentA = currentA
-        val powerW = kotlin.math.abs(state.powerW)
+        val powerW = kotlin.math.abs(telemetry.powerW)
         if (powerW > maxPowerW) maxPowerW = powerW
-        val pwm = state.pwmPercent
+        val pwm = telemetry.pwmPercent
         if (pwm > maxPwmPercent) maxPwmPercent = pwm
         totalPowerW += powerW
 
         sampleCount++
 
         val dateTime = formatTimestamp(currentTimeMs)
-        val tripDistance = (state.totalDistance - startTotalDistance).toInt()
-        val row = CsvFormatter.row(dateTime, state, tripDistance, gps, includeGps)
+        val tripDistance = (telemetry.totalDistance - startTotalDistance).toInt()
+        val row = CsvFormatter.row(dateTime, telemetry, modeStr, tripDistance, gps, includeGps)
         try {
             fileWriter.writeLine(row)
         } catch (e: Exception) {

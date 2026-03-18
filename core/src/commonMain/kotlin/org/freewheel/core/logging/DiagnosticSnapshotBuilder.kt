@@ -2,8 +2,7 @@ package org.freewheel.core.logging
 
 import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.CapabilitySet
-import org.freewheel.core.domain.WheelState
-import org.freewheel.core.domain.WheelType
+import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.protocol.DecoderConfig
 
 /**
@@ -14,9 +13,9 @@ import org.freewheel.core.protocol.DecoderConfig
 object DiagnosticSnapshotBuilder {
 
     /**
-     * Build a diagnostic snapshot from current wheel state and config.
+     * Build a diagnostic snapshot from wheel identity and config.
      *
-     * @param wheelState Current wheel state (for identity fields).
+     * @param identity Wheel identity (type, model, BT name, version).
      * @param capabilities Current resolved capabilities.
      * @param connectionInfo BLE connection info, or null if not connected.
      * @param decoderConfig Current decoder configuration.
@@ -24,17 +23,17 @@ object DiagnosticSnapshotBuilder {
      * @param appVersion App version string.
      */
     fun buildSnapshot(
-        wheelState: WheelState,
+        identity: WheelIdentity,
         capabilities: CapabilitySet,
         connectionInfo: WheelConnectionInfo?,
         decoderConfig: DecoderConfig,
         platform: String,
         appVersion: String
     ): DiagnosticSnapshot = DiagnosticSnapshot(
-        wheelType = wheelState.wheelType,
-        detectedModel = capabilities.detectedModel.ifEmpty { wheelState.model },
-        btNamePrefix = sanitizeBtName(wheelState.btName),
-        firmwareVersion = capabilities.firmwareVersion.ifEmpty { wheelState.version },
+        wheelType = identity.wheelType,
+        detectedModel = capabilities.detectedModel.ifEmpty { identity.model },
+        btNamePrefix = sanitizeBtName(identity.btName),
+        firmwareVersion = capabilities.firmwareVersion.ifEmpty { identity.version },
         firmwareLevel = capabilities.firmwareLevel,
         capabilitiesResolved = capabilities.isResolved,
         supportedCommands = capabilities.supportedCommands.map { it.name }.sorted(),

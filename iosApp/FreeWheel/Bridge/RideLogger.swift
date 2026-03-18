@@ -110,7 +110,7 @@ class RideLogger: ObservableObject {
             gps = nil
         }
 
-        kmpLogger.writeSample(state: state, gps: gps, currentTimeMs: currentTimeMs)
+        kmpLogger.writeSample(telemetry: state.toTelemetryState(), modeStr: state.modeStr, gps: gps, currentTimeMs: currentTimeMs)
     }
 
     // MARK: - Directory

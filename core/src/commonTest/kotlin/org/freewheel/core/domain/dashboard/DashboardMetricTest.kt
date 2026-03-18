@@ -1,5 +1,6 @@
 package org.freewheel.core.domain.dashboard
 
+import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.telemetry.MetricType
@@ -15,20 +16,20 @@ class DashboardMetricTest {
     // --- Value extraction ---
 
     @Test
-    fun `SPEED extracts speedKmh from WheelState`() {
-        val state = WheelState(speed = 2500) // 25.00 km/h
-        assertEquals(25.0, DashboardMetric.SPEED.extractValue(state)!!, 0.01)
+    fun `SPEED extracts speedKmh from TelemetryState`() {
+        val telemetry = TelemetryState(speed = 2500) // 25.00 km/h
+        assertEquals(25.0, DashboardMetric.SPEED.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `GPS_SPEED returns null`() {
-        val state = WheelState(speed = 5000)
-        assertNull(DashboardMetric.GPS_SPEED.extractValue(state))
+        val telemetry = TelemetryState(speed = 5000)
+        assertNull(DashboardMetric.GPS_SPEED.extractValue(telemetry))
     }
 
     @Test
     fun `all non-GPS metrics return non-null`() {
-        val state = WheelState(
+        val telemetry = TelemetryState(
             speed = 2000, voltage = 8000, current = 1000, phaseCurrent = 2000,
             power = 100000, temperature = 3000, temperature2 = 3500,
             batteryLevel = 50, totalDistance = 100000, wheelDistance = 5000,
@@ -38,128 +39,128 @@ class DashboardMetricTest {
         )
         for (metric in DashboardMetric.entries) {
             if (metric == DashboardMetric.GPS_SPEED) continue
-            assertNotNull(metric.extractValue(state), "${metric.name} should return non-null")
+            assertNotNull(metric.extractValue(telemetry), "${metric.name} should return non-null")
         }
     }
 
     @Test
     fun `BATTERY extracts batteryLevel`() {
-        val state = WheelState(batteryLevel = 75)
-        assertEquals(75.0, DashboardMetric.BATTERY.extractValue(state)!!)
+        val telemetry = TelemetryState(batteryLevel = 75)
+        assertEquals(75.0, DashboardMetric.BATTERY.extractValue(telemetry)!!)
     }
 
     @Test
     fun `VOLTAGE extracts voltageV`() {
-        val state = WheelState(voltage = 8400)
-        assertEquals(84.0, DashboardMetric.VOLTAGE.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(voltage = 8400)
+        assertEquals(84.0, DashboardMetric.VOLTAGE.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `CURRENT extracts currentA`() {
-        val state = WheelState(current = 1500)
-        assertEquals(15.0, DashboardMetric.CURRENT.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(current = 1500)
+        assertEquals(15.0, DashboardMetric.CURRENT.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `PHASE_CURRENT extracts phaseCurrentA`() {
-        val state = WheelState(phaseCurrent = 2000)
-        assertEquals(20.0, DashboardMetric.PHASE_CURRENT.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(phaseCurrent = 2000)
+        assertEquals(20.0, DashboardMetric.PHASE_CURRENT.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `POWER extracts powerW`() {
-        val state = WheelState(power = 150000)
-        assertEquals(1500.0, DashboardMetric.POWER.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(power = 150000)
+        assertEquals(1500.0, DashboardMetric.POWER.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `PWM extracts pwmPercent`() {
-        val state = WheelState(calculatedPwm = 0.65)
-        assertEquals(65.0, DashboardMetric.PWM.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(calculatedPwm = 0.65)
+        assertEquals(65.0, DashboardMetric.PWM.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `TEMPERATURE extracts temperatureC`() {
-        val state = WheelState(temperature = 3500)
-        assertEquals(35.0, DashboardMetric.TEMPERATURE.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(temperature = 3500)
+        assertEquals(35.0, DashboardMetric.TEMPERATURE.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `TEMPERATURE_2 extracts temperature2C`() {
-        val state = WheelState(temperature2 = 4200)
-        assertEquals(42.0, DashboardMetric.TEMPERATURE_2.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(temperature2 = 4200)
+        assertEquals(42.0, DashboardMetric.TEMPERATURE_2.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `TRIP_DISTANCE extracts wheelDistanceKm`() {
-        val state = WheelState(wheelDistance = 5000)
-        assertEquals(5.0, DashboardMetric.TRIP_DISTANCE.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(wheelDistance = 5000)
+        assertEquals(5.0, DashboardMetric.TRIP_DISTANCE.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `TOTAL_DISTANCE extracts totalDistanceKm`() {
-        val state = WheelState(totalDistance = 100000)
-        assertEquals(100.0, DashboardMetric.TOTAL_DISTANCE.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(totalDistance = 100000)
+        assertEquals(100.0, DashboardMetric.TOTAL_DISTANCE.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `ANGLE extracts angle`() {
-        val state = WheelState(angle = 5.5)
-        assertEquals(5.5, DashboardMetric.ANGLE.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(angle = 5.5)
+        assertEquals(5.5, DashboardMetric.ANGLE.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `ROLL extracts roll`() {
-        val state = WheelState(roll = 3.2)
-        assertEquals(3.2, DashboardMetric.ROLL.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(roll = 3.2)
+        assertEquals(3.2, DashboardMetric.ROLL.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `TORQUE extracts torque`() {
-        val state = WheelState(torque = 12.5)
-        assertEquals(12.5, DashboardMetric.TORQUE.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(torque = 12.5)
+        assertEquals(12.5, DashboardMetric.TORQUE.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `MOTOR_POWER extracts motorPower`() {
-        val state = WheelState(motorPower = 800.0)
-        assertEquals(800.0, DashboardMetric.MOTOR_POWER.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(motorPower = 800.0)
+        assertEquals(800.0, DashboardMetric.MOTOR_POWER.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `CPU_TEMP extracts cpuTemp`() {
-        val state = WheelState(cpuTemp = 55)
-        assertEquals(55.0, DashboardMetric.CPU_TEMP.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(cpuTemp = 55)
+        assertEquals(55.0, DashboardMetric.CPU_TEMP.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `IMU_TEMP extracts imuTemp`() {
-        val state = WheelState(imuTemp = 42)
-        assertEquals(42.0, DashboardMetric.IMU_TEMP.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(imuTemp = 42)
+        assertEquals(42.0, DashboardMetric.IMU_TEMP.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `CPU_LOAD extracts cpuLoad`() {
-        val state = WheelState(cpuLoad = 80)
-        assertEquals(80.0, DashboardMetric.CPU_LOAD.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(cpuLoad = 80)
+        assertEquals(80.0, DashboardMetric.CPU_LOAD.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `SPEED_LIMIT extracts speedLimit`() {
-        val state = WheelState(speedLimit = 45.0)
-        assertEquals(45.0, DashboardMetric.SPEED_LIMIT.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(speedLimit = 45.0)
+        assertEquals(45.0, DashboardMetric.SPEED_LIMIT.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `CURRENT_LIMIT extracts currentLimit`() {
-        val state = WheelState(currentLimit = 30.0)
-        assertEquals(30.0, DashboardMetric.CURRENT_LIMIT.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(currentLimit = 30.0)
+        assertEquals(30.0, DashboardMetric.CURRENT_LIMIT.extractValue(telemetry)!!, 0.01)
     }
 
     @Test
     fun `FAN_STATUS extracts fanStatus`() {
-        val state = WheelState(fanStatus = 1)
-        assertEquals(1.0, DashboardMetric.FAN_STATUS.extractValue(state)!!, 0.01)
+        val telemetry = TelemetryState(fanStatus = 1)
+        assertEquals(1.0, DashboardMetric.FAN_STATUS.extractValue(telemetry)!!, 0.01)
     }
 
     // --- Wheel type availability ---
@@ -246,39 +247,39 @@ class DashboardMetricTest {
 
     @Test
     fun `effectiveMax uses speedLimit when available`() {
-        val state = WheelState(speedLimit = 120.0)
-        assertEquals(120.0, DashboardMetric.SPEED.effectiveMax(state), 0.01)
-        assertEquals(120.0, DashboardMetric.GPS_SPEED.effectiveMax(state), 0.01)
+        val telemetry = TelemetryState(speedLimit = 120.0)
+        assertEquals(120.0, DashboardMetric.SPEED.effectiveMax(telemetry), 0.01)
+        assertEquals(120.0, DashboardMetric.GPS_SPEED.effectiveMax(telemetry), 0.01)
     }
 
     @Test
     fun `effectiveMax uses maxSpeed as fallback`() {
         val state = WheelState(maxSpeed = 60)
-        assertEquals(60.0, DashboardMetric.SPEED.effectiveMax(state), 0.01)
+        assertEquals(60.0, DashboardMetric.SPEED.effectiveMax(state.toTelemetryState()), 0.01)
     }
 
     @Test
     fun `effectiveMax falls back to fixed max`() {
-        val state = WheelState() // no speedLimit, no maxSpeed
-        assertEquals(50.0, DashboardMetric.SPEED.effectiveMax(state), 0.01)
+        val telemetry = TelemetryState() // no speedLimit, no maxSpeed
+        assertEquals(50.0, DashboardMetric.SPEED.effectiveMax(telemetry), 0.01)
     }
 
     @Test
     fun `effectiveMax uses currentLimit for CURRENT`() {
-        val state = WheelState(currentLimit = 80.0)
-        assertEquals(80.0, DashboardMetric.CURRENT.effectiveMax(state), 0.01)
+        val telemetry = TelemetryState(currentLimit = 80.0)
+        assertEquals(80.0, DashboardMetric.CURRENT.effectiveMax(telemetry), 0.01)
     }
 
     @Test
     fun `effectiveMax CURRENT falls back to dynamic minimumDefault`() {
-        val state = WheelState() // no currentLimit
-        assertEquals(100.0, DashboardMetric.CURRENT.effectiveMax(state), 0.01)
+        val telemetry = TelemetryState() // no currentLimit
+        assertEquals(100.0, DashboardMetric.CURRENT.effectiveMax(telemetry), 0.01)
     }
 
     @Test
     fun `effectiveMax prefers speedLimit over maxSpeed`() {
         val state = WheelState(speedLimit = 90.0, maxSpeed = 60)
-        assertEquals(90.0, DashboardMetric.SPEED.effectiveMax(state), 0.01)
+        assertEquals(90.0, DashboardMetric.SPEED.effectiveMax(state.toTelemetryState()), 0.01)
     }
 
     // --- Classification flags ---

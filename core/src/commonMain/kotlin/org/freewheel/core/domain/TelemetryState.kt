@@ -43,7 +43,13 @@ data class TelemetryState(
     val error: String = "",
     val faultCode: Int = 0,
     val alert: String = "",
-    val timestamp: Long = 0
+    val timestamp: Long = 0,
+
+    // Settings-derived values exposed here for dashboard metric extraction.
+    // Populated via WheelState.toTelemetryState(); decoders set these in WheelSettings.
+    val alertSpeed: Int = 0,
+    val autoOffTime: Int = 0,
+    val maxSpeed: Int = -1
 ) {
     val speedKmh: Double get() = speed / 100.0
     val speedMph: Double get() = speedKmh * ByteUtils.KM_TO_MILES_MULTIPLIER

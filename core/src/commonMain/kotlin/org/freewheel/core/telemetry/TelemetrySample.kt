@@ -1,6 +1,6 @@
 package org.freewheel.core.telemetry
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 
 /**
  * A single telemetry snapshot captured at a point in time.
@@ -18,19 +18,19 @@ data class TelemetrySample(
     val gpsSpeedKmh: Double = 0.0
 ) {
     companion object {
-        fun fromWheelState(
-            state: WheelState,
+        fun fromTelemetry(
+            telemetry: TelemetryState,
             timestampMs: Long,
             gpsSpeedKmh: Double = 0.0
         ): TelemetrySample = TelemetrySample(
             timestampMs = timestampMs,
-            speedKmh = state.speedKmh,
-            voltageV = state.voltageV,
-            currentA = state.currentA,
-            powerW = state.powerW,
-            temperatureC = state.temperatureC.toDouble(),
-            batteryPercent = state.batteryLevel.toDouble(),
-            pwmPercent = state.pwmPercent,
+            speedKmh = telemetry.speedKmh,
+            voltageV = telemetry.voltageV,
+            currentA = telemetry.currentA,
+            powerW = telemetry.powerW,
+            temperatureC = telemetry.temperatureC.toDouble(),
+            batteryPercent = telemetry.batteryLevel.toDouble(),
+            pwmPercent = telemetry.pwmPercent,
             gpsSpeedKmh = gpsSpeedKmh
         )
 

@@ -3,7 +3,7 @@ package org.freewheel.core.logging
 import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.SettingsCommandId
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecoderConfig
 import kotlin.test.Test
@@ -54,7 +54,7 @@ class DiagnosticSnapshotBuilderTest {
 
     @Test
     fun `builds snapshot with correct identity fields`() {
-        val state = WheelState(
+        val identity = WheelIdentity(
             wheelType = WheelType.INMOTION_V2,
             model = "P6",
             btName = "P6-50002437",
@@ -70,7 +70,7 @@ class DiagnosticSnapshotBuilderTest {
         val config = DecoderConfig()
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, config, "android", "1.2.3"
+            identity, caps, null, config, "android", "1.2.3"
         )
 
         assertEquals(WheelType.INMOTION_V2, snapshot.wheelType)
@@ -85,26 +85,26 @@ class DiagnosticSnapshotBuilderTest {
     }
 
     @Test
-    fun `falls back to wheelState model when capabilities detectedModel is empty`() {
-        val state = WheelState(wheelType = WheelType.GOTWAY, model = "T4")
+    fun `falls back to identity model when capabilities detectedModel is empty`() {
+        val identity = WheelIdentity(wheelType = WheelType.GOTWAY, model = "T4")
         val caps = CapabilitySet()
         val config = DecoderConfig()
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, config, "ios", "1.0.0"
+            identity, caps, null, config, "ios", "1.0.0"
         )
 
         assertEquals("T4", snapshot.detectedModel)
     }
 
     @Test
-    fun `falls back to wheelState version when capabilities firmwareVersion is empty`() {
-        val state = WheelState(wheelType = WheelType.KINGSONG, version = "2.07")
+    fun `falls back to identity version when capabilities firmwareVersion is empty`() {
+        val identity = WheelIdentity(wheelType = WheelType.KINGSONG, version = "2.07")
         val caps = CapabilitySet()
         val config = DecoderConfig()
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, config, "android", "1.0.0"
+            identity, caps, null, config, "android", "1.0.0"
         )
 
         assertEquals("2.07", snapshot.firmwareVersion)
@@ -112,13 +112,13 @@ class DiagnosticSnapshotBuilderTest {
 
     @Test
     fun `includes BLE UUIDs from connectionInfo`() {
-        val state = WheelState(wheelType = WheelType.KINGSONG)
+        val identity = WheelIdentity(wheelType = WheelType.KINGSONG)
         val connInfo = WheelConnectionInfo.forKingsong()
         val caps = CapabilitySet()
         val config = DecoderConfig()
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, connInfo, config, "android", "1.0.0"
+            identity, caps, connInfo, config, "android", "1.0.0"
         )
 
         assertTrue(snapshot.readServiceUuid.isNotEmpty())
@@ -127,12 +127,12 @@ class DiagnosticSnapshotBuilderTest {
 
     @Test
     fun `null connectionInfo produces empty UUIDs`() {
-        val state = WheelState(wheelType = WheelType.GOTWAY)
+        val identity = WheelIdentity(wheelType = WheelType.GOTWAY)
         val caps = CapabilitySet()
         val config = DecoderConfig()
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, config, "android", "1.0.0"
+            identity, caps, null, config, "android", "1.0.0"
         )
 
         assertEquals("", snapshot.readServiceUuid)
@@ -141,7 +141,7 @@ class DiagnosticSnapshotBuilderTest {
 
     @Test
     fun `includes decoder config fields`() {
-        val state = WheelState(wheelType = WheelType.GOTWAY)
+        val identity = WheelIdentity(wheelType = WheelType.GOTWAY)
         val caps = CapabilitySet()
         val config = DecoderConfig(
             gotwayNegative = 1,
@@ -152,7 +152,7 @@ class DiagnosticSnapshotBuilderTest {
         )
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, config, "android", "1.0.0"
+            identity, caps, null, config, "android", "1.0.0"
         )
 
         assertEquals(1, snapshot.gotwayNegative)
@@ -164,12 +164,12 @@ class DiagnosticSnapshotBuilderTest {
 
     @Test
     fun `unresolved capabilities produces capabilitiesResolved false`() {
-        val state = WheelState(wheelType = WheelType.VETERAN)
+        val identity = WheelIdentity(wheelType = WheelType.VETERAN)
         val caps = CapabilitySet(isResolved = false)
         val config = DecoderConfig()
 
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, config, "ios", "1.0.0"
+            identity, caps, null, config, "ios", "1.0.0"
         )
 
         assertFalse(snapshot.capabilitiesResolved)
@@ -268,7 +268,7 @@ class DiagnosticSnapshotBuilderTest {
     // ==================== Helpers ====================
 
     private fun buildTestSnapshot(): DiagnosticSnapshot {
-        val state = WheelState(
+        val identity = WheelIdentity(
             wheelType = WheelType.INMOTION_V2,
             model = "P6",
             btName = "P6-50002437",
@@ -283,7 +283,7 @@ class DiagnosticSnapshotBuilderTest {
             supportedCommands = setOf(SettingsCommandId.MAX_SPEED)
         )
         return DiagnosticSnapshotBuilder.buildSnapshot(
-            state, caps, null, DecoderConfig(), "android", "1.2.3"
+            identity, caps, null, DecoderConfig(), "android", "1.2.3"
         )
     }
 

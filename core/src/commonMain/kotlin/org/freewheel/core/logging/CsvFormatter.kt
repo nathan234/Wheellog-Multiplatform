@@ -1,6 +1,6 @@
 package org.freewheel.core.logging
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 
 /**
  * Formats ride data as CSV rows matching the legacy WheelLog format.
@@ -34,13 +34,15 @@ object CsvFormatter {
      * Returns a single CSV data row.
      *
      * @param dateTime Pre-formatted timestamp string as "yyyy-MM-dd,HH:mm:ss.SSS".
-     * @param state Current wheel telemetry state.
+     * @param telemetry Current telemetry state.
+     * @param modeStr Ride mode string (from WheelIdentity).
      * @param tripDistance Trip distance in meters (totalDistance - startTotalDistance).
      * @param gps Optional GPS location data. When non-null, GPS columns are included.
      */
     fun row(
         dateTime: String,
-        state: WheelState,
+        telemetry: TelemetryState,
+        modeStr: String = "",
         tripDistance: Int,
         gps: GpsLocation? = null,
         includeGps: Boolean = false
@@ -58,37 +60,37 @@ object CsvFormatter {
             // GPS columns (empty string or data ending with comma)
             append(gpsStr)
             // Telemetry columns
-            append(formatFixed(state.speedKmh, 2))
+            append(formatFixed(telemetry.speedKmh, 2))
             append(',')
-            append(formatFixed(state.voltageV, 2))
+            append(formatFixed(telemetry.voltageV, 2))
             append(',')
-            append(formatFixed(state.phaseCurrentA, 2))
+            append(formatFixed(telemetry.phaseCurrentA, 2))
             append(',')
-            append(formatFixed(state.currentA, 2))
+            append(formatFixed(telemetry.currentA, 2))
             append(',')
-            append(formatFixed(state.powerW, 2))
+            append(formatFixed(telemetry.powerW, 2))
             append(',')
-            append(formatFixed(state.torque, 2))
+            append(formatFixed(telemetry.torque, 2))
             append(',')
-            append(formatFixed(state.pwmPercent, 2))
+            append(formatFixed(telemetry.pwmPercent, 2))
             append(',')
-            append(state.batteryLevel)
+            append(telemetry.batteryLevel)
             append(',')
             append(tripDistance)
             append(',')
-            append(state.totalDistance)
+            append(telemetry.totalDistance)
             append(',')
-            append(state.temperatureC)
+            append(telemetry.temperatureC)
             append(',')
-            append(state.temperature2C)
+            append(telemetry.temperature2C)
             append(',')
-            append(formatFixed(state.angle, 2))
+            append(formatFixed(telemetry.angle, 2))
             append(',')
-            append(formatFixed(state.roll, 2))
+            append(formatFixed(telemetry.roll, 2))
             append(',')
-            append(state.modeStr)
+            append(modeStr)
             append(',')
-            append(state.alert)
+            append(telemetry.alert)
         }
     }
 }

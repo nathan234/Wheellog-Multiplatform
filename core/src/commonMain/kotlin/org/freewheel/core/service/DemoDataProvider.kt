@@ -1,7 +1,10 @@
 package org.freewheel.core.service
 
 import org.freewheel.core.domain.BmsSnapshot
+import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.SmartBms
+import org.freewheel.core.domain.TelemetryState
+import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import kotlinx.coroutines.CoroutineScope
@@ -160,8 +163,8 @@ class DemoDataProvider {
             _wheelState.value.bms1
         }
 
-        // Convert to WheelState internal units (1/100)
-        _wheelState.value = WheelState(
+        // Build from domain pieces
+        val telemetry = TelemetryState(
             speed = (speed * 100).toInt(),
             voltage = (voltage * 100).toInt(),
             current = (current * 100).toInt(),
@@ -170,11 +173,15 @@ class DemoDataProvider {
             batteryLevel = battery,
             totalDistance = ((totalDistanceM + tripDistanceM)).toLong(),
             wheelDistance = tripDistanceM.toLong(),
-            calculatedPwm = speed / 50.0,
+            calculatedPwm = speed / 50.0
+        )
+        val identity = WheelIdentity(
             wheelType = WheelType.Unknown,
             name = "Demo",
-            model = "Demo Wheel",
-            bms1 = bmsSnapshot
+            model = "Demo Wheel"
         )
+        val bms = BmsState(bms1 = bmsSnapshot)
+
+        _wheelState.value = WheelState.compose(telemetry, identity, bms, _wheelState.value.toWheelSettings())
     }
 }

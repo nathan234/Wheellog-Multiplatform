@@ -252,7 +252,8 @@ data class WheelState(
         torque = torque, motorPower = motorPower, cpuTemp = cpuTemp, imuTemp = imuTemp,
         cpuLoad = cpuLoad, hwFaults = hwFaults, speedLimit = speedLimit, currentLimit = currentLimit,
         fanStatus = fanStatus, chargingStatus = chargingStatus, wheelAlarm = wheelAlarm,
-        error = error, faultCode = faultCode, alert = alert, timestamp = timestamp
+        error = error, faultCode = faultCode, alert = alert, timestamp = timestamp,
+        alertSpeed = alertSpeed, autoOffTime = autoOffTime, maxSpeed = maxSpeed
     )
 
     /** Extract settings fields as a type-safe sealed class per wheel type. */

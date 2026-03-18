@@ -1,6 +1,6 @@
 package org.freewheel.core.domain.dashboard
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.telemetry.MetricType
 
@@ -273,35 +273,35 @@ enum class DashboardMetric(
     );
 
     /**
-     * Extract this metric's raw value from [WheelState].
+     * Extract this metric's raw value from [TelemetryState].
      * Returns null for [GPS_SPEED] — platform provides GPS speed separately.
      * Speed/distance values are in km/h or km (not converted for display units).
      */
-    fun extractValue(state: WheelState): Double? = when (this) {
+    fun extractValue(telemetry: TelemetryState): Double? = when (this) {
         GPS_SPEED -> null
-        SPEED -> state.speedKmh
-        BATTERY -> state.batteryLevel.toDouble()
-        VOLTAGE -> state.voltageV
-        CURRENT -> state.currentA
-        PHASE_CURRENT -> state.phaseCurrentA
-        POWER -> state.powerW
-        PWM -> state.pwmPercent
-        TEMPERATURE -> state.temperatureC.toDouble()
-        TEMPERATURE_2 -> state.temperature2C.toDouble()
-        TRIP_DISTANCE -> state.wheelDistanceKm
-        TOTAL_DISTANCE -> state.totalDistanceKm
-        ANGLE -> state.angle
-        ROLL -> state.roll
-        TORQUE -> state.torque
-        MOTOR_POWER -> state.motorPower
-        CPU_TEMP -> state.cpuTemp.toDouble()
-        IMU_TEMP -> state.imuTemp.toDouble()
-        CPU_LOAD -> state.cpuLoad.toDouble()
-        SPEED_LIMIT -> state.speedLimit
-        CURRENT_LIMIT -> state.currentLimit
-        FAN_STATUS -> state.fanStatus.toDouble()
-        ALERT_SPEED -> state.alertSpeed.toDouble()
-        AUTO_OFF_TIME -> state.autoOffTime.toDouble()
+        SPEED -> telemetry.speedKmh
+        BATTERY -> telemetry.batteryLevel.toDouble()
+        VOLTAGE -> telemetry.voltageV
+        CURRENT -> telemetry.currentA
+        PHASE_CURRENT -> telemetry.phaseCurrentA
+        POWER -> telemetry.powerW
+        PWM -> telemetry.pwmPercent
+        TEMPERATURE -> telemetry.temperatureC.toDouble()
+        TEMPERATURE_2 -> telemetry.temperature2C.toDouble()
+        TRIP_DISTANCE -> telemetry.wheelDistanceKm
+        TOTAL_DISTANCE -> telemetry.totalDistanceKm
+        ANGLE -> telemetry.angle
+        ROLL -> telemetry.roll
+        TORQUE -> telemetry.torque
+        MOTOR_POWER -> telemetry.motorPower
+        CPU_TEMP -> telemetry.cpuTemp.toDouble()
+        IMU_TEMP -> telemetry.imuTemp.toDouble()
+        CPU_LOAD -> telemetry.cpuLoad.toDouble()
+        SPEED_LIMIT -> telemetry.speedLimit
+        CURRENT_LIMIT -> telemetry.currentLimit
+        FAN_STATUS -> telemetry.fanStatus.toDouble()
+        ALERT_SPEED -> telemetry.alertSpeed.toDouble()
+        AUTO_OFF_TIME -> telemetry.autoOffTime.toDouble()
     }
 
     /**
@@ -348,11 +348,11 @@ enum class DashboardMetric(
      * Wheel-aware maximum for gauge progress and color thresholds.
      * Uses wheel-reported limits when available, falls back to fixed maxValue or spec defaults.
      */
-    fun effectiveMax(wheelState: WheelState): Double = when (this) {
-        SPEED, GPS_SPEED -> wheelState.speedLimit.takeIf { it > 0 }
-            ?: wheelState.maxSpeed.takeIf { it > 0 }?.toDouble()
+    fun effectiveMax(telemetry: TelemetryState): Double = when (this) {
+        SPEED, GPS_SPEED -> telemetry.speedLimit.takeIf { it > 0 }
+            ?: telemetry.maxSpeed.takeIf { it > 0 }?.toDouble()
             ?: maxValue.takeIf { it > 0 } ?: 50.0
-        CURRENT -> wheelState.currentLimit.takeIf { it > 0 }
+        CURRENT -> telemetry.currentLimit.takeIf { it > 0 }
             ?: (maxValueSpec as? MaxValueSpec.Dynamic)?.minimumDefault ?: 100.0
         else -> maxValue.takeIf { it > 0.0 } ?: 100.0
     }

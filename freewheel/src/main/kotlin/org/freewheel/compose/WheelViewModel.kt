@@ -993,7 +993,7 @@ class WheelViewModel(
                             cumulativeDistance = 0.0
                         )
                     }
-                    rideLogger.writeSample(state, gps, System.currentTimeMillis())
+                    rideLogger.writeSample(state.toTelemetryState(), state.modeStr, gps, System.currentTimeMillis())
                 }
             }
         }
@@ -1092,7 +1092,7 @@ class WheelViewModel(
     fun buildDiagnosticText(): String? {
         val cm = connectionManager ?: return null
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            wheelState = wheelState.value,
+            identity = wheelState.value.toIdentity(),
             capabilities = _capabilities.value,
             connectionInfo = cm.getConnectionInfo(),
             decoderConfig = cm.getConfig(),
@@ -1104,7 +1104,7 @@ class WheelViewModel(
 
     private fun buildDiagnosticFooter(cm: WheelConnectionManagerPort): String {
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
-            wheelState = wheelState.value,
+            identity = wheelState.value.toIdentity(),
             capabilities = _capabilities.value,
             connectionInfo = cm.getConnectionInfo(),
             decoderConfig = cm.getConfig(),
@@ -1147,8 +1147,8 @@ class WheelViewModel(
         viewModelScope.launch {
             wheelState.collect { state ->
                 if (state.speed != 0 || state.voltage != 0) {
-                    val sample = TelemetrySample.fromWheelState(
-                        state, System.currentTimeMillis(), _gpsSpeedKmh.value
+                    val sample = TelemetrySample.fromTelemetry(
+                        state.toTelemetryState(), System.currentTimeMillis(), _gpsSpeedKmh.value
                     )
                     if (telemetryBuffer.addSampleIfNeeded(sample)) {
                         _telemetrySamples.value = telemetryBuffer.samples
@@ -1282,7 +1282,7 @@ class WheelViewModel(
                 )
 
                 val now = System.currentTimeMillis()
-                val result = alarmChecker.check(state, config, now)
+                val result = alarmChecker.check(state.toTelemetryState(), config, now)
                 _activeAlarms.value = result.triggeredAlarms.map { it.type }.toSet()
                 alarmHandler.handleAlarmResult(result, AlarmAction.fromValue(appConfig.alarmAction))
             }

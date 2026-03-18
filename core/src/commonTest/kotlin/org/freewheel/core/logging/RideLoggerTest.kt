@@ -1,6 +1,6 @@
 package org.freewheel.core.logging
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -75,8 +75,8 @@ class RideLoggerTest {
 
         logger.start(tmpPath, withGps = false, currentTimeMs = startMs)
         // Write at least one sample
-        val state = WheelState(speed = 2500) // 25 km/h
-        logger.writeSample(state, null, startMs + 1000)
+        val telemetry = TelemetryState(speed = 2500) // 25 km/h
+        logger.writeSample(telemetry, gps = null, currentTimeMs = startMs + 1000)
         val metadata = logger.stop(endMs, lastTotalDistance = 1000)
 
         assertNotNull(metadata)
@@ -91,9 +91,9 @@ class RideLoggerTest {
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
-        logger.writeSample(WheelState(speed = 2000), null, 1000)  // 20 km/h
-        logger.writeSample(WheelState(speed = 3500), null, 2000)  // 35 km/h
-        logger.writeSample(WheelState(speed = 2500), null, 3000)  // 25 km/h
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)  // 20 km/h
+        logger.writeSample(TelemetryState(speed = 3500), gps = null, currentTimeMs = 2000)  // 35 km/h
+        logger.writeSample(TelemetryState(speed = 2500), gps = null, currentTimeMs = 3000)  // 25 km/h
 
         val metadata = logger.stop(4000)
         assertNotNull(metadata)
@@ -106,9 +106,9 @@ class RideLoggerTest {
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
-        logger.writeSample(WheelState(speed = 2000), null, 1000)  // 20 km/h
-        logger.writeSample(WheelState(speed = 3000), null, 2000)  // 30 km/h
-        logger.writeSample(WheelState(speed = 4000), null, 3000)  // 40 km/h
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)  // 20 km/h
+        logger.writeSample(TelemetryState(speed = 3000), gps = null, currentTimeMs = 2000)  // 30 km/h
+        logger.writeSample(TelemetryState(speed = 4000), gps = null, currentTimeMs = 3000)  // 40 km/h
 
         val metadata = logger.stop(4000)
         assertNotNull(metadata)
@@ -122,9 +122,9 @@ class RideLoggerTest {
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
-        logger.writeSample(WheelState(speed = 2000), null, 1000)
-        logger.writeSample(WheelState(speed = 3000), null, 2000)
-        logger.writeSample(WheelState(speed = 4000), null, 3000)
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)
+        logger.writeSample(TelemetryState(speed = 3000), gps = null, currentTimeMs = 2000)
+        logger.writeSample(TelemetryState(speed = 4000), gps = null, currentTimeMs = 3000)
 
         val metadata = logger.stop(4000)
         assertNotNull(metadata)
@@ -138,8 +138,8 @@ class RideLoggerTest {
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
         // First sample sets startTotalDistance
-        logger.writeSample(WheelState(totalDistance = 50000), null, 1000)
-        logger.writeSample(WheelState(totalDistance = 51000), null, 2000)
+        logger.writeSample(TelemetryState(totalDistance = 50000), gps = null, currentTimeMs = 1000)
+        logger.writeSample(TelemetryState(totalDistance = 51000), gps = null, currentTimeMs = 2000)
 
         val metadata = logger.stop(3000, lastTotalDistance = 51000)
         assertNotNull(metadata)
@@ -152,9 +152,9 @@ class RideLoggerTest {
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
-        logger.writeSample(WheelState(current = 500), null, 1000)    // 5A
-        logger.writeSample(WheelState(current = -1500), null, 2000)  // -15A (regen)
-        logger.writeSample(WheelState(current = 800), null, 3000)    // 8A
+        logger.writeSample(TelemetryState(current = 500), gps = null, currentTimeMs = 1000)    // 5A
+        logger.writeSample(TelemetryState(current = -1500), gps = null, currentTimeMs = 2000)  // -15A (regen)
+        logger.writeSample(TelemetryState(current = 800), gps = null, currentTimeMs = 3000)    // 8A
 
         val metadata = logger.stop(4000)
         assertNotNull(metadata)
@@ -167,9 +167,9 @@ class RideLoggerTest {
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
-        logger.writeSample(WheelState(power = 100000), null, 1000)    // 1000W
-        logger.writeSample(WheelState(power = -200000), null, 2000)   // -2000W
-        logger.writeSample(WheelState(power = 50000), null, 3000)     // 500W
+        logger.writeSample(TelemetryState(power = 100000), gps = null, currentTimeMs = 1000)    // 1000W
+        logger.writeSample(TelemetryState(power = -200000), gps = null, currentTimeMs = 2000)   // -2000W
+        logger.writeSample(TelemetryState(power = 50000), gps = null, currentTimeMs = 3000)     // 500W
 
         val metadata = logger.stop(4000)
         assertNotNull(metadata)
@@ -181,7 +181,7 @@ class RideLoggerTest {
         val logger = RideLogger()
         val tmpPath = createTempPath("ride_2024.csv")
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
-        logger.writeSample(WheelState(), null, 1000)
+        logger.writeSample(TelemetryState(), gps = null, currentTimeMs = 1000)
 
         val metadata = logger.stop(2000)
         assertNotNull(metadata)
@@ -197,13 +197,13 @@ class RideLoggerTest {
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
         // First sample at t=1000
-        logger.writeSample(WheelState(speed = 2000), null, 1000)
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)
         // Sample at t=1500 (500ms later) should be throttled
-        logger.writeSample(WheelState(speed = 3000), null, 1500)
+        logger.writeSample(TelemetryState(speed = 3000), gps = null, currentTimeMs = 1500)
         // Sample at t=1999 (999ms after first) should be throttled
-        logger.writeSample(WheelState(speed = 4000), null, 1999)
+        logger.writeSample(TelemetryState(speed = 4000), gps = null, currentTimeMs = 1999)
         // Sample at t=2000 (1000ms after first) should pass
-        logger.writeSample(WheelState(speed = 5000), null, 2000)
+        logger.writeSample(TelemetryState(speed = 5000), gps = null, currentTimeMs = 2000)
 
         val metadata = logger.stop(3000)
         assertNotNull(metadata)
@@ -217,9 +217,9 @@ class RideLoggerTest {
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
 
-        logger.writeSample(WheelState(speed = 2000), null, 1000)  // 20 km/h - written
-        logger.writeSample(WheelState(speed = 9900), null, 1100)  // 99 km/h - throttled
-        logger.writeSample(WheelState(speed = 3000), null, 2000)  // 30 km/h - written
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)  // 20 km/h - written
+        logger.writeSample(TelemetryState(speed = 9900), gps = null, currentTimeMs = 1100)  // 99 km/h - throttled
+        logger.writeSample(TelemetryState(speed = 3000), gps = null, currentTimeMs = 2000)  // 30 km/h - written
 
         val metadata = logger.stop(3000)
         assertNotNull(metadata)
@@ -232,7 +232,7 @@ class RideLoggerTest {
     fun `writeSample does nothing when not active`() {
         val logger = RideLogger()
         // Don't call start()
-        logger.writeSample(WheelState(speed = 2000), null, 1000)
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)
         // No crash, no state mutation — verified by calling stop returning null
         assertNull(logger.stop(2000))
     }
@@ -247,7 +247,7 @@ class RideLoggerTest {
 
         val gps = GpsLocation(37.0, -122.0, 20.0, 50.0, 90.0, 500.0)
         // This should not crash and should ignore GPS data
-        logger.writeSample(WheelState(speed = 2000), gps, 1000)
+        logger.writeSample(TelemetryState(speed = 2000), gps = gps, currentTimeMs = 1000)
 
         val metadata = logger.stop(2000)
         assertNotNull(metadata)
@@ -264,8 +264,8 @@ class RideLoggerTest {
 
         // 3600 seconds of 100W average = 100 Wh
         // Write samples with 100W power (10000 in internal units)
-        logger.writeSample(WheelState(power = 10000, totalDistance = 1000), null, 1000)
-        logger.writeSample(WheelState(power = 10000, totalDistance = 2000), null, 2000)
+        logger.writeSample(TelemetryState(power = 10000, totalDistance = 1000), gps = null, currentTimeMs = 1000)
+        logger.writeSample(TelemetryState(power = 10000, totalDistance = 2000), gps = null, currentTimeMs = 2000)
 
         // Stop at 3601 seconds (1 hour)
         val metadata = logger.stop(3601_000, lastTotalDistance = 2000)
@@ -282,8 +282,8 @@ class RideLoggerTest {
 
         // 100W average over 3600s = 100Wh, distance = 10km (10000m)
         // startTotalDistance must be > 0 for distance calculation to work
-        logger.writeSample(WheelState(power = 10000, totalDistance = 50000), null, 1000)
-        logger.writeSample(WheelState(power = 10000, totalDistance = 60000), null, 2000)
+        logger.writeSample(TelemetryState(power = 10000, totalDistance = 50000), gps = null, currentTimeMs = 1000)
+        logger.writeSample(TelemetryState(power = 10000, totalDistance = 60000), gps = null, currentTimeMs = 2000)
 
         val metadata = logger.stop(3601_000, lastTotalDistance = 60000)
         assertNotNull(metadata)
@@ -297,7 +297,7 @@ class RideLoggerTest {
         val logger = RideLogger()
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 1000)
-        logger.writeSample(WheelState(power = 10000), null, 1500)
+        logger.writeSample(TelemetryState(power = 10000), gps = null, currentTimeMs = 1500)
 
         // Stop almost immediately (same second)
         val metadata = logger.stop(1500)
@@ -310,7 +310,7 @@ class RideLoggerTest {
         val logger = RideLogger()
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
-        logger.writeSample(WheelState(power = 10000, totalDistance = 0), null, 1000)
+        logger.writeSample(TelemetryState(power = 10000, totalDistance = 0), gps = null, currentTimeMs = 1000)
 
         val metadata = logger.stop(5000, lastTotalDistance = 0)
         assertNotNull(metadata)
@@ -324,7 +324,7 @@ class RideLoggerTest {
         val logger = RideLogger()
         val tmpPath = createTempPath()
         logger.start(tmpPath, withGps = false, currentTimeMs = 0)
-        logger.writeSample(WheelState(speed = 2500), null, 1000)
+        logger.writeSample(TelemetryState(speed = 2500), gps = null, currentTimeMs = 1000)
 
         val first = logger.stop(5000)
         assertNotNull(first)
@@ -341,14 +341,14 @@ class RideLoggerTest {
 
         // First session
         logger.start(createTempPath(), withGps = false, currentTimeMs = 0)
-        logger.writeSample(WheelState(speed = 2000), null, 1000)
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 1000)
         assertNotNull(logger.stop(2000))
         assertNull(logger.stop(3000)) // double stop
 
         // Second session should work normally
         assertTrue(logger.start(createTempPath(), withGps = false, currentTimeMs = 10000))
         assertTrue(logger.isLogging)
-        logger.writeSample(WheelState(speed = 3000), null, 11000)
+        logger.writeSample(TelemetryState(speed = 3000), gps = null, currentTimeMs = 11000)
         val metadata = logger.stop(12000)
         assertNotNull(metadata)
         assertEquals(30.0, metadata.maxSpeedKmh, 0.01)

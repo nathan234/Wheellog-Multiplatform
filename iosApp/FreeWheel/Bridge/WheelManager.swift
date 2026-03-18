@@ -550,8 +550,8 @@ class WheelManager: ObservableObject {
 
         // Feed telemetry buffer and history for chart view
         let gpsSpeed = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, locationManager.currentLocation?.speed ?? 0))
-        let sample = FreeWheelCore.TelemetrySample.companion.fromWheelState(
-            state: kmpState,
+        let sample = FreeWheelCore.TelemetrySample.companion.fromTelemetry(
+            telemetry: kmpState.toTelemetryState(),
             timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
             gpsSpeedKmh: gpsSpeed
         )
@@ -733,8 +733,8 @@ class WheelManager: ObservableObject {
         // Telemetry buffer + history
         if connectionState.isConnected {
             let gpsSpeed = ByteUtils.shared.metersPerSecondToKmh(speedMs: max(0, locationManager.currentLocation?.speed ?? 0))
-            let sample = FreeWheelCore.TelemetrySample.companion.fromWheelState(
-                state: newWheelState,
+            let sample = FreeWheelCore.TelemetrySample.companion.fromTelemetry(
+                telemetry: newWheelState.toTelemetryState(),
                 timestampMs: Int64(Date().timeIntervalSince1970 * 1000),
                 gpsSpeedKmh: gpsSpeed
             )
@@ -1226,7 +1226,7 @@ class WheelManager: ObservableObject {
     func buildDiagnosticText() -> String? {
         guard let cm = connectionManager else { return nil }
         let snapshot = DiagnosticSnapshotBuilder.shared.buildSnapshot(
-            wheelState: wheelState,
+            identity: wheelState.toIdentity(),
             capabilities: capabilities,
             connectionInfo: cm.getConnectionInfo(),
             decoderConfig: cm.getConfig(),
@@ -1239,7 +1239,7 @@ class WheelManager: ObservableObject {
     private func buildDiagnosticFooter() -> String? {
         guard let cm = connectionManager else { return nil }
         let snapshot = DiagnosticSnapshotBuilder.shared.buildSnapshot(
-            wheelState: wheelState,
+            identity: wheelState.toIdentity(),
             capabilities: capabilities,
             connectionInfo: cm.getConnectionInfo(),
             decoderConfig: cm.getConfig(),

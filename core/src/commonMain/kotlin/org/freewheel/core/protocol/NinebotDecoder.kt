@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.utils.ByteUtils
 import org.freewheel.core.utils.Lock
@@ -169,11 +168,8 @@ class NinebotDecoder(
     override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
             val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
-                val ws = state.toWheelState().let {
-                    if (it.wheelType == WheelType.Unknown) it.copy(wheelType = WheelType.NINEBOT) else it
-                }
                 val msg = verifyAndParse(buffer) ?: return@decodeFrames null
-                processMessage(msg, ws)
+                processMessage(msg, state)
             }
 
             when (loopResult) {
@@ -285,9 +281,10 @@ class NinebotDecoder(
     /**
      * Process a parsed CAN message and update state.
      */
-    private fun processMessage(message: CANMessage, currentState: WheelState): FrameResult? {
+    private fun processMessage(message: CANMessage, currentState: DecoderState): FrameResult? {
         val param = Param.fromValue(message.parameter)
         val typeName = param?.let { paramTypeNames[it] } ?: "UNKNOWN"
+        val id = currentState.identity
 
         return when (param) {
             Param.SerialNumber -> {
@@ -297,9 +294,10 @@ class NinebotDecoder(
                 // Only return status if we have full serial (14 chars)
                 if (message.len - 2 == 14) {
                     FrameResult(
-                        state = currentState.copy(
+                        identity = id.copy(
                             serialNumber = serialNumber,
-                            model = getModelName()
+                            model = getModelName(),
+                            wheelType = WheelType.NINEBOT
                         ),
                         hasNewData = false,
                         frameType = typeName
@@ -317,9 +315,10 @@ class NinebotDecoder(
                 // Final part of serial number
                 serialNumber += message.data.decodeToString()
                 FrameResult(
-                    state = currentState.copy(
+                    identity = id.copy(
                         serialNumber = serialNumber,
-                        model = getModelName()
+                        model = getModelName(),
+                        wheelType = WheelType.NINEBOT
                     ),
                     hasNewData = false,
                     frameType = typeName
@@ -330,7 +329,10 @@ class NinebotDecoder(
                 version = parseVersionNumber(message.data)
                 connectionState = ConnectionState.READY
                 FrameResult(
-                    state = currentState.copy(version = version),
+                    identity = id.copy(
+                        version = version,
+                        wheelType = WheelType.NINEBOT
+                    ),
                     hasNewData = false,
                     frameType = typeName
                 )
@@ -404,7 +406,7 @@ class NinebotDecoder(
      * Parse main live data frame (0xB0).
      * Contains: battery, speed, distance, temperature, voltage, current.
      */
-    private fun parseLiveData(data: ByteArray, currentState: WheelState): FrameResult {
+    private fun parseLiveData(data: ByteArray, currentState: DecoderState): FrameResult {
         batt = ByteUtils.shortFromBytesLE(data, 8)
 
         speed = when (protoVersion) {
@@ -424,14 +426,16 @@ class NinebotDecoder(
         power = ((current / 100.0) * voltage).roundToInt()
 
         return FrameResult(
-            state = currentState.copy(
+            telemetry = currentState.telemetry.copy(
                 speed = speed,
                 voltage = voltage,
                 current = current,
                 power = power,
                 totalDistance = distance,
                 temperature = temperature * 10, // Convert to 1/100 degrees
-                batteryLevel = batt,
+                batteryLevel = batt
+            ),
+            identity = currentState.identity.copy(
                 wheelType = WheelType.NINEBOT,
                 model = getModelName()
             ),
@@ -443,13 +447,13 @@ class NinebotDecoder(
      * Parse live data 2 frame (0xB3).
      * Contains: battery level, speed.
      */
-    private fun parseLiveData2(data: ByteArray, currentState: WheelState): FrameResult? {
+    private fun parseLiveData2(data: ByteArray, currentState: DecoderState): FrameResult? {
         if (data.size < 6) return null
         batt = ByteUtils.shortFromBytesLE(data, 2)
         speed = ByteUtils.shortFromBytesLE(data, 4) / 10
 
         return FrameResult(
-            state = currentState.copy(
+            telemetry = currentState.telemetry.copy(
                 speed = speed,
                 batteryLevel = batt
             ),
@@ -461,12 +465,12 @@ class NinebotDecoder(
      * Parse live data 3 frame (0xB6).
      * Contains: distance.
      */
-    private fun parseLiveData3(data: ByteArray, currentState: WheelState): FrameResult? {
+    private fun parseLiveData3(data: ByteArray, currentState: DecoderState): FrameResult? {
         if (data.size < 6) return null
         distance = ByteUtils.intFromBytesLE(data, 2).toLong()
 
         return FrameResult(
-            state = currentState.copy(
+            telemetry = currentState.telemetry.copy(
                 totalDistance = distance
             ),
             hasNewData = false
@@ -477,12 +481,12 @@ class NinebotDecoder(
      * Parse live data 4 frame (0xB9).
      * Contains: temperature.
      */
-    private fun parseLiveData4(data: ByteArray, currentState: WheelState): FrameResult? {
+    private fun parseLiveData4(data: ByteArray, currentState: DecoderState): FrameResult? {
         if (data.size < 6) return null
         temperature = ByteUtils.shortFromBytesLE(data, 4)
 
         return FrameResult(
-            state = currentState.copy(
+            telemetry = currentState.telemetry.copy(
                 temperature = temperature * 10
             ),
             hasNewData = false
@@ -493,14 +497,14 @@ class NinebotDecoder(
      * Parse live data 5 frame (0xBC).
      * Contains: voltage, current.
      */
-    private fun parseLiveData5(data: ByteArray, currentState: WheelState): FrameResult? {
+    private fun parseLiveData5(data: ByteArray, currentState: DecoderState): FrameResult? {
         if (data.size < 4) return null
         voltage = ByteUtils.shortFromBytesLE(data, 0)
         current = ByteUtils.signedShortFromBytesLE(data, 2)
         power = ((current / 100.0) * voltage).roundToInt()
 
         return FrameResult(
-            state = currentState.copy(
+            telemetry = currentState.telemetry.copy(
                 voltage = voltage,
                 current = current,
                 power = power

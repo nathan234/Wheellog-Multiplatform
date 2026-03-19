@@ -4,10 +4,9 @@ import org.freewheel.core.utils.ByteUtils
 
 /**
  * High-frequency telemetry data that changes on every BLE notification.
- * Separated from [WheelState] to enable granular UI updates —
- * only components observing telemetry will recompose when these fields change.
+ * Only components observing telemetry will recompose when these fields change.
  *
- * All values use the same internal units as [WheelState] (typically 1/100 for precision).
+ * All values use internal units (typically 1/100 for precision).
  */
 data class TelemetryState(
     val speed: Int = 0,
@@ -46,7 +45,7 @@ data class TelemetryState(
     val timestamp: Long = 0,
 
     // Settings-derived values exposed here for dashboard metric extraction.
-    // Populated via WheelState.toTelemetryState(); decoders set these in WheelSettings.
+    // Settings-derived values exposed here for dashboard metric extraction.
     val alertSpeed: Int = 0,
     val autoOffTime: Int = 0,
     val maxSpeed: Int = -1

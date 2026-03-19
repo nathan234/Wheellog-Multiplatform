@@ -3,8 +3,13 @@ package org.freewheel.core.domain
 import org.freewheel.core.utils.ByteUtils
 
 /**
- * Immutable data class representing the current state of an electric unicycle.
- * All values use internal units (typically 1/100 for precision).
+ * Flat data class combining all wheel state into a single type.
+ *
+ * **Not used in production code paths.** Production state flows use the granular
+ * domain pieces ([TelemetryState], [WheelIdentity], [BmsState], [WheelSettings]).
+ * This class is retained for test utilities — the `stateFrom()` helper in
+ * `TestUtils.kt` uses [compose] to reconstruct a flat view for assertions
+ * across 68 decoder test call sites.
  *
  * Unit conventions:
  * - Speed: 1/100 km/h (e.g., 2500 = 25.00 km/h)
@@ -328,15 +333,9 @@ data class WheelState(
     fun toBmsState() = BmsState(bms1 = bms1, bms2 = bms2)
 
     companion object {
-        /** Use [ByteUtils.KM_TO_MILES_MULTIPLIER] directly. Kept for backward compatibility. */
-        const val KM_TO_MILES = ByteUtils.KM_TO_MILES_MULTIPLIER
-
-        /** Creates a default empty WheelState. Useful from Swift/ObjC where default-parameter constructors aren't available. */
-        fun empty(): WheelState = WheelState()
-
         /**
          * Compose a [WheelState] from domain sub-states.
-         * Used by [WcmState.wheelState] to provide decoder input and legacy consumer access.
+         * Used by test utility `stateFrom()` in `TestUtils.kt`.
          */
         fun compose(
             telemetry: TelemetryState,

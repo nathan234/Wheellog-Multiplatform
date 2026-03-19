@@ -8,7 +8,7 @@ package org.freewheel.core.domain
  * Extension properties below provide uniform field access for [SettingsCommandId.readInt]
  * and [SettingsCommandId.readBool].
  *
- * Default value of -1 means "not yet read from wheel" (same convention as [WheelState]).
+ * Default value of -1 means "not yet read from wheel".
  */
 sealed class WheelSettings {
     data object None : WheelSettings()

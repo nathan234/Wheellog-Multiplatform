@@ -2,7 +2,7 @@ package org.freewheel.core.domain
 
 /**
  * Wheel identity information that is set once per connection.
- * Separated from [WheelState] to avoid triggering UI updates on every telemetry frame.
+ * Set once per connection — avoids triggering UI updates on every telemetry frame.
  */
 data class WheelIdentity(
     val wheelType: WheelType = WheelType.Unknown,

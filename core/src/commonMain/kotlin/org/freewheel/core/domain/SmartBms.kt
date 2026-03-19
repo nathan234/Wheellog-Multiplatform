@@ -131,7 +131,7 @@ class SmartBms {
 }
 
 /**
- * Immutable snapshot of BMS data for use in [WheelState] StateFlow.
+ * Immutable snapshot of BMS data for use in [BmsState] StateFlow.
  * Created via [SmartBms.toSnapshot].
  */
 data class BmsSnapshot(

@@ -7,7 +7,7 @@ import org.freewheel.core.telemetry.MetricType
 /**
  * Registry of all metrics that can be displayed on the dashboard.
  * Each entry carries display metadata, color thresholds, widget support,
- * unit classification, and a value extractor from [WheelState].
+ * unit classification, and a value extractor from [TelemetryState].
  *
  * GPS_SPEED returns null from [extractValue] — the platform provides GPS speed separately.
  */

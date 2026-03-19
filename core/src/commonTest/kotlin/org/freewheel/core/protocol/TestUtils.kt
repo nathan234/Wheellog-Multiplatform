@@ -63,5 +63,7 @@ internal fun DecodedData.decoderStateFrom(currentState: DecoderState): DecoderSt
  * [DecodedData] onto [currentState]. Used in tests that need to assert on
  * individual WheelState fields after chaining decode calls.
  */
-internal fun DecodedData.stateFrom(currentState: DecoderState): WheelState =
-    decoderStateFrom(currentState).toWheelState()
+internal fun DecodedData.stateFrom(currentState: DecoderState): WheelState {
+    val ds = decoderStateFrom(currentState)
+    return WheelState.compose(ds.telemetry, ds.identity, ds.bms, ds.settings)
+}

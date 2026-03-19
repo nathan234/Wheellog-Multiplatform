@@ -4,20 +4,14 @@ import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
-import org.freewheel.core.domain.WheelState
 
 /**
  * Result from processing a single unpacked frame within a decoder.
  *
- * Supports two paths:
- * - **Legacy**: set [state] to a full WheelState. Domain pieces are extracted automatically.
- * - **Migrated**: set domain piece fields ([telemetry], [identity], [bms], [settings]) directly;
- *   leave [state] null. Only non-null pieces are merged into accumulated state.
+ * Set domain piece fields ([telemetry], [identity], [bms], [settings]) directly;
+ * only non-null pieces are merged into accumulated state.
  */
 data class FrameResult(
-    /** Legacy: full updated WheelState. Set by unmigrated processFrame methods. */
-    val state: WheelState? = null,
-    // Domain pieces (set by migrated processFrame methods; non-null = changed)
     val telemetry: TelemetryState? = null,
     val identity: WheelIdentity? = null,
     val bms: BmsState? = null,
@@ -38,8 +32,7 @@ data class FrameResult(
  * multi-frame BLE notifications for all decoders.
  *
  * Accumulates state as [DecoderState] (domain pieces). The lambda receives the
- * accumulated [DecoderState] and returns a [FrameResult] with either a legacy
- * [WheelState] or domain pieces directly.
+ * accumulated [DecoderState] and returns a [FrameResult] with domain pieces.
  *
  * Returns a [DecodeResult] that distinguishes between:
  * - [DecodeResult.Success] — at least one frame was processed successfully
@@ -76,23 +69,12 @@ internal inline fun decodeFrames(
             val result = processFrame(buffer, state)
             if (result != null) {
                 frameProcessed = true
-                state = if (result.state != null) {
-                    // Legacy path: extract domain pieces from WheelState
-                    DecoderState(
-                        telemetry = result.state.toTelemetryState(),
-                        identity = result.state.toIdentity(),
-                        bms = result.state.toBmsState(),
-                        settings = result.state.toWheelSettings()
-                    )
-                } else {
-                    // Migrated path: merge domain pieces directly
-                    DecoderState(
-                        telemetry = result.telemetry ?: state.telemetry,
-                        identity = result.identity ?: state.identity,
-                        bms = result.bms ?: state.bms,
-                        settings = result.settings ?: state.settings
-                    )
-                }
+                state = DecoderState(
+                    telemetry = result.telemetry ?: state.telemetry,
+                    identity = result.identity ?: state.identity,
+                    bms = result.bms ?: state.bms,
+                    settings = result.settings ?: state.settings
+                )
                 hasNewData = hasNewData || result.hasNewData
                 commands.addAll(result.commands)
                 result.news?.let { news = it }

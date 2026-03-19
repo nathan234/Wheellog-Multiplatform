@@ -621,13 +621,8 @@ class WheelConnectionManager(
 
         val decoded = result.data
 
-        // Determine display name for Connected state (from legacy or domain pieces)
-        val displayName = if (decoded.newState != null) {
-            decoded.newState.displayName
-        } else {
-            val id = decoded.identity ?: state.identity
-            id.displayName
-        }
+        // Determine display name for Connected state
+        val displayName = (decoded.identity ?: state.identity).displayName
 
         val newConnectionState = if (decoder.isReady() && state.connectionState !is ConnectionState.Connected) {
             val address = getCurrentAddress(state) ?: ""
@@ -655,38 +650,19 @@ class WheelConnectionManager(
             state.capabilities
         }
 
-        if (decoded.newState != null) {
-            // Legacy path: unmigrated decoder returned full WheelState
-            val ws = decoded.newState
-            return WcmTransition(
-                state = state.copy(
-                    telemetry = ws.toTelemetryState(),
-                    identity = ws.toIdentity(),
-                    bms = ws.toBmsState(),
-                    settings = ws.toWheelSettings(),
-                    connectionState = newConnectionState,
-                    capabilities = mergedCapabilities,
-                    consecutiveDecodeErrors = 0,
-                    consecutiveBleErrors = 0
-                ),
-                effects = effects
-            )
-        } else {
-            // Migrated path: decoder returned domain pieces
-            return WcmTransition(
-                state = state.copy(
-                    telemetry = decoded.telemetry ?: state.telemetry,
-                    identity = decoded.identity ?: state.identity,
-                    bms = decoded.bms ?: state.bms,
-                    settings = decoded.settings ?: state.settings,
-                    connectionState = newConnectionState,
-                    capabilities = mergedCapabilities,
-                    consecutiveDecodeErrors = 0,
-                    consecutiveBleErrors = 0
-                ),
-                effects = effects
-            )
-        }
+        return WcmTransition(
+            state = state.copy(
+                telemetry = decoded.telemetry ?: state.telemetry,
+                identity = decoded.identity ?: state.identity,
+                bms = decoded.bms ?: state.bms,
+                settings = decoded.settings ?: state.settings,
+                connectionState = newConnectionState,
+                capabilities = mergedCapabilities,
+                consecutiveDecodeErrors = 0,
+                consecutiveBleErrors = 0
+            ),
+            effects = effects
+        )
     }
 
     private fun reduceBleError(state: WcmState): WcmTransition {

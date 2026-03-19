@@ -5,25 +5,17 @@ import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 
 /**
  * Lightweight decoder input holding the four domain sub-states.
- *
- * Replaces [WheelState] as the `currentState` parameter to [WheelDecoder.decode],
- * avoiding the 178-field [WheelState.compose] allocation per BLE frame.
- * Decoders that still work with [WheelState] internally can call [toWheelState].
  */
 data class DecoderState(
     val telemetry: TelemetryState = TelemetryState(),
     val identity: WheelIdentity = WheelIdentity(),
     val bms: BmsState = BmsState(),
     val settings: WheelSettings = WheelSettings.None
-) {
-    /** Compose a full [WheelState] for decoders that still use it internally. */
-    fun toWheelState(): WheelState = WheelState.compose(telemetry, identity, bms, settings)
-}
+)
 
 /**
  * Interface for wheel protocol decoders.
@@ -165,20 +157,10 @@ data class UnhandledReason(
 /**
  * Result from decoding wheel data.
  *
- * Supports two paths:
- * - **Legacy** (unmigrated decoders): set [newState] to a full WheelState.
- * - **Migrated** (Phase 2+): set domain pieces ([telemetry], [identity], [bms], [settings]);
- *   leave [newState] null. The reducer merges only the pieces that changed.
+ * Decoders set domain pieces ([telemetry], [identity], [bms], [settings]);
+ * the reducer merges only the pieces that changed.
  */
 data class DecodedData(
-    /**
-     * Legacy: full updated wheel state. Set by unmigrated decoders.
-     * Null when the decoder returns domain pieces instead.
-     */
-    val newState: WheelState? = null,
-
-    // --- Domain pieces (set by migrated decoders; non-null = changed) ---
-
     /** High-frequency telemetry update. */
     val telemetry: TelemetryState? = null,
     /** Wheel identity update (model, serial, version, etc.). */

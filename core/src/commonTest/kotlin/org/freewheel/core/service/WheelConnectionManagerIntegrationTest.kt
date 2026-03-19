@@ -195,6 +195,10 @@ class WheelConnectionManagerIntegrationTest {
         runCurrent()
         assertTrue(manager.connectionState.value is ConnectionState.Connected)
 
+        // Let init commands finish (serial queue: delays of 100+200+300+400ms)
+        advanceTimeBy(1100)
+        runCurrent()
+
         // Clear writes from init commands
         fakeBle.clearWrittenData()
 

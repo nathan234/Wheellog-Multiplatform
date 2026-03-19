@@ -3,6 +3,7 @@ package org.freewheel.core.replay
 import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
+import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecodedData
 import org.freewheel.core.protocol.DecodeResult
@@ -29,7 +30,7 @@ class CaptureAnalyzerTest {
         override val wheelType = WheelType.KINGSONG
         private var ready = false
 
-        override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+        override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
             if (data.size < 2) return DecodeResult.Buffering
             if (data[0] == 0xFF.toByte() && data[1] == 0xFF.toByte()) {
                 return DecodeResult.Unhandled(
@@ -42,11 +43,12 @@ class CaptureAnalyzerTest {
             val voltage = if (data.size >= 4) {
                 ((data[2].toInt() and 0xFF) shl 8) or (data[3].toInt() and 0xFF)
             } else {
-                currentState.voltage
+                currentState.telemetry.voltage
             }
             ready = true
             return DecodeResult.Success(DecodedData(
-                newState = currentState.copy(speed = speed, voltage = voltage, wheelType = WheelType.KINGSONG),
+                telemetry = currentState.telemetry.copy(speed = speed, voltage = voltage),
+                identity = currentState.identity.copy(wheelType = WheelType.KINGSONG),
                 commands = if (speed > 1000) listOf(WheelCommand.Beep) else emptyList(),
                 frameTypes = listOf(frameType)
             ))
@@ -60,7 +62,7 @@ class CaptureAnalyzerTest {
     // Decoder that always throws
     private class CrashingDecoder : WheelDecoder {
         override val wheelType = WheelType.GOTWAY
-        override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+        override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
             throw RuntimeException("decode exploded")
         }
         override fun isReady(): Boolean = false

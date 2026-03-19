@@ -3,7 +3,6 @@ package org.freewheel.core.protocol
 import org.freewheel.core.domain.WheelState
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 /**
  * Comparison tests verifying KMP InMotionV2Decoder produces identical results
@@ -17,17 +16,17 @@ import kotlin.test.assertTrue
 class InMotionV2DecoderComparisonTest {
 
     private val decoder = InMotionV2Decoder()
-    private val defaultState = WheelState()
+    private val defaultDs = DecoderState()
     private val defaultConfig = DecoderConfig()
 
     /** Feed all packets in order, returning the final state. */
     private fun feedPackets(vararg hexPackets: String): WheelState {
-        var state = defaultState
+        var ds = defaultDs
         for (hex in hexPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
+            if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
-        return state
+        return ds.toWheelState()
     }
 
     // ==================== V11 Full Data ====================

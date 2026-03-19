@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,7 +11,7 @@ import kotlin.test.assertTrue
 class AutoDetectDecoderTest {
 
     private val decoder = AutoDetectDecoder()
-    private val defaultState = WheelState()
+    private val defaultState = DecoderState()
     private val defaultConfig = DecoderConfig()
 
     // ==================== Initial State ====================

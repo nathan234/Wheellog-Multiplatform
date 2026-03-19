@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.handleButton
 import org.freewheel.core.domain.lightMode
@@ -27,7 +26,7 @@ import kotlin.test.assertTrue
 class LeaperkimCanDecoderTest {
 
     private val decoder = LeaperkimCanDecoder()
-    private val defaultState = WheelState()
+    private val defaultState = DecoderState()
     private val defaultConfig = DecoderConfig()
 
     // ==================== Frame Builder Helper ====================

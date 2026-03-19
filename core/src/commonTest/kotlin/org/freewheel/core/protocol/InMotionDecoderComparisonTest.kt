@@ -1,7 +1,6 @@
 package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.WheelState
-import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -16,7 +15,7 @@ import kotlin.test.assertTrue
 class InMotionDecoderComparisonTest {
 
     private val decoder = InMotionDecoder()
-    private val defaultState = WheelState()
+    private val defaultDs = DecoderState()
     private val defaultConfig = DecoderConfig()
 
 
@@ -47,15 +46,16 @@ class InMotionDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDs
 
         // Feed slow info packets
         for (hex in slowPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
+            if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
         // Verify slow info results (model/serial/version)
+        var state = ds.toWheelState()
         assertEquals("1271285CBA76001B", state.serialNumber, "Serial should match legacy")
         assertEquals("InMotion V5F", state.model, "Model should match legacy")
         assertEquals("1.3.506", state.version, "Version should match legacy")
@@ -63,9 +63,9 @@ class InMotionDecoderComparisonTest {
         // Feed fast info packets
         var hasNewData = false
         for (hex in fastPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) hasNewData = true
             }
         }
@@ -74,6 +74,7 @@ class InMotionDecoderComparisonTest {
         assertTrue(hasNewData, "Should have new telemetry data")
 
         // Verify telemetry matches legacy expected values
+        state = ds.toWheelState()
         // KMP rounds (3.83) vs legacy truncates (3.82); rounding is more correct
         assertEquals(383, state.speed, "Raw speed should be 383 (3.83 km/h in 1/100 units)")
         assertEquals(3.83, state.speedKmh, 0.01, "Speed should be 3.83 km/h")
@@ -116,28 +117,30 @@ class InMotionDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDs
 
         for (hex in slowPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
+            if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
+        var state = ds.toWheelState()
         assertEquals("14604A5EBD9B000E", state.serialNumber, "Serial should match legacy")
         assertEquals("InMotion V8F", state.model, "Model should match legacy")
         assertEquals("2.2.21", state.version, "Version should match legacy")
 
         var hasNewData = false
         for (hex in fastPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) hasNewData = true
             }
         }
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
+        state = ds.toWheelState()
         assertEquals(137, state.speed, "Raw speed should be 137 (1.37 km/h in 1/100 units)")
         assertEquals(1.37, state.speedKmh, 0.01, "Speed should be 1.37 km/h")
         assertEquals(27, state.temperatureC, "Temperature should be 27°C")
@@ -182,27 +185,29 @@ class InMotionDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDs
 
         for (hex in slowPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
+            if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
+        var state = ds.toWheelState()
         assertEquals("InMotion V8F", state.model, "Model should match legacy")
         assertEquals("2.2.21", state.version, "Version should match legacy")
 
         var hasNewData = false
         for (hex in fastPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) hasNewData = true
             }
         }
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
+        state = ds.toWheelState()
         // KMP rounds (0.67) vs legacy truncates (0.66); rounding is more correct
         assertEquals(67, state.speed, "Raw speed should be 67 (0.67 km/h in 1/100 units)")
         assertEquals(0.67, state.speedKmh, 0.01, "Speed should be 0.67 km/h")
@@ -246,28 +251,30 @@ class InMotionDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDs
 
         for (hex in slowPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
+            if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
+        var state = ds.toWheelState()
         assertEquals("1571AA5EBD460106", state.serialNumber, "Serial should match legacy")
         assertEquals("InMotion V8S", state.model, "Model should match legacy")
         assertEquals("102.2.21", state.version, "Version should match legacy")
 
         var hasNewData = false
         for (hex in fastPackets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) hasNewData = true
             }
         }
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
+        state = ds.toWheelState()
         assertEquals(0, state.speed, "Raw speed should be 0")
         assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
         assertEquals(30, state.temperatureC, "Temperature should be 30°C")
@@ -300,15 +307,16 @@ class InMotionDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDs
 
         for (hex in packets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
-            if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
+            if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
         // Legacy test: only control packets (no telemetry), so result is false
         // but model and version should be extracted
+        val state = ds.toWheelState()
         assertEquals("InMotion V8F", state.model, "Model should match legacy")
         assertEquals("2.2.21", state.version, "Version should match legacy")
     }

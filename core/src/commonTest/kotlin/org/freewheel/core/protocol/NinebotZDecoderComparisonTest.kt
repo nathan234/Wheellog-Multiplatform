@@ -19,7 +19,7 @@ import kotlin.test.assertTrue
 class NinebotZDecoderComparisonTest {
 
     private val decoder = NinebotZDecoder()
-    private val defaultState = WheelState()
+    private val defaultDs = DecoderState()
     private val defaultConfig = DecoderConfig()
 
 
@@ -33,7 +33,7 @@ class NinebotZDecoderComparisonTest {
         withoutHeader[1] = 0x34  // Not 0xA5
 
         decoder.reset()
-        val result = decoder.decode(withoutHeader, defaultState, defaultConfig)
+        val result = decoder.decode(withoutHeader, defaultDs, defaultConfig)
 
         // Without proper header, should not produce valid data
         assertTrue(result !is DecodeResult.Success || !result.data.hasNewData,
@@ -48,7 +48,7 @@ class NinebotZDecoderComparisonTest {
         // The unpacker should recognize this header and start collecting
         // We can't verify this directly, but we can verify it doesn't crash
         decoder.reset()
-        val result = decoder.decode(header, defaultState, defaultConfig)
+        val result = decoder.decode(header, defaultDs, defaultConfig)
         // Should not crash
     }
 
@@ -356,7 +356,7 @@ class NinebotZDecoderComparisonTest {
         // Send corrupted/partial data (1-30 bytes)
         for (i in 1..30) {
             val corrupted = ByteArray(i) { it.toByte() }
-            val result = decoder.decode(corrupted, defaultState, defaultConfig)
+            val result = decoder.decode(corrupted, defaultDs, defaultConfig)
             // Should not crash, may return null or partial result
         }
     }
@@ -367,7 +367,7 @@ class NinebotZDecoderComparisonTest {
         val truncated = byteArrayOf(0x5A, 0xA5.toByte(), 0x10)  // Length says 16 bytes but only 1
 
         decoder.reset()
-        val result = decoder.decode(truncated, defaultState, defaultConfig)
+        val result = decoder.decode(truncated, defaultDs, defaultConfig)
 
         // Should not crash, should not produce data
         assertTrue(result !is DecodeResult.Success || !result.data.hasNewData,
@@ -551,7 +551,7 @@ class NinebotZDecoderComparisonTest {
 
         // Feed to decoder (with zero gamma = default)
         decoder.reset()
-        val result = decoder.decode(fullPacket, defaultState, defaultConfig)
+        val result = decoder.decode(fullPacket, defaultDs, defaultConfig)
 
         // The decoder should process Params1 and advance state machine
         // Since Params1 data is stored internally (not in WheelState), we verify
@@ -594,7 +594,7 @@ class NinebotZDecoderComparisonTest {
         val fullPacket = byteArrayOf(0x5A, 0xA5.toByte()) + encrypted
 
         decoder.reset()
-        val result = decoder.decode(fullPacket, defaultState, defaultConfig)
+        val result = decoder.decode(fullPacket, defaultDs, defaultConfig)
         // Verify it doesn't crash and the message is accepted
     }
 
@@ -611,14 +611,14 @@ class NinebotZDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDs
         var hasNewData = false
 
         // Feed all packets through the decoder
         for (hex in packets) {
-            val result = decoder.decode(hex.hexToByteArray(), state, defaultConfig)
+            val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) hasNewData = true
             }
         }
@@ -627,6 +627,7 @@ class NinebotZDecoderComparisonTest {
         // speedDouble=27.16, voltageDouble=61.7, currentDouble=44.98
         // temperature=37, totalDistance=2660251, batteryLevel=78
         if (hasNewData) {
+            val state = ds.toWheelState()
             assertEquals(27.16, state.speedKmh, 0.1, "Speed should be ~27.16 km/h")
             assertEquals(61.7, state.voltageV, 0.1, "Voltage should be ~61.7V")
             assertEquals(44.98, state.currentA, 0.1, "Current should be ~44.98A")

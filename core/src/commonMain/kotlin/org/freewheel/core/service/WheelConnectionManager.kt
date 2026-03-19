@@ -115,7 +115,10 @@ class WheelConnectionManager(
     // update and the derived flow emission.
     private val derivedScope = scope + dispatcher
 
-    /** Current wheel state. */
+    /**
+     * Composed wheel state (legacy, for decoder input and tests).
+     * Prefer [telemetryState], [identityState], [bmsState], [settingsState] for UI.
+     */
     override val wheelState: StateFlow<WheelState> = _wcmState
         .map { it.wheelState }
         .distinctUntilChanged()
@@ -128,25 +131,25 @@ class WheelConnectionManager(
         .stateIn(derivedScope, SharingStarted.Eagerly, ConnectionState.Disconnected)
 
     /** Telemetry sub-state (speed, voltage, current, etc.). Updated on every BLE notification. */
-    val telemetryState: StateFlow<TelemetryState> = _wcmState
+    override val telemetryState: StateFlow<TelemetryState> = _wcmState
         .map { it.telemetry }
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, TelemetryState())
 
     /** Settings sub-state (pedals mode, light mode, etc.). Updated rarely. */
-    val settingsState: StateFlow<WheelSettings> = _wcmState
+    override val settingsState: StateFlow<WheelSettings> = _wcmState
         .map { it.settings }
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, WheelSettings.None)
 
     /** Identity sub-state (wheel type, model, serial, etc.). Set once per connection. */
-    val identityState: StateFlow<WheelIdentity> = _wcmState
+    override val identityState: StateFlow<WheelIdentity> = _wcmState
         .map { it.identity }
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, WheelIdentity())
 
     /** BMS sub-state (battery pack snapshots). Updated periodically. */
-    val bmsState: StateFlow<BmsState> = _wcmState
+    override val bmsState: StateFlow<BmsState> = _wcmState
         .map { it.bms }
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, BmsState())
@@ -594,7 +597,7 @@ class WheelConnectionManager(
         }
 
         val result = try {
-            decoder.decode(event.data, state.wheelState, state.decoderConfig)
+            decoder.decode(event.data, state.decoderState, state.decoderConfig)
         } catch (e: Exception) {
             Logger.e(TAG, "decode() threw for ${event.data.size} bytes (decoder=${decoder.wheelType})", e)
             return WcmTransition(

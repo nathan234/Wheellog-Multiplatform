@@ -46,14 +46,22 @@ internal fun DecodedData.assertBms(): BmsState =
     bms ?: error("Expected BMS update")
 
 /**
- * Reconstruct a [WheelState] by applying non-null domain pieces from this
- * [DecodedData] onto [currentState]. Used in tests that chain multiple decode
- * calls and need accumulated state for subsequent calls.
+ * Build a [DecoderState] by applying non-null domain pieces from this
+ * [DecodedData] onto [currentState]. Used in tests that chain multiple
+ * decode calls and need accumulated state for subsequent calls.
  */
-internal fun DecodedData.stateFrom(currentState: WheelState): WheelState =
-    WheelState.compose(
-        telemetry = telemetry ?: currentState.toTelemetryState(),
-        identity = identity ?: currentState.toIdentity(),
-        bms = bms ?: currentState.toBmsState(),
-        settings = settings ?: currentState.toWheelSettings()
+internal fun DecodedData.decoderStateFrom(currentState: DecoderState): DecoderState =
+    DecoderState(
+        telemetry = telemetry ?: currentState.telemetry,
+        identity = identity ?: currentState.identity,
+        bms = bms ?: currentState.bms,
+        settings = settings ?: currentState.settings
     )
+
+/**
+ * Reconstruct a [WheelState] by applying non-null domain pieces from this
+ * [DecodedData] onto [currentState]. Used in tests that need to assert on
+ * individual WheelState fields after chaining decode calls.
+ */
+internal fun DecodedData.stateFrom(currentState: DecoderState): WheelState =
+    decoderStateFrom(currentState).toWheelState()

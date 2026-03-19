@@ -137,14 +137,15 @@ class InMotionV2Decoder : WheelDecoder {
         const val RESP_SERIAL = 0x84    // per-battery serial number + init
     }
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult = stateLock.withLock {
-        val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult = stateLock.withLock {
+        val ws = currentState.toWheelState()
+        val loopResult = decodeFrames(data, unpacker, ws) { buffer, state ->
             val msg = verifyAndParse(buffer) ?: return@decodeFrames null
             processMessage(msg, state)
         }
 
         val successData = (loopResult as? DecodeResult.Success)?.data ?: return@withLock loopResult
-        var finalState = successData.newState ?: currentState
+        var finalState = successData.newState ?: ws
 
         // Ensure wheelType is always INMOTION_V2 for domain piece extraction
         if (finalState.wheelType == WheelType.Unknown) {
@@ -152,10 +153,10 @@ class InMotionV2Decoder : WheelDecoder {
         }
 
         // Extract domain pieces, only including those that changed
-        val initialTelemetry = currentState.toTelemetryState()
-        val initialIdentity = currentState.toIdentity()
-        val initialBms = currentState.toBmsState()
-        val initialSettings = currentState.toWheelSettings()
+        val initialTelemetry = currentState.telemetry
+        val initialIdentity = currentState.identity
+        val initialBms = currentState.bms
+        val initialSettings = currentState.settings
         DecodeResult.Success(DecodedData(
             telemetry = finalState.toTelemetryState().takeIf { it != initialTelemetry },
             identity = finalState.toIdentity().takeIf { it != initialIdentity },

@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.utils.ByteUtils
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -19,7 +18,7 @@ import kotlin.test.assertTrue
 class GotwayDecoderComparisonTest {
 
     private val decoder = GotwayDecoder()
-    private val defaultState = WheelState()
+    private val defaultState = DecoderState()
     private val defaultConfig = DecoderConfig()
 
 
@@ -71,13 +70,13 @@ class GotwayDecoderComparisonTest {
         decoder.reset()
 
         // Feed packets through decoder (simulating BLE stream)
-        var state = defaultState
+        var ds = defaultState
         var lastResult: DecodedData? = null
 
         for (packet in listOf(byteArray1, byteArray2, byteArray3)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) lastResult = result.data
             }
         }
@@ -112,23 +111,23 @@ class GotwayDecoderComparisonTest {
         )
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultState
         var decodedCount = 0
 
         // First pass
         for (packet in packets) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) decodedCount++
             }
         }
 
         // Second pass (legacy test does 2 passes)
         for (packet in packets) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
                 if (result.data.hasNewData) decodedCount++
             }
         }
@@ -146,6 +145,7 @@ class GotwayDecoderComparisonTest {
         assertTrue(decodedCount >= 2, "Should have decoded data in multiple packets")
 
         // Verify key values match legacy expectations
+        val state = ds.toWheelState()
         val expectedVoltage = 12010  // 120.10V * 100
         assertEquals(expectedVoltage, state.voltage, "Voltage should be 12010 (raw)")
 

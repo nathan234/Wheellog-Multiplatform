@@ -105,7 +105,7 @@ class InMotionDecoderTest {
         val decoder = InMotionDecoder()
 
         // Process some data (even if invalid, it sets internal state)
-        decoder.decode(byteArrayOf(0xAA.toByte(), 0xAA.toByte()), WheelState(), config)
+        decoder.decode(byteArrayOf(0xAA.toByte(), 0xAA.toByte()), DecoderState(), config)
 
         // Reset
         decoder.reset()

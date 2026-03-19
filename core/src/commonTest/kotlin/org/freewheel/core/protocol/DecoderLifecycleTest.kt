@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -18,7 +17,7 @@ import kotlin.test.assertTrue
  */
 class DecoderLifecycleTest {
 
-    private val defaultState = WheelState()
+    private val defaultDs = DecoderState()
     private val defaultConfig = DecoderConfig()
 
 
@@ -76,7 +75,7 @@ class DecoderLifecycleTest {
         val decoder = GotwayDecoder()
         // Feed a live data frame without any prior firmware response
         val liveFrame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-        val result = decoder.decode(liveFrame, defaultState, defaultConfig)
+        val result = decoder.decode(liveFrame, defaultDs, defaultConfig)
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
@@ -91,11 +90,11 @@ class DecoderLifecycleTest {
         val decoder = GotwayDecoder()
         // Send firmware response to set fw
         val fwData = "GW1.23".encodeToByteArray()
-        decoder.decode(fwData, defaultState, defaultConfig)
+        decoder.decode(fwData, defaultDs, defaultConfig)
 
         // Now send live data — fw is set but model is still empty
         val liveFrame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-        val result = decoder.decode(liveFrame, defaultState, defaultConfig)
+        val result = decoder.decode(liveFrame, defaultDs, defaultConfig)
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
@@ -109,16 +108,16 @@ class DecoderLifecycleTest {
         val decoder = GotwayDecoder()
         // Set firmware to "Begode" protocol
         val fwData = "GW1.23".encodeToByteArray()
-        decoder.decode(fwData, defaultState, defaultConfig)
+        decoder.decode(fwData, defaultDs, defaultConfig)
 
         // Send 51 live data frames without any NAME response.
         // Counter goes 0→1→...→50 over 50 frames; fallback triggers on frame 51.
-        var state = defaultState
+        var ds = defaultDs
         var lastResult: DecodeResult = DecodeResult.Buffering
         for (i in 1..51) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-            lastResult = decoder.decode(frame, state, defaultConfig)
-            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.stateFrom(state)
+            lastResult = decoder.decode(frame, ds, defaultConfig)
+            if (lastResult is DecodeResult.Success) ds = (lastResult as DecodeResult.Success).data.decoderStateFrom(ds)
         }
 
         // After exceeding MAX_INFO_ATTEMPTS, model should fall back to "Begode" (the fwProt value)
@@ -134,12 +133,12 @@ class DecoderLifecycleTest {
         // Do NOT send any firmware response — fw stays empty
 
         // Send 51 live data frames (counter goes 0→50 over 50 frames; fallback on frame 51)
-        var state = defaultState
+        var ds = defaultDs
         var lastResult: DecodeResult = DecodeResult.Buffering
         for (i in 1..51) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-            lastResult = decoder.decode(frame, state, defaultConfig)
-            if (lastResult is DecodeResult.Success) state = (lastResult as DecodeResult.Success).data.stateFrom(state)
+            lastResult = decoder.decode(frame, ds, defaultConfig)
+            if (lastResult is DecodeResult.Success) ds = (lastResult as DecodeResult.Success).data.decoderStateFrom(ds)
         }
 
         // After exceeding MAX_INFO_ATTEMPTS, version should be "-" and model should be "Begode"
@@ -157,14 +156,14 @@ class DecoderLifecycleTest {
         val decoder = GotwayDecoder()
         // Set firmware
         val fwData = "GW1.23".encodeToByteArray()
-        decoder.decode(fwData, defaultState, defaultConfig)
+        decoder.decode(fwData, defaultDs, defaultConfig)
         // Set model
         val nameData = "NAME TestWheel".encodeToByteArray()
-        decoder.decode(nameData, defaultState, defaultConfig)
+        decoder.decode(nameData, defaultDs, defaultConfig)
 
         // Send live data — should not emit V or N commands
         val liveFrame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-        val result = decoder.decode(liveFrame, defaultState, defaultConfig)
+        val result = decoder.decode(liveFrame, defaultDs, defaultConfig)
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
@@ -180,7 +179,7 @@ class DecoderLifecycleTest {
         // Burn through some retry attempts
         for (i in 1..10) {
             val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-            decoder.decode(frame, defaultState, defaultConfig)
+            decoder.decode(frame, defaultDs, defaultConfig)
         }
 
         // Reset should clear the counter
@@ -188,7 +187,7 @@ class DecoderLifecycleTest {
 
         // After reset, should start retrying again (emit V)
         val frame = buildGotwayLiveDataFrame(voltage = 6000, speed = 100)
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDs, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         val vCommands = decoded.commands.filterIsInstance<WheelCommand.SendBytes>()
@@ -226,7 +225,7 @@ class DecoderLifecycleTest {
 
         // Feed a car type response to set isModelDetected = true
         val carTypeFrame = buildIM2Frame(0x11, 0x02, byteArrayOf(0x01, 0x00, 0x08, 0x01, 0x00, 0x00))
-        decoder.decode(carTypeFrame, defaultState, defaultConfig)
+        decoder.decode(carTypeFrame, defaultDs, defaultConfig)
 
         // Advance to 4th tick to trigger init retry
         repeat(3) { decoder.getKeepAliveCommand() }
@@ -245,21 +244,21 @@ class DecoderLifecycleTest {
 
         // Step 1: Feed car type response
         val carTypeFrame = buildIM2Frame(0x11, 0x02, byteArrayOf(0x01, 0x00, 0x08, 0x01, 0x00, 0x00))
-        decoder.decode(carTypeFrame, defaultState, defaultConfig)
+        decoder.decode(carTypeFrame, defaultDs, defaultConfig)
 
         // Step 2: Feed serial response (sub-type 0x02, 16 serial chars)
         // Command is MAIN_INFO (0x02); data[0]=0x02 is the sub-type for serial
         val serialData = ByteArray(17) { 0x41 } // "AAAA..." (17 bytes: 0x02 prefix + 16 serial chars)
         serialData[0] = 0x02
         val serialFrame = buildIM2Frame(0x11, 0x02, serialData)
-        decoder.decode(serialFrame, defaultState, defaultConfig)
+        decoder.decode(serialFrame, defaultDs, defaultConfig)
 
         // Step 3: Feed version response (sub-type 0x06, 24+ bytes of version data)
         // Command is MAIN_INFO (0x02); data[0]=0x06 is the sub-type for versions
         val versionData = ByteArray(25)
         versionData[0] = 0x06
         val versionFrame = buildIM2Frame(0x11, 0x02, versionData)
-        decoder.decode(versionFrame, defaultState, defaultConfig)
+        decoder.decode(versionFrame, defaultDs, defaultConfig)
 
         val command = decoder.getKeepAliveCommand()
         assertNotNull(command)
@@ -304,7 +303,7 @@ class DecoderLifecycleTest {
 
         // Feed car type — model detected but version empty
         val carTypeFrame = buildIM2Frame(0x11, 0x02, byteArrayOf(0x01, 0x00, 0x08, 0x01, 0x00, 0x00))
-        decoder.decode(carTypeFrame, defaultState, defaultConfig)
+        decoder.decode(carTypeFrame, defaultDs, defaultConfig)
         assertFalse(decoder.isReady(), "Should not be ready without version")
     }
 
@@ -454,7 +453,7 @@ class DecoderLifecycleTest {
         frame[18] = 0x5A
         frame[19] = 0x5A
 
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDs, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -483,7 +482,7 @@ class DecoderLifecycleTest {
                   "0000002800B40000090000000000000000000000000000000000"
         val frame = hex.hexToByteArray()
 
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDs, defaultConfig)
         // A Veteran frame should be parseable if it has the right header
         // The model is derived from ver byte
         if (result is DecodeResult.Success) {

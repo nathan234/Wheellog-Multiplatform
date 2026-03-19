@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.utils.ByteUtils
 import kotlin.math.round
 import kotlin.test.Test
@@ -18,7 +17,7 @@ import kotlin.test.assertTrue
 class KingsongDecoderComparisonTest {
 
     private val decoder = KingsongDecoder()
-    private val defaultState = WheelState()
+    private val defaultState = DecoderState()
     private val defaultConfig = DecoderConfig()
 
 
@@ -40,13 +39,13 @@ class KingsongDecoderComparisonTest {
 
         decoder.reset()
 
-        var state = defaultState
+        var ds = defaultState
 
         // Process all packets
         for (packet in listOf(byteArray1, byteArray2, byteArray3, byteArray4, byteArray5)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
 
@@ -69,6 +68,7 @@ class KingsongDecoderComparisonTest {
         // Verify key values - note Kingsong uses different units
         // Speed is in 1/100 km/h for Kingsong
         // Voltage is in 1/100 V
+        val state = ds.toWheelState()
         assertEquals(6505, state.voltage, "Voltage should be 6505 (65.05V)")
         assertEquals(65.05, state.voltageV, 0.01, "Voltage should be 65.05V")
     }
@@ -365,14 +365,14 @@ class KingsongDecoderComparisonTest {
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultState
 
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        if (nameResult is DecodeResult.Success) state = nameResult.data.stateFrom(state)
+        val nameResult = decoder.decode(namePacket, ds, defaultConfig)
+        if (nameResult is DecodeResult.Success) ds = nameResult.data.decoderStateFrom(ds)
 
-        val cpuResult = decoder.decode(cpuPacket, state, defaultConfig)
+        val cpuResult = decoder.decode(cpuPacket, ds, defaultConfig)
         assertTrue(cpuResult is DecodeResult.Success, "F5 frame should be decoded")
-        state = (cpuResult as DecodeResult.Success).data.stateFrom(state)
+        val state = (cpuResult as DecodeResult.Success).data.stateFrom(ds)
 
         // byte 14 = 0x40 = 64 (cpuLoad)
         assertEquals(64, state.cpuLoad, "CPU load should be 64")
@@ -404,13 +404,13 @@ class KingsongDecoderComparisonTest {
         // Set up model first
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
         decoder.reset()
-        var state = defaultState
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        if (nameResult is DecodeResult.Success) state = nameResult.data.stateFrom(state)
+        var ds = defaultState
+        val nameResult = decoder.decode(namePacket, ds, defaultConfig)
+        if (nameResult is DecodeResult.Success) ds = nameResult.data.decoderStateFrom(ds)
 
-        val result = decoder.decode(packet, state, defaultConfig)
+        val result = decoder.decode(packet, ds, defaultConfig)
         assertTrue(result is DecodeResult.Success, "F6 frame should be decoded")
-        assertEquals(32.05, (result as DecodeResult.Success).data.stateFrom(state).speedLimit, 0.01, "Speed limit should be 32.05 km/h")
+        assertEquals(32.05, (result as DecodeResult.Success).data.stateFrom(ds).speedLimit, 0.01, "Speed limit should be 32.05 km/h")
     }
 
     // ==================== Battery Calculation for 84V Wheel ====================
@@ -423,9 +423,9 @@ class KingsongDecoderComparisonTest {
         // Need to set model to an 84V wheel first
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
         decoder.reset()
-        var state = defaultState
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        if (nameResult is DecodeResult.Success) state = nameResult.data.stateFrom(state)
+        var ds = defaultState
+        val nameResult = decoder.decode(namePacket, ds, defaultConfig)
+        if (nameResult is DecodeResult.Success) ds = nameResult.data.decoderStateFrom(ds)
 
         val testCases = listOf(
             6250 to 0,    // Empty
@@ -450,12 +450,12 @@ class KingsongDecoderComparisonTest {
             packet[18] = 0x5A
             packet[19] = 0x5A
 
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             assertTrue(result is DecodeResult.Success, "Should decode 0xA9 frame at voltage $voltage")
             val decoded = (result as DecodeResult.Success).data
-            assertEquals(expectedBattery, decoded.stateFrom(state).batteryLevel,
+            assertEquals(expectedBattery, decoded.stateFrom(ds).batteryLevel,
                 "Battery at ${voltage / 100.0}V for 84V wheel should be $expectedBattery%")
-            state = decoded.stateFrom(state)
+            ds = decoded.decoderStateFrom(ds)
         }
     }
 
@@ -468,9 +468,9 @@ class KingsongDecoderComparisonTest {
 
         val namePacket = "aa554b532d5332302d30323035000000bb1484fd".hexToByteArray()
         decoder.reset()
-        var state = defaultState
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        if (nameResult is DecodeResult.Success) state = nameResult.data.stateFrom(state)
+        var ds = defaultState
+        val nameResult = decoder.decode(namePacket, ds, defaultConfig)
+        if (nameResult is DecodeResult.Success) ds = nameResult.data.decoderStateFrom(ds)
 
         val testCases = listOf(
             9375 to 0,    // Empty
@@ -494,12 +494,12 @@ class KingsongDecoderComparisonTest {
             packet[18] = 0x5A
             packet[19] = 0x5A
 
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             assertTrue(result is DecodeResult.Success, "Should decode 0xA9 frame at voltage $voltage")
             val decoded = (result as DecodeResult.Success).data
-            assertEquals(expectedBattery, decoded.stateFrom(state).batteryLevel,
+            assertEquals(expectedBattery, decoded.stateFrom(ds).batteryLevel,
                 "Battery at ${voltage / 100.0}V for 126V wheel should be $expectedBattery%")
-            state = decoded.stateFrom(state)
+            ds = decoded.decoderStateFrom(ds)
         }
     }
 
@@ -527,12 +527,12 @@ class KingsongDecoderComparisonTest {
     fun `isReady returns true after model name AND 0xA9 live data with voltage greater than 0`() {
         val freshDecoder = KingsongDecoder()
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
-        var state = defaultState
-        val r1 = freshDecoder.decode(namePacket, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = defaultState
+        val r1 = freshDecoder.decode(namePacket, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         val livePacket = buildKsLivePacket(voltage = 6505)
-        freshDecoder.decode(livePacket, state, defaultConfig)
+        freshDecoder.decode(livePacket, ds, defaultConfig)
 
         assertTrue(freshDecoder.isReady(),
             "Should be ready after model name AND live data with voltage > 0")
@@ -543,11 +543,11 @@ class KingsongDecoderComparisonTest {
         val freshDecoder = KingsongDecoder()
         // Make it ready
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
-        var state = defaultState
-        val r1 = freshDecoder.decode(namePacket, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = defaultState
+        val r1 = freshDecoder.decode(namePacket, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
         val livePacket = buildKsLivePacket(voltage = 6505)
-        freshDecoder.decode(livePacket, state, defaultConfig)
+        freshDecoder.decode(livePacket, ds, defaultConfig)
         assertTrue(freshDecoder.isReady())
 
         // Reset
@@ -561,13 +561,13 @@ class KingsongDecoderComparisonTest {
         // an explicit BMS data request. Most wheels never report BMS voltage proactively.
         val freshDecoder = KingsongDecoder()
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
-        var state = defaultState
-        val r1 = freshDecoder.decode(namePacket, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = defaultState
+        val r1 = freshDecoder.decode(namePacket, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // Send live data (0xA9) but NO BMS data (0xF1)
         val livePacket = buildKsLivePacket(voltage = 6505)
-        freshDecoder.decode(livePacket, state, defaultConfig)
+        freshDecoder.decode(livePacket, ds, defaultConfig)
 
         assertTrue(freshDecoder.isReady(),
             "Should be ready without BMS voltage — only needs model + main voltage")
@@ -612,13 +612,13 @@ class KingsongDecoderComparisonTest {
         // Set model first
         val namePacket = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray()
         decoder.reset()
-        var state = defaultState
-        val nameResult = decoder.decode(namePacket, state, defaultConfig)
-        if (nameResult is DecodeResult.Success) state = nameResult.data.stateFrom(state)
+        var ds = defaultState
+        val nameResult = decoder.decode(namePacket, ds, defaultConfig)
+        if (nameResult is DecodeResult.Success) ds = nameResult.data.decoderStateFrom(ds)
 
-        val result = decoder.decode(packet, state, defaultConfig)
+        val result = decoder.decode(packet, ds, defaultConfig)
         assertTrue(result is DecodeResult.Success, "F1 frame should be decoded")
-        val bms1 = (result as DecodeResult.Success).data.stateFrom(state).bms1
+        val bms1 = (result as DecodeResult.Success).data.stateFrom(ds).bms1
         assertTrue(bms1 != null, "BMS1 should be populated")
         assertEquals(84.0, bms1!!.voltage, 0.01, "BMS voltage should be 84.00V")
         assertEquals(1.0, bms1.current, 0.01, "BMS current should be 1.00A")

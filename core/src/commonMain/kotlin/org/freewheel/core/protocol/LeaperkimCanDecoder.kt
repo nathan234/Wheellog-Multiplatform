@@ -200,15 +200,16 @@ class LeaperkimCanDecoder : WheelDecoder {
 
     // ==================== WheelDecoder Interface ====================
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
-            val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
+            val ws = currentState.toWheelState()
+            val loopResult = decodeFrames(data, unpacker, ws) { buffer, state ->
                 processFrame(buffer, state, config)
             }
 
             val successData = (loopResult as? DecodeResult.Success)?.data ?: return@withLock loopResult
 
-            var finalState = successData.newState ?: currentState
+            var finalState = successData.newState ?: ws
 
             // Ensure wheelType is always LEAPERKIM for domain piece extraction
             if (finalState.wheelType == WheelType.Unknown) {
@@ -216,10 +217,10 @@ class LeaperkimCanDecoder : WheelDecoder {
             }
 
             // Extract domain pieces, only including those that changed
-            val initialTelemetry = currentState.toTelemetryState()
-            val initialIdentity = currentState.toIdentity()
-            val initialBms = currentState.toBmsState()
-            val initialSettings = currentState.toWheelSettings()
+            val initialTelemetry = currentState.telemetry
+            val initialIdentity = currentState.identity
+            val initialBms = currentState.bms
+            val initialSettings = currentState.settings
             DecodeResult.Success(DecodedData(
                 telemetry = finalState.toTelemetryState().takeIf { it != initialTelemetry },
                 identity = finalState.toIdentity().takeIf { it != initialIdentity },

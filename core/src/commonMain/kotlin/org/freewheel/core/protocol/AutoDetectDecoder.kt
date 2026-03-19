@@ -1,7 +1,6 @@
 package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.WheelIdentity
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 
 /**
@@ -30,7 +29,7 @@ class AutoDetectDecoder(
     private val veteranDecoder by lazy { factory.createDecoder(WheelType.VETERAN)!! }
     private val leaperkimDecoder by lazy { factory.createDecoder(WheelType.LEAPERKIM)!! }
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         if (data.isEmpty()) return DecodeResult.Buffering
 
         // If we've already detected the wheel type, delegate to that decoder

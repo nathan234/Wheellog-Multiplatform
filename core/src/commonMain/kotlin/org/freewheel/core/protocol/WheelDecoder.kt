@@ -9,6 +9,23 @@ import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 
 /**
+ * Lightweight decoder input holding the four domain sub-states.
+ *
+ * Replaces [WheelState] as the `currentState` parameter to [WheelDecoder.decode],
+ * avoiding the 178-field [WheelState.compose] allocation per BLE frame.
+ * Decoders that still work with [WheelState] internally can call [toWheelState].
+ */
+data class DecoderState(
+    val telemetry: TelemetryState = TelemetryState(),
+    val identity: WheelIdentity = WheelIdentity(),
+    val bms: BmsState = BmsState(),
+    val settings: WheelSettings = WheelSettings.None
+) {
+    /** Compose a full [WheelState] for decoders that still use it internally. */
+    fun toWheelState(): WheelState = WheelState.compose(telemetry, identity, bms, settings)
+}
+
+/**
  * Interface for wheel protocol decoders.
  * Each EUC manufacturer has its own BLE protocol, and this interface
  * abstracts the decoding logic to enable cross-platform sharing.
@@ -23,11 +40,11 @@ interface WheelDecoder {
      * Decode incoming BLE data and produce updated state.
      *
      * @param data Raw bytes received from the wheel
-     * @param currentState The current wheel state
+     * @param currentState The current decoder state (domain sub-states)
      * @param config Decoder configuration options
      * @return A [DecodeResult] indicating success, buffering, or unhandled frame
      */
-    fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult
+    fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult
 
     /**
      * Check if the decoder has received enough data to be considered ready.

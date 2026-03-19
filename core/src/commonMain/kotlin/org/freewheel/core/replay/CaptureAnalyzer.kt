@@ -4,6 +4,7 @@ import org.freewheel.core.domain.WheelState
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
+import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
 import org.freewheel.core.protocol.UnpackerStats
 import org.freewheel.core.protocol.WheelDecoderFactory
@@ -201,7 +202,7 @@ class CaptureAnalyzer(
         val decoder = decoderFactory.createDecoder(capture.header.wheelType) ?: return null
 
         val annotatedPackets = mutableListOf<AnnotatedPacket>()
-        var state = WheelState()
+        var ds = DecoderState()
         var successCount = 0
         var bufferingCount = 0
         var unhandledCount = 0
@@ -240,12 +241,17 @@ class CaptureAnalyzer(
                     var commandNames: List<String> = emptyList()
 
                     try {
-                        when (val decodeResult = decoder.decode(packet.data, state, config)) {
+                        when (val decodeResult = decoder.decode(packet.data, ds, config)) {
                             is DecodeResult.Success -> {
-                                val newState = decodeResult.data.newState
-                                if (newState != null) {
-                                    stateChanges = diffStates(state, newState)
-                                    state = newState
+                                val d = decodeResult.data
+                                val oldWs = ds.toWheelState()
+                                d.telemetry?.let { ds = ds.copy(telemetry = it) }
+                                d.identity?.let { ds = ds.copy(identity = it) }
+                                d.bms?.let { ds = ds.copy(bms = it) }
+                                d.settings?.let { ds = ds.copy(settings = it) }
+                                val newWs = ds.toWheelState()
+                                if (newWs != oldWs) {
+                                    stateChanges = diffStates(oldWs, newWs)
                                 }
                                 commandNames = decodeResult.data.commands.map { it::class.simpleName ?: "?" }
                                 successCount++
@@ -314,7 +320,7 @@ class CaptureAnalyzer(
             header = capture.header,
             packets = annotatedPackets,
             summary = summary,
-            finalState = state
+            finalState = ds.toWheelState()
         )
     }
 }

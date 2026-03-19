@@ -45,7 +45,7 @@ class GotwayDecoderTest {
         var byteArray = byteArrayOf()
         for (i in 0..29) {
             byteArray += i.toByte()
-            val result = decoder.decode(byteArray, WheelState(), config)
+            val result = decoder.decode(byteArray, DecoderState(), config)
             assertTrue(result is DecodeResult.Buffering,
                 "Should return Buffering for corrupted data of size ${i + 1}")
         }
@@ -70,7 +70,7 @@ class GotwayDecoderTest {
             shortToBytesBE(temperature) +
             byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
 
-        val result = decoder.decode(byteArray, WheelState(), config)
+        val result = decoder.decode(byteArray, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
@@ -106,17 +106,19 @@ class GotwayDecoderTest {
         val byteArray2 = "5A5A5A5A55AA000060D248001C20006400010007".hexToByteArray()
         val byteArray3 = "000804185A5A5A5A".hexToByteArray()
 
-        var state = WheelState()
+        var ds = DecoderState()
 
-        val result1 = decoder.decode(byteArray1, state, config)
-        if (result1 is DecodeResult.Success) state = result1.data.stateFrom(state)
+        val result1 = decoder.decode(byteArray1, ds, config)
+        if (result1 is DecodeResult.Success) ds = result1.data.decoderStateFrom(ds)
 
-        val result2 = decoder.decode(byteArray2, state, config)
+        val result2 = decoder.decode(byteArray2, ds, config)
         assertTrue(result2 is DecodeResult.Success)
-        state = (result2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (result2 as DecodeResult.Success).data.decoderStateFrom(ds)
 
-        val result3 = decoder.decode(byteArray3, state, config)
-        if (result3 is DecodeResult.Success) state = result3.data.stateFrom(state)
+        val result3 = decoder.decode(byteArray3, ds, config)
+        if (result3 is DecodeResult.Success) ds = result3.data.decoderStateFrom(ds)
+
+        val state = ds.toWheelState()
 
         // Verify decode produced data - values verified against original adapter
         // Speed = 0 (wheel stationary)
@@ -142,16 +144,18 @@ class GotwayDecoderTest {
         val byteArray5 = "1c2000c800000000001204185a5a5a5a55aa022c".hexToByteArray()
         val byteArray6 = "000000000000000000000000000007185a5a5a5a".hexToByteArray()
 
-        var state = WheelState()
+        var ds = DecoderState()
 
         // Process two full rotations of the packet sequence
         // (wheel sends packets in sequence, need multiple to get all data)
         for (pass in 1..2) {
             for (data in listOf(byteArray1, byteArray2, byteArray3, byteArray4, byteArray5, byteArray6)) {
-                val result = decoder.decode(data, state, config)
-                if (result is DecodeResult.Success) state = result.data.stateFrom(state)
+                val result = decoder.decode(data, ds, config)
+                if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         // Verify key values from decoded data
         // Speed: non-zero (wheel is moving)
@@ -173,14 +177,16 @@ class GotwayDecoderTest {
         val byteArray1 = "DC5A5C2025D600003BF500003BF50000FFDE1399".hexToByteArray()
         val byteArray2 = "0DEF0000024602460000000000000000".hexToByteArray()
 
-        var state = WheelState()
+        var ds = DecoderState()
 
-        val result1 = veteranDecoder.decode(byteArray1, state, config)
-        if (result1 is DecodeResult.Success) state = result1.data.stateFrom(state)
+        val result1 = veteranDecoder.decode(byteArray1, ds, config)
+        if (result1 is DecodeResult.Success) ds = result1.data.decoderStateFrom(ds)
 
-        val result2 = veteranDecoder.decode(byteArray2, state, config)
+        val result2 = veteranDecoder.decode(byteArray2, ds, config)
         assertTrue(result2 is DecodeResult.Success)
-        state = (result2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (result2 as DecodeResult.Success).data.decoderStateFrom(ds)
+
+        val state = ds.toWheelState()
 
         // Original expected values from VeteranAdapterTest
         // gotwayNegative=0 (default) → abs() applied to speed and phaseCurrent
@@ -201,25 +207,27 @@ class GotwayDecoderTest {
         val byteArray = "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray() +
             "aa556919030200009f36d700140500e0a9145a5a".hexToByteArray()
 
-        var state = WheelState()
+        var ds = DecoderState()
 
         // First packet - model name
         val result1 = ksDecoder.decode(
             "aa554b532d5331382d30323035000000bb1484fd".hexToByteArray(),
-            state,
+            ds,
             config
         )
-        if (result1 is DecodeResult.Success) state = result1.data.stateFrom(state)
+        if (result1 is DecodeResult.Success) ds = result1.data.decoderStateFrom(ds)
 
         // Second packet - live data
         val result2 = ksDecoder.decode(
             "aa556919030200009f36d700140500e0a9145a5a".hexToByteArray(),
-            state,
+            ds,
             config
         )
         assertTrue(result2 is DecodeResult.Success)
         val decoded2 = (result2 as DecodeResult.Success).data
-        state = decoded2.stateFrom(state)
+        ds = decoded2.decoderStateFrom(ds)
+
+        val state = ds.toWheelState()
 
         // Original expected values from KingsongAdapterTest
         assertEquals("KS-S18", state.model)
@@ -373,16 +381,16 @@ class GotwayDecoderTest {
         // Send name frame "KS-S16-0001"
         val namePacket = buildKsNamePacket("KS-S16-0001")
         val livePacket = buildKsLivePacket(voltage = 8000)
-        var state = WheelState()
+        var ds = DecoderState()
 
-        val r1 = ksDecoder.decode(namePacket, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
-        assertEquals("KS-S16", state.model)
+        val r1 = ksDecoder.decode(namePacket, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
+        assertEquals("KS-S16", ds.toWheelState().model)
 
-        val r2 = ksDecoder.decode(livePacket, state, config)
+        val r2 = ksDecoder.decode(livePacket, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         // 84V wheel: 8000 -> (8000-6250)/20 = 87%
-        assertEquals(87, (r2 as DecodeResult.Success).data.stateFrom(state).batteryLevel)
+        assertEquals(87, (r2 as DecodeResult.Success).data.stateFrom(ds).batteryLevel)
     }
 
     @Test
@@ -390,16 +398,16 @@ class GotwayDecoderTest {
         val ksDecoder = KingsongDecoder()
         val namePacket = buildKsNamePacket("KS-F18P-001")
         val livePacket = buildKsLivePacket(voltage = 14000)
-        var state = WheelState()
+        var ds = DecoderState()
 
-        val r1 = ksDecoder.decode(namePacket, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
-        assertEquals("KS-F18P", state.model)
+        val r1 = ksDecoder.decode(namePacket, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
+        assertEquals("KS-F18P", ds.toWheelState().model)
 
-        val r2 = ksDecoder.decode(livePacket, state, config)
+        val r2 = ksDecoder.decode(livePacket, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         // 151V wheel: (14000-11250)/36 = 76%
-        assertEquals(76, (r2 as DecodeResult.Success).data.stateFrom(state).batteryLevel)
+        assertEquals(76, (r2 as DecodeResult.Success).data.stateFrom(ds).batteryLevel)
     }
 
     @Test
@@ -407,16 +415,16 @@ class GotwayDecoderTest {
         val ksDecoder = KingsongDecoder()
         val namePacket = buildKsNamePacket("KS-F22P-001")
         val livePacket = buildKsLivePacket(voltage = 16000)
-        var state = WheelState()
+        var ds = DecoderState()
 
-        val r1 = ksDecoder.decode(namePacket, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
-        assertEquals("KS-F22P", state.model)
+        val r1 = ksDecoder.decode(namePacket, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
+        assertEquals("KS-F22P", ds.toWheelState().model)
 
-        val r2 = ksDecoder.decode(livePacket, state, config)
+        val r2 = ksDecoder.decode(livePacket, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         // 176V wheel: (16000-13125)/42 = 68%
-        assertEquals(68, (r2 as DecodeResult.Success).data.stateFrom(state).batteryLevel)
+        assertEquals(68, (r2 as DecodeResult.Success).data.stateFrom(ds).batteryLevel)
     }
 
     @Test
@@ -424,16 +432,16 @@ class GotwayDecoderTest {
         val ksDecoder = KingsongDecoder()
         val namePacket = buildKsNamePacket("KS-S19-0001")
         val livePacket = buildKsLivePacket(voltage = 9000)
-        var state = WheelState()
+        var ds = DecoderState()
 
-        val r1 = ksDecoder.decode(namePacket, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
-        assertEquals("KS-S19", state.model)
+        val r1 = ksDecoder.decode(namePacket, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
+        assertEquals("KS-S19", ds.toWheelState().model)
 
-        val r2 = ksDecoder.decode(livePacket, state, config)
+        val r2 = ksDecoder.decode(livePacket, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         // 100V wheel: (9000-7500)/24 = 62%
-        assertEquals(62, (r2 as DecodeResult.Success).data.stateFrom(state).batteryLevel)
+        assertEquals(62, (r2 as DecodeResult.Success).data.stateFrom(ds).batteryLevel)
     }
 
     // ==================== InMotionV2 Model IDs ====================
@@ -488,7 +496,7 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         // Send firmware response "GW1.23" to make decoder ready
         val fwData = "GW1.23".encodeToByteArray()
-        freshDecoder.decode(fwData, WheelState(), config)
+        freshDecoder.decode(fwData, DecoderState(), config)
 
         // Send a live data frame
         val header = byteArrayOf(0x55, 0xAA.toByte())
@@ -500,7 +508,7 @@ class GotwayDecoderTest {
             shortToBytesBE(0) + // phaseCurrent
             shortToBytesBE(99) + // temperature
             byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals("", (result as DecodeResult.Success).data.assertIdentity().model,
@@ -511,7 +519,7 @@ class GotwayDecoderTest {
     fun `NAME response sets model correctly`() {
         val freshDecoder = GotwayDecoder()
         val nameData = "NAME MCM5".encodeToByteArray()
-        val result = freshDecoder.decode(nameData, WheelState(), config)
+        val result = freshDecoder.decode(nameData, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals("MCM5", (result as DecodeResult.Success).data.assertIdentity().model)
@@ -523,16 +531,16 @@ class GotwayDecoderTest {
 
         // 1) Firmware response
         val fwData = "GW1.23".encodeToByteArray()
-        var state = WheelState()
-        val r1 = freshDecoder.decode(fwData, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // 2) NAME response
         val nameData = "NAME MCM5".encodeToByteArray()
-        val r2 = freshDecoder.decode(nameData, state, config)
+        val r2 = freshDecoder.decode(nameData, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
-        state = decoded2.stateFrom(state)
+        ds = decoded2.decoderStateFrom(ds)
         assertEquals("MCM5", decoded2.assertIdentity().model)
 
         // 3) Live data frame — model should persist
@@ -545,10 +553,10 @@ class GotwayDecoderTest {
             shortToBytesBE(0) +
             shortToBytesBE(99) +
             byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
-        val r3 = freshDecoder.decode(liveFrame, state, config)
+        val r3 = freshDecoder.decode(liveFrame, ds, config)
 
         assertTrue(r3 is DecodeResult.Success)
-        val state3 = (r3 as DecodeResult.Success).data.stateFrom(state)
+        val state3 = (r3 as DecodeResult.Success).data.stateFrom(ds)
         assertEquals("MCM5", state3.model,
             "model should persist after NAME response")
     }
@@ -565,21 +573,20 @@ class GotwayDecoderTest {
 
         // First, send frame 0x04 with inMiles=true to set the flag
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         assertTrue(decoded1.assertSettings().inMiles, "inMiles should be set after settings frame")
 
         // Now send live data with speed=2800 (28.00 mph from the wheel's perspective)
         // The decoder should convert: 2800 / 0.621 ≈ 4508 (45.08 km/h in 1/100 units)
         val rawSpeedMph = 778  // raw value that * 3.6 = 2801 ≈ 28 mph
         val liveFrame = buildLiveDataFrame(speed = rawSpeedMph)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
-        state = decoded2.stateFrom(state)
 
         // 778 * 3.6 = 2800.8, rounded to 2801 (this is in 1/100 mph)
         // After normalization: 2801 / 0.62137 ≈ 4508 (1/100 km/h)
@@ -596,16 +603,16 @@ class GotwayDecoderTest {
 
         // Frame 0x04 with inMiles=false
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = false)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         assertFalse(decoded1.assertSettings().inMiles)
 
         // Live data with speed raw=778 → 778 * 3.6 = 2800.8 → 2801 (1/100 km/h)
         val liveFrame = buildLiveDataFrame(speed = 778)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
 
@@ -621,14 +628,14 @@ class GotwayDecoderTest {
 
         // Set inMiles=true
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // Wheel reports distance=1000 (in miles-based units)
         val liveFrame = buildLiveDataFrame(distance = 1000)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
 
@@ -644,8 +651,7 @@ class GotwayDecoderTest {
 
         // Frame 0x04 with inMiles=true and totalDistance=5000000 (5000 miles)
         val settingsFrame = buildSettingsFrame(totalDistance = 5_000_000, inMiles = true)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        val r1 = freshDecoder.decode(settingsFrame, DecoderState(), config)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
 
@@ -660,7 +666,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val settingsFrame = buildSettingsFrame(totalDistance = 5_000_000, inMiles = false)
-        val result = freshDecoder.decode(settingsFrame, WheelState(), config)
+        val result = freshDecoder.decode(settingsFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -676,7 +682,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val liveFrame = buildLiveDataFrame(speed = 778)
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -692,18 +698,18 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var state = WheelState()
+        var ds = DecoderState()
 
         // 1) Settings frame sets inMiles=true
         val settingsFrame = buildSettingsFrame(totalDistance = 1_000_000, inMiles = true)
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // 2) Live data: wheel reports ~28 mph
         // Raw speed value 778 → 778 * 3.6 = 2800.8 → 2801 (1/100 mph from wheel)
         val liveFrame = buildLiveDataFrame(speed = 778)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
 
@@ -733,7 +739,7 @@ class GotwayDecoderTest {
 
         // Raw pedalsMode=2 in settings bits → decoded as 2-2=0 (Hard/Strong)
         val frame = buildSettingsFrame(pedalsMode = 2)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(0, (result as DecodeResult.Success).data.assertSettings().pedalsMode,
@@ -746,7 +752,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildSettingsFrame(speedAlarms = 1)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(1, (result as DecodeResult.Success).data.assertSettings().speedAlarms,
@@ -759,7 +765,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildSettingsFrame(rollAngle = 2)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(2, (result as DecodeResult.Success).data.assertSettings().rollAngle, "2 = High")
@@ -771,7 +777,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildSettingsFrame(tiltBackSpeed = 0)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(0, (result as DecodeResult.Success).data.assertSettings().tiltBackSpeed, "0 = Turn off")
@@ -783,7 +789,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildSettingsFrame(ledMode = 0)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(0, (result as DecodeResult.Success).data.assertSettings().ledMode, "0 = LED0")
@@ -802,7 +808,7 @@ class GotwayDecoderTest {
             ledMode = 0,       // LED0
             lightMode = 1      // On
         )
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
@@ -820,7 +826,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildSettingsFrame(tiltBackSpeed = 100)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(0, (result as DecodeResult.Success).data.assertSettings().tiltBackSpeed,
@@ -961,7 +967,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildFirmwareSettingsFrame(cutoutAngleRaw = 90)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(-1, (result as DecodeResult.Success).data.assertSettings().cutoutAngle,
@@ -1020,7 +1026,7 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         // Send firmware response — sets internal isReady flag but no voltage data yet
         val fwData = "GW1.23".encodeToByteArray()
-        freshDecoder.decode(fwData, WheelState(), config)
+        freshDecoder.decode(fwData, DecoderState(), config)
 
         assertFalse(freshDecoder.isReady(), "Should not be ready without voltage data")
     }
@@ -1030,13 +1036,13 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         // Send firmware response
         val fwData = "GW1.23".encodeToByteArray()
-        var state = WheelState()
-        val r1 = freshDecoder.decode(fwData, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // Send live data frame with non-zero voltage
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        freshDecoder.decode(liveFrame, state, config)
+        freshDecoder.decode(liveFrame, ds, config)
 
         assertTrue(freshDecoder.isReady(), "Should be ready after fw + voltage data")
     }
@@ -1046,11 +1052,11 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         // Make it ready
         val fwData = "GW1.23".encodeToByteArray()
-        var state = WheelState()
-        val r1 = freshDecoder.decode(fwData, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        freshDecoder.decode(liveFrame, state, config)
+        freshDecoder.decode(liveFrame, ds, config)
         assertTrue(freshDecoder.isReady())
 
         // Reset
@@ -1063,13 +1069,13 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         // Send firmware response
         val fwData = "GW1.23".encodeToByteArray()
-        var state = WheelState()
-        val r1 = freshDecoder.decode(fwData, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // Send only an extended frame (0x01) with BMS voltage — no frame 0x00
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        freshDecoder.decode(extFrame, state, config)
+        freshDecoder.decode(extFrame, ds, config)
 
         // Bug regression: the old code had operator precedence issue where
         // bms2.voltage > 0 alone could make isReady() return true
@@ -1087,7 +1093,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertEquals(6000, (result as DecodeResult.Success).data.assertTelemetry().voltage)
     }
@@ -1098,17 +1104,17 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         // First, frame 0x00 sets voltage to 6000
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, config)
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         assertEquals(6000, decoded1.assertTelemetry().voltage)
 
         // Now frame 0x01 arrives with true voltage 6700 (stored as batVoltage * 10)
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, config)
+        val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         // Extended frame stores voltage as batVoltage * 10
         assertEquals(67000, (r2 as DecodeResult.Success).data.assertTelemetry().voltage)
@@ -1119,25 +1125,25 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var state = WheelState()
+        var ds = DecoderState()
 
         // 1) Frame 0x00 — initial voltage
         val liveFrame1 = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame1, state, config)
+        val r1 = freshDecoder.decode(liveFrame1, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // 2) Frame 0x01 — true voltage override
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, config)
+        val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
-        state = decoded2.stateFrom(state)
+        ds = decoded2.decoderStateFrom(ds)
         assertEquals(67000, decoded2.assertTelemetry().voltage)
 
         // 3) Another frame 0x00 with different voltage — should NOT overwrite
         val liveFrame2 = buildLiveDataFrame(voltage = 5900)
-        val r3 = freshDecoder.decode(liveFrame2, state, config)
+        val r3 = freshDecoder.decode(liveFrame2, ds, config)
         assertTrue(r3 is DecodeResult.Success)
         assertEquals(67000, (r3 as DecodeResult.Success).data.assertTelemetry().voltage,
             "Frame 0x00 should not overwrite after 0x01")
@@ -1152,14 +1158,14 @@ class GotwayDecoderTest {
 
         // Settings frame with inMiles=false
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = false)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // Live data with distance=1000
         val liveFrame = buildLiveDataFrame(distance = 1000)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
 
         // Should stay as-is when not in miles mode
@@ -1173,16 +1179,16 @@ class GotwayDecoderTest {
 
         // Set inMiles=true
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         assertTrue(decoded1.assertSettings().inMiles)
 
         // Live data with speed=0 and distance=0
         val liveFrame = buildLiveDataFrame(speed = 0, distance = 0)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
 
@@ -1197,26 +1203,26 @@ class GotwayDecoderTest {
 
         // Set inMiles=true
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // First live frame
         val liveFrame1 = buildLiveDataFrame(speed = 778, distance = 1000)
-        val r2 = freshDecoder.decode(liveFrame1, state, config)
+        val r2 = freshDecoder.decode(liveFrame1, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
-        state = decoded2.stateFrom(state)
+        ds = decoded2.decoderStateFrom(ds)
         val speed1 = decoded2.assertTelemetry().speed
         val dist1 = decoded2.assertTelemetry().wheelDistance
 
         // Second live frame with same values — should also normalize
         val liveFrame2 = buildLiveDataFrame(speed = 778, distance = 1000)
-        val r3 = freshDecoder.decode(liveFrame2, state, config)
+        val r3 = freshDecoder.decode(liveFrame2, ds, config)
         assertTrue(r3 is DecodeResult.Success)
         val decoded3 = (r3 as DecodeResult.Success).data
-        val state3 = decoded3.stateFrom(state)
+        val state3 = decoded3.stateFrom(ds)
         val speed2 = state3.speed
         val dist2 = state3.wheelDistance
 
@@ -1235,14 +1241,14 @@ class GotwayDecoderTest {
 
         // Set inMiles=true
         val settingsFrame = buildSettingsFrame(totalDistance = 0, inMiles = true)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, ratioConfig)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, ratioConfig)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // Live data: raw speed=778, distance=1000
         val liveFrame = buildLiveDataFrame(speed = 778, distance = 1000)
-        val r2 = freshDecoder.decode(liveFrame, state, ratioConfig)
+        val r2 = freshDecoder.decode(liveFrame, ds, ratioConfig)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
 
@@ -1281,7 +1287,7 @@ class GotwayDecoderTest {
             shortToBytesBE(hwPwmRaw) +   // offset 14-15
             byteArrayOf(0, 0, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
 
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -1309,7 +1315,7 @@ class GotwayDecoderTest {
             shortToBytesBE(hwPwmRaw) +
             byteArrayOf(0, 0, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
 
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -1337,13 +1343,13 @@ class GotwayDecoderTest {
         val liveFrame = buildLiveDataFrame(voltage = 6000)
 
         // Feed settings frame first (hasNewData=false)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(settingsFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(settingsFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // Feed live data frame (hasNewData=true)
-        val r2 = freshDecoder.decode(liveFrame, state, config)
+        val r2 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
 
         // OR semantics: at least one frame had hasNewData=true, so overall should be true
@@ -1360,9 +1366,9 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         // Put decoder in SmirnoV (Alexovik) mode
         val fwData = "BF1.23".encodeToByteArray()
-        var state = WheelState()
-        val r1 = freshDecoder.decode(fwData, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // Build Alexovik frame 0x00 with battery current flag
         // byte 7 bit 0 = 1 means battery current is present at bytes 8-9
@@ -1371,7 +1377,7 @@ class GotwayDecoderTest {
             hasBatteryCurrent = true,
             batteryCurrent = -250  // -2.50A
         )
-        val r2 = freshDecoder.decode(frame, state, config)
+        val r2 = freshDecoder.decode(frame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
 
         // Current should be the stored Alexovik battery current (-250)
@@ -1383,9 +1389,9 @@ class GotwayDecoderTest {
     fun `Alexovik frame 0x00 without battery current flag does not set current from alexovik`() {
         val freshDecoder = GotwayDecoder()
         val fwData = "BF1.23".encodeToByteArray()
-        var state = WheelState()
-        val r1 = freshDecoder.decode(fwData, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // Build Alexovik frame 0x00 WITHOUT battery current flag
         val frame = buildAlexovikLiveDataFrame(
@@ -1393,7 +1399,7 @@ class GotwayDecoderTest {
             hasBatteryCurrent = false,
             batteryCurrent = 0
         )
-        val r2 = freshDecoder.decode(frame, state, config)
+        val r2 = freshDecoder.decode(frame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
 
         // Should use calculated current (calculatedPwm * phaseCurrent), not alexovik battery current
@@ -1407,10 +1413,10 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // Send first frame 0x01 with bmsCurrentVal = -50 (negative triggers bmsCurrent=true via bmsCurrentVal > 0 check)
         // Actually, bmsCurrent starts as false. Looking at the code:
@@ -1432,9 +1438,10 @@ class GotwayDecoderTest {
 
         // With bmsCurrent=false (default), frame 0x01 should NOT write BMS current to state
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, config)
+        val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         // Current should remain from the live data frame's calculated value
+        val state = ds.toWheelState()
         assertEquals(state.current, (r2 as DecodeResult.Success).data.assertTelemetry().current,
             "Frame 0x01 should not overwrite current when bmsCurrent is false")
     }
@@ -1446,16 +1453,16 @@ class GotwayDecoderTest {
 
         // Set up state with a known current value
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(liveFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         val originalCurrent = decoded1.assertTelemetry().current
 
         // Frame 0x01 with bmsCurrent=false (default) should preserve current
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, config)
+        val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         assertEquals(originalCurrent, (r2 as DecodeResult.Success).data.assertTelemetry().current,
             "Frame 0x01 should preserve current when bmsCurrent is false")
@@ -1471,26 +1478,26 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
         val cfg = config.copy(autoVoltage = true)
 
-        var state = WheelState()
+        var ds = DecoderState()
         // Frame 0x00 with voltage 6000
         val liveFrame1 = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame1, state, cfg)
+        val r1 = freshDecoder.decode(liveFrame1, ds, cfg)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         assertEquals(6000, decoded1.assertTelemetry().voltage)
 
         // Frame 0x01 sets trueVoltage=true and writes BMS voltage
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        val r2 = freshDecoder.decode(extFrame, ds, cfg)
         assertTrue(r2 is DecodeResult.Success)
         val decoded2 = (r2 as DecodeResult.Success).data
-        state = decoded2.stateFrom(state)
+        ds = decoded2.decoderStateFrom(ds)
         assertEquals(67000, decoded2.assertTelemetry().voltage)
 
         // Subsequent frame 0x00 should NOT overwrite (trueVoltage && autoVoltage = true)
         val liveFrame2 = buildLiveDataFrame(voltage = 5900)
-        val r3 = freshDecoder.decode(liveFrame2, state, cfg)
+        val r3 = freshDecoder.decode(liveFrame2, ds, cfg)
         assertTrue(r3 is DecodeResult.Success)
         assertEquals(67000, (r3 as DecodeResult.Success).data.assertTelemetry().voltage,
             "autoVoltage=true: frame 0x00 voltage should be blocked after frame 0x01")
@@ -1502,24 +1509,24 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
         val cfg = config.copy(autoVoltage = false)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame1 = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame1, state, cfg)
+        val r1 = freshDecoder.decode(liveFrame1, ds, cfg)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // Frame 0x01 — sets trueVoltage=true but autoVoltage=false
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        val r2 = freshDecoder.decode(extFrame, ds, cfg)
         assertTrue(r2 is DecodeResult.Success)
-        state = (r2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
         // With autoVoltage=false, frame 0x01 should NOT write BMS voltage
-        assertEquals(6000, state.voltage,
+        assertEquals(6000, ds.toWheelState().voltage,
             "autoVoltage=false: frame 0x01 should NOT write BMS voltage")
 
         // Subsequent frame 0x00 should still write (autoVoltage=false overrides trueVoltage)
         val liveFrame2 = buildLiveDataFrame(voltage = 5900)
-        val r3 = freshDecoder.decode(liveFrame2, state, cfg)
+        val r3 = freshDecoder.decode(liveFrame2, ds, cfg)
         assertTrue(r3 is DecodeResult.Success)
         assertEquals(5900, (r3 as DecodeResult.Success).data.assertTelemetry().voltage,
             "autoVoltage=false: frame 0x00 voltage should always be written")
@@ -1531,19 +1538,19 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
         val cfg = config.copy(autoVoltage = false)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, cfg)
+        val r1 = freshDecoder.decode(liveFrame, ds, cfg)
         assertTrue(r1 is DecodeResult.Success)
         val decoded1 = (r1 as DecodeResult.Success).data
-        state = decoded1.stateFrom(state)
+        ds = decoded1.decoderStateFrom(ds)
         assertEquals(6000, decoded1.assertTelemetry().voltage)
 
         // Frame 0x01 with BMS voltage 6700 — should NOT write because autoVoltage=false
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        val r2 = freshDecoder.decode(extFrame, ds, cfg)
         assertTrue(r2 is DecodeResult.Success)
-        val state2 = (r2 as DecodeResult.Success).data.stateFrom(state)
+        val state2 = (r2 as DecodeResult.Success).data.stateFrom(ds)
         assertEquals(6000, state2.voltage,
             "autoVoltage=false: BMS voltage should not be written")
     }
@@ -1554,15 +1561,15 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
         val cfg = config.copy(autoVoltage = true)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, cfg)
+        val r1 = freshDecoder.decode(liveFrame, ds, cfg)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // Frame 0x01 with BMS voltage 6700 — should write because autoVoltage=true
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, cfg)
+        val r2 = freshDecoder.decode(extFrame, ds, cfg)
         assertTrue(r2 is DecodeResult.Success)
         assertEquals(67000, (r2 as DecodeResult.Success).data.assertTelemetry().voltage,
             "autoVoltage=true: BMS voltage should be written")
@@ -1579,15 +1586,15 @@ class GotwayDecoderTest {
 
         // Send live data first (sets up state)
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        var state = WheelState()
-        val r1 = freshDecoder.decode(liveFrame, state, config)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
         assertTrue(r1 is DecodeResult.Success)
-        state = (r1 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // First frame 0x01 - trueVoltage was false before this frame
         // hasNewData should be computed as: bmsCurrent(false) || (!trueCurrent(false) && trueVoltage(false)) = false
         val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, state, config)
+        val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         assertFalse((r2 as DecodeResult.Success).data.hasNewData,
             "First frame 0x01 should have hasNewData=false")
@@ -1598,20 +1605,20 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // First frame 0x01 — sets trueVoltage=true
         val extFrame1 = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame1, state, config)
-        if (r2 is DecodeResult.Success) state = r2.data.stateFrom(state)
+        val r2 = freshDecoder.decode(extFrame1, ds, config)
+        if (r2 is DecodeResult.Success) ds = r2.data.decoderStateFrom(ds)
 
         // Second frame 0x01 — trueVoltage is now true, trueCurrent still false
         // hasNewData = bmsCurrent(false) || (!trueCurrent(false) && trueVoltage(true)) = true
         val extFrame2 = buildExtendedFrame(batVoltage = 6700)
-        val r3 = freshDecoder.decode(extFrame2, state, config)
+        val r3 = freshDecoder.decode(extFrame2, ds, config)
         assertTrue(r3 is DecodeResult.Success)
         assertTrue((r3 as DecodeResult.Success).data.hasNewData,
             "Second frame 0x01 should have hasNewData=true")
@@ -1622,15 +1629,15 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // First frame 0x07 — trueCurrent was false before this frame
         // hasNewData = trueCurrent(false) && !bmsCurrent(false) = false
         val currentFrame = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
-        val r2 = freshDecoder.decode(currentFrame, state, config)
+        val r2 = freshDecoder.decode(currentFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         assertFalse((r2 as DecodeResult.Success).data.hasNewData,
             "First frame 0x07 should have hasNewData=false")
@@ -1641,20 +1648,20 @@ class GotwayDecoderTest {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var state = WheelState()
+        var ds = DecoderState()
         val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, state, config)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // First frame 0x07 — sets trueCurrent=true
         val currentFrame1 = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
-        val r2 = freshDecoder.decode(currentFrame1, state, config)
-        if (r2 is DecodeResult.Success) state = r2.data.stateFrom(state)
+        val r2 = freshDecoder.decode(currentFrame1, ds, config)
+        if (r2 is DecodeResult.Success) ds = r2.data.decoderStateFrom(ds)
 
         // Second frame 0x07 — trueCurrent is now true, bmsCurrent still false
         // hasNewData = trueCurrent(true) && !bmsCurrent(false) = true
         val currentFrame2 = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
-        val r3 = freshDecoder.decode(currentFrame2, state, config)
+        val r3 = freshDecoder.decode(currentFrame2, ds, config)
         assertTrue(r3 is DecodeResult.Success)
         assertTrue((r3 as DecodeResult.Success).data.hasNewData,
             "Second frame 0x07 should have hasNewData=true")
@@ -1671,7 +1678,7 @@ class GotwayDecoderTest {
         // FRAME_07: 55AAFF940000001F0000000000000000000007185A5A5A5A
         //                   ^^^^ bytes 4-5 = 0x0000 = step 0
         val frame = buildCurrentTempFrame(cutoutStep = 0)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(45, (result as DecodeResult.Success).data.assertSettings().cutoutAngle)
@@ -1686,7 +1693,7 @@ class GotwayDecoderTest {
         // FRAME_07: 55AAFFFC0009001F0000000000000000000007185A5A5A5A
         //                   ^^^^ bytes 4-5 = 0x0009 = step 9
         val frame = buildCurrentTempFrame(cutoutStep = 9)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(90, (result as DecodeResult.Success).data.assertSettings().cutoutAngle)
@@ -1698,7 +1705,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildCurrentTempFrame(cutoutStep = 3)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(60, (result as DecodeResult.Success).data.assertSettings().cutoutAngle,
@@ -1711,7 +1718,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildCurrentTempFrame(cutoutStep = 15)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(-1, (result as DecodeResult.Success).data.assertSettings().cutoutAngle,
@@ -1726,7 +1733,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildLiveDataFrame(beeperVolume = 3)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(3, (result as DecodeResult.Success).data.assertSettings().beeperVolume)
@@ -1739,7 +1746,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildLiveDataFrame(beeperVolume = 7)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(7, (result as DecodeResult.Success).data.assertSettings().beeperVolume)
@@ -1751,7 +1758,7 @@ class GotwayDecoderTest {
         initDecoder(freshDecoder)
 
         val frame = buildLiveDataFrame(beeperVolume = 15)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
         assertEquals(-1, (result as DecodeResult.Success).data.assertSettings().beeperVolume)
@@ -1789,12 +1796,12 @@ class GotwayDecoderTest {
         val cells0 = listOf(4200, 4190, 4180, 4170, 4160, 4150, 4140, 4130)
         val bmsFrame = buildBmsCellFrame(0x02, pNum = 0, cells0)
         // BMS frames update internal state but processFrame returns null → Unhandled
-        val bmsResult = freshDecoder.decode(bmsFrame, WheelState(), config)
+        val bmsResult = freshDecoder.decode(bmsFrame, DecoderState(), config)
         assertTrue(bmsResult is DecodeResult.Unhandled)
 
         // Need a live data frame to see BMS data in the result
         val liveFrame = buildLiveDataFrame()
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -1812,10 +1819,10 @@ class GotwayDecoderTest {
 
         val cells0 = listOf(4100, 4090, 4080, 4070, 4060, 4050, 4040, 4030)
         val bmsFrame = buildBmsCellFrame(0x03, pNum = 0, cells0)
-        freshDecoder.decode(bmsFrame, WheelState(), config)
+        freshDecoder.decode(bmsFrame, DecoderState(), config)
 
         val liveFrame = buildLiveDataFrame()
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
 
@@ -1832,14 +1839,14 @@ class GotwayDecoderTest {
 
         // pNum=0 → cells 0-7
         val cells0 = listOf(4200, 4200, 4200, 4200, 4200, 4200, 4200, 4200)
-        freshDecoder.decode(buildBmsCellFrame(0x02, pNum = 0, cells0), WheelState(), config)
+        freshDecoder.decode(buildBmsCellFrame(0x02, pNum = 0, cells0), DecoderState(), config)
 
         // pNum=1 → cells 8-15
         val cells1 = listOf(4100, 4100, 4100, 4100, 4100, 4100, 4100, 4100)
-        freshDecoder.decode(buildBmsCellFrame(0x02, pNum = 1, cells1), WheelState(), config)
+        freshDecoder.decode(buildBmsCellFrame(0x02, pNum = 1, cells1), DecoderState(), config)
 
         val liveFrame = buildLiveDataFrame()
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
 
         val snapshot = (result as DecodeResult.Success).data.assertBms().bms1!!
@@ -1856,10 +1863,10 @@ class GotwayDecoderTest {
 
         // Feed cells with a known min and max
         val cells = listOf(4200, 4150, 4100, 4050, 4000, 3950, 3900, 3850)
-        freshDecoder.decode(buildBmsCellFrame(0x02, pNum = 0, cells), WheelState(), config)
+        freshDecoder.decode(buildBmsCellFrame(0x02, pNum = 0, cells), DecoderState(), config)
 
         val liveFrame = buildLiveDataFrame()
-        val result = freshDecoder.decode(liveFrame, WheelState(), config)
+        val result = freshDecoder.decode(liveFrame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
 
         val snapshot = (result as DecodeResult.Success).data.assertBms().bms1!!
@@ -1877,7 +1884,7 @@ class GotwayDecoderTest {
      */
     private fun initDecoder(decoder: GotwayDecoder) {
         val fwData = "GW1.23".encodeToByteArray()
-        decoder.decode(fwData, WheelState(), config)
+        decoder.decode(fwData, DecoderState(), config)
     }
 
     /**
@@ -1957,7 +1964,7 @@ class GotwayDecoderTest {
             shortToBytesBE(0) + // phaseCurrent
             shortToBytesBE(99) + // temperature
             byteArrayOf(14, 15, 16, 17, 0, 0x18, 0x5A, 0x5A, 0x5A, 0x5A)
-        val result = freshDecoder.decode(byteArray, WheelState(), config)
+        val result = freshDecoder.decode(byteArray, DecoderState(), config)
         return if (result is DecodeResult.Success) result.data else null
     }
 
@@ -1981,10 +1988,10 @@ class GotwayDecoderTest {
         frame[28] = ((ver shr 8) and 0xFF).toByte()
         frame[29] = (ver and 0xFF).toByte()
 
-        var state = WheelState()
-        val result = vetDecoder.decode(frame, state, config)
+        val ds = DecoderState()
+        val result = vetDecoder.decode(frame, ds, config)
         assertTrue(result is DecodeResult.Success, "Veteran frame should decode for mVer=$mVer")
-        return (result as DecodeResult.Success).data.stateFrom(state)
+        return (result as DecodeResult.Success).data.stateFrom(ds)
     }
 
     /**

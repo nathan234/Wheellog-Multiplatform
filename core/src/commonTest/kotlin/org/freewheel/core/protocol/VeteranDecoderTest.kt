@@ -1,7 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelSettings
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.alertSpeed
 import org.freewheel.core.domain.autoOffTime
@@ -204,7 +202,7 @@ class VeteranDecoderTest {
             pitchAngle = pitchAngle,
             hwPwm = hwPwm
         )
-        return freshDecoder.decode(frame, WheelState(), cfg)
+        return freshDecoder.decode(frame, DecoderState(), cfg)
     }
 
     // ==================== Basic Frame Validation ====================
@@ -231,7 +229,7 @@ class VeteranDecoderTest {
         // byte 23: 0x00 (default)
         // byte 30: 0x00 (default)
 
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Unhandled, "Frame shorter than 36 bytes should return Unhandled")
     }
 
@@ -245,7 +243,7 @@ class VeteranDecoderTest {
         frame[2] = 0x5C
         frame[3] = 32
         frame[22] = 0x00
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Buffering, "Frame with wrong header should return Buffering")
     }
 
@@ -255,7 +253,7 @@ class VeteranDecoderTest {
         // Build a frame where byte 22 is not 0x00
         val frame = buildVeteranFrame()
         frame[22] = 0x01 // invalid: must be 0x00
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Buffering, "Frame with byte 22 != 0x00 should be rejected by unpacker")
     }
 
@@ -265,7 +263,7 @@ class VeteranDecoderTest {
         // Build a frame where byte 23 has (byte & 0xFE) != 0x00
         val frame = buildVeteranFrame()
         frame[23] = 0x02 // invalid: (0x02 & 0xFE) = 0x02 != 0x00
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Buffering, "Frame with byte 23 & 0xFE != 0x00 should be rejected by unpacker")
     }
 
@@ -281,7 +279,7 @@ class VeteranDecoderTest {
         // Build a frame where byte 30 is not 0x00 or 0x07
         val frame = buildVeteranFrame()
         frame[30] = 0x02 // invalid: must be 0x00 or 0x07
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Buffering, "Frame with byte 30 not 0x00 or 0x07 should be rejected by unpacker")
     }
 
@@ -289,7 +287,7 @@ class VeteranDecoderTest {
     fun `unpacker accepts byte 30 equal to 0x07`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(pedalsMode = 0x07)
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success, "Frame with byte 30 = 0x07 should pass unpacker validation")
     }
 
@@ -778,7 +776,7 @@ class VeteranDecoderTest {
         assertFalse(freshDecoder.isReady(), "Should not be ready before any frame")
 
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertTrue(freshDecoder.isReady(), "Should be ready after frame with mVer=5")
     }
@@ -787,7 +785,7 @@ class VeteranDecoderTest {
     fun `isReady false when mVer is 0`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 0) // mVer=0
-        freshDecoder.decode(frame, WheelState(), config)
+        freshDecoder.decode(frame, DecoderState(), config)
         assertFalse(freshDecoder.isReady(), "Should not be ready when mVer=0")
     }
 
@@ -795,7 +793,7 @@ class VeteranDecoderTest {
     fun `isReady true for mVer 1`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 1000) // mVer=1
-        freshDecoder.decode(frame, WheelState(), config)
+        freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(freshDecoder.isReady(), "Should be ready when mVer=1")
     }
 
@@ -807,7 +805,7 @@ class VeteranDecoderTest {
 
         // Decode a valid frame to set isReady = true
         val frame = buildVeteranFrame(ver = 5000)
-        freshDecoder.decode(frame, WheelState(), config)
+        freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(freshDecoder.isReady(), "Should be ready after decode")
 
         // Reset should clear mVer back to 0
@@ -821,7 +819,7 @@ class VeteranDecoderTest {
 
         // First decode
         val frame1 = buildVeteranFrame(ver = 5000, voltage = 9686)
-        val result1 = freshDecoder.decode(frame1, WheelState(), config)
+        val result1 = freshDecoder.decode(frame1, DecoderState(), config)
         assertTrue(result1 is DecodeResult.Success)
         assertEquals("Leaperkim Lynx", (result1 as DecodeResult.Success).data.assertIdentity().model)
 
@@ -831,7 +829,7 @@ class VeteranDecoderTest {
 
         // Second decode with different model
         val frame2 = buildVeteranFrame(ver = 4000, voltage = 12000)
-        val result2 = freshDecoder.decode(frame2, WheelState(), config)
+        val result2 = freshDecoder.decode(frame2, DecoderState(), config)
         assertTrue(result2 is DecodeResult.Success)
         assertEquals("Leaperkim Patton", (result2 as DecodeResult.Success).data.assertIdentity().model)
         assertTrue(freshDecoder.isReady())
@@ -846,14 +844,14 @@ class VeteranDecoderTest {
         val byteArray1 = "DC5A5C2025D600003BF500003BF50000FFDE1399".hexToByteArray()
         val byteArray2 = "0DEF0000024602460000000000000000".hexToByteArray()
 
-        var state = WheelState()
+        var decoderState = DecoderState()
 
-        val result1 = freshDecoder.decode(byteArray1, state, config)
-        if (result1 is DecodeResult.Success) state = result1.data.stateFrom(state)
+        val result1 = freshDecoder.decode(byteArray1, decoderState, config)
+        if (result1 is DecodeResult.Success) decoderState = result1.data.decoderStateFrom(decoderState)
 
-        val result2 = freshDecoder.decode(byteArray2, state, config)
+        val result2 = freshDecoder.decode(byteArray2, decoderState, config)
         assertTrue(result2 is DecodeResult.Success)
-        state = (result2 as DecodeResult.Success).data.stateFrom(state)
+        val state = (result2 as DecodeResult.Success).data.stateFrom(decoderState)
 
         // Original expected values from VeteranAdapterTest
         // gotwayNegative=0 (default) → abs() applied to speed and phaseCurrent
@@ -891,7 +889,7 @@ class VeteranDecoderTest {
         val freshDecoder = VeteranDecoder()
         // Decode a frame with mVer=1 to set internal state
         val frame = buildVeteranFrame(ver = 1000)
-        freshDecoder.decode(frame, WheelState(), config)
+        freshDecoder.decode(frame, DecoderState(), config)
 
         val commands = freshDecoder.buildCommand(WheelCommand.Beep)
         assertEquals(1, commands.size)
@@ -904,7 +902,7 @@ class VeteranDecoderTest {
         val freshDecoder = VeteranDecoder()
         // Decode a frame with mVer=5 to set internal state
         val frame = buildVeteranFrame(ver = 5000)
-        freshDecoder.decode(frame, WheelState(), config)
+        freshDecoder.decode(frame, DecoderState(), config)
 
         val commands = freshDecoder.buildCommand(WheelCommand.Beep)
         assertEquals(1, commands.size)
@@ -1001,11 +999,11 @@ class VeteranDecoderTest {
         val part1 = "DC5A5C2025D600003BF500003BF50000FFDE1399".hexToByteArray()
         val part2 = "0DEF0000024602460000000000000000".hexToByteArray()
 
-        val result1 = freshDecoder.decode(part1, WheelState(), config)
+        val result1 = freshDecoder.decode(part1, DecoderState(), config)
         // First part is incomplete — may return Buffering
-        val state = if (result1 is DecodeResult.Success) result1.data.stateFrom(WheelState()) else WheelState()
+        val decoderState = if (result1 is DecodeResult.Success) result1.data.decoderStateFrom(DecoderState()) else DecoderState()
 
-        val result2 = freshDecoder.decode(part2, state, config)
+        val result2 = freshDecoder.decode(part2, decoderState, config)
         assertTrue(result2 is DecodeResult.Success, "Complete frame should decode after second notification")
         assertEquals(9686, (result2 as DecodeResult.Success).data.assertTelemetry().voltage)
     }
@@ -1035,7 +1033,7 @@ class VeteranDecoderTest {
         // Set bytes 26-27 to 450 (BE) -> tiltBackSpeed = 450 * 10 / 10 = 450
         frame[26] = ((450 shr 8) and 0xFF).toByte()
         frame[27] = (450 and 0xFF).toByte()
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertEquals(450, (result as DecodeResult.Success).data.assertSettings().tiltBackSpeed)
     }
@@ -1048,7 +1046,7 @@ class VeteranDecoderTest {
         val frame = buildVeteranFrame()
         frame[30] = 0x00
         frame[31] = 0x02
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertEquals(2, (result as DecodeResult.Success).data.assertSettings().pedalsMode)
     }
@@ -1096,7 +1094,7 @@ class VeteranDecoderTest {
         // Set bytes 36-37 to 111 (0x006F) = all zones normal
         frame[36] = 0x00
         frame[37] = 0x6F
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertEquals(111, (result as DecodeResult.Success).data.assertSettings().batteryTempMode)
     }
@@ -1111,7 +1109,7 @@ class VeteranDecoderTest {
         // Set bytes 36-37 to 100 (0x0064) = at least one high-temp zone
         frame[36] = 0x00
         frame[37] = 0x64
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertEquals(100, (result as DecodeResult.Success).data.assertSettings().batteryTempMode)
     }
@@ -1190,7 +1188,7 @@ class VeteranDecoderTest {
         frame[unpackerLen + 2] = ((crc shr 8) and 0xFF).toByte()
         frame[unpackerLen + 3] = (crc and 0xFF).toByte()
 
-        return freshDecoder.decode(frame, WheelState(), config)
+        return freshDecoder.decode(frame, DecoderState(), config)
     }
 
     // ==================== Sub-type Extended Data Parsing ====================
@@ -1470,7 +1468,7 @@ class VeteranDecoderTest {
     private fun decoderWithVer(ver: Int): VeteranDecoder {
         val d = VeteranDecoder()
         val frame = buildVeteranFrame(ver = ver)
-        d.decode(frame, WheelState(), config)
+        d.decode(frame, DecoderState(), config)
         return d
     }
 
@@ -1848,7 +1846,7 @@ class VeteranDecoderTest {
     fun `first frame with mVer 3 or higher emits time sync commands`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         // Should contain 2 time sync commands (immediate + delayed)
         val syncCmds = (result as DecodeResult.Success).data.commands.filter { cmd ->
@@ -1871,8 +1869,8 @@ class VeteranDecoderTest {
     fun `second frame does not emit time sync commands`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
-        freshDecoder.decode(frame, WheelState(), config) // first frame
-        val result2 = freshDecoder.decode(frame, WheelState(), config) // second frame
+        freshDecoder.decode(frame, DecoderState(), config) // first frame
+        val result2 = freshDecoder.decode(frame, DecoderState(), config) // second frame
         assertTrue(result2 is DecodeResult.Success)
         val syncCmds = (result2 as DecodeResult.Success).data.commands.filter { cmd ->
             when (cmd) {
@@ -1888,7 +1886,7 @@ class VeteranDecoderTest {
     fun `mVer less than 3 does not emit time sync commands`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 1000) // mVer=1
-        val result = freshDecoder.decode(frame, WheelState(), config)
+        val result = freshDecoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success)
         assertTrue((result as DecodeResult.Success).data.commands.isEmpty(), "Old firmware should not get time sync commands")
     }
@@ -1897,9 +1895,9 @@ class VeteranDecoderTest {
     fun `reset clears time sync state for re-emission`() {
         val freshDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(ver = 5000) // mVer=5
-        freshDecoder.decode(frame, WheelState(), config) // first frame — syncs
+        freshDecoder.decode(frame, DecoderState(), config) // first frame — syncs
         freshDecoder.reset()
-        val result = freshDecoder.decode(frame, WheelState(), config) // after reset
+        val result = freshDecoder.decode(frame, DecoderState(), config) // after reset
         assertTrue(result is DecodeResult.Success)
         val syncCmds = (result as DecodeResult.Success).data.commands.filter { cmd ->
             when (cmd) {

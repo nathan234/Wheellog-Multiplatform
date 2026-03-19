@@ -1,8 +1,7 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelType
-import org.freewheel.core.protocol.DecodeResult
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +28,7 @@ import kotlin.test.assertTrue
 class InMotionV2DecoderTest {
 
     private val decoder = InMotionV2Decoder()
-    private val defaultState = WheelState()
+    private val defaultDecoderState = DecoderState()
     private val defaultConfig = DecoderConfig()
 
 
@@ -115,15 +114,17 @@ class InMotionV2DecoderTest {
         val realTimeData = "AAAA143184E61EEB0561094A11AE04A004DF01402958CBB000CE004A010000D4FF7C15641900000000492B00000000000000000000C6".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         // Process all packets in order
         for (packet in listOf(wheelType, serialNumber, versions, settings, statistics, totals, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         // Verify model detection
         assertEquals("InMotion V11", state.model)
@@ -164,21 +165,21 @@ class InMotionV2DecoderTest {
         val packet = "aaaa1431843020a5a50068025207870080009400882c5fc4b000d7001000f4ff2b037c1564190000d9d9492b00000000000000000000a5a5".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         // First establish model
-        val modelResult = decoder.decode(wheelType, state, defaultConfig)
-        if (modelResult is DecodeResult.Success) state = modelResult.data.stateFrom(state)
+        val modelResult = decoder.decode(wheelType, ds, defaultConfig)
+        if (modelResult is DecodeResult.Success) ds = modelResult.data.decoderStateFrom(ds)
 
         // Then decode packet with escape bytes
-        val result = decoder.decode(packet, state, defaultConfig)
+        val result = decoder.decode(packet, ds, defaultConfig)
 
         // Should decode successfully despite escape bytes
         assertTrue(result is DecodeResult.Success, "Should decode packet with escape bytes")
         val decoded = (result as DecodeResult.Success).data
         assertTrue(decoded.hasNewData, "Should decode packet with escape bytes")
 
-        val finalState = decoded.stateFrom(state)
+        val finalState = decoded.stateFrom(ds)
 
         // Expected from legacy test:
         // speedDouble = 6.16, temperature = 20, temperature2 = 39
@@ -206,14 +207,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa144384cd26090000000e00040000000000000000000000eafb000062009d2450463b1b581b000000000000cdce00ced1d0b03d2828000000004900000000000000000000008c".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, statistics, totals, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         // Verify model
         assertEquals("InMotion V12 HS", state.model)
@@ -238,18 +241,18 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa144384ae24600479135909c61536085a0b00003f000000eb003700a5aa21b61f50463b1b581b000000000000ddd900dfe5e4b0f9646400000000490800000000000000000000dd".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
-        val result1 = decoder.decode(wheelType, state, defaultConfig)
-        if (result1 is DecodeResult.Success) state = result1.data.stateFrom(state)
+        val result1 = decoder.decode(wheelType, ds, defaultConfig)
+        if (result1 is DecodeResult.Success) ds = result1.data.decoderStateFrom(ds)
 
-        val result2 = decoder.decode(realTimeData, state, defaultConfig)
+        val result2 = decoder.decode(realTimeData, ds, defaultConfig)
 
         assertTrue(result2 is DecodeResult.Success, "Should decode real-time data")
         val decoded2 = (result2 as DecodeResult.Success).data
         assertTrue(decoded2.hasNewData, "Should decode real-time data")
 
-        val finalState = decoded2.stateFrom(state)
+        val finalState = decoded2.stateFrom(ds)
 
         // Expected from legacy test:
         // speedDouble = 49.85, temperature = 45, temperature2 = 41
@@ -274,14 +277,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa144384b7261100000085ff5c00000000000000fcff0000eafe000076266d26803ee015581b000000000000c8c800c9b0c7b0b700000000000049000000000000000000000081".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         assertEquals("InMotion V12 PRO", state.model)
         assertEquals("A031183150013824", state.serialNumber)
@@ -309,14 +314,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa145984092f3807000036003735000025130f27b108111d4203b00664fee703050000000000f225e225204e28233421401f401f204e401f709400000000cdccc9d1b0d10000b0286400000000004910000000000000001800000000b3".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         assertEquals("InMotion V13", state.model)
         assertEquals("A03116B180001046", state.serialNumber)
@@ -345,14 +352,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa1459847c334000000000002c0800009900430866004f002700efff6400bfff5e0000000000a5aa26a4261027581b581b401f401f401f401fb88800000000cdcfcad0b0d00000b0cc640000000000491000000000000000000000000064".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         assertEquals("InMotion V14 50S", state.model)
         assertEquals("A03217C0B001122E", state.serialNumber)
@@ -380,14 +389,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa145984941e11000000000087000000090104020000000000006502000000000300000000004b20451fe02e0410100e401f401fa816a816c05d00000000ccc5cecdb0cd0000b0c36400000000004900000000000000000000000000fe".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         assertEquals("InMotion V11y", state.model)
         assertEquals("A0321810D0010019", state.serialNumber)
@@ -415,14 +426,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa1457843e1e0c000000000000000000afffc30000000000ffffd7fe000000000600000000009a17191670178510a00f401f401fa00fa00f983a00000000cdc900ceb0cec8ceb03a6400000000004900000000000000000000003f".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         assertEquals("InMotion V9", state.model)
         assertEquals("A1421950A000465F", state.serialNumber)
@@ -450,14 +463,16 @@ class InMotionV2DecoderTest {
         val realTimeData = "aaaa145784b520010000000000000000000000000000000000d7e40000d7e400000000000000002427f026e02e581b581b401f401f581b581b786900000000cdce00ceb0cbccceb0216403000000000000000000000000000000001b".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
         for (packet in listOf(wheelType, serialNumber, versions, realTimeData)) {
-            val result = decoder.decode(packet, state, defaultConfig)
+            val result = decoder.decode(packet, ds, defaultConfig)
             if (result is DecodeResult.Success) {
-                state = result.data.stateFrom(state)
+                ds = result.data.decoderStateFrom(ds)
             }
         }
+
+        val state = ds.toWheelState()
 
         assertEquals("InMotion V12S", state.model)
         assertEquals("A14219407003359C", state.serialNumber)
@@ -483,7 +498,7 @@ class InMotionV2DecoderTest {
         withoutHeader[1] = 0x55
 
         decoder.reset()
-        val result = decoder.decode(withoutHeader, defaultState, defaultConfig)
+        val result = decoder.decode(withoutHeader, defaultDecoderState, defaultConfig)
 
         assertTrue(result !is DecodeResult.Success || !(result as DecodeResult.Success).data.hasNewData,
             "Invalid header should not produce valid data")
@@ -495,7 +510,7 @@ class InMotionV2DecoderTest {
 
         for (i in 1..30) {
             val corrupted = ByteArray(i) { it.toByte() }
-            val result = decoder.decode(corrupted, defaultState, defaultConfig)
+            val result = decoder.decode(corrupted, defaultDecoderState, defaultConfig)
             // Should not crash
         }
     }
@@ -506,7 +521,7 @@ class InMotionV2DecoderTest {
         val packet = "AAAA110882010206010201009B".hexToByteArray()  // Last byte should be 9C
 
         decoder.reset()
-        val result = decoder.decode(packet, defaultState, defaultConfig)
+        val result = decoder.decode(packet, defaultDecoderState, defaultConfig)
 
         // Invalid checksum should be rejected
         assertTrue(result !is DecodeResult.Success || !(result as DecodeResult.Success).data.hasNewData,
@@ -545,7 +560,7 @@ class InMotionV2DecoderTest {
     fun `reset clears decoder state`() {
         // First decode some data
         val wheelType = "AAAA110882010206010201009C".hexToByteArray()
-        decoder.decode(wheelType, defaultState, defaultConfig)
+        decoder.decode(wheelType, defaultDecoderState, defaultConfig)
 
         // Reset
         decoder.reset()
@@ -721,7 +736,7 @@ class InMotionV2DecoderTest {
         val versions = "aaaa111d820622000003040300070221000004011a000602230d00010107000001b9".hexToByteArray()
 
         decoder.reset()
-        val result = decoder.decode(versions, defaultState, defaultConfig)
+        val result = decoder.decode(versions, defaultDecoderState, defaultConfig)
 
         // Should parse version correctly
         // Main:1.4.0 means protocol version 2 for V11
@@ -774,14 +789,15 @@ class InMotionV2DecoderTest {
         val settings = "AAAA141AA0207C15C800106464140000000058020000006400001500100010".hexToByteArray()
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
-        val r1 = decoder.decode(wheelType, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = decoder.decode(wheelType, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
-        val r2 = decoder.decode(settings, state, defaultConfig)
+        val r2 = decoder.decode(settings, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "Settings should be parsed")
-        state = (r2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
+        val state = ds.toWheelState()
 
         // Verify parsed settings
         // data[1..2] = 7C 15 → LE short = 0x157C = 5500 → /100 = 55
@@ -836,14 +852,15 @@ class InMotionV2DecoderTest {
         val settingsFrame = buildSettingsFrame(payload)
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
-        val r1 = decoder.decode(wheelType, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = decoder.decode(wheelType, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
-        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V13 settings should be parsed")
-        state = (r2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
+        val state = ds.toWheelState()
 
         assertEquals(70, state.maxSpeed, "Max speed should be 70 km/h")
         assertEquals(-1, state.pedalTilt, "Pedal tilt should be -1 (wire -10 / 10)")
@@ -886,14 +903,15 @@ class InMotionV2DecoderTest {
         val settingsFrame = buildSettingsFrame(payload)
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
-        val r1 = decoder.decode(wheelType, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = decoder.decode(wheelType, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
-        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V11Y settings should be parsed")
-        state = (r2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
+        val state = ds.toWheelState()
 
         assertEquals(60, state.maxSpeed, "Max speed should be 60 km/h")
         assertEquals(0, state.pedalTilt, "Pedal tilt should be 0 (wire 5 / 10)")
@@ -933,14 +951,15 @@ class InMotionV2DecoderTest {
         val settingsFrame = buildSettingsFrame(payload)
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
-        val r1 = decoder.decode(wheelType, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = decoder.decode(wheelType, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
-        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V12 settings should be parsed")
-        state = (r2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
+        val state = ds.toWheelState()
 
         assertEquals(50, state.maxSpeed, "Max speed should be 50 km/h")
         assertEquals(1, state.pedalTilt, "Pedal tilt should be 1 (wire 15 / 10)")
@@ -984,14 +1003,15 @@ class InMotionV2DecoderTest {
         val settingsFrame = buildSettingsFrame(payload)
 
         decoder.reset()
-        var state = defaultState
+        var ds = defaultDecoderState
 
-        val r1 = decoder.decode(wheelType, state, defaultConfig)
-        if (r1 is DecodeResult.Success) state = r1.data.stateFrom(state)
+        val r1 = decoder.decode(wheelType, ds, defaultConfig)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
-        val r2 = decoder.decode(settingsFrame, state, defaultConfig)
+        val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V9 settings should be parsed")
-        state = (r2 as DecodeResult.Success).data.stateFrom(state)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
+        val state = ds.toWheelState()
 
         assertEquals(45, state.maxSpeed, "Max speed should be 45 km/h")
         assertEquals(0, state.pedalTilt, "Pedal tilt should be 0")
@@ -1011,7 +1031,7 @@ class InMotionV2DecoderTest {
         val settings = "AAAA141AA0207C15C800106464140000000058020000006400001500100010".hexToByteArray()
 
         decoder.reset()
-        val result = decoder.decode(settings, defaultState, defaultConfig)
+        val result = decoder.decode(settings, defaultDecoderState, defaultConfig)
 
         // Fallback parser (V13/V14 layout) attempts best-effort parsing
         // The packet may be too short for V13/V14 layout (needs 36 bytes), so it may return null
@@ -1040,7 +1060,7 @@ class InMotionV2DecoderTest {
         val frame = buildIM2Frame(0x14, 0x84, data)
 
         decoder.reset()
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
 
         assertTrue(result is DecodeResult.Unhandled, "UNKNOWN model should not attempt to parse telemetry")
     }
@@ -1053,7 +1073,7 @@ class InMotionV2DecoderTest {
         val frame = buildIM2Frame(0x14, 0xA0, data)
 
         decoder.reset()
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
 
         assertTrue(result is DecodeResult.Unhandled, "UNKNOWN model should not attempt to parse settings")
     }
@@ -1159,8 +1179,8 @@ class InMotionV2DecoderTest {
      */
     private fun decoderForModel(series: Int, type: Int, fwMajor: Int = 1, fwMinor: Int = 5): InMotionV2Decoder {
         val d = InMotionV2Decoder()
-        d.decode(buildCarTypeFrame(series, type), defaultState, defaultConfig)
-        d.decode(buildVersionFrame(fwMajor, fwMinor), defaultState, defaultConfig)
+        d.decode(buildCarTypeFrame(series, type), defaultDecoderState, defaultConfig)
+        d.decode(buildVersionFrame(fwMajor, fwMinor), defaultDecoderState, defaultConfig)
         return d
     }
 
@@ -1743,7 +1763,7 @@ class InMotionV2DecoderTest {
         data[27] = 0x0D // series 13
         data[28] = 0x01 // type 1
         val frame = buildIM2Frame(0x16, 0x21, data)
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
         assertTrue(result is DecodeResult.Success, "Extended init response should be decoded")
         val decoded = (result as DecodeResult.Success).data
         assertEquals("InMotion P6", decoded.assertIdentity().model)
@@ -1757,7 +1777,7 @@ class InMotionV2DecoderTest {
         val initData = ByteArray(80)
         initData[0] = 0x02; initData[1] = 0x86.toByte()
         initData[27] = 0x0D; initData[28] = 0x01
-        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultState, defaultConfig)
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
 
         // Build a 0x87 telemetry response: [02 87 01 00] + 96 payload bytes
         val payload = ByteArray(96)
@@ -1778,7 +1798,7 @@ class InMotionV2DecoderTest {
         val rtData = byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload
         val frame = buildIM2Frame(0x16, 0x21, rtData)
 
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
         assertTrue(result is DecodeResult.Success, "Extended telemetry should be decoded")
         val decoded = (result as DecodeResult.Success).data
         assertEquals(21858, decoded.assertTelemetry().voltage, "Voltage should be 21858 (raw centivolts)")
@@ -1795,14 +1815,14 @@ class InMotionV2DecoderTest {
         val initData = ByteArray(80)
         initData[0] = 0x02; initData[1] = 0x86.toByte()
         initData[27] = 0x0D; initData[28] = 0x01
-        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultState, defaultConfig)
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
 
         // Test with real captured data: discharge=278 → battery=97%
         val payload1 = ByteArray(96)
         payload1[0] = 0x6E; payload1[1] = 0x5A  // voltage = 23150
         payload1[14] = 0x16; payload1[15] = 0x01 // discharge = 278
         val frame1 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload1)
-        val r1 = decoder.decode(frame1, defaultState, defaultConfig)
+        val r1 = decoder.decode(frame1, defaultDecoderState, defaultConfig)
         assertTrue(r1 is DecodeResult.Success)
         assertEquals(97, (r1 as DecodeResult.Success).data.assertTelemetry().batteryLevel, "278 discharge → 97% remaining")
 
@@ -1811,7 +1831,7 @@ class InMotionV2DecoderTest {
         payload2[0] = 0x6E; payload2[1] = 0x5A
         payload2[14] = 0x88.toByte(); payload2[15] = 0x13 // discharge = 5000
         val frame2 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload2)
-        val r2 = decoder.decode(frame2, defaultState, defaultConfig)
+        val r2 = decoder.decode(frame2, defaultDecoderState, defaultConfig)
         assertTrue(r2 is DecodeResult.Success)
         assertEquals(50, (r2 as DecodeResult.Success).data.assertTelemetry().batteryLevel, "5000 discharge → 50% remaining")
 
@@ -1820,7 +1840,7 @@ class InMotionV2DecoderTest {
         payload3[0] = 0x6E; payload3[1] = 0x5A
         payload3[14] = 0xAC.toByte(); payload3[15] = 0x26 // discharge = 9900
         val frame3 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload3)
-        val r3 = decoder.decode(frame3, defaultState, defaultConfig)
+        val r3 = decoder.decode(frame3, defaultDecoderState, defaultConfig)
         assertTrue(r3 is DecodeResult.Success)
         assertEquals(1, (r3 as DecodeResult.Success).data.assertTelemetry().batteryLevel, "9900 discharge → 1% remaining")
 
@@ -1829,7 +1849,7 @@ class InMotionV2DecoderTest {
         payload4[0] = 0x6E; payload4[1] = 0x5A
         // payload4[14:15] already 0
         val frame4 = buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + payload4)
-        val r4 = decoder.decode(frame4, defaultState, defaultConfig)
+        val r4 = decoder.decode(frame4, defaultDecoderState, defaultConfig)
         assertTrue(r4 is DecodeResult.Success)
         assertEquals(100, (r4 as DecodeResult.Success).data.assertTelemetry().batteryLevel, "0 discharge → 100% remaining")
     }
@@ -1841,14 +1861,14 @@ class InMotionV2DecoderTest {
         val initData = ByteArray(80)
         initData[0] = 0x02; initData[1] = 0x86.toByte()
         initData[27] = 0x0D; initData[28] = 0x01
-        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultState, defaultConfig)
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
 
         // Build 0x91 response: [02 91 | 9E 2D 00 00 ...]
         // data[2:5] = 11678 → 116780m
         val statsData = byteArrayOf(0x02, 0x91.toByte(), 0x9E.toByte(), 0x2D, 0x00, 0x00) +
             ByteArray(20) // padding
         val frame = buildIM2Frame(0x16, 0x21, statsData)
-        val result = decoder.decode(frame, defaultState, defaultConfig)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
         assertTrue(result is DecodeResult.Success, "Extended total stats should be decoded")
         assertEquals(116780L, (result as DecodeResult.Success).data.assertTelemetry().totalDistance)
     }
@@ -1861,7 +1881,7 @@ class InMotionV2DecoderTest {
         initData[0] = 0x02; initData[1] = 0x86.toByte()
         initData[27] = 0x0D; initData[28] = 0x01
         "A1421A1150002437".toByteArray().copyInto(initData, 5)
-        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultState, defaultConfig)
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
 
         val cmd = decoder.getKeepAliveCommand()
         assertTrue(cmd is WheelCommand.SendBytes)
@@ -2007,7 +2027,7 @@ class InMotionV2DecoderTest {
         val frame = buildIM2Frame(0x14, 0x84, telemetryData) // DEFAULT flag, REAL_TIME_INFO | 0x80
 
         // Send with a state that has btName = "P6-A1421"
-        val stateWithName = defaultState.copy(btName = "P6-A1421")
+        val stateWithName = DecoderState(identity = WheelIdentity(btName = "P6-A1421"))
         val result = decoder.decode(frame, stateWithName, defaultConfig)
 
         assertTrue(result is DecodeResult.Success, "Should decode telemetry")
@@ -2018,13 +2038,13 @@ class InMotionV2DecoderTest {
     fun `name-based detection does not override protocol detection`() {
         // Detect model via standard init as V11
         val decoder = InMotionV2Decoder()
-        decoder.decode(buildCarTypeFrame(6, 1), defaultState, defaultConfig)
+        decoder.decode(buildCarTypeFrame(6, 1), defaultDecoderState, defaultConfig)
 
         // Send telemetry with a misleading btName
         val telemetryData = ByteArray(60)
         telemetryData[0] = 0x10; telemetryData[1] = 0x27
         val frame = buildIM2Frame(0x14, 0x84, telemetryData)
-        val stateWithName = defaultState.copy(btName = "P6-FAKE")
+        val stateWithName = DecoderState(identity = WheelIdentity(btName = "P6-FAKE"))
         val result = decoder.decode(frame, stateWithName, defaultConfig)
 
         assertTrue(result is DecodeResult.Success)
@@ -2037,7 +2057,7 @@ class InMotionV2DecoderTest {
         // After reset, fan on V11 should use fw<1.4 path (0x43) since version is cleared
         d.reset()
         // Reconfigure as V11 without setting version
-        d.decode(buildCarTypeFrame(6, 1), defaultState, defaultConfig)
+        d.decode(buildCarTypeFrame(6, 1), defaultDecoderState, defaultConfig)
         val result = d.buildCommand(WheelCommand.SetFan(true))
         assertTrue(result.isNotEmpty())
         val expected = InMotionV2Decoder.buildMessage(
@@ -2062,7 +2082,7 @@ class InMotionV2DecoderTest {
 
     private fun decoderWithP6(): InMotionV2Decoder {
         val d = InMotionV2Decoder()
-        d.decode(buildCarTypeFrame(13, 1), defaultState, defaultConfig) // P6
+        d.decode(buildCarTypeFrame(13, 1), defaultDecoderState, defaultConfig) // P6
         return d
     }
 
@@ -2077,7 +2097,7 @@ class InMotionV2DecoderTest {
             payload[(i * 2) + 1] = ((mv shr 8) and 0xFF).toByte()
         }
         val frame = buildBmsFrame(0x24, 0x82, payload)
-        val result = d.decode(frame, defaultState, defaultConfig)
+        val result = d.decode(frame, defaultDecoderState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         val bms = decoded.assertBms().bms1
@@ -2120,7 +2140,7 @@ class InMotionV2DecoderTest {
         payload[25] = 30.toByte()
 
         val frame = buildBmsFrame(0x24, 0x81, payload)
-        val result = d.decode(frame, defaultState, defaultConfig)
+        val result = d.decode(frame, defaultDecoderState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         val bms = decoded.assertBms().bms1
@@ -2142,7 +2162,7 @@ class InMotionV2DecoderTest {
             payload[20 + i] = serial[i].code.toByte()
         }
         val frame = buildBmsFrame(0x24, 0x84, payload)
-        val result = d.decode(frame, defaultState, defaultConfig)
+        val result = d.decode(frame, defaultDecoderState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         val bms = decoded.assertBms().bms1
@@ -2155,7 +2175,7 @@ class InMotionV2DecoderTest {
     fun `BMS keep-alive cycles through status and voltages`() {
         val d = decoderWithP6()
         // Feed telemetry so hasReceivedTelemetry = true
-        d.decode(buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte()) + ByteArray(100)), defaultState, defaultConfig)
+        d.decode(buildIM2Frame(0x16, 0x21, byteArrayOf(0x02, 0x87.toByte()) + ByteArray(100)), defaultDecoderState, defaultConfig)
 
         // Collect 8 keep-alive commands, find the BMS ones (every 4th tick, offset 3)
         val commands = mutableListOf<ByteArray>()

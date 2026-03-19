@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecodeResult
 import kotlin.math.roundToInt
@@ -379,7 +378,7 @@ class NinebotDecoderTest {
         )
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Unhandled, "LiveData2 with < 6 data bytes should be Unhandled")
     }
 
@@ -392,7 +391,7 @@ class NinebotDecoderTest {
         )
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Unhandled, "LiveData3 with < 6 data bytes should be Unhandled")
     }
 
@@ -405,7 +404,7 @@ class NinebotDecoderTest {
         )
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Unhandled, "LiveData4 with < 6 data bytes should be Unhandled")
     }
 
@@ -418,7 +417,7 @@ class NinebotDecoderTest {
         )
         val decoder = NinebotDecoder()
         feedNinebotInit(decoder)
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Unhandled, "LiveData5 with < 4 data bytes should be Unhandled")
     }
 
@@ -456,7 +455,7 @@ class NinebotDecoderTest {
         )
 
         val decoder = NinebotDecoder()
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success, "LiveData frame should decode")
         val decoded = (result as DecodeResult.Success).data
         assertEquals(expectedPower, decoded.assertTelemetry().power,
@@ -489,7 +488,7 @@ class NinebotDecoderTest {
         // Need to get past init states first - feed serial and version
         feedNinebotInit(decoder)
 
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success, "LiveData5 frame should decode")
         val decoded = (result as DecodeResult.Success).data
         assertEquals(expectedPower, decoded.assertTelemetry().power,
@@ -515,7 +514,7 @@ class NinebotDecoderTest {
         )
 
         val decoder = NinebotDecoder()
-        val result = decoder.decode(frame, WheelState(), config)
+        val result = decoder.decode(frame, DecoderState(), config)
         assertTrue(result is DecodeResult.Success, "LiveData frame should decode")
         val decoded = (result as DecodeResult.Success).data
         assertEquals(expectedPower, decoded.assertTelemetry().power,
@@ -577,7 +576,7 @@ class NinebotDecoderTest {
             parameter = 0x10,
             data = serialData
         )
-        decoder.decode(serialFrame, WheelState(), config)
+        decoder.decode(serialFrame, DecoderState(), config)
 
         // Firmware version (parameter 0x1A)
         val versionData = byteArrayOf(0x23, 0x10)  // version 1.2.3
@@ -587,6 +586,6 @@ class NinebotDecoderTest {
             parameter = 0x1A,
             data = versionData
         )
-        decoder.decode(versionFrame, WheelState(), config)
+        decoder.decode(versionFrame, DecoderState(), config)
     }
 }

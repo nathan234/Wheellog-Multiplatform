@@ -10,6 +10,7 @@ import org.freewheel.core.ble.BleUuids
 import org.freewheel.core.ble.DiscoveredService
 import org.freewheel.core.ble.DiscoveredServices
 import org.freewheel.core.domain.WheelState
+import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecodedData
 import org.freewheel.core.protocol.DecodeResult
@@ -727,7 +728,7 @@ class FakeDecoder(
     var resetCalled = false
     var decodeCallCount = 0
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         decodeCallCount++
         return decodeResult
     }

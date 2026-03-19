@@ -9,6 +9,7 @@ import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecoderConfig
+import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
 
@@ -36,7 +37,10 @@ data class WcmState(
     val decoderConfig: DecoderConfig = DecoderConfig(),
     val connectionInfo: WheelConnectionInfo? = null,
 ) {
-    /** Compose [WheelState] for decoder input and legacy consumers. */
+    /** Lightweight decoder input — avoids the 178-field [WheelState.compose] per frame. */
+    val decoderState: DecoderState get() = DecoderState(telemetry, identity, bms, settings)
+
+    /** Compose [WheelState] for legacy consumers (public flow). */
     val wheelState: WheelState get() = WheelState.compose(telemetry, identity, bms, settings)
 }
 

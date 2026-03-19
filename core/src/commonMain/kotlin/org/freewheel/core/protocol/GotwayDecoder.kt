@@ -121,9 +121,10 @@ class GotwayDecoder : WheelDecoder {
     private var bms1 = SmartBms()
     private var bms2 = SmartBms()
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
-            var newState = currentState
+            val ws = currentState.toWheelState()
+            var newState = ws
 
             // Try to parse firmware/model info from string data
             if (model.isEmpty() || fw.isEmpty()) {
@@ -200,9 +201,9 @@ class GotwayDecoder : WheelDecoder {
                 }
             }
 
-            if (successData != null || finalState != currentState) {
+            if (successData != null || finalState != ws) {
                 val frameTypes = successData?.frameTypes?.toMutableList() ?: mutableListOf()
-                if (newState != currentState && successData?.newState != newState) {
+                if (newState != ws && successData?.newState != newState) {
                     frameTypes.add(0, "IDENTITY")
                 }
                 // Ensure wheelType is always GOTWAY for domain piece extraction
@@ -215,10 +216,10 @@ class GotwayDecoder : WheelDecoder {
                     bms2 = bms2.toSnapshot()
                 )
                 // Extract domain pieces, only including those that changed
-                val initialTelemetry = currentState.toTelemetryState()
-                val initialIdentity = currentState.toIdentity()
-                val initialBms = currentState.toBmsState()
-                val initialSettings = currentState.toWheelSettings()
+                val initialTelemetry = currentState.telemetry
+                val initialIdentity = currentState.identity
+                val initialBms = currentState.bms
+                val initialSettings = currentState.settings
                 DecodeResult.Success(DecodedData(
                     telemetry = stateWithBms.toTelemetryState().takeIf { it != initialTelemetry },
                     identity = stateWithBms.toIdentity().takeIf { it != initialIdentity },

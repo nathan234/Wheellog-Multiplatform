@@ -67,8 +67,9 @@ class KingsongDecoder : WheelDecoder {
     private var currentLightMode = 0x13  // last-known light mode byte (default: on), for SetMute
     private var versionNum = 0           // firmware version number (e.g., 205 for v2.05)
 
-    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         if (data.size < 20) return DecodeResult.Buffering
+        val ws = currentState.toWheelState()
 
         // Check header (AA 55)
         val a1 = data[0].toInt() and 0xFF
@@ -80,25 +81,25 @@ class KingsongDecoder : WheelDecoder {
 
         return stateLock.withLock {
             val newState = when (frameType) {
-                FrameType.LIVE_DATA -> processLiveData(data, currentState, config)
-                FrameType.DISTANCE_TIME -> processDistanceTimeData(data, currentState)
-                FrameType.NAME_TYPE -> processNameTypeData(data, currentState, commands)
-                FrameType.SERIAL_NUMBER -> processSerialNumber(data, currentState, commands)
-                FrameType.CPU_LOAD_PWM -> processCpuLoadPwm(data, currentState)
-                FrameType.SPEED_LIMIT -> processSpeedLimit(data, currentState)
-                FrameType.MAX_SPEED_ALERTS, FrameType.MAX_SPEED_ALERTS_2 -> processMaxSpeedAlerts(data, currentState, commands)
-                FrameType.BMS_DATA_1, FrameType.BMS_DATA_2 -> processBmsData(data, currentState, frameType)
+                FrameType.LIVE_DATA -> processLiveData(data, ws, config)
+                FrameType.DISTANCE_TIME -> processDistanceTimeData(data, ws)
+                FrameType.NAME_TYPE -> processNameTypeData(data, ws, commands)
+                FrameType.SERIAL_NUMBER -> processSerialNumber(data, ws, commands)
+                FrameType.CPU_LOAD_PWM -> processCpuLoadPwm(data, ws)
+                FrameType.SPEED_LIMIT -> processSpeedLimit(data, ws)
+                FrameType.MAX_SPEED_ALERTS, FrameType.MAX_SPEED_ALERTS_2 -> processMaxSpeedAlerts(data, ws, commands)
+                FrameType.BMS_DATA_1, FrameType.BMS_DATA_2 -> processBmsData(data, ws, frameType)
                 FrameType.BMS_SERIAL_1, FrameType.BMS_SERIAL_2 -> processBmsSerial(data, frameType)
                 FrameType.BMS_FW_1, FrameType.BMS_FW_2 -> processBmsFirmware(data, frameType)
-                FrameType.LOCK_STATUS -> processLockStatus(data, currentState)
-                FrameType.LOCK_RESULT -> processLockResult(data, currentState)
-                FrameType.RIDE_MODE_CONFIRM -> processRideModeConfirm(data, currentState)
-                FrameType.BATTERY_TEMP -> processBatteryTemp(data, currentState)
-                FrameType.PASSWORD_LOGIN -> processPasswordLogin(data, currentState)
-                FrameType.LIFT_SENSOR -> processLiftSensor(data, currentState)
-                FrameType.HEADLIGHT_MODE -> processHeadlightMode(data, currentState)
-                FrameType.LED_MODE_READBACK -> processLedModeReadback(data, currentState)
-                FrameType.TURN_OFF_TIMER -> processTurnOffTimer(data, currentState)
+                FrameType.LOCK_STATUS -> processLockStatus(data, ws)
+                FrameType.LOCK_RESULT -> processLockResult(data, ws)
+                FrameType.RIDE_MODE_CONFIRM -> processRideModeConfirm(data, ws)
+                FrameType.BATTERY_TEMP -> processBatteryTemp(data, ws)
+                FrameType.PASSWORD_LOGIN -> processPasswordLogin(data, ws)
+                FrameType.LIFT_SENSOR -> processLiftSensor(data, ws)
+                FrameType.HEADLIGHT_MODE -> processHeadlightMode(data, ws)
+                FrameType.LED_MODE_READBACK -> processLedModeReadback(data, ws)
+                FrameType.TURN_OFF_TIMER -> processTurnOffTimer(data, ws)
                 else -> null
             }
 
@@ -111,10 +112,10 @@ class KingsongDecoder : WheelDecoder {
                     finalState = finalState.copy(wheelType = WheelType.KINGSONG)
                 }
                 // Extract domain pieces, only including those that changed
-                val initialTelemetry = currentState.toTelemetryState()
-                val initialIdentity = currentState.toIdentity()
-                val initialBms = currentState.toBmsState()
-                val initialSettings = currentState.toWheelSettings()
+                val initialTelemetry = currentState.telemetry
+                val initialIdentity = currentState.identity
+                val initialBms = currentState.bms
+                val initialSettings = currentState.settings
                 DecodeResult.Success(DecodedData(
                     telemetry = finalState.toTelemetryState().takeIf { it != initialTelemetry },
                     identity = finalState.toIdentity().takeIf { it != initialIdentity },

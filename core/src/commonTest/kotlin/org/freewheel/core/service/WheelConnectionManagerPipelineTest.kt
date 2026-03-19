@@ -1,6 +1,6 @@
 package org.freewheel.core.service
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DefaultWheelDecoderFactory
@@ -413,7 +413,7 @@ class WheelConnectionManagerPipelineTest {
             override fun createDecoder(wheelType: WheelType): WheelDecoder? {
                 return object : WheelDecoder {
                     override val wheelType = WheelType.KINGSONG
-                    override fun decode(data: ByteArray, currentState: WheelState, config: DecoderConfig): DecodeResult {
+                    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
                         throw RuntimeException("Simulated decoder crash")
                     }
                     override fun isReady(): Boolean = false

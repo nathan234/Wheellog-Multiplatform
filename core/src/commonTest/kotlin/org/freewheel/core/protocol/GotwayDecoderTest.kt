@@ -5,13 +5,8 @@ import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.beeperVolume
 import org.freewheel.core.domain.cutoutAngle
-import org.freewheel.core.domain.inMiles
-import org.freewheel.core.domain.ledMode
-import org.freewheel.core.domain.lightMode
-import org.freewheel.core.domain.pedalsMode
 import org.freewheel.core.domain.rollAngle
 import org.freewheel.core.domain.speedAlarms
-import org.freewheel.core.domain.tiltBackSpeed
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.utils.ByteUtils
 import kotlin.math.abs

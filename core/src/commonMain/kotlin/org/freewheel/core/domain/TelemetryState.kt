@@ -63,4 +63,8 @@ data class TelemetryState(
     val wheelDistanceKm: Double get() = wheelDistance / 1000.0
     val pwmPercent: Double get() = calculatedPwm * 100.0
     val outputPercent: Int get() = output / 100
+    companion object {
+        /** Swift-callable factory — Kotlin default-parameter constructors aren't visible from ObjC/Swift. */
+        fun empty(): TelemetryState = TelemetryState()
+    }
 }

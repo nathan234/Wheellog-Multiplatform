@@ -3,17 +3,13 @@ package org.freewheel.core.protocol
 import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
-import org.freewheel.core.domain.autoOffTime
 import org.freewheel.core.domain.handleButton
 import org.freewheel.core.domain.ksAlarm1Speed
 import org.freewheel.core.domain.ksAlarm2Speed
 import org.freewheel.core.domain.ksAlarm3Speed
 import org.freewheel.core.domain.ksTiltbackSpeed
-import org.freewheel.core.domain.ledMode
-import org.freewheel.core.domain.lightMode
 import org.freewheel.core.domain.lockState
 import org.freewheel.core.domain.mute
-import org.freewheel.core.domain.pedalsMode
 import kotlin.math.roundToInt
 import org.freewheel.core.domain.SettingsCommandId
 import org.freewheel.core.protocol.DecodeResult

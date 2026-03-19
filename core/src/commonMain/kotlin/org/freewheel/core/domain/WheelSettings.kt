@@ -11,18 +11,28 @@ package org.freewheel.core.domain
  * Default value of -1 means "not yet read from wheel".
  */
 sealed class WheelSettings {
+    // Properties promoted to members for Kotlin/Native Swift visibility.
+    // Subclasses that have the field override it; others inherit the default.
+    open val pedalsMode: Int get() = -1
+    open val lightMode: Int get() = -1
+    open val ledMode: Int get() = -1
+    open val tiltBackSpeed: Int get() = 0
+    open val alertSpeed: Int get() = 0
+    open val autoOffTime: Int get() = 0
+    open val inMiles: Boolean get() = false
+
     data object None : WheelSettings()
 
     data class Begode(
-        val pedalsMode: Int = -1,
+        override val pedalsMode: Int = -1,
         val speedAlarms: Int = -1,
         val rollAngle: Int = -1,
-        val tiltBackSpeed: Int = 0,
-        val lightMode: Int = -1,
-        val ledMode: Int = -1,
+        override val tiltBackSpeed: Int = 0,
+        override val lightMode: Int = -1,
+        override val ledMode: Int = -1,
         val cutoutAngle: Int = -1,
         val beeperVolume: Int = -1,
-        val inMiles: Boolean = false,
+        override val inMiles: Boolean = false,
         val weakMagnetism: Int = -1,
         val extendedRollAngle: Int = -1,
         val powerAlarm: Int = -1,
@@ -30,25 +40,25 @@ sealed class WheelSettings {
     ) : WheelSettings()
 
     data class Kingsong(
-        val pedalsMode: Int = -1,
-        val lightMode: Int = -1,
-        val ledMode: Int = -1,
+        override val pedalsMode: Int = -1,
+        override val lightMode: Int = -1,
+        override val ledMode: Int = -1,
         val mute: Boolean = false,
         val handleButton: Boolean = false,
         val ksAlarm1Speed: Int = -1,
         val ksAlarm2Speed: Int = -1,
         val ksAlarm3Speed: Int = -1,
         val ksTiltbackSpeed: Int = -1,
-        val autoOffTime: Int = 0,
+        override val autoOffTime: Int = 0,
         val lockState: Int = -1
     ) : WheelSettings()
 
     data class Veteran(
-        val pedalsMode: Int = -1,
-        val lightMode: Int = -1,
-        val tiltBackSpeed: Int = 0,
-        val alertSpeed: Int = 0,
-        val autoOffTime: Int = 0,
+        override val pedalsMode: Int = -1,
+        override val lightMode: Int = -1,
+        override val tiltBackSpeed: Int = 0,
+        override val alertSpeed: Int = 0,
+        override val autoOffTime: Int = 0,
         val lockState: Int = -1,
         val highSpeedMode: Boolean = false,
         val lowVoltageMode: Boolean = false,
@@ -71,16 +81,16 @@ sealed class WheelSettings {
 
     data class LeaperkimCan(
         val pedalTilt: Int = -1,
-        val lightMode: Int = -1,
+        override val lightMode: Int = -1,
         val pedalSensitivity: Int = -1,
         val rideMode: Boolean = false,
         val handleButton: Boolean = false,
-        val ledMode: Int = -1,
+        override val ledMode: Int = -1,
         val transportMode: Boolean = false
     ) : WheelSettings()
 
     data class InMotionV2(
-        val pedalsMode: Int = -1,
+        override val pedalsMode: Int = -1,
         val maxSpeed: Int = -1,
         val pedalTilt: Int = -1,
         val pedalSensitivity: Int = -1,
@@ -94,8 +104,8 @@ sealed class WheelSettings {
         val transportMode: Boolean = false,
         val goHomeMode: Boolean = false,
         val fanQuiet: Boolean = false,
-        val lightMode: Int = -1,
-        val ledMode: Int = -1,
+        override val lightMode: Int = -1,
+        override val ledMode: Int = -1,
         val cutoutAngle: Int = -1,
         val bermAngleMode: Boolean = false,
         val bermAngle: Int = -1,
@@ -123,17 +133,17 @@ sealed class WheelSettings {
     ) : WheelSettings()
 
     data class InMotionV1(
-        val lightMode: Int = -1
+        override val lightMode: Int = -1
     ) : WheelSettings()
 
     data object Ninebot : WheelSettings()
 
     data class NinebotZ(
-        val lightMode: Int = -1,
+        override val lightMode: Int = -1,
         val drl: Boolean = false,
-        val ledMode: Int = -1,
+        override val ledMode: Int = -1,
         val handleButton: Boolean = false,
-        val pedalsMode: Int = -1,
+        override val pedalsMode: Int = -1,
         val pedalSensitivity: Int = -1,
         val speakerVolume: Int = -1
     ) : WheelSettings()
@@ -146,37 +156,6 @@ sealed class WheelSettings {
 // Returns -1 (Int) or false (Boolean) for variants that don't have the field.
 
 // --- Int fields ---
-
-val WheelSettings.pedalsMode: Int get() = when (this) {
-    is WheelSettings.Begode -> pedalsMode
-    is WheelSettings.Kingsong -> pedalsMode
-    is WheelSettings.Veteran -> pedalsMode
-    is WheelSettings.InMotionV2 -> pedalsMode
-    is WheelSettings.NinebotZ -> pedalsMode
-    is WheelSettings.LeaperkimCan, is WheelSettings.InMotionV1,
-    is WheelSettings.Ninebot, is WheelSettings.None -> -1
-}
-
-val WheelSettings.lightMode: Int get() = when (this) {
-    is WheelSettings.Begode -> lightMode
-    is WheelSettings.Kingsong -> lightMode
-    is WheelSettings.Veteran -> lightMode
-    is WheelSettings.LeaperkimCan -> lightMode
-    is WheelSettings.InMotionV2 -> lightMode
-    is WheelSettings.InMotionV1 -> lightMode
-    is WheelSettings.NinebotZ -> lightMode
-    is WheelSettings.Ninebot, is WheelSettings.None -> -1
-}
-
-val WheelSettings.ledMode: Int get() = when (this) {
-    is WheelSettings.Begode -> ledMode
-    is WheelSettings.Kingsong -> ledMode
-    is WheelSettings.LeaperkimCan -> ledMode
-    is WheelSettings.InMotionV2 -> ledMode
-    is WheelSettings.NinebotZ -> ledMode
-    is WheelSettings.Veteran, is WheelSettings.InMotionV1,
-    is WheelSettings.Ninebot, is WheelSettings.None -> -1
-}
 
 val WheelSettings.cutoutAngle: Int get() = when (this) {
     is WheelSettings.Begode -> cutoutAngle
@@ -255,30 +234,11 @@ val WheelSettings.ksAlarm2Speed: Int get() = (this as? WheelSettings.Kingsong)?.
 val WheelSettings.ksAlarm3Speed: Int get() = (this as? WheelSettings.Kingsong)?.ksAlarm3Speed ?: -1
 val WheelSettings.ksTiltbackSpeed: Int get() = (this as? WheelSettings.Kingsong)?.ksTiltbackSpeed ?: -1
 
-val WheelSettings.tiltBackSpeed: Int get() = when (this) {
-    is WheelSettings.Begode -> tiltBackSpeed
-    is WheelSettings.Veteran -> tiltBackSpeed
-    is WheelSettings.Kingsong, is WheelSettings.LeaperkimCan, is WheelSettings.InMotionV2,
-    is WheelSettings.InMotionV1, is WheelSettings.Ninebot, is WheelSettings.NinebotZ,
-    is WheelSettings.None -> 0
-}
-
-val WheelSettings.alertSpeed: Int get() = (this as? WheelSettings.Veteran)?.alertSpeed ?: 0
-
-val WheelSettings.autoOffTime: Int get() = when (this) {
-    is WheelSettings.Kingsong -> autoOffTime
-    is WheelSettings.Veteran -> autoOffTime
-    is WheelSettings.Begode, is WheelSettings.LeaperkimCan, is WheelSettings.InMotionV2,
-    is WheelSettings.InMotionV1, is WheelSettings.Ninebot, is WheelSettings.NinebotZ,
-    is WheelSettings.None -> 0
-}
-
 val WheelSettings.chargeVoltageBase: Int get() = (this as? WheelSettings.Veteran)?.chargeVoltageBase ?: 145
 val WheelSettings.batteryTempMode: Int get() = (this as? WheelSettings.Veteran)?.batteryTempMode ?: 0
 
 // --- Boolean fields ---
 
-val WheelSettings.inMiles: Boolean get() = (this as? WheelSettings.Begode)?.inMiles ?: false
 val WheelSettings.plateProtection: Boolean get() = (this as? WheelSettings.Begode)?.plateProtection ?: false
 
 val WheelSettings.rideMode: Boolean get() = when (this) {

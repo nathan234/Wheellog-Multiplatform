@@ -47,12 +47,6 @@ import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
-import org.freewheel.core.domain.alertSpeed
-import org.freewheel.core.domain.autoOffTime
-import org.freewheel.core.domain.ledMode
-import org.freewheel.core.domain.lightMode
-import org.freewheel.core.domain.pedalsMode
-import org.freewheel.core.domain.tiltBackSpeed
 import org.freewheel.core.domain.dashboard.DashboardLayout
 import org.freewheel.core.domain.dashboard.DashboardMetric
 import org.freewheel.core.domain.dashboard.DashboardPresets

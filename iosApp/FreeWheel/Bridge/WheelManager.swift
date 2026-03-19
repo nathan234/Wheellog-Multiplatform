@@ -8,9 +8,9 @@ import FreeWheelCore
 class WheelManager: ObservableObject {
     // MARK: - Published State
 
-    @Published private(set) var telemetry: TelemetryState = TelemetryState()
-    @Published private(set) var identity: WheelIdentity = WheelIdentity()
-    @Published private(set) var bmsState: BmsState = BmsState()
+    @Published private(set) var telemetry: TelemetryState = TelemetryState.companion.empty()
+    @Published private(set) var identity: WheelIdentity = WheelIdentity.companion.empty()
+    @Published private(set) var bmsState: BmsState = BmsState.companion.empty()
     @Published private(set) var wheelSettings: WheelSettings = WheelSettings.None.shared
     @Published private(set) var capabilities: CapabilitySet = CapabilitySet.companion.empty()
     @Published private(set) var connectionState: ConnectionStateWrapper = .disconnected
@@ -549,9 +549,9 @@ class WheelManager: ObservableObject {
         activeAlarms = []
         isMockMode = false
         connectionState = .disconnected
-        telemetry = TelemetryState()
-        identity = WheelIdentity()
-        bmsState = BmsState()
+        telemetry = TelemetryState.companion.empty()
+        identity = WheelIdentity.companion.empty()
+        bmsState = BmsState.companion.empty()
         wheelSettings = WheelSettings.None.shared
         capabilities = CapabilitySet.companion.empty()
     }
@@ -625,9 +625,9 @@ class WheelManager: ObservableObject {
     func stopTestMode() {
         isTestMode = false
         connectionState = .disconnected
-        telemetry = TelemetryState()
-        identity = WheelIdentity()
-        bmsState = BmsState()
+        telemetry = TelemetryState.companion.empty()
+        identity = WheelIdentity.companion.empty()
+        bmsState = BmsState.companion.empty()
         wheelSettings = WheelSettings.None.shared
         capabilities = CapabilitySet.companion.empty()
         telemetryBuffer.clear()
@@ -1337,9 +1337,9 @@ class WheelManager: ObservableObject {
         WheelConnectionManagerHelper.shared.stopReplay(engine: replayEngine)
         isReplayMode = false
         connectionState = .disconnected
-        telemetry = TelemetryState()
-        identity = WheelIdentity()
-        bmsState = BmsState()
+        telemetry = TelemetryState.companion.empty()
+        identity = WheelIdentity.companion.empty()
+        bmsState = BmsState.companion.empty()
         wheelSettings = WheelSettings.None.shared
         replayStateName = "IDLE"
         replayProgress = 0

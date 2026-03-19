@@ -1,8 +1,6 @@
 package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.WheelType
-import org.freewheel.core.domain.alertSpeed
-import org.freewheel.core.domain.autoOffTime
 import org.freewheel.core.domain.accelerationLimit
 import org.freewheel.core.domain.batteryTempMode
 import org.freewheel.core.domain.brakePressureAlarm
@@ -14,12 +12,10 @@ import org.freewheel.core.domain.lateralCutoffAngle
 import org.freewheel.core.domain.lockState
 import org.freewheel.core.domain.lowVoltageMode
 import org.freewheel.core.domain.maxChargeVoltage
-import org.freewheel.core.domain.pedalsMode
 import org.freewheel.core.domain.pedalSensitivity
 import org.freewheel.core.domain.pwmLimit
 import org.freewheel.core.domain.screenBacklight
 import org.freewheel.core.domain.stopSpeed
-import org.freewheel.core.domain.tiltBackSpeed
 import org.freewheel.core.domain.transportMode
 import org.freewheel.core.domain.voltageCorrection
 import org.freewheel.core.domain.wheelDisplayUnit

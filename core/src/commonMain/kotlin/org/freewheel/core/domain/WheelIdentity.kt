@@ -13,6 +13,11 @@ data class WheelIdentity(
     val serialNumber: String = "",
     val btName: String = ""
 ) {
+    companion object {
+        /** Swift-callable factory — Kotlin default-parameter constructors aren't visible from ObjC/Swift. */
+        fun empty() = WheelIdentity()
+    }
+
     val displayName: String get() {
         val brand = wheelType.displayName
         val label = model.ifEmpty { name }.ifEmpty { btName }

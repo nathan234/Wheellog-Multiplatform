@@ -7,4 +7,9 @@ package org.freewheel.core.domain
 data class BmsState(
     val bms1: BmsSnapshot? = null,
     val bms2: BmsSnapshot? = null
-)
+) {
+    companion object {
+        /** Swift-callable factory — Kotlin default-parameter constructors aren't visible from ObjC/Swift. */
+        fun empty() = BmsState()
+    }
+}

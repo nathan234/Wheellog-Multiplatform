@@ -2,7 +2,7 @@ package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.SettingsCommandId
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.utils.ByteUtils
 import org.freewheel.core.utils.Lock
@@ -203,10 +203,7 @@ class LeaperkimCanDecoder : WheelDecoder {
     override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
             val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
-                val ws = state.toWheelState().let {
-                    if (it.wheelType == WheelType.Unknown) it.copy(wheelType = WheelType.LEAPERKIM) else it
-                }
-                processFrame(buffer, ws, config)
+                processFrame(buffer, state, config)
             }
 
             when (loopResult) {
@@ -239,7 +236,7 @@ class LeaperkimCanDecoder : WheelDecoder {
 
     private fun processFrame(
         frame: ByteArray,
-        currentState: WheelState,
+        currentState: DecoderState,
         config: DecoderConfig
     ): FrameResult? {
         // Minimum frame: AA AA [4B CAN ID] [10B reserved] [payload...] [1B checksum] 55 55
@@ -270,7 +267,6 @@ class LeaperkimCanDecoder : WheelDecoder {
                 phase = InitPhase.INIT_COMM
                 val cmd = buildCanFrame(CAN_INIT_COMM, ByteArray(CMD_PAYLOAD_SIZE))
                 FrameResult(
-                    state = currentState,
                     commands = listOf(WheelCommand.SendBytes(cmd)),
                     frameType = "INIT_PASSWORD"
                 )
@@ -281,7 +277,6 @@ class LeaperkimCanDecoder : WheelDecoder {
                 phase = InitPhase.INIT_STATUS
                 val cmd = buildCanFrame(CAN_INIT_STATUS, ByteArray(CMD_PAYLOAD_SIZE))
                 FrameResult(
-                    state = currentState,
                     commands = listOf(WheelCommand.SendBytes(cmd)),
                     frameType = "INIT_COMM"
                 )
@@ -290,21 +285,18 @@ class LeaperkimCanDecoder : WheelDecoder {
             InitPhase.INIT_STATUS -> {
                 // Status response → parse settings, enter polling
                 phase = InitPhase.POLLING
-                val newState = parseStatusResponse(payload, currentState)
-                FrameResult(state = newState, hasNewData = true, frameType = "INIT_STATUS")
+                parseStatusResponse(payload, currentState).copy(hasNewData = true, frameType = "INIT_STATUS")
             }
 
             InitPhase.POLLING -> {
                 val frameType = CAN_ID_FRAME_TYPES[canId] ?: "POLLING_UNKNOWN"
                 if (canId == CAN_READ_VALUES) {
-                    val newState = parseTelemetryResponse(payload, currentState)
-                    FrameResult(state = newState, hasNewData = true, frameType = frameType)
+                    parseTelemetryResponse(payload, currentState).copy(hasNewData = true, frameType = frameType)
                 } else if (canId == CAN_READ_STATUS || canId == CAN_INIT_STATUS) {
-                    val newState = parseStatusResponse(payload, currentState)
-                    FrameResult(state = newState, hasNewData = true, frameType = frameType)
+                    parseStatusResponse(payload, currentState).copy(hasNewData = true, frameType = frameType)
                 } else {
                     // Unknown CAN ID — ignore
-                    FrameResult(state = currentState, frameType = frameType)
+                    FrameResult(frameType = frameType)
                 }
             }
         }
@@ -342,8 +334,8 @@ class LeaperkimCanDecoder : WheelDecoder {
      * All offsets are into the payload (after CAN header + reserved area).
      * All multi-byte values are little-endian.
      */
-    private fun parseTelemetryResponse(payload: ByteArray, currentState: WheelState): WheelState {
-        if (payload.size < 52) return currentState
+    private fun parseTelemetryResponse(payload: ByteArray, currentState: DecoderState): FrameResult {
+        if (payload.size < 52) return FrameResult()
 
         // Pedal tilt: offset 0, 4B int32 LE, Q16.16 fixed point
         val rawTilt = ByteUtils.intFromBytesLE(payload, 0)
@@ -382,17 +374,19 @@ class LeaperkimCanDecoder : WheelDecoder {
         // power_x100 = (phaseCurrent / 100.0) * (voltage / 100.0) * 100 = phaseCurrent * voltage / 10000.0 * 100
         val power = ((phaseCurrent.toDouble() / 100.0) * (voltage.toDouble() / 100.0) * 100).roundToInt()
 
-        return currentState.copy(
-            speed = speed,
-            voltage = voltage,
-            batteryLevel = battery,
-            phaseCurrent = phaseCurrent,
-            current = phaseCurrent,
-            power = power,
-            temperature = temperature,
-            wheelDistance = distance,
-            angle = angle,
-            wheelType = WheelType.LEAPERKIM
+        return FrameResult(
+            telemetry = currentState.telemetry.copy(
+                speed = speed,
+                voltage = voltage,
+                batteryLevel = battery,
+                phaseCurrent = phaseCurrent,
+                current = phaseCurrent,
+                power = power,
+                temperature = temperature,
+                wheelDistance = distance,
+                angle = angle
+            ),
+            identity = currentState.identity.copy(wheelType = WheelType.LEAPERKIM)
         )
     }
 
@@ -403,14 +397,16 @@ class LeaperkimCanDecoder : WheelDecoder {
      *
      * All offsets are into the payload (after CAN header + reserved area).
      */
-    private fun parseStatusResponse(payload: ByteArray, currentState: WheelState): WheelState {
-        var state = currentState
+    private fun parseStatusResponse(payload: ByteArray, currentState: DecoderState): FrameResult {
+        var id = currentState.identity
+        val lk = currentState.settings as? WheelSettings.LeaperkimCan ?: WheelSettings.LeaperkimCan()
+        var settings = lk
 
         // Serial: offset 0, 8B uint64 LE → hex string
         if (payload.size >= 8) {
             val serialLong = ByteUtils.longFromBytesLE(payload, 0)
             val serial = serialLong.toULong().toString(16).uppercase()
-            state = state.copy(serialNumber = serial)
+            id = id.copy(serialNumber = serial)
         }
 
         // Firmware: offset 24-27, 4 bytes → major.minor.patch
@@ -418,61 +414,61 @@ class LeaperkimCanDecoder : WheelDecoder {
             val major = payload[24].toInt() and 0xFF
             val minor = payload[25].toInt() and 0xFF
             val patch = payload[26].toInt() and 0xFF
-            state = state.copy(version = "$major.$minor.$patch")
+            id = id.copy(version = "$major.$minor.$patch")
         }
 
         // Pedal tilt: offset 56, 4B int32 LE / 65536.0 → degrees × 10 for state
         if (payload.size >= 60) {
             val rawTilt = ByteUtils.intFromBytesLE(payload, 56)
             val tiltDegrees = rawTilt / 65536.0
-            state = state.copy(pedalTilt = (tiltDegrees * 10).roundToInt())
+            settings = settings.copy(pedalTilt = (tiltDegrees * 10).roundToInt())
         }
 
         // Headlight: offset 80, 1B, bit 0
         if (payload.size >= 81) {
             val lightOn = (payload[80].toInt() and 0x01) != 0
-            state = state.copy(lightMode = if (lightOn) 1 else 0)
+            settings = settings.copy(lightMode = if (lightOn) 1 else 0)
         }
 
         // Model ID: offset 104-107, 4B
         if (payload.size >= 108) {
             modelId = ByteUtils.intFromBytesLE(payload, 104)
-            state = state.copy(model = modelName(modelId))
+            id = id.copy(model = modelName(modelId))
         }
 
         // Pedal sensitivity: offset 124, 1B, (value - 64) * 1.5625
         if (payload.size >= 125) {
             val raw = payload[124].toInt() and 0xFF
             val sensitivity = ((raw - 64) * 1.5625).roundToInt()
-            state = state.copy(pedalSensitivity = sensitivity)
+            settings = settings.copy(pedalSensitivity = sensitivity)
         }
 
         // Riding mode: offset 125-126, 2B int16 LE / 100
         if (payload.size >= 127) {
             val rawMode = ByteUtils.signedShortFromBytesLE(payload, 125)
-            state = state.copy(rideMode = rawMode != 0)
+            settings = settings.copy(rideMode = rawMode != 0)
         }
 
         // Handle button: offset 129, 1B, bit 0
         if (payload.size >= 130) {
             val handleOn = (payload[129].toInt() and 0x01) != 0
-            state = state.copy(handleButton = handleOn)
+            settings = settings.copy(handleButton = handleOn)
         }
 
         // LEDs: offset 130, 1B, bit 0
         if (payload.size >= 131) {
             val ledOn = (payload[130].toInt() and 0x01) != 0
-            state = state.copy(ledMode = if (ledOn) 1 else 0)
+            settings = settings.copy(ledMode = if (ledOn) 1 else 0)
         }
 
         // Transport mode: offset 132, 1B, bit 0
         if (payload.size >= 133) {
             val transportOn = (payload[132].toInt() and 0x01) != 0
-            state = state.copy(transportMode = transportOn)
+            settings = settings.copy(transportMode = transportOn)
         }
 
-        state = state.copy(wheelType = WheelType.LEAPERKIM)
-        return state
+        id = id.copy(wheelType = WheelType.LEAPERKIM)
+        return FrameResult(identity = id, settings = settings)
     }
 
     // ==================== Model Name Lookup ====================

@@ -125,9 +125,14 @@ class GotwayDecoder : WheelDecoder {
 
     override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         return stateLock.withLock {
-            // Pre-loop: parse firmware/model info from string data
+            // Pre-loop: parse firmware/model info from string data.
+            // Binary frames always start with 0x55 (header byte); string responses
+            // (NAME, GW, JN, CF, BF, MPU) start with ASCII letters.
+            // Skip decodeToString() for binary data to avoid a wasted String allocation
+            // and potential malformed-encoding issues.
             var preIdentity: WheelIdentity? = null
-            if (model.isEmpty() || fw.isEmpty()) {
+            if ((model.isEmpty() || fw.isEmpty()) &&
+                data.isNotEmpty() && data[0] != 0x55.toByte()) {
                 val dataStr = data.decodeToString().trim()
                 when {
                     dataStr.startsWith("NAME") -> {

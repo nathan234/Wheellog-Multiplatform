@@ -46,7 +46,7 @@ internal class InMotionUnpacker : Unpacker {
      * Reset the unpacker state.
      */
     override fun reset() {
-        buffer = ByteArrayBuilder()
+        buffer.clear()
         state = State.UNKNOWN
         oldC = 0
         lenBasic = 0
@@ -112,7 +112,7 @@ internal class InMotionUnpacker : Unpacker {
                 else -> {
                     // Looking for frame header (AA AA)
                     if (byte == 0xAA && oldC == 0xAA) {
-                        buffer = ByteArrayBuilder()
+                        buffer.clear()
                         buffer.write(0xAA)
                         buffer.write(0xAA)
                         state = State.COLLECTING

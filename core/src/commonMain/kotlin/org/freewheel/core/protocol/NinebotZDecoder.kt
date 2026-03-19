@@ -39,7 +39,7 @@ internal class NinebotZUnpacker : Unpacker {
         oldC = 0
         len = 0
         state = State.UNKNOWN
-        buffer = ByteArrayBuilder()
+        buffer.clear()
     }
 
     override fun getBuffer(): ByteArray = buffer.toByteArray()
@@ -71,7 +71,7 @@ internal class NinebotZUnpacker : Unpacker {
             else -> {
                 // Looking for header (5A A5)
                 if (byte == 0xA5 && oldC == 0x5A) {
-                    buffer = ByteArrayBuilder()
+                    buffer.clear()
                     buffer.write(0x5A)
                     buffer.write(0xA5)
                     state = State.STARTED

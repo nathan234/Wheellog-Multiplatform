@@ -134,7 +134,7 @@ class LeaperkimCanDecoder : WheelDecoder {
             ESCAPE
         }
 
-        private val buffer = mutableListOf<Byte>()
+        private val buffer = ByteArrayBuilder()
         private var state = State.WAIT_HEADER_1
         private var frameComplete = false
 
@@ -151,8 +151,8 @@ class LeaperkimCanDecoder : WheelDecoder {
                 State.WAIT_HEADER_2 -> {
                     if (byte == HEADER_BYTE) {
                         buffer.clear()
-                        buffer.add(HEADER_BYTE.toByte())
-                        buffer.add(HEADER_BYTE.toByte())
+                        buffer.write(HEADER_BYTE)
+                        buffer.write(HEADER_BYTE)
                         state = State.COLLECTING
                     } else {
                         state = State.WAIT_HEADER_1
@@ -162,24 +162,24 @@ class LeaperkimCanDecoder : WheelDecoder {
                 State.COLLECTING -> {
                     if (byte == ESCAPE_BYTE) {
                         state = State.ESCAPE
-                    } else if (byte == TRAILER_BYTE && buffer.size >= 2 &&
-                        (buffer[buffer.size - 1].toInt() and 0xFF) == TRAILER_BYTE
+                    } else if (byte == TRAILER_BYTE && buffer.size() >= 2 &&
+                        (buffer[buffer.size() - 1].toInt() and 0xFF) == TRAILER_BYTE
                     ) {
                         // Found 55 55 trailer — the first 55 was already added to buffer.
                         // The frame is: [AA AA] [data...] [checksum] [55 55]
                         // We keep everything in the buffer including the trailing 55 55.
-                        buffer.add(TRAILER_BYTE.toByte())
+                        buffer.write(TRAILER_BYTE)
                         frameComplete = true
                         state = State.WAIT_HEADER_1
                         return true
                     } else {
-                        buffer.add(byte.toByte())
+                        buffer.write(byte)
                     }
                 }
 
                 State.ESCAPE -> {
                     // After 0xA5, the next byte is the actual data (duplicated 0xA5 → single 0xA5)
-                    buffer.add(byte.toByte())
+                    buffer.write(byte)
                     state = State.COLLECTING
                 }
             }

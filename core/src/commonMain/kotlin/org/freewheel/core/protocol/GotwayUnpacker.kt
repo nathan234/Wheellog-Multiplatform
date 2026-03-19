@@ -40,7 +40,7 @@ internal class GotwayUnpacker : Unpacker {
      * Reset the unpacker state.
      */
     override fun reset() {
-        buffer = ByteArrayBuilder()
+        buffer.clear()
         state = State.UNKNOWN
         oldC = -1
     }
@@ -78,12 +78,11 @@ internal class GotwayUnpacker : Unpacker {
 
                 // Handle garbage packet detection (55 AA 5A followed by 55 AA)
                 if (size == 5) {
-                    val buf = buffer.toByteArray()
-                    if (buf[0] == 0x55.toByte() && buf[1] == 0xAA.toByte() &&
-                        buf[2] == 0x5A.toByte() && buf[3] == 0x55.toByte() &&
-                        buf[4] == 0xAA.toByte()) {
+                    if (buffer[0] == 0x55.toByte() && buffer[1] == 0xAA.toByte() &&
+                        buffer[2] == 0x5A.toByte() && buffer[3] == 0x55.toByte() &&
+                        buffer[4] == 0xAA.toByte()) {
                         // Garbage packet, reassemble
-                        buffer = ByteArrayBuilder()
+                        buffer.clear()
                         buffer.write(0x55)
                         buffer.write(0xAA)
                     }
@@ -91,12 +90,11 @@ internal class GotwayUnpacker : Unpacker {
 
                 // Handle another garbage pattern (55 AA 5A 5A 55 AA)
                 if (size == 6) {
-                    val buf = buffer.toByteArray()
-                    if (buf[0] == 0x55.toByte() && buf[1] == 0xAA.toByte() &&
-                        buf[2] == 0x5A.toByte() && buf[3] == 0x5A.toByte() &&
-                        buf[4] == 0x55.toByte() && buf[5] == 0xAA.toByte()) {
+                    if (buffer[0] == 0x55.toByte() && buffer[1] == 0xAA.toByte() &&
+                        buffer[2] == 0x5A.toByte() && buffer[3] == 0x5A.toByte() &&
+                        buffer[4] == 0x55.toByte() && buffer[5] == 0xAA.toByte()) {
                         // Garbage packet, reassemble
-                        buffer = ByteArrayBuilder()
+                        buffer.clear()
                         buffer.write(0x55)
                         buffer.write(0xAA)
                     }
@@ -106,7 +104,7 @@ internal class GotwayUnpacker : Unpacker {
             else -> {
                 // Looking for frame header (55 AA)
                 if (byte == 0xAA && oldC == 0x55) {
-                    buffer = ByteArrayBuilder()
+                    buffer.clear()
                     buffer.write(0x55)
                     buffer.write(0xAA)
                     state = State.COLLECTING
@@ -121,15 +119,36 @@ internal class GotwayUnpacker : Unpacker {
 
 /**
  * Simple ByteArrayOutputStream replacement for KMP.
+ *
+ * Uses a pre-allocated [ByteArray] to avoid boxing each byte into
+ * `java.lang.Byte` (which `MutableList<Byte>` does on JVM).
+ * At 40 Hz × ~24 bytes/frame this eliminates ~960 boxing allocations/sec.
+ *
+ * Call [clear] to reset for reuse instead of allocating a new instance.
  */
-class ByteArrayBuilder {
-    private val data = mutableListOf<Byte>()
+class ByteArrayBuilder(capacity: Int = 512) {
+    private var data = ByteArray(capacity)
+    private var position = 0
 
     fun write(b: Int) {
-        data.add(b.toByte())
+        if (position == data.size) {
+            data = data.copyOf(data.size * 2)
+        }
+        data[position++] = b.toByte()
     }
 
-    fun size(): Int = data.size
+    fun size(): Int = position
 
-    fun toByteArray(): ByteArray = data.toByteArray()
+    operator fun get(index: Int): Byte {
+        if (index < 0 || index >= position) {
+            throw IndexOutOfBoundsException("Index $index out of bounds for size $position")
+        }
+        return data[index]
+    }
+
+    fun clear() {
+        position = 0
+    }
+
+    fun toByteArray(): ByteArray = data.copyOfRange(0, position)
 }

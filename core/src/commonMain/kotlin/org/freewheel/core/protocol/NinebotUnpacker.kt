@@ -29,7 +29,7 @@ internal class NinebotUnpacker : Unpacker {
      * Reset the unpacker state.
      */
     override fun reset() {
-        buffer = ByteArrayBuilder()
+        buffer.clear()
         oldC = 0
         len = 0
         state = State.UNKNOWN
@@ -68,7 +68,7 @@ internal class NinebotUnpacker : Unpacker {
             else -> {
                 // Looking for frame header (55 AA)
                 if (byte == 0xAA && oldC == 0x55) {
-                    buffer = ByteArrayBuilder()
+                    buffer.clear()
                     buffer.write(0x55)
                     buffer.write(0xAA)
                     state = State.STARTED

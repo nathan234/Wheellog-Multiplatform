@@ -98,6 +98,10 @@ internal class VeteranUnpacker : Unpacker {
     }
 
     override fun reset() {
+        // Note: buffer is intentionally NOT cleared here.
+        // VeteranUnpacker calls reset() after frame assembly but before
+        // getBuffer() — the buffer must remain intact until the caller
+        // reads it. The buffer is cleared when a new header is detected.
         old1 = 0
         old2 = 0
         state = State.UNKNOWN
@@ -160,7 +164,7 @@ internal class VeteranUnpacker : Unpacker {
             else -> {
                 // Looking for header (DC 5A 5C)
                 if (byte == 0x5C && old1 == 0x5A && old2 == 0xDC) {
-                    buffer = ByteArrayBuilder()
+                    buffer.clear()
                     buffer.write(0xDC)
                     buffer.write(0x5A)
                     buffer.write(0x5C)

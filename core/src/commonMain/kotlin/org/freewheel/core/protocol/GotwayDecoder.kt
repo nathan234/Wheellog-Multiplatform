@@ -5,7 +5,7 @@ import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.SettingsCommandId
 import org.freewheel.core.domain.SmartBms
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.utils.ByteUtils
 import org.freewheel.core.utils.Lock
@@ -169,10 +169,7 @@ class GotwayDecoder : WheelDecoder {
 
             // Unpacker loop
             val loopResult = decodeFrames(data, unpacker, loopInput) { buffer, state ->
-                val ws = state.toWheelState().let {
-                    if (it.wheelType == WheelType.Unknown) it.copy(wheelType = WheelType.GOTWAY) else it
-                }
-                processFrame(buffer, ws, config)
+                processFrame(buffer, state, config)
             }
 
             // Extract success data if available
@@ -240,7 +237,7 @@ class GotwayDecoder : WheelDecoder {
 
     private fun processFrame(
         buff: ByteArray,
-        currentState: WheelState,
+        currentState: DecoderState,
         config: DecoderConfig
     ): FrameResult? {
         if (buff.size < 20) return null
@@ -256,7 +253,7 @@ class GotwayDecoder : WheelDecoder {
             FRAME_BMS_CELLS_2 -> processBmsCellsFrame(buff, frameType)?.copy(frameType = "BMS_CELLS_2")
             FRAME_TOTAL_DISTANCE -> processTotalDistanceFrame(buff, currentState, config, isAlexovikFW).copy(frameType = "TOTAL_DISTANCE")
             FRAME_CURRENT_TEMP -> processCurrentTempFrame(buff, currentState, isAlexovikFW, gotwayNegative)?.copy(frameType = "CURRENT_TEMP")
-            FRAME_SETTINGS -> processSettingsFrame(buff, currentState).copy(frameType = "SETTINGS")
+            FRAME_SETTINGS -> FrameResult(hasNewData = false, frameType = "SETTINGS")
             else -> null
         }
     }
@@ -266,11 +263,14 @@ class GotwayDecoder : WheelDecoder {
      */
     private fun processLiveDataFrame(
         buff: ByteArray,
-        currentState: WheelState,
+        currentState: DecoderState,
         config: DecoderConfig,
         isAlexovikFW: Boolean,
         gotwayNegative: Int
     ): FrameResult {
+        val tel = currentState.telemetry
+        val gw = currentState.settings as? WheelSettings.Begode ?: WheelSettings.Begode()
+
         val autoVoltage = config.autoVoltage && !isAlexovikFW
         var voltage = ByteUtils.shortFromBytesBE(buff, 2)
         var speed = (ByteUtils.signedShortFromBytesBE(buff, 4) * 3.6).roundToInt()
@@ -328,7 +328,7 @@ class GotwayDecoder : WheelDecoder {
         }
 
         // Normalize to metric when wheel reports in miles
-        if (currentState.inMiles) {
+        if (gw.inMiles) {
             speed = (speed / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToInt()
             distance = (distance / ByteUtils.KM_TO_MILES_MULTIPLIER).roundToLong()
         }
@@ -348,29 +348,40 @@ class GotwayDecoder : WheelDecoder {
         } else if (!trueCurrent || !bmsCurrent) {
             (calculatedPwm * phaseCurrent).roundToInt()
         } else {
-            currentState.current
+            tel.current
         }
         val power = ((current / 100.0) * voltage).roundToInt()
 
-        val newState = currentState.copy(
+        val newTel = tel.copy(
             speed = speed,
-            voltage = if (!(trueVoltage && autoVoltage)) voltage else currentState.voltage,
+            voltage = if (!(trueVoltage && autoVoltage)) voltage else tel.voltage,
             phaseCurrent = phaseCurrent,
             current = current,
             power = power,
             temperature = temperature,
             wheelDistance = distance,
             batteryLevel = battery,
-            output = if (!truePWM) hwPwm else currentState.output,
-            calculatedPwm = if (!truePWM) calculatedPwm else currentState.calculatedPwm,
-            beeperVolume = if (beeperVolume in 0..9) beeperVolume else currentState.beeperVolume,
+            output = if (!truePWM) hwPwm else tel.output,
+            calculatedPwm = if (!truePWM) calculatedPwm else tel.calculatedPwm
+        )
+
+        val newIdentity = currentState.identity.copy(
             wheelType = WheelType.GOTWAY,
-            model = model.ifEmpty { currentState.model }
+            model = model.ifEmpty { currentState.identity.model }
+        )
+
+        val newSettings = gw.copy(
+            beeperVolume = if (beeperVolume in 0..9) beeperVolume else gw.beeperVolume
         )
 
         val hasNewData = !((trueVoltage && autoVoltage) || trueCurrent || bmsCurrent) || isAlexovikFW
 
-        return FrameResult(state = newState, hasNewData = hasNewData)
+        return FrameResult(
+            telemetry = newTel,
+            identity = newIdentity,
+            settings = newSettings,
+            hasNewData = hasNewData
+        )
     }
 
     /**
@@ -378,12 +389,13 @@ class GotwayDecoder : WheelDecoder {
      */
     private fun processExtendedFrame(
         buff: ByteArray,
-        currentState: WheelState,
+        currentState: DecoderState,
         config: DecoderConfig,
         isAlexovikFW: Boolean
     ): FrameResult? {
         if (isAlexovikFW) return null
 
+        val tel = currentState.telemetry
         val autoVoltage = config.autoVoltage && !isAlexovikFW
 
         // Compute hasNewData BEFORE setting flag (matches legacy timing)
@@ -408,13 +420,14 @@ class GotwayDecoder : WheelDecoder {
             bms.semiVoltage2 = ByteUtils.signedShortFromBytesBE(buff, 14) / 10.0
         }
 
-        val current = if (bmsCurrent) bmsCurrentVal * 20 else currentState.current
-        val newState = currentState.copy(
-            voltage = if (autoVoltage) batVoltage * 10 else currentState.voltage,
-            current = current
+        val current = if (bmsCurrent) bmsCurrentVal * 20 else tel.current
+        return FrameResult(
+            telemetry = tel.copy(
+                voltage = if (autoVoltage) batVoltage * 10 else tel.voltage,
+                current = current
+            ),
+            hasNewData = hasNewData
         )
-
-        return FrameResult(state = newState, hasNewData = hasNewData)
     }
 
     /**
@@ -449,10 +462,11 @@ class GotwayDecoder : WheelDecoder {
      */
     private fun processTotalDistanceFrame(
         buff: ByteArray,
-        currentState: WheelState,
+        currentState: DecoderState,
         config: DecoderConfig,
         isAlexovikFW: Boolean
     ): FrameResult {
+        val tel = currentState.telemetry
         var totalDistance = ByteUtils.getInt4(buff, 2)
         if (config.useRatio) {
             totalDistance = (totalDistance * RATIO_GW).roundToInt().toLong()
@@ -461,6 +475,7 @@ class GotwayDecoder : WheelDecoder {
         var news: String? = null
 
         if (!isAlexovikFW) {
+            val gw = currentState.settings as? WheelSettings.Begode ?: WheelSettings.Begode()
             val settings = ByteUtils.shortFromBytesBE(buff, 6)
             val pedalsMode = (settings shr 13) and 0x03
             val speedAlarms = (settings shr 10) and 0x03
@@ -496,16 +511,18 @@ class GotwayDecoder : WheelDecoder {
             }
 
             return FrameResult(
-                state = currentState.copy(
+                telemetry = tel.copy(
                     totalDistance = totalDistance,
+                    wheelAlarm = wheelAlarm,
+                    alert = alertLine
+                ),
+                settings = gw.copy(
                     pedalsMode = 2 - pedalsMode,
                     speedAlarms = speedAlarms,
                     rollAngle = rollAngle,
                     tiltBackSpeed = tiltBackSpeed,
                     lightMode = lightMode,
                     ledMode = ledMode,
-                    wheelAlarm = wheelAlarm,
-                    alert = alertLine,
                     inMiles = isMiles
                 ),
                 hasNewData = false,
@@ -514,7 +531,7 @@ class GotwayDecoder : WheelDecoder {
         }
 
         return FrameResult(
-            state = currentState.copy(totalDistance = totalDistance),
+            telemetry = tel.copy(totalDistance = totalDistance),
             hasNewData = false
         )
     }
@@ -528,11 +545,14 @@ class GotwayDecoder : WheelDecoder {
      */
     private fun processCurrentTempFrame(
         buff: ByteArray,
-        currentState: WheelState,
+        currentState: DecoderState,
         isAlexovikFW: Boolean,
         gotwayNegative: Int
     ): FrameResult? {
         if (isAlexovikFW) return null
+
+        val tel = currentState.telemetry
+        val gw = currentState.settings as? WheelSettings.Begode ?: WheelSettings.Begode()
 
         // Compute hasNewData BEFORE setting flag (matches legacy timing)
         val hasNewData = trueCurrent && !bmsCurrent
@@ -555,39 +575,19 @@ class GotwayDecoder : WheelDecoder {
             }
         }
 
-        val current = if (!bmsCurrent) (-1) * batteryCurrent else currentState.current
-        val output = if (truePWM) hwPWMb * 100 else currentState.output
-        val calculatedPwm = if (truePWM) output / 10000.0 else currentState.calculatedPwm
+        val current = if (!bmsCurrent) (-1) * batteryCurrent else tel.current
+        val output = if (truePWM) hwPWMb * 100 else tel.output
+        val calculatedPwm = if (truePWM) output / 10000.0 else tel.calculatedPwm
 
         return FrameResult(
-            state = currentState.copy(
+            telemetry = tel.copy(
                 current = current,
                 temperature2 = motorTemp * 100,
                 output = output,
-                calculatedPwm = calculatedPwm,
-                cutoutAngle = cutoutAngle
+                calculatedPwm = calculatedPwm
             ),
+            settings = gw.copy(cutoutAngle = cutoutAngle),
             hasNewData = hasNewData
-        )
-    }
-
-    /**
-     * Frame type 0xFF: Firmware settings (Alexovik/SmirnoV custom firmware only)
-     *
-     * Layout:
-     * - Byte 2 bit 0: extreme mode
-     * - Byte 3: braking current
-     * - Byte 4 bit 0: rotation control enabled
-     * - Byte 5: rotation angle (SmirnoV-specific, not the standard cutout angle)
-     * - Bytes 6-17: PID tuning parameters (not stored in WheelState)
-     *
-     * Note: Standard Begode firmware does not send this frame.
-     * The standard cutout angle (45-90°) is read from FRAME_07 bytes 4-5.
-     */
-    private fun processSettingsFrame(buff: ByteArray, currentState: WheelState): FrameResult {
-        return FrameResult(
-            state = currentState,
-            hasNewData = false
         )
     }
 

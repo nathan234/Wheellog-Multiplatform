@@ -21,6 +21,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -970,8 +971,8 @@ class GotwayDecoderTest {
         val result = freshDecoder.decode(frame, DecoderState(), config)
 
         assertTrue(result is DecodeResult.Success)
-        assertEquals(-1, (result as DecodeResult.Success).data.assertSettings().cutoutAngle,
-            "0xFF frame should not set cutoutAngle — cutout angle is read from FRAME_07")
+        assertNull((result as DecodeResult.Success).data.settings,
+            "0xFF frame should not emit settings — cutout angle is read from FRAME_07")
     }
 
     // ==================== SetCutoutAngle Command ====================

@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 
@@ -471,8 +472,13 @@ class WheelConnectionManager(
 
         // Cleanup effects must precede setup/connect effects to ensure
         // previous connection resources are released before new ones start
+        // Cleanup effects must precede setup/connect effects to ensure
+        // previous connection resources are released before new ones start.
+        // BleDisconnect tears down any existing OS-level connection (even if
+        // the connect job already completed) so we don't get overlapping GATT.
         val effects = buildList {
             add(WcmEffect.CancelBleConnect)
+            add(WcmEffect.BleDisconnect)
             add(WcmEffect.StopTimers)
             add(WcmEffect.CancelCommands)
             state.decoder?.let { add(WcmEffect.ResetDecoder(it)) }
@@ -799,8 +805,14 @@ class WheelConnectionManager(
                     dataTimeoutTracker.stop()
                 }
                 is WcmEffect.CancelBleConnect -> {
-                    bleConnectJob?.cancel()
-                    bleConnectJob = null
+                    val job = bleConnectJob
+                    if (job != null && job.isActive) {
+                        bleConnectJob = null
+                        job.cancelAndJoin()
+                        // Ensure OS-level BLE is torn down when we interrupted
+                        // a mid-handshake connect. disconnect() is idempotent.
+                        bleManager.disconnect()
+                    }
                 }
                 is WcmEffect.CancelCommands -> {
                     commandScheduler.cancelAll()

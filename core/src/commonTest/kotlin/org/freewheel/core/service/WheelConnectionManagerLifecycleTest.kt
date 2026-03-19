@@ -162,7 +162,9 @@ class WheelConnectionManagerLifecycleTest {
         assertEquals(WheelIdentity(), manager.identityState.value)
         assertNull(manager.getCurrentDecoder())
         assertFalse(manager.isKeepAliveRunning.value)
-        assertEquals(1, fakeBle.disconnectCallCount)
+        // connect() emits BleDisconnect (tear down prior OS connection) + disconnect()
+        // emits BleDisconnect (tear down current). Both are correct; disconnect() is idempotent.
+        assertEquals(2, fakeBle.disconnectCallCount)
     }
 
     // ==================== Service Discovery ====================

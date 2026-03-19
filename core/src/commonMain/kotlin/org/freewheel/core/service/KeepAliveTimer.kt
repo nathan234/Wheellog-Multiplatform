@@ -236,24 +236,22 @@ class CommandScheduler(
      * @param command The command to execute
      */
     fun schedule(delayMs: Long, command: suspend () -> Unit) {
-        val job = scope.launch(dispatcher) {
-            delay(delayMs)
-            try {
-                command()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Logger.e("CommandScheduler", "Error executing scheduled command", e)
-            }
-        }
-
         lock.lock()
         try {
-            // Clean up completed jobs before adding
             pendingJobs.removeAll { !it.isActive }
             if (pendingJobs.size >= MAX_PENDING_JOBS) {
                 Logger.w("CommandScheduler", "Job queue full (${pendingJobs.size}), dropping oldest")
                 pendingJobs.removeFirst().cancel()
+            }
+            val job = scope.launch(dispatcher) {
+                delay(delayMs)
+                try {
+                    command()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.e("CommandScheduler", "Error executing scheduled command", e)
+                }
             }
             pendingJobs.add(job)
         } finally {
@@ -267,22 +265,21 @@ class CommandScheduler(
      * so delays within the block are relative to the previous step.
      */
     fun scheduleSequence(block: suspend () -> Unit) {
-        val job = scope.launch(dispatcher) {
-            try {
-                block()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Logger.e("CommandScheduler", "Error executing scheduled command sequence", e)
-            }
-        }
-
         lock.lock()
         try {
             pendingJobs.removeAll { !it.isActive }
             if (pendingJobs.size >= MAX_PENDING_JOBS) {
                 Logger.w("CommandScheduler", "Job queue full (${pendingJobs.size}), dropping oldest")
                 pendingJobs.removeFirst().cancel()
+            }
+            val job = scope.launch(dispatcher) {
+                try {
+                    block()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.e("CommandScheduler", "Error executing scheduled command sequence", e)
+                }
             }
             pendingJobs.add(job)
         } finally {

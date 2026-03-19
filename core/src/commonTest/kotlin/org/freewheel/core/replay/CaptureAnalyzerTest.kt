@@ -1,7 +1,6 @@
 package org.freewheel.core.replay
 
 import org.freewheel.core.domain.CapabilitySet
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.logging.BlePacketDirection
@@ -136,8 +135,8 @@ class CaptureAnalyzerTest {
         assertEquals(0, result.summary.bufferingCount)
         assertEquals(0, result.summary.unhandledCount)
         assertEquals(0, result.summary.errorCount)
-        assertEquals(500, result.finalState.speed)
-        assertEquals(8192, result.finalState.voltage)
+        assertEquals(500, result.finalState.telemetry.speed)
+        assertEquals(8192, result.finalState.telemetry.voltage)
     }
 
     @Test
@@ -301,7 +300,7 @@ class CaptureAnalyzerTest {
         assertEquals(1, result.summary.bufferingCount)
         assertEquals(1, result.summary.unhandledCount)
         assertEquals(0, result.summary.errorCount)
-        assertEquals(500, result.finalState.speed)
+        assertEquals(500, result.finalState.telemetry.speed)
     }
 
     @Test
@@ -312,7 +311,7 @@ class CaptureAnalyzerTest {
 
         assertEquals(0, result.summary.totalPackets)
         assertEquals(0, result.summary.successCount)
-        assertEquals(WheelState(), result.finalState)
+        assertEquals(DecoderState(), result.finalState)
     }
 
     // --- Report formatting ---
@@ -374,8 +373,8 @@ class CaptureAnalyzerTest {
 
     @Test
     fun diffStatesDetectsSpeedChange() {
-        val old = WheelState(speed = 100)
-        val new = WheelState(speed = 200)
+        val old = DecoderState(telemetry = org.freewheel.core.domain.TelemetryState(speed = 100))
+        val new = DecoderState(telemetry = org.freewheel.core.domain.TelemetryState(speed = 200))
 
         val changes = diffStates(old, new)
 
@@ -387,8 +386,8 @@ class CaptureAnalyzerTest {
 
     @Test
     fun diffStatesDetectsMultipleChanges() {
-        val old = WheelState(speed = 100, voltage = 8400, temperature = 3500)
-        val new = WheelState(speed = 200, voltage = 8300, temperature = 3500)
+        val old = DecoderState(telemetry = org.freewheel.core.domain.TelemetryState(speed = 100, voltage = 8400, temperature = 3500))
+        val new = DecoderState(telemetry = org.freewheel.core.domain.TelemetryState(speed = 200, voltage = 8300, temperature = 3500))
 
         val changes = diffStates(old, new)
 
@@ -400,15 +399,15 @@ class CaptureAnalyzerTest {
 
     @Test
     fun diffStatesNoChanges() {
-        val state = WheelState(speed = 100, voltage = 8400)
+        val state = DecoderState(telemetry = org.freewheel.core.domain.TelemetryState(speed = 100, voltage = 8400))
         val changes = diffStates(state, state)
         assertTrue(changes.isEmpty())
     }
 
     @Test
     fun diffStatesDetectsIdentityChanges() {
-        val old = WheelState()
-        val new = WheelState(model = "V14", version = "2.3.7", wheelType = WheelType.INMOTION_V2)
+        val old = DecoderState()
+        val new = DecoderState(identity = org.freewheel.core.domain.WheelIdentity(model = "V14", version = "2.3.7", wheelType = WheelType.INMOTION_V2))
 
         val changes = diffStates(old, new)
         val fields = changes.map { it.field }.toSet()
@@ -419,13 +418,12 @@ class CaptureAnalyzerTest {
 
     @Test
     fun diffStatesDetectsSettingsChanges() {
-        val old = WheelState(pedalsMode = -1, lightMode = -1)
-        val new = WheelState(pedalsMode = 1, lightMode = 2)
+        val old = DecoderState()
+        val new = DecoderState(settings = org.freewheel.core.domain.WheelSettings.Kingsong(pedalsMode = 1, lightMode = 2))
 
         val changes = diffStates(old, new)
         val fields = changes.map { it.field }.toSet()
-        assertTrue("pedalsMode" in fields)
-        assertTrue("lightMode" in fields)
+        assertTrue("settings" in fields)
     }
 
     // --- Frame type distribution ---

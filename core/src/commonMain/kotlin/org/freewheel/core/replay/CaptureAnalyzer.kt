@@ -1,6 +1,9 @@
 package org.freewheel.core.replay
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.BmsState
+import org.freewheel.core.domain.TelemetryState
+import org.freewheel.core.domain.WheelIdentity
+import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
@@ -39,7 +42,7 @@ sealed class PacketResult {
 }
 
 /**
- * A field that changed between two [WheelState] instances.
+ * A field that changed between two [DecoderState] instances.
  */
 data class StateChange(
     val field: String,
@@ -93,7 +96,7 @@ data class CaptureAnalysis(
     val header: CaptureHeader,
     val packets: List<AnnotatedPacket>,
     val summary: AnalysisSummary,
-    val finalState: WheelState
+    val finalState: DecoderState
 ) {
     /**
      * Format analysis as a human-readable report.
@@ -244,14 +247,13 @@ class CaptureAnalyzer(
                         when (val decodeResult = decoder.decode(packet.data, ds, config)) {
                             is DecodeResult.Success -> {
                                 val d = decodeResult.data
-                                val oldWs = ds.toWheelState()
+                                val oldDs = ds
                                 d.telemetry?.let { ds = ds.copy(telemetry = it) }
                                 d.identity?.let { ds = ds.copy(identity = it) }
                                 d.bms?.let { ds = ds.copy(bms = it) }
                                 d.settings?.let { ds = ds.copy(settings = it) }
-                                val newWs = ds.toWheelState()
-                                if (newWs != oldWs) {
-                                    stateChanges = diffStates(oldWs, newWs)
+                                if (ds != oldDs) {
+                                    stateChanges = diffStates(oldDs, ds)
                                 }
                                 commandNames = decodeResult.data.commands.map { it::class.simpleName ?: "?" }
                                 successCount++
@@ -320,117 +322,91 @@ class CaptureAnalyzer(
             header = capture.header,
             packets = annotatedPackets,
             summary = summary,
-            finalState = ds.toWheelState()
+            finalState = ds
         )
     }
 }
 
 /**
- * Compare two [WheelState] instances and return a list of fields that changed.
- * Covers core telemetry, identity, settings, and status fields.
+ * Compare two [DecoderState] instances and return a list of fields that changed.
+ * Checks each sub-type's fields (TelemetryState, WheelIdentity, BmsState, WheelSettings).
  */
-fun diffStates(old: WheelState, new: WheelState): List<StateChange> {
+fun diffStates(old: DecoderState, new: DecoderState): List<StateChange> {
     val changes = mutableListOf<StateChange>()
 
-    fun <T> check(name: String, extract: (WheelState) -> T) {
-        val oldVal = extract(old)
-        val newVal = extract(new)
-        if (oldVal != newVal) {
-            changes.add(StateChange(name, oldVal.toString(), newVal.toString()))
+    // Telemetry
+    if (old.telemetry != new.telemetry) {
+        fun <T> checkTel(name: String, extract: (TelemetryState) -> T) {
+            val oldVal = extract(old.telemetry)
+            val newVal = extract(new.telemetry)
+            if (oldVal != newVal) changes.add(StateChange(name, oldVal.toString(), newVal.toString()))
         }
+        checkTel("speed") { it.speed }
+        checkTel("voltage") { it.voltage }
+        checkTel("current") { it.current }
+        checkTel("phaseCurrent") { it.phaseCurrent }
+        checkTel("power") { it.power }
+        checkTel("temperature") { it.temperature }
+        checkTel("temperature2") { it.temperature2 }
+        checkTel("batteryLevel") { it.batteryLevel }
+        checkTel("bmsSoc") { it.bmsSoc }
+        checkTel("totalDistance") { it.totalDistance }
+        checkTel("totalEnergyWh") { it.totalEnergyWh }
+        checkTel("wheelDistance") { it.wheelDistance }
+        checkTel("topSpeed") { it.topSpeed }
+        checkTel("rideTime") { it.rideTime }
+        checkTel("totalOnTime") { it.totalOnTime }
+        checkTel("output") { it.output }
+        checkTel("calculatedPwm") { it.calculatedPwm }
+        checkTel("angle") { it.angle }
+        checkTel("roll") { it.roll }
+        checkTel("torque") { it.torque }
+        checkTel("motorPower") { it.motorPower }
+        checkTel("cpuTemp") { it.cpuTemp }
+        checkTel("imuTemp") { it.imuTemp }
+        checkTel("cpuLoad") { it.cpuLoad }
+        checkTel("hwFaults") { it.hwFaults }
+        checkTel("speedLimit") { it.speedLimit }
+        checkTel("currentLimit") { it.currentLimit }
+        checkTel("fanStatus") { it.fanStatus }
+        checkTel("chargingStatus") { it.chargingStatus }
+        checkTel("wheelAlarm") { it.wheelAlarm }
+        checkTel("error") { it.error }
+        checkTel("faultCode") { it.faultCode }
+        checkTel("alert") { it.alert }
     }
 
-    // Core telemetry
-    check("speed") { it.speed }
-    check("voltage") { it.voltage }
-    check("current") { it.current }
-    check("phaseCurrent") { it.phaseCurrent }
-    check("power") { it.power }
-    check("temperature") { it.temperature }
-    check("temperature2") { it.temperature2 }
-    check("batteryLevel") { it.batteryLevel }
-    check("bmsSoc") { it.bmsSoc }
-
-    // Distance
-    check("totalDistance") { it.totalDistance }
-    check("totalEnergyWh") { it.totalEnergyWh }
-    check("wheelDistance") { it.wheelDistance }
-    check("topSpeed") { it.topSpeed }
-    check("rideTime") { it.rideTime }
-    check("totalOnTime") { it.totalOnTime }
-
-    // PWM and output
-    check("output") { it.output }
-    check("calculatedPwm") { it.calculatedPwm }
-
-    // Orientation
-    check("angle") { it.angle }
-    check("roll") { it.roll }
-
-    // Motor (IM2)
-    check("torque") { it.torque }
-    check("motorPower") { it.motorPower }
-    check("cpuTemp") { it.cpuTemp }
-    check("imuTemp") { it.imuTemp }
-    check("cpuLoad") { it.cpuLoad }
-    check("hwFaults") { it.hwFaults }
-    check("speedLimit") { it.speedLimit }
-    check("currentLimit") { it.currentLimit }
-
-    // Status flags
-    check("fanStatus") { it.fanStatus }
-    check("chargingStatus") { it.chargingStatus }
-    check("wheelAlarm") { it.wheelAlarm }
-
     // Identity
-    check("wheelType") { it.wheelType }
-    check("name") { it.name }
-    check("model") { it.model }
-    check("modeStr") { it.modeStr }
-    check("version") { it.version }
-    check("serialNumber") { it.serialNumber }
-    check("btName") { it.btName }
+    if (old.identity != new.identity) {
+        fun <T> checkId(name: String, extract: (WheelIdentity) -> T) {
+            val oldVal = extract(old.identity)
+            val newVal = extract(new.identity)
+            if (oldVal != newVal) changes.add(StateChange(name, oldVal.toString(), newVal.toString()))
+        }
+        checkId("wheelType") { it.wheelType }
+        checkId("name") { it.name }
+        checkId("model") { it.model }
+        checkId("modeStr") { it.modeStr }
+        checkId("version") { it.version }
+        checkId("serialNumber") { it.serialNumber }
+        checkId("btName") { it.btName }
+    }
 
-    // BMS (track presence changes)
-    check("bms1") { it.bms1 }
-    check("bms2") { it.bms2 }
+    // BMS
+    if (old.bms != new.bms) {
+        fun <T> checkBms(name: String, extract: (BmsState) -> T) {
+            val oldVal = extract(old.bms)
+            val newVal = extract(new.bms)
+            if (oldVal != newVal) changes.add(StateChange(name, oldVal.toString(), newVal.toString()))
+        }
+        checkBms("bms1") { it.bms1 }
+        checkBms("bms2") { it.bms2 }
+    }
 
-    // Settings
-    check("inMiles") { it.inMiles }
-    check("pedalsMode") { it.pedalsMode }
-    check("speedAlarms") { it.speedAlarms }
-    check("rollAngle") { it.rollAngle }
-    check("tiltBackSpeed") { it.tiltBackSpeed }
-    check("lightMode") { it.lightMode }
-    check("ledMode") { it.ledMode }
-    check("cutoutAngle") { it.cutoutAngle }
-    check("beeperVolume") { it.beeperVolume }
-    check("ksAlarm1Speed") { it.ksAlarm1Speed }
-    check("ksAlarm2Speed") { it.ksAlarm2Speed }
-    check("ksAlarm3Speed") { it.ksAlarm3Speed }
-    check("ksTiltbackSpeed") { it.ksTiltbackSpeed }
-    check("weakMagnetism") { it.weakMagnetism }
-    check("extendedRollAngle") { it.extendedRollAngle }
-    check("powerAlarm") { it.powerAlarm }
-    check("plateProtection") { it.plateProtection }
-    check("maxSpeed") { it.maxSpeed }
-    check("pedalTilt") { it.pedalTilt }
-    check("pedalSensitivity") { it.pedalSensitivity }
-    check("rideMode") { it.rideMode }
-    check("fancierMode") { it.fancierMode }
-    check("speakerVolume") { it.speakerVolume }
-    check("mute") { it.mute }
-    check("handleButton") { it.handleButton }
-    check("drl") { it.drl }
-    check("lightBrightness") { it.lightBrightness }
-    check("transportMode") { it.transportMode }
-    check("goHomeMode") { it.goHomeMode }
-    check("fanQuiet") { it.fanQuiet }
-
-    // Error tracking
-    check("error") { it.error }
-    check("faultCode") { it.faultCode }
-    check("alert") { it.alert }
+    // Settings — compare as opaque sealed type
+    if (old.settings != new.settings) {
+        changes.add(StateChange("settings", old.settings.toString(), new.settings.toString()))
+    }
 
     return changes
 }

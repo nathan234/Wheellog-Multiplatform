@@ -145,7 +145,11 @@ sealed class WheelSettings {
         val rideConnectLowBattery: Boolean = false,
         val minTirePressure: Int = -1,
         val chargingCurrentAC110V: Int = -1,
-        val chargingCurrentAC220V: Int = -1
+        val chargingCurrentAC220V: Int = -1,
+        /** InMotionV2 model ID (e.g. 61=V11, 131=P6). Used by buildCommand for model-dependent routing. */
+        val modelId: Int = 0,
+        /** Main board firmware version string (e.g. "1.4.123"). Used by buildCommand for version checks. */
+        val mainBoardVersion: String = ""
     ) : WheelSettings()
 
     data class InMotionV1(

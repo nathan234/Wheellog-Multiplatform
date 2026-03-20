@@ -442,10 +442,9 @@ class GotwayDecoder : WheelDecoder {
 
         for (i in 0 until 8) {
             val cellNum = i + pNum * 8
+            if (cellNum >= bms.cells.size) break
             val cellVal = ByteUtils.shortFromBytesBE(buff, (i + 1) * 2) / 1000.0
-            if (cellNum < bms.cells.size) {
-                bms.cells[cellNum] = cellVal
-            }
+            bms.cells[cellNum] = cellVal
             if (smartBmsCells <= cellNum && cellVal != 0.0) {
                 smartBmsCells = cellNum + 1
             } else if (smartBmsCells == cellNum + 1 && bms.cellNum != smartBmsCells) {

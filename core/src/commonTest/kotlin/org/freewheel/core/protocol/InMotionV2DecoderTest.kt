@@ -1186,18 +1186,26 @@ class InMotionV2DecoderTest {
     /**
      * Create a new decoder configured for a specific model and firmware version.
      */
-    private fun decoderForModel(series: Int, type: Int, fwMajor: Int = 1, fwMinor: Int = 5): InMotionV2Decoder {
+    /** Decoder + state pair for buildCommand tests. */
+    private data class DecoderWithState(val decoder: InMotionV2Decoder, val state: DecoderState) {
+        fun buildCommand(command: WheelCommand) = decoder.buildCommand(command, state)
+    }
+
+    private fun decoderForModel(series: Int, type: Int, fwMajor: Int = 1, fwMinor: Int = 5): DecoderWithState {
         val d = InMotionV2Decoder()
         d.decode(buildCarTypeFrame(series, type), defaultDecoderState, defaultConfig)
         d.decode(buildVersionFrame(fwMajor, fwMinor), defaultDecoderState, defaultConfig)
-        return d
+        val modelId = series * 10 + type
+        val fw = "$fwMajor.$fwMinor.0"
+        val state = DecoderState(settings = WheelSettings.InMotionV2(modelId = modelId, mainBoardVersion = fw))
+        return DecoderWithState(d, state)
     }
 
     /**
      * Extract the command bytes from buildCommand result (strips AA AA header and checksum).
      * Returns the flags + length + command + data portion.
      */
-    private fun extractPayload(decoder: InMotionV2Decoder, command: WheelCommand): ByteArray? {
+    private fun extractPayload(decoder: DecoderWithState, command: WheelCommand): ByteArray? {
         val result = decoder.buildCommand(command)
         if (result.isEmpty()) return null
         val bytes = (result[0] as WheelCommand.SendBytes).data
@@ -1209,7 +1217,7 @@ class InMotionV2DecoderTest {
     /**
      * Check that a command's wire bytes contain the expected sub-command byte after 0x60 (CONTROL).
      */
-    private fun assertControlSubCmd(decoder: InMotionV2Decoder, command: WheelCommand, expectedSubCmd: Int) {
+    private fun assertControlSubCmd(decoder: DecoderWithState, command: WheelCommand, expectedSubCmd: Int) {
         val result = decoder.buildCommand(command)
         assertTrue(result.isNotEmpty(), "Command should produce output")
         val bytes = (result[0] as WheelCommand.SendBytes).data
@@ -2367,10 +2375,12 @@ class InMotionV2DecoderTest {
     fun `reset clears mainBoardVersion`() {
         val d = decoderForModel(6, 1, fwMajor = 1, fwMinor = 5)
         // After reset, fan on V11 should use fw<1.4 path (0x43) since version is cleared
-        d.reset()
+        d.decoder.reset()
         // Reconfigure as V11 without setting version
-        d.decode(buildCarTypeFrame(6, 1), defaultDecoderState, defaultConfig)
-        val result = d.buildCommand(WheelCommand.SetFan(true))
+        d.decoder.decode(buildCarTypeFrame(6, 1), defaultDecoderState, defaultConfig)
+        // Pass state with V11 model but empty firmware → isFirmwareAtLeast returns false
+        val resetState = DecoderState(settings = WheelSettings.InMotionV2(modelId = 61, mainBoardVersion = ""))
+        val result = d.decoder.buildCommand(WheelCommand.SetFan(true), resetState)
         assertTrue(result.isNotEmpty())
         val expected = InMotionV2Decoder.buildMessage(
             InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,

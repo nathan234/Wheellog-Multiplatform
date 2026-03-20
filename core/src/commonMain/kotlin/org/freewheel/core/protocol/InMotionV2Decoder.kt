@@ -9,8 +9,6 @@ import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.resolveAt
 import org.freewheel.core.utils.ByteUtils
-import org.freewheel.core.utils.Lock
-import org.freewheel.core.utils.withLock
 import kotlin.math.roundToInt
 
 /**
@@ -43,14 +41,15 @@ import kotlin.math.roundToInt
  * Response bit: Response frames have command byte OR'd with 0x80
  * (e.g., SETTINGS 0x20 → response 0xA0). Mask with 0x7F to get the base command.
  *
- * This class is thread-safe.
+ * Thread-safe: All methods except [buildCommand] are called from the WCM
+ * event loop (single-threaded). [buildCommand] reads model and firmware
+ * version from the immutable [DecoderState] snapshot, so no lock is needed.
  */
 class InMotionV2Decoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.INMOTION_V2
     override val keepAliveIntervalMs: Long = 250L
 
-    private val stateLock = Lock()
     private val unpacker = InMotionV2Unpacker()
     private var model = Model.UNKNOWN
     private var protoVer = 0
@@ -95,6 +94,10 @@ class InMotionV2Decoder : WheelDecoder {
                 val fullId = series * 10 + type
                 return entries.find { it.id == fullId } ?: UNKNOWN
             }
+
+            /** Find model by its full ID (e.g. 61=V11, 131=P6). */
+            fun findByFullId(id: Int): Model =
+                entries.find { it.id == id } ?: UNKNOWN
         }
     }
 
@@ -138,13 +141,13 @@ class InMotionV2Decoder : WheelDecoder {
         const val RESP_SERIAL = 0x84    // per-battery serial number + init
     }
 
-    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult = stateLock.withLock {
+    override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
         val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
             val msg = verifyAndParse(buffer) ?: return@decodeFrames null
             processMessage(msg, state)
         }
 
-        when (loopResult) {
+        return when (loopResult) {
             is DecodeResult.Success -> {
                 val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
                 // Ensure wheelType is INMOTION_V2
@@ -357,7 +360,13 @@ class InMotionV2Decoder : WheelDecoder {
             }
         }
 
-        return FrameResult(identity = id, hasNewData = false, frameType = "MAIN_INFO")
+        // Propagate model/firmware to settings so buildCommand can read them from the state snapshot
+        val settingsUpdate = if (isModelDetected || mainBoardVersion.isNotEmpty()) {
+            val im2 = currentState.settings as? WheelSettings.InMotionV2 ?: WheelSettings.InMotionV2()
+            im2.copy(modelId = model.id, mainBoardVersion = mainBoardVersion)
+        } else null
+
+        return FrameResult(identity = id, settings = settingsUpdate, hasNewData = false, frameType = "MAIN_INFO")
     }
 
     // ==================== P6 Extended Protocol ====================
@@ -386,7 +395,10 @@ class InMotionV2Decoder : WheelDecoder {
             wheelType = WheelType.INMOTION_V2
         )
 
-        return FrameResult(identity = id, hasNewData = false, frameType = "EXT_INIT")
+        val im2 = currentState.settings as? WheelSettings.InMotionV2 ?: WheelSettings.InMotionV2()
+        val settingsUpdate = im2.copy(modelId = model.id, mainBoardVersion = mainBoardVersion)
+
+        return FrameResult(identity = id, settings = settingsUpdate, hasNewData = false, frameType = "EXT_INIT")
     }
 
     /**
@@ -1316,13 +1328,12 @@ class InMotionV2Decoder : WheelDecoder {
         }.trim()
     }
 
-    override fun isReady(): Boolean = stateLock.withLock {
+    override fun isReady(): Boolean =
         hasReceivedTelemetry || (isModelDetected && version.isNotEmpty())
-    }
 
-    override fun getUnpackerStats(): UnpackerStats = stateLock.withLock { unpacker.stats }
+    override fun getUnpackerStats(): UnpackerStats = unpacker.stats
 
-    override fun reset() = stateLock.withLock {
+    override fun reset() {
         unpacker.reset()
         model = Model.UNKNOWN
         protoVer = 0
@@ -1338,7 +1349,7 @@ class InMotionV2Decoder : WheelDecoder {
         bmsPollCounter = 0
     }
 
-    override fun getCapabilities(): CapabilitySet = stateLock.withLock {
+    override fun getCapabilities(): CapabilitySet {
         val commands = buildMap {
             putAll(BASE_COMMANDS)
             when (model) {
@@ -1359,17 +1370,17 @@ class InMotionV2Decoder : WheelDecoder {
                     putAll(P6_COMMANDS)
                 }
                 Model.V9 -> { /* base commands only */ }
-                Model.UNKNOWN -> return@withLock CapabilitySet()
+                Model.UNKNOWN -> return CapabilitySet()
             }
         }
-        commands.resolveAt(
+        return commands.resolveAt(
             firmwareLevel = protoVer,
             detectedModel = model.displayName,
             firmwareVersion = version
         )
     }
 
-    // Model grouping helpers (must be called under stateLock)
+    // Model grouping helpers (used by event-loop methods)
     private val isV9Like get() = model == Model.V9 || model == Model.P6
     private val isV11Family get() = model == Model.V11 || model == Model.V11Y
     private val isV12Family get() = model == Model.V12HS || model == Model.V12HT || model == Model.V12PRO || model == Model.V12S
@@ -1381,31 +1392,34 @@ class InMotionV2Decoder : WheelDecoder {
      * Check if main board firmware version is at least major.minor.
      * Parses mainBoardVersion string like "1.4.123".
      */
-    private fun isFirmwareAtLeast(major: Int, minor: Int): Boolean {
-        val parts = mainBoardVersion.split(".")
-        if (parts.size < 2) return false
-        val fwMajor = parts[0].toIntOrNull() ?: return false
-        val fwMinor = parts[1].toIntOrNull() ?: return false
-        return fwMajor > major || (fwMajor == major && fwMinor >= minor)
-    }
+    private fun isFirmwareAtLeast(major: Int, minor: Int): Boolean =
+        isFirmwareAtLeast(mainBoardVersion, major, minor)
 
     private fun controlMsg(vararg bytes: Byte): ByteArray =
         buildMessage(Flag.DEFAULT, Command.CONTROL, bytes.toList().toByteArray())
 
-    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> = stateLock.withLock {
-        val msg = buildCommandMessage(command) ?: return@withLock emptyList()
-        listOf(WheelCommand.SendBytes(msg))
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> {
+        val im2 = state?.settings as? WheelSettings.InMotionV2
+        val cmdModel = Model.findByFullId(im2?.modelId ?: 0)
+        val cmdFwVersion = im2?.mainBoardVersion ?: ""
+        val msg = buildCommandMessage(command, cmdModel, cmdFwVersion) ?: return emptyList()
+        return listOf(WheelCommand.SendBytes(msg))
     }
 
     /**
      * Build the raw message bytes for a command, or null if unsupported for the current model.
      * Model-dependent routing based on EUC World reverse-engineering.
      */
-    private fun buildCommandMessage(command: WheelCommand): ByteArray? {
+    private fun buildCommandMessage(command: WheelCommand, model: Model, firmware: String): ByteArray? {
+        val isV11Family = model == Model.V11 || model == Model.V11Y
+        val isV12Family = model == Model.V12HS || model == Model.V12HT || model == Model.V12PRO || model == Model.V12S
+        val isV13Family = model == Model.V13 || model == Model.V13PRO
+        val isV14Family = model == Model.V14g || model == Model.V14s
+        val isV9OrV12 = model == Model.V9 || model == Model.P6 || isV12Family
         return when (command) {
             is WheelCommand.Beep -> playBeepMessage(0x18)
 
-            is WheelCommand.SetLight -> buildLightMessage(command.enabled)
+            is WheelCommand.SetLight -> buildLightMessage(command.enabled, model, firmware)
 
             is WheelCommand.SetLock ->
                 controlMsg(0x31, boolByte(command.locked))
@@ -1491,7 +1505,7 @@ class InMotionV2Decoder : WheelDecoder {
             is WheelCommand.SetFan -> {
                 // V11/V11Y only, firmware-dependent sub-command
                 if (!isV11Family) return null
-                val subCmd: Byte = if (isFirmwareAtLeast(1, 4)) 0x53 else 0x43
+                val subCmd: Byte = if (isFirmwareAtLeast(firmware, 1, 4)) 0x53 else 0x43
                 controlMsg(subCmd, boolByte(command.enabled))
             }
 
@@ -1651,14 +1665,14 @@ class InMotionV2Decoder : WheelDecoder {
     /**
      * Build headlight on/off message. Model and firmware dependent.
      */
-    private fun buildLightMessage(on: Boolean): ByteArray? {
+    private fun buildLightMessage(on: Boolean, model: Model, firmware: String): ByteArray? {
         val enable = boolByte(on)
         return when (model) {
             Model.P6 -> null // P6 has no manual headlight toggle (auto-only)
             Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S -> controlMsg(0x50, enable, 0x00)
             Model.V9 -> controlMsg(0x50, enable, enable)
             Model.V11, Model.V11Y -> {
-                if (!isFirmwareAtLeast(1, 4)) controlMsg(0x40, enable)
+                if (!isFirmwareAtLeast(firmware, 1, 4)) controlMsg(0x40, enable)
                 else controlMsg(0x50, enable)
             }
             Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> controlMsg(0x50, enable)
@@ -1698,10 +1712,10 @@ class InMotionV2Decoder : WheelDecoder {
         return commands
     }
 
-    override fun getKeepAliveCommand(): WheelCommand = stateLock.withLock {
+    override fun getKeepAliveCommand(): WheelCommand {
         keepAliveCounter++
         val needsInit = !isModelDetected || serialNumber.isEmpty() || version.isEmpty()
-        if (needsInit && keepAliveCounter % 4 == 0) {
+        return if (needsInit && keepAliveCounter % 4 == 0) {
             getNextInitRetryCommand()
         } else if (isModelDetected && keepAliveCounter % 4 == 3) {
             // Every 4th tick (~1s): send next BMS poll request
@@ -1780,6 +1794,14 @@ class InMotionV2Decoder : WheelDecoder {
     // ==================== Message Building ====================
 
     companion object {
+        internal fun isFirmwareAtLeast(version: String, major: Int, minor: Int): Boolean {
+            val parts = version.split(".")
+            if (parts.size < 2) return false
+            val fwMajor = parts[0].toIntOrNull() ?: return false
+            val fwMinor = parts[1].toIntOrNull() ?: return false
+            return fwMajor > major || (fwMajor == major && fwMinor >= minor)
+        }
+
         /** Commands supported by all InMotion V2 models. */
         val BASE_COMMANDS: CapabilityMap = mapOf(
             SettingsCommandId.LIGHT_MODE to 0,

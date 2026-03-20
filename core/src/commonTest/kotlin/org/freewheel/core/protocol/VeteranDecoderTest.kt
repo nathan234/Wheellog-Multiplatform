@@ -1118,6 +1118,42 @@ class VeteranDecoderTest {
         assertEquals(0, (result as DecodeResult.Success).data.assertSettings().batteryTempMode)
     }
 
+    @Test
+    fun `batteryTempMode capped to 0 when out of valid range`() {
+        // Nosfet Aero sends 0x80C8 (32968) at bytes 36-37 — byte 36 is 0x80
+        // (not-supported marker). Values > 111 are invalid and should be capped to 0.
+        val freshDecoder = VeteranDecoder()
+        val base = buildVeteranFrame()
+        val frame = ByteArray(38)
+        base.copyInto(frame)
+        frame[3] = 34
+        frame[36] = 0x80.toByte()
+        frame[37] = 0xC8.toByte()
+        val result = freshDecoder.decode(frame, DecoderState(), config)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.assertSettings().batteryTempMode)
+    }
+
+    // ==================== Pedals Mode Parsing ====================
+
+    @Test
+    fun `pedalsMode zero passes through`() {
+        // Byte 30 = 0x00, byte 31 = 0x00 → 16-bit read = 0 (hard)
+        val result = decodeSingleFrame(pedalsMode = 0, ver = 5000)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(0, (result as DecodeResult.Success).data.assertSettings().pedalsMode)
+    }
+
+    @Test
+    fun `pedalsMode set to unknown for Nosfet byte-30 0x07`() {
+        // Nosfet firmware sends byte 30 = 0x07, byte 31 = 0x80 → 16-bit = 1920.
+        // Frame builder puts 0x07 in byte 30, 0x00 in byte 31 → 16-bit = 1792.
+        // Both are > 2 and should be sanitized to -1 (unknown).
+        val result = decodeSingleFrame(pedalsMode = 0x07, ver = 43254)
+        assertTrue(result is DecodeResult.Success)
+        assertEquals(-1, (result as DecodeResult.Success).data.assertSettings().pedalsMode)
+    }
+
     // ==================== Extended Frame Builder ====================
 
     /**
@@ -1937,6 +1973,36 @@ class VeteranDecoderTest {
                 (data[payloadSize + 3].toLong() and 0xFF)
         assertEquals(computedCrc, extractedCrc,
             "CRC32 appended to command should match computed CRC32")
+    }
+
+    // ==================== Nosfet Aero Real-World Frame ====================
+
+    @Test
+    fun `Nosfet Aero capture frame decodes with correct mVer and model`() {
+        // Real pNum=0 frame from Nosfet Aero BLE capture (mVer 43, fw 43.2.54)
+        // CRC32-verified, byte 30=0x07, byte 31=0x80, bytes 36-37=0x80C8
+        val hex = "DC5A5C49" +
+            "31200000E7FD00019DE9000A00000D1E" +
+            "04A3000007D007D0A8F607801B8F0000" +
+            "80C80000808080808080" +
+            "0000000CFFFFFFFFFF3211FE850B7A0E" +
+            "7901920000008C000100011CB808AE"
+        val frame = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+        val freshDecoder = VeteranDecoder()
+        val result = freshDecoder.decode(frame, DecoderState(), config)
+        assertTrue(result is DecodeResult.Success)
+        val data = (result as DecodeResult.Success).data
+
+        assertEquals("Nosfet Aero", data.assertIdentity().model)
+        assertEquals(WheelType.VETERAN, data.assertIdentity().wheelType)
+        assertEquals(12576, data.assertTelemetry().voltage)     // 125.76V
+        assertEquals(0, data.assertTelemetry().speed)
+        assertEquals(-1, data.assertSettings().pedalsMode)      // 0x0780 sanitized to -1
+        assertEquals(0, data.assertSettings().batteryTempMode)  // 0x80C8 sanitized to 0
+        assertEquals(1187, data.assertSettings().autoOffTime)
+        assertEquals(2000, data.assertSettings().tiltBackSpeed)  // 200 km/h / 10
+        assertEquals(2000, data.assertSettings().alertSpeed)     // 200 km/h / 10
     }
 }
 

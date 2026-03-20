@@ -316,10 +316,19 @@ class VeteranDecoder : WheelDecoder {
         val ver = ByteUtils.shortFromBytesBE(buff, 28)
         mVer = ver / 1000
         version = "${ver / 1000}.${(ver % 1000) / 100}.${ver % 100}".padStart(9, '0')
-        val pedalsMode = ByteUtils.shortFromBytesBE(buff, 30)
+        // Pedals mode: valid values are 0/1/2 (hard/medium/soft).
+        // Nosfet (mVer >= 42) firmware repurposes bytes 30-31 — byte 30 is 0x07,
+        // byte 31 is 0x80 (not-supported marker), giving 1920 as a 16-bit read.
+        // Treat any value > 2 as unknown.
+        val pedalsRaw = ByteUtils.shortFromBytesBE(buff, 30)
+        val pedalsMode = if (pedalsRaw in 0..2) pedalsRaw else -1
         val pitchAngle = ByteUtils.signedShortFromBytesBE(buff, 32)
         val hwPwm = ByteUtils.shortFromBytesBE(buff, 34)
-        val batteryTempMode = if (buff.size >= 38) ByteUtils.shortFromBytesBE(buff, 36) else 0
+        // Battery temp mode: bitmask where 111=normal, 100/101/110=high-temp zone.
+        // Nosfet firmware writes 0x80 (not-supported) at byte 36, producing garbage
+        // 16-bit values. Cap to valid range.
+        val batteryTempRaw = if (buff.size >= 38) ByteUtils.shortFromBytesBE(buff, 36) else 0
+        val batteryTempMode = if (batteryTempRaw in 0..111) batteryTempRaw else 0
 
         // Process SmartBMS data for newer wheels
         if (mVer >= 5 && buff.size > 46) {

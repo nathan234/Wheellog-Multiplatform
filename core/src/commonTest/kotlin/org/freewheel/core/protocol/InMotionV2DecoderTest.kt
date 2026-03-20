@@ -1,6 +1,7 @@
 package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.WheelIdentity
+import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
 import kotlin.math.abs
 import kotlin.test.Test
@@ -124,17 +125,18 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Verify model detection
-        assertEquals("InMotion V11", state.model)
-        assertEquals(WheelType.INMOTION_V2, state.wheelType)
+        assertEquals("InMotion V11", identity.model)
+        assertEquals(WheelType.INMOTION_V2, identity.wheelType)
 
         // Verify serial number
-        assertEquals("1480CA122207002B", state.serialNumber)
+        assertEquals("1480CA122207002B", identity.serialNumber)
 
         // Verify version string
-        assertEquals("Main:1.1.64 Drv:3.4.8 BLE:1.1.13", state.version)
+        assertEquals("Main:1.1.64 Drv:3.4.8 BLE:1.1.13", identity.version)
 
         // Verify telemetry values from legacy test:
         // speedDouble = 24.01, temperature = 27, temperature2 = 30
@@ -144,13 +146,13 @@ class InMotionV2DecoderTest {
         // currentLimit = 65.00, speedLimit = 55.00
         // torque = 44.26, angle = 3.3, roll = -0.44
 
-        assertEquals(2401, state.speed, "Raw speed should be 2401 (24.01 km/h in 1/100 units)")
-        assertEquals(24.01, state.speedKmh, 0.01, "Speed should be 24.01 km/h")
-        assertEquals(7910, state.voltage, "Voltage should be 7910 (79.10V)")
-        assertEquals(79.10, state.voltageV, 0.01, "Voltage should be 79.10V")
-        assertEquals(2700, state.temperature, "Temperature should be 2700 (27.0C)")
-        assertEquals(3000, state.temperature2, "Temperature2 should be 3000 (30.0C)")
-        assertEquals(88, state.batteryLevel, "Battery level should be 88%")
+        assertEquals(2401, telemetry.speed, "Raw speed should be 2401 (24.01 km/h in 1/100 units)")
+        assertEquals(24.01, telemetry.speedKmh, 0.01, "Speed should be 24.01 km/h")
+        assertEquals(7910, telemetry.voltage, "Voltage should be 7910 (79.10V)")
+        assertEquals(79.10, telemetry.voltageV, 0.01, "Voltage should be 79.10V")
+        assertEquals(2700, telemetry.temperature, "Temperature should be 2700 (27.0C)")
+        assertEquals(3000, telemetry.temperature2, "Temperature2 should be 3000 (30.0C)")
+        assertEquals(88, telemetry.batteryLevel, "Battery level should be 88%")
     }
 
     // ==================== V11 Escape Data Test ====================
@@ -179,7 +181,7 @@ class InMotionV2DecoderTest {
         val decoded = (result as DecodeResult.Success).data
         assertTrue(decoded.hasNewData, "Should decode packet with escape bytes")
 
-        val finalState = decoded.stateFrom(ds)
+        val finalTelemetry = decoded.assertTelemetry()
 
         // Expected from legacy test:
         // speedDouble = 6.16, temperature = 20, temperature2 = 39
@@ -188,10 +190,10 @@ class InMotionV2DecoderTest {
         // torque = 18.74, voltageDouble = 82.40, currentDouble = 1.65
         // wheelDistanceDouble = 1.48, batteryLevel = 95
 
-        assertEquals(616, finalState.speed, "Raw speed should be 616 (6.16 km/h in 1/100 units)")
-        assertEquals(6.16, finalState.speedKmh, 0.01, "Speed should be 6.16 km/h")
-        assertEquals(8240, finalState.voltage, "Voltage should be 8240 (82.40V)")
-        assertEquals(82.40, finalState.voltageV, 0.01, "Voltage should be 82.40V")
+        assertEquals(616, finalTelemetry.speed, "Raw speed should be 616 (6.16 km/h in 1/100 units)")
+        assertEquals(6.16, finalTelemetry.speedKmh, 0.01, "Speed should be 6.16 km/h")
+        assertEquals(8240, finalTelemetry.voltage, "Voltage should be 8240 (82.40V)")
+        assertEquals(82.40, finalTelemetry.voltageV, 0.01, "Voltage should be 82.40V")
     }
 
     // ==================== V12 Full Data Test ====================
@@ -216,22 +218,23 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Verify model
-        assertEquals("InMotion V12 HS", state.model)
-        assertEquals("A031155130009730", state.serialNumber)
-        assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", state.version)
+        assertEquals("InMotion V12 HS", identity.model)
+        assertEquals("A031155130009730", identity.serialNumber)
+        assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", identity.version)
 
         // Verify telemetry from legacy test:
         // speedDouble = 0.0, temperature = 29, temperature2 = 30
         // voltageDouble = 99.33, totalDistance = 205790
 
-        assertEquals(0, state.speed, "Raw speed should be 0")
-        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
-        assertEquals(9933, state.voltage, "Voltage should be 9933 (99.33V)")
-        assertEquals(99.33, state.voltageV, 0.01, "Voltage should be 99.33V")
-        assertEquals(205790, state.totalDistance.toInt(), "Total distance should be 205790m")
+        assertEquals(0, telemetry.speed, "Raw speed should be 0")
+        assertEquals(0.0, telemetry.speedKmh, 0.01, "Speed should be 0.0 km/h")
+        assertEquals(9933, telemetry.voltage, "Voltage should be 9933 (99.33V)")
+        assertEquals(99.33, telemetry.voltageV, 0.01, "Voltage should be 99.33V")
+        assertEquals(205790, telemetry.totalDistance.toInt(), "Total distance should be 205790m")
     }
 
     @Test
@@ -252,18 +255,18 @@ class InMotionV2DecoderTest {
         val decoded2 = (result2 as DecodeResult.Success).data
         assertTrue(decoded2.hasNewData, "Should decode real-time data")
 
-        val finalState = decoded2.stateFrom(ds)
+        val finalTelemetry = decoded2.assertTelemetry()
 
         // Expected from legacy test:
         // speedDouble = 49.85, temperature = 45, temperature2 = 41
         // voltageDouble = 93.90, currentDouble = 11.20
         // motorPower = 2906.0, batteryLevel = 86
 
-        assertEquals(4985, finalState.speed, "Raw speed should be 4985 (49.85 km/h in 1/100 units)")
-        assertEquals(49.85, finalState.speedKmh, 0.01, "Speed should be 49.85 km/h")
-        assertEquals(9390, finalState.voltage, "Voltage should be 9390 (93.90V)")
-        assertEquals(93.90, finalState.voltageV, 0.01, "Voltage should be 93.90V")
-        assertEquals(86, finalState.batteryLevel, "Battery should be 86%")
+        assertEquals(4985, finalTelemetry.speed, "Raw speed should be 4985 (49.85 km/h in 1/100 units)")
+        assertEquals(49.85, finalTelemetry.speedKmh, 0.01, "Speed should be 49.85 km/h")
+        assertEquals(9390, finalTelemetry.voltage, "Voltage should be 9390 (93.90V)")
+        assertEquals(93.90, finalTelemetry.voltageV, 0.01, "Voltage should be 93.90V")
+        assertEquals(86, finalTelemetry.batteryLevel, "Battery should be 86%")
     }
 
     // ==================== V12 PRO Test ====================
@@ -286,21 +289,22 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("InMotion V12 PRO", state.model)
-        assertEquals("A031183150013824", state.serialNumber)
-        assertEquals("Main:1.7.16 Drv:6.5.18 BLE:2.1.66", state.version)
+        assertEquals("InMotion V12 PRO", identity.model)
+        assertEquals("A031183150013824", identity.serialNumber)
+        assertEquals("Main:1.7.16 Drv:6.5.18 BLE:2.1.66", identity.version)
 
         // Expected from legacy test:
         // speedDouble = 0.0, temperature = 24, temperature2 = 24
         // voltageDouble = 99.11, batteryLevel = 98
 
-        assertEquals(0, state.speed, "Raw speed should be 0")
-        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
-        assertEquals(9911, state.voltage, "Voltage should be 9911 (99.11V)")
-        assertEquals(99.11, state.voltageV, 0.01, "Voltage should be 99.11V")
-        assertEquals(98, state.batteryLevel, "Battery should be 98%")
+        assertEquals(0, telemetry.speed, "Raw speed should be 0")
+        assertEquals(0.0, telemetry.speedKmh, 0.01, "Speed should be 0.0 km/h")
+        assertEquals(9911, telemetry.voltage, "Voltage should be 9911 (99.11V)")
+        assertEquals(99.11, telemetry.voltageV, 0.01, "Voltage should be 99.11V")
+        assertEquals(98, telemetry.batteryLevel, "Battery should be 98%")
     }
 
     // ==================== V13 Test ====================
@@ -323,22 +327,23 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("InMotion V13", state.model)
-        assertEquals("A03116B180001046", state.serialNumber)
-        assertEquals("Main:2.0.21 Drv:5.0.58 BLE:2.2.10", state.version)
+        assertEquals("InMotion V13", identity.model)
+        assertEquals("A03116B180001046", identity.serialNumber)
+        assertEquals("Main:2.0.21 Drv:5.0.58 BLE:2.2.10", identity.version)
 
         // Expected from legacy test:
         // speedDouble = 136.23 (high speed!), temperature = 29, temperature2 = 28
         // voltageDouble = 120.41, motorPower = 1712.0
         // batteryLevel = 97
 
-        assertEquals(13623, state.speed, "Raw speed should be 13623 (136.23 km/h in 1/100 units)")
-        assertEquals(136.23, state.speedKmh, 0.01, "Speed should be 136.23 km/h")
-        assertEquals(12041, state.voltage, "Voltage should be 12041 (120.41V)")
-        assertEquals(120.41, state.voltageV, 0.01, "Voltage should be 120.41V")
-        assertEquals(97, state.batteryLevel, "Battery should be 97%")
+        assertEquals(13623, telemetry.speed, "Raw speed should be 13623 (136.23 km/h in 1/100 units)")
+        assertEquals(136.23, telemetry.speedKmh, 0.01, "Speed should be 136.23 km/h")
+        assertEquals(12041, telemetry.voltage, "Voltage should be 12041 (120.41V)")
+        assertEquals(120.41, telemetry.voltageV, 0.01, "Voltage should be 120.41V")
+        assertEquals(97, telemetry.batteryLevel, "Battery should be 97%")
     }
 
     // ==================== V14 Test ====================
@@ -361,21 +366,22 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("InMotion V14 50S", state.model)
-        assertEquals("A03217C0B001122E", state.serialNumber)
-        assertEquals("Main:3.0.40 Drv:5.6.60 BLE:2.0.1", state.version)
+        assertEquals("InMotion V14 50S", identity.model)
+        assertEquals("A03217C0B001122E", identity.serialNumber)
+        assertEquals("Main:3.0.40 Drv:5.6.60 BLE:2.0.1", identity.version)
 
         // Expected from legacy test:
         // speedDouble = 20.92, temperature = 29, temperature2 = 31
         // voltageDouble = 131.80, batteryLevel = 99
 
-        assertEquals(2092, state.speed, "Raw speed should be 2092 (20.92 km/h in 1/100 units)")
-        assertEquals(20.92, state.speedKmh, 0.01, "Speed should be 20.92 km/h")
-        assertEquals(13180, state.voltage, "Voltage should be 13180 (131.80V)")
-        assertEquals(131.80, state.voltageV, 0.01, "Voltage should be 131.80V")
-        assertEquals(99, state.batteryLevel, "Battery should be 99%")
+        assertEquals(2092, telemetry.speed, "Raw speed should be 2092 (20.92 km/h in 1/100 units)")
+        assertEquals(20.92, telemetry.speedKmh, 0.01, "Speed should be 20.92 km/h")
+        assertEquals(13180, telemetry.voltage, "Voltage should be 13180 (131.80V)")
+        assertEquals(131.80, telemetry.voltageV, 0.01, "Voltage should be 131.80V")
+        assertEquals(99, telemetry.batteryLevel, "Battery should be 99%")
     }
 
     // ==================== V11Y Test ====================
@@ -398,21 +404,22 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("InMotion V11y", state.model)
-        assertEquals("A0321810D0010019", state.serialNumber)
-        assertEquals("Main:2.5.52 Drv:6.3.8 BLE:1.3.3", state.version)
+        assertEquals("InMotion V11y", identity.model)
+        assertEquals("A0321810D0010019", identity.serialNumber)
+        assertEquals("Main:2.5.52 Drv:6.3.8 BLE:1.3.3", identity.version)
 
         // Expected from legacy test:
         // speedDouble = 1.35, temperature = 28, temperature2 = 21
         // voltageDouble = 78.28, batteryLevel = 81
 
-        assertEquals(135, state.speed, "Raw speed should be 135 (1.35 km/h in 1/100 units)")
-        assertEquals(1.35, state.speedKmh, 0.01, "Speed should be 1.35 km/h")
-        assertEquals(7828, state.voltage, "Voltage should be 7828 (78.28V)")
-        assertEquals(78.28, state.voltageV, 0.01, "Voltage should be 78.28V")
-        assertEquals(81, state.batteryLevel, "Battery should be 81%")
+        assertEquals(135, telemetry.speed, "Raw speed should be 135 (1.35 km/h in 1/100 units)")
+        assertEquals(1.35, telemetry.speedKmh, 0.01, "Speed should be 1.35 km/h")
+        assertEquals(7828, telemetry.voltage, "Voltage should be 7828 (78.28V)")
+        assertEquals(78.28, telemetry.voltageV, 0.01, "Voltage should be 78.28V")
+        assertEquals(81, telemetry.batteryLevel, "Battery should be 81%")
     }
 
     // ==================== V9 Test ====================
@@ -435,21 +442,22 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("InMotion V9", state.model)
-        assertEquals("A1421950A000465F", state.serialNumber)
-        assertEquals("Main:1.8.38 Drv:7.4.40 BLE:1.4.10", state.version)
+        assertEquals("InMotion V9", identity.model)
+        assertEquals("A1421950A000465F", identity.serialNumber)
+        assertEquals("Main:1.8.38 Drv:7.4.40 BLE:1.4.10", identity.version)
 
         // Expected from legacy test:
         // speedDouble = 0.0, temperature = 29, temperature2 = 25
         // voltageDouble = 77.42, batteryLevel = 58
 
-        assertEquals(0, state.speed, "Raw speed should be 0")
-        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
-        assertEquals(7742, state.voltage, "Voltage should be 7742 (77.42V)")
-        assertEquals(77.42, state.voltageV, 0.01, "Voltage should be 77.42V")
-        assertEquals(58, state.batteryLevel, "Battery should be 58%")
+        assertEquals(0, telemetry.speed, "Raw speed should be 0")
+        assertEquals(0.0, telemetry.speedKmh, 0.01, "Speed should be 0.0 km/h")
+        assertEquals(7742, telemetry.voltage, "Voltage should be 7742 (77.42V)")
+        assertEquals(77.42, telemetry.voltageV, 0.01, "Voltage should be 77.42V")
+        assertEquals(58, telemetry.batteryLevel, "Battery should be 58%")
     }
 
     // ==================== V12S Test ====================
@@ -472,21 +480,22 @@ class InMotionV2DecoderTest {
             }
         }
 
-        val state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("InMotion V12S", state.model)
-        assertEquals("A14219407003359C", state.serialNumber)
-        assertEquals("Main:1.8.56 Drv:6.17.14 BLE:1.3.42", state.version)
+        assertEquals("InMotion V12S", identity.model)
+        assertEquals("A14219407003359C", identity.serialNumber)
+        assertEquals("Main:1.8.56 Drv:6.17.14 BLE:1.3.42", identity.version)
 
         // Expected from legacy test:
         // speedDouble = 0.0, temperature = 29, temperature2 = 30
         // voltageDouble = 83.73, batteryLevel = 100
 
-        assertEquals(0, state.speed, "Raw speed should be 0")
-        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
-        assertEquals(8373, state.voltage, "Voltage should be 8373 (83.73V)")
-        assertEquals(83.73, state.voltageV, 0.01, "Voltage should be 83.73V")
-        assertEquals(100, state.batteryLevel, "Battery should be 100%")
+        assertEquals(0, telemetry.speed, "Raw speed should be 0")
+        assertEquals(0.0, telemetry.speedKmh, 0.01, "Speed should be 0.0 km/h")
+        assertEquals(8373, telemetry.voltage, "Voltage should be 8373 (83.73V)")
+        assertEquals(83.73, telemetry.voltageV, 0.01, "Voltage should be 83.73V")
+        assertEquals(100, telemetry.batteryLevel, "Battery should be 100%")
     }
 
     // ==================== Frame Structure Tests ====================
@@ -797,33 +806,33 @@ class InMotionV2DecoderTest {
         val r2 = decoder.decode(settings, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "Settings should be parsed")
         ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
-        val state = ds.toWheelState()
+        val settings2 = ds.settings as WheelSettings.InMotionV2
 
         // Verify parsed settings
         // data[1..2] = 7C 15 → LE short = 0x157C = 5500 → /100 = 55
-        assertEquals(55, state.maxSpeed, "Max speed should be 55 km/h")
+        assertEquals(55, settings2.maxSpeed, "Max speed should be 55 km/h")
         // data[3..4] = C8 00 → LE signed short = 0x00C8 = 200 → /10 = 20 (1/10°, i.e. 2.0°)
-        assertEquals(20, state.pedalTilt, "Pedal tilt should be 20 (2.0 degrees)")
+        assertEquals(20, settings2.pedalTilt, "Pedal tilt should be 20 (2.0 degrees)")
         // data[5] = 0x10: low nibble = 0 (driveMode=false), high nibble = 1 (fancier=true)
-        assertFalse(state.rideMode, "Ride mode should be false (classic)")
-        assertTrue(state.fancierMode, "Fancier mode should be true")
+        assertFalse(settings2.rideMode, "Ride mode should be false (classic)")
+        assertTrue(settings2.fancierMode, "Fancier mode should be true")
         // classSens (data[7]=100) used since fancier high nibble != 0
-        assertEquals(100, state.pedalSensitivity, "Pedal sensitivity should be 100")
+        assertEquals(100, settings2.pedalSensitivity, "Pedal sensitivity should be 100")
         // data[8] = 0x14 = 20
-        assertEquals(20, state.speakerVolume, "Speaker volume should be 20")
+        assertEquals(20, settings2.speakerVolume, "Speaker volume should be 20")
         // data[18] = 0x64 = 100
-        assertEquals(100, state.lightBrightness, "Light brightness should be 100")
+        assertEquals(100, settings2.lightBrightness, "Light brightness should be 100")
         // data[21] = 0x15 = 0b00010101: bits 0-1=1 (audioState=1 → mute=false)
-        assertFalse(state.mute, "Mute should be false")
+        assertFalse(settings2.mute, "Mute should be false")
         // bits 2-3=1 (decorState=1 → drl=true)
-        assertTrue(state.drl, "DRL should be true")
+        assertTrue(settings2.drl, "DRL should be true")
         // bits 4-5=1 (liftedState=1 → handleButton=(1==0)=false)
-        assertFalse(state.handleButton, "Handle button should be false")
+        assertFalse(settings2.handleButton, "Handle button should be false")
         // data[22] = 0x00: bits 4-5=0 → transport=false
-        assertFalse(state.transportMode, "Transport mode should be false")
+        assertFalse(settings2.transportMode, "Transport mode should be false")
         // data[23] = 0x10 = 0b00010000: bits 2-3=0 → goHome=false, bits 4-5=1 → fanQuiet=true
-        assertFalse(state.goHomeMode, "Go home mode should be false")
-        assertTrue(state.fanQuiet, "Fan quiet should be true")
+        assertFalse(settings2.goHomeMode, "Go home mode should be false")
+        assertTrue(settings2.fanQuiet, "Fan quiet should be true")
     }
 
     @Test
@@ -860,19 +869,19 @@ class InMotionV2DecoderTest {
         val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V13 settings should be parsed")
         ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
-        val state = ds.toWheelState()
+        val settings2 = ds.settings as WheelSettings.InMotionV2
 
-        assertEquals(70, state.maxSpeed, "Max speed should be 70 km/h")
-        assertEquals(-1, state.pedalTilt, "Pedal tilt should be -1 (wire -10 / 10)")
-        assertTrue(state.rideMode, "Ride mode should be true (offroad)")
-        assertTrue(state.fancierMode, "Fancier mode should be true")
-        assertEquals(80, state.pedalSensitivity, "Sensitivity should be 80 (classSens since offroad)")
-        assertFalse(state.mute, "Mute should be false")
-        assertTrue(state.drl, "DRL should be true")
-        assertTrue(state.transportMode, "Transport mode should be true")
+        assertEquals(70, settings2.maxSpeed, "Max speed should be 70 km/h")
+        assertEquals(-1, settings2.pedalTilt, "Pedal tilt should be -1 (wire -10 / 10)")
+        assertTrue(settings2.rideMode, "Ride mode should be true (offroad)")
+        assertTrue(settings2.fancierMode, "Fancier mode should be true")
+        assertEquals(80, settings2.pedalSensitivity, "Sensitivity should be 80 (classSens since offroad)")
+        assertFalse(settings2.mute, "Mute should be false")
+        assertTrue(settings2.drl, "DRL should be true")
+        assertTrue(settings2.transportMode, "Transport mode should be true")
         // V13 does not parse handleButton or goHomeMode
-        assertFalse(state.handleButton, "Handle button should be default false for V13")
-        assertFalse(state.goHomeMode, "Go home mode should be default false for V13")
+        assertFalse(settings2.handleButton, "Handle button should be default false for V13")
+        assertFalse(settings2.goHomeMode, "Go home mode should be default false for V13")
     }
 
     @Test
@@ -911,18 +920,18 @@ class InMotionV2DecoderTest {
         val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V11Y settings should be parsed")
         ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
-        val state = ds.toWheelState()
+        val settings2 = ds.settings as WheelSettings.InMotionV2
 
-        assertEquals(60, state.maxSpeed, "Max speed should be 60 km/h")
-        assertEquals(0, state.pedalTilt, "Pedal tilt should be 0 (wire 5 / 10)")
-        assertFalse(state.rideMode, "Ride mode should be false (classic)")
-        assertFalse(state.fancierMode, "Fancier mode should be false")
-        assertEquals(40, state.pedalSensitivity, "Sensitivity should be 40 (comfSens since classic)")
-        assertTrue(state.mute, "Mute should be true (bit 0=0)")
-        assertFalse(state.drl, "DRL should be false")
-        assertTrue(state.handleButton, "Handle button should be true (bit 4=0, inverted)")
-        assertFalse(state.transportMode, "Transport mode should be false")
-        assertTrue(state.goHomeMode, "Go home mode should be true")
+        assertEquals(60, settings2.maxSpeed, "Max speed should be 60 km/h")
+        assertEquals(0, settings2.pedalTilt, "Pedal tilt should be 0 (wire 5 / 10)")
+        assertFalse(settings2.rideMode, "Ride mode should be false (classic)")
+        assertFalse(settings2.fancierMode, "Fancier mode should be false")
+        assertEquals(40, settings2.pedalSensitivity, "Sensitivity should be 40 (comfSens since classic)")
+        assertTrue(settings2.mute, "Mute should be true (bit 0=0)")
+        assertFalse(settings2.drl, "DRL should be false")
+        assertTrue(settings2.handleButton, "Handle button should be true (bit 4=0, inverted)")
+        assertFalse(settings2.transportMode, "Transport mode should be false")
+        assertTrue(settings2.goHomeMode, "Go home mode should be true")
     }
 
     @Test
@@ -959,17 +968,17 @@ class InMotionV2DecoderTest {
         val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V12 settings should be parsed")
         ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
-        val state = ds.toWheelState()
+        val settings2 = ds.settings as WheelSettings.InMotionV2
 
-        assertEquals(50, state.maxSpeed, "Max speed should be 50 km/h")
-        assertEquals(1, state.pedalTilt, "Pedal tilt should be 1 (wire 15 / 10)")
-        assertFalse(state.rideMode, "Ride mode should be false (classicMode=0)")
-        assertTrue(state.fancierMode, "Fancier mode should be true")
-        assertEquals(60, state.pedalSensitivity, "Sensitivity should be 60 (comfSens since classic)")
-        assertEquals(80, state.speakerVolume, "Volume should be 80")
-        assertTrue(state.mute, "Mute should be true (bit 0=0)")
-        assertTrue(state.handleButton, "Handle button should be true (bit 2=0, inverted)")
-        assertTrue(state.transportMode, "Transport mode should be true")
+        assertEquals(50, settings2.maxSpeed, "Max speed should be 50 km/h")
+        assertEquals(1, settings2.pedalTilt, "Pedal tilt should be 1 (wire 15 / 10)")
+        assertFalse(settings2.rideMode, "Ride mode should be false (classicMode=0)")
+        assertTrue(settings2.fancierMode, "Fancier mode should be true")
+        assertEquals(60, settings2.pedalSensitivity, "Sensitivity should be 60 (comfSens since classic)")
+        assertEquals(80, settings2.speakerVolume, "Volume should be 80")
+        assertTrue(settings2.mute, "Mute should be true (bit 0=0)")
+        assertTrue(settings2.handleButton, "Handle button should be true (bit 2=0, inverted)")
+        assertTrue(settings2.transportMode, "Transport mode should be true")
     }
 
     @Test
@@ -1011,18 +1020,18 @@ class InMotionV2DecoderTest {
         val r2 = decoder.decode(settingsFrame, ds, defaultConfig)
         assertTrue(r2 is DecodeResult.Success, "V9 settings should be parsed")
         ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
-        val state = ds.toWheelState()
+        val settings2 = ds.settings as WheelSettings.InMotionV2
 
-        assertEquals(45, state.maxSpeed, "Max speed should be 45 km/h")
-        assertEquals(0, state.pedalTilt, "Pedal tilt should be 0")
-        assertTrue(state.rideMode, "Ride mode should be true (offroad)")
-        assertFalse(state.fancierMode, "Fancier mode should be false")
-        assertEquals(60, state.pedalSensitivity, "Sensitivity should be 60 (classSens since offroad)")
-        assertFalse(state.mute, "Mute should be false (bit 0=1)")
-        assertTrue(state.drl, "DRL should be true")
-        assertFalse(state.handleButton, "Handle button should be false (bit 4=1, inverted)")
-        assertTrue(state.transportMode, "Transport mode should be true")
-        assertFalse(state.goHomeMode, "Go home mode should be false")
+        assertEquals(45, settings2.maxSpeed, "Max speed should be 45 km/h")
+        assertEquals(0, settings2.pedalTilt, "Pedal tilt should be 0")
+        assertTrue(settings2.rideMode, "Ride mode should be true (offroad)")
+        assertFalse(settings2.fancierMode, "Fancier mode should be false")
+        assertEquals(60, settings2.pedalSensitivity, "Sensitivity should be 60 (classSens since offroad)")
+        assertFalse(settings2.mute, "Mute should be false (bit 0=1)")
+        assertTrue(settings2.drl, "DRL should be true")
+        assertFalse(settings2.handleButton, "Handle button should be false (bit 4=1, inverted)")
+        assertTrue(settings2.transportMode, "Transport mode should be true")
+        assertFalse(settings2.goHomeMode, "Go home mode should be false")
     }
 
     @Test

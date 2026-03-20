@@ -4,7 +4,6 @@ import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
-import org.freewheel.core.domain.WheelState
 
 /**
  * Convert a hex string (with optional spaces) to a ByteArray.
@@ -58,19 +57,3 @@ internal fun DecodedData.decoderStateFrom(currentState: DecoderState): DecoderSt
         settings = settings ?: currentState.settings
     )
 
-/**
- * Reconstruct a [WheelState] by applying non-null domain pieces from this
- * [DecodedData] onto [currentState]. Used in tests that need to assert on
- * individual WheelState fields after chaining decode calls.
- */
-internal fun DecodedData.stateFrom(currentState: DecoderState): WheelState {
-    val ds = decoderStateFrom(currentState)
-    return ds.toWheelState()
-}
-
-/**
- * Compose a flat [WheelState] from this [DecoderState].
- * Test-only utility for assertions on individual WheelState fields.
- */
-internal fun DecoderState.toWheelState(): WheelState =
-    WheelState.compose(telemetry, identity, bms, settings)

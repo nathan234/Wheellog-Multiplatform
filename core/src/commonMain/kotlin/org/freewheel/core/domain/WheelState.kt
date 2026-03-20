@@ -7,9 +7,7 @@ import org.freewheel.core.utils.ByteUtils
  *
  * **Not used in production code paths.** Production state flows use the granular
  * domain pieces ([TelemetryState], [WheelIdentity], [BmsState], [WheelSettings]).
- * This class is retained for test utilities — the `stateFrom()` helper in
- * `TestUtils.kt` uses [compose] to reconstruct a flat view for assertions
- * across 68 decoder test call sites.
+ * This class is retained for legacy integration points and WheelState unit tests.
  *
  * Unit conventions:
  * - Speed: 1/100 km/h (e.g., 2500 = 25.00 km/h)
@@ -332,88 +330,4 @@ data class WheelState(
     /** Extract BMS fields (periodic updates). */
     fun toBmsState() = BmsState(bms1 = bms1, bms2 = bms2)
 
-    companion object {
-        /**
-         * Compose a [WheelState] from domain sub-states.
-         * Used by test utility `stateFrom()` in `TestUtils.kt`.
-         */
-        fun compose(
-            telemetry: TelemetryState,
-            identity: WheelIdentity,
-            bms: BmsState,
-            settings: WheelSettings
-        ): WheelState = WheelState(
-            // Telemetry (35 fields)
-            speed = telemetry.speed, voltage = telemetry.voltage,
-            current = telemetry.current, phaseCurrent = telemetry.phaseCurrent,
-            power = telemetry.power, temperature = telemetry.temperature,
-            temperature2 = telemetry.temperature2, batteryLevel = telemetry.batteryLevel,
-            bmsSoc = telemetry.bmsSoc, totalDistance = telemetry.totalDistance,
-            totalEnergyWh = telemetry.totalEnergyWh, wheelDistance = telemetry.wheelDistance,
-            topSpeed = telemetry.topSpeed, rideTime = telemetry.rideTime,
-            totalOnTime = telemetry.totalOnTime, output = telemetry.output,
-            calculatedPwm = telemetry.calculatedPwm, angle = telemetry.angle,
-            roll = telemetry.roll, torque = telemetry.torque,
-            motorPower = telemetry.motorPower, cpuTemp = telemetry.cpuTemp,
-            imuTemp = telemetry.imuTemp, cpuLoad = telemetry.cpuLoad,
-            hwFaults = telemetry.hwFaults, speedLimit = telemetry.speedLimit,
-            currentLimit = telemetry.currentLimit, fanStatus = telemetry.fanStatus,
-            chargingStatus = telemetry.chargingStatus, wheelAlarm = telemetry.wheelAlarm,
-            error = telemetry.error, faultCode = telemetry.faultCode,
-            alert = telemetry.alert, timestamp = telemetry.timestamp,
-            // Identity (7 fields)
-            wheelType = identity.wheelType, name = identity.name,
-            model = identity.model, modeStr = identity.modeStr,
-            version = identity.version, serialNumber = identity.serialNumber,
-            btName = identity.btName,
-            // BMS (2 fields)
-            bms1 = bms.bms1, bms2 = bms.bms2,
-            // Settings (via extension properties)
-            inMiles = settings.inMiles, pedalsMode = settings.pedalsMode,
-            speedAlarms = settings.speedAlarms, rollAngle = settings.rollAngle,
-            tiltBackSpeed = settings.tiltBackSpeed, lightMode = settings.lightMode,
-            ledMode = settings.ledMode, cutoutAngle = settings.cutoutAngle,
-            beeperVolume = settings.beeperVolume,
-            ksAlarm1Speed = settings.ksAlarm1Speed, ksAlarm2Speed = settings.ksAlarm2Speed,
-            ksAlarm3Speed = settings.ksAlarm3Speed, ksTiltbackSpeed = settings.ksTiltbackSpeed,
-            weakMagnetism = settings.weakMagnetism, extendedRollAngle = settings.extendedRollAngle,
-            powerAlarm = settings.powerAlarm, plateProtection = settings.plateProtection,
-            maxSpeed = settings.maxSpeed, pedalTilt = settings.pedalTilt,
-            pedalSensitivity = settings.pedalSensitivity, rideMode = settings.rideMode,
-            fancierMode = settings.fancierMode, speakerVolume = settings.speakerVolume,
-            mute = settings.mute, handleButton = settings.handleButton,
-            drl = settings.drl, lightBrightness = settings.lightBrightness,
-            transportMode = settings.transportMode, goHomeMode = settings.goHomeMode,
-            fanQuiet = settings.fanQuiet,
-            bermAngleMode = settings.bermAngleMode, bermAngle = settings.bermAngle,
-            turningSensitivity = settings.turningSensitivity, onePedalMode = settings.onePedalMode,
-            speedingBrakingMode = settings.speedingBrakingMode,
-            speedingBrakingAngle = settings.speedingBrakingAngle,
-            soundWave = settings.soundWave, soundWaveSensitivity = settings.soundWaveSensitivity,
-            safeSpeedLimit = settings.safeSpeedLimit,
-            backwardOverspeedAlert = settings.backwardOverspeedAlert,
-            tailLightMode = settings.tailLightMode, turnSignalMode = settings.turnSignalMode,
-            logoLightBrightness = settings.logoLightBrightness,
-            autoHeadlight = settings.autoHeadlight, lightEffect = settings.lightEffect,
-            lightEffectMode = settings.lightEffectMode,
-            twoBatteryMode = settings.twoBatteryMode,
-            lowBatterySafeMode = settings.lowBatterySafeMode,
-            spinKill = settings.spinKill, cruise = settings.cruise,
-            loadDetect = settings.loadDetect, standbyTime = settings.standbyTime,
-            chargeLimit = settings.chargeLimit,
-            highSpeedMode = settings.highSpeedMode, lowVoltageMode = settings.lowVoltageMode,
-            keyTone = settings.keyTone, lockState = settings.lockState,
-            alertSpeed = settings.alertSpeed, autoOffTime = settings.autoOffTime,
-            screenBacklight = settings.screenBacklight, stopSpeed = settings.stopSpeed,
-            pwmLimit = settings.pwmLimit, voltageCorrection = settings.voltageCorrection,
-            maxChargeVoltage = settings.maxChargeVoltage,
-            brakePressureAlarm = settings.brakePressureAlarm,
-            lateralCutoffAngle = settings.lateralCutoffAngle,
-            dynamicAssist = settings.dynamicAssist,
-            accelerationLimit = settings.accelerationLimit,
-            chargeVoltageBase = settings.chargeVoltageBase,
-            wheelDisplayUnit = settings.wheelDisplayUnit,
-            batteryTempMode = settings.batteryTempMode
-        )
-    }
 }

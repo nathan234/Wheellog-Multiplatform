@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -55,10 +54,10 @@ class InMotionDecoderComparisonTest {
         }
 
         // Verify slow info results (model/serial/version)
-        var state = ds.toWheelState()
-        assertEquals("1271285CBA76001B", state.serialNumber, "Serial should match legacy")
-        assertEquals("InMotion V5F", state.model, "Model should match legacy")
-        assertEquals("1.3.506", state.version, "Version should match legacy")
+        val identity = ds.identity
+        assertEquals("1271285CBA76001B", identity.serialNumber, "Serial should match legacy")
+        assertEquals("InMotion V5F", identity.model, "Model should match legacy")
+        assertEquals("1.3.506", identity.version, "Version should match legacy")
 
         // Feed fast info packets
         var hasNewData = false
@@ -74,19 +73,19 @@ class InMotionDecoderComparisonTest {
         assertTrue(hasNewData, "Should have new telemetry data")
 
         // Verify telemetry matches legacy expected values
-        state = ds.toWheelState()
+        val telemetry = ds.telemetry
         // KMP rounds (3.83) vs legacy truncates (3.82); rounding is more correct
-        assertEquals(383, state.speed, "Raw speed should be 383 (3.83 km/h in 1/100 units)")
-        assertEquals(3.83, state.speedKmh, 0.01, "Speed should be 3.83 km/h")
-        assertEquals(26, state.temperatureC, "Temperature should be 26°C")
-        assertEquals(0, state.imuTemp, "IMU temp should be 0")
-        assertEquals(82.13, state.voltageV, 0.01, "Voltage should be 82.13V")
-        assertEquals(-0.2, state.currentA, 0.01, "Current should be -0.2A")
-        assertEquals(0.0, state.wheelDistanceKm, 0.001, "Wheel distance should be 0.0 km")
-        assertEquals(1303324, state.totalDistance.toInt(), "Total distance should be 1303324m")
-        assertEquals(97, state.batteryLevel, "Battery should be 97%")
-        assertEquals(0.2499847412109375, state.angle, 1e-10, "Angle should match legacy")
-        assertEquals(5.588888888888889, state.roll, 1e-10, "Roll should match legacy")
+        assertEquals(383, telemetry.speed, "Raw speed should be 383 (3.83 km/h in 1/100 units)")
+        assertEquals(3.83, telemetry.speedKmh, 0.01, "Speed should be 3.83 km/h")
+        assertEquals(26, telemetry.temperatureC, "Temperature should be 26°C")
+        assertEquals(0, telemetry.imuTemp, "IMU temp should be 0")
+        assertEquals(82.13, telemetry.voltageV, 0.01, "Voltage should be 82.13V")
+        assertEquals(-0.2, telemetry.currentA, 0.01, "Current should be -0.2A")
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001, "Wheel distance should be 0.0 km")
+        assertEquals(1303324, telemetry.totalDistance.toInt(), "Total distance should be 1303324m")
+        assertEquals(97, telemetry.batteryLevel, "Battery should be 97%")
+        assertEquals(0.2499847412109375, telemetry.angle, 1e-10, "Angle should match legacy")
+        assertEquals(5.588888888888889, telemetry.roll, 1e-10, "Roll should match legacy")
     }
 
     // ==================== V8F Full Data ====================
@@ -124,10 +123,10 @@ class InMotionDecoderComparisonTest {
             if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
-        var state = ds.toWheelState()
-        assertEquals("14604A5EBD9B000E", state.serialNumber, "Serial should match legacy")
-        assertEquals("InMotion V8F", state.model, "Model should match legacy")
-        assertEquals("2.2.21", state.version, "Version should match legacy")
+        var identity = ds.identity
+        assertEquals("14604A5EBD9B000E", identity.serialNumber, "Serial should match legacy")
+        assertEquals("InMotion V8F", identity.model, "Model should match legacy")
+        assertEquals("2.2.21", identity.version, "Version should match legacy")
 
         var hasNewData = false
         for (hex in fastPackets) {
@@ -140,19 +139,20 @@ class InMotionDecoderComparisonTest {
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
-        state = ds.toWheelState()
-        assertEquals(137, state.speed, "Raw speed should be 137 (1.37 km/h in 1/100 units)")
-        assertEquals(1.37, state.speedKmh, 0.01, "Speed should be 1.37 km/h")
-        assertEquals(27, state.temperatureC, "Temperature should be 27°C")
-        assertEquals(36, state.imuTemp, "IMU temp should be 36")
-        assertEquals(83.82, state.voltageV, 0.01, "Voltage should be 83.82V")
-        assertEquals(-0.05, state.currentA, 0.01, "Current should be -0.05A")
-        assertEquals(0.001, state.wheelDistanceKm, 0.001, "Wheel distance should be 0.001 km")
-        assertEquals(21679, state.totalDistance.toInt(), "Total distance should be 21679m")
-        assertEquals(100, state.batteryLevel, "Battery should be 100%")
-        assertEquals(0.0099945068359375, state.angle, 1e-10, "Angle should match legacy")
-        assertEquals(0.0, state.roll, 0.001, "Roll should be 0.0")
-        assertEquals("Drive", state.modeStr, "Mode should be Drive")
+        val telemetry = ds.telemetry
+        identity = ds.identity
+        assertEquals(137, telemetry.speed, "Raw speed should be 137 (1.37 km/h in 1/100 units)")
+        assertEquals(1.37, telemetry.speedKmh, 0.01, "Speed should be 1.37 km/h")
+        assertEquals(27, telemetry.temperatureC, "Temperature should be 27°C")
+        assertEquals(36, telemetry.imuTemp, "IMU temp should be 36")
+        assertEquals(83.82, telemetry.voltageV, 0.01, "Voltage should be 83.82V")
+        assertEquals(-0.05, telemetry.currentA, 0.01, "Current should be -0.05A")
+        assertEquals(0.001, telemetry.wheelDistanceKm, 0.001, "Wheel distance should be 0.001 km")
+        assertEquals(21679, telemetry.totalDistance.toInt(), "Total distance should be 21679m")
+        assertEquals(100, telemetry.batteryLevel, "Battery should be 100%")
+        assertEquals(0.0099945068359375, telemetry.angle, 1e-10, "Angle should match legacy")
+        assertEquals(0.0, telemetry.roll, 0.001, "Roll should be 0.0")
+        assertEquals("Drive", identity.modeStr, "Mode should be Drive")
     }
 
     // ==================== V8F Full Data 2 ====================
@@ -192,9 +192,9 @@ class InMotionDecoderComparisonTest {
             if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
-        var state = ds.toWheelState()
-        assertEquals("InMotion V8F", state.model, "Model should match legacy")
-        assertEquals("2.2.21", state.version, "Version should match legacy")
+        var identity = ds.identity
+        assertEquals("InMotion V8F", identity.model, "Model should match legacy")
+        assertEquals("2.2.21", identity.version, "Version should match legacy")
 
         var hasNewData = false
         for (hex in fastPackets) {
@@ -207,20 +207,21 @@ class InMotionDecoderComparisonTest {
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
-        state = ds.toWheelState()
+        val telemetry = ds.telemetry
+        identity = ds.identity
         // KMP rounds (0.67) vs legacy truncates (0.66); rounding is more correct
-        assertEquals(67, state.speed, "Raw speed should be 67 (0.67 km/h in 1/100 units)")
-        assertEquals(0.67, state.speedKmh, 0.01, "Speed should be 0.67 km/h")
-        assertEquals(28, state.temperatureC, "Temperature should be 28°C")
-        assertEquals(36, state.imuTemp, "IMU temp should be 36")
-        assertEquals(83.59, state.voltageV, 0.01, "Voltage should be 83.59V")
-        assertEquals(-0.1, state.currentA, 0.01, "Current should be -0.1A")
-        assertEquals(0.009, state.wheelDistanceKm, 0.001, "Wheel distance should be 0.009 km")
-        assertEquals(21687, state.totalDistance.toInt(), "Total distance should be 21687m")
-        assertEquals(100, state.batteryLevel, "Battery should be 100%")
-        assertEquals(0.079986572265625, state.angle, 1e-10, "Angle should match legacy")
-        assertEquals(0.0, state.roll, 0.001, "Roll should be 0.0")
-        assertEquals("Drive", state.modeStr, "Mode should be Drive")
+        assertEquals(67, telemetry.speed, "Raw speed should be 67 (0.67 km/h in 1/100 units)")
+        assertEquals(0.67, telemetry.speedKmh, 0.01, "Speed should be 0.67 km/h")
+        assertEquals(28, telemetry.temperatureC, "Temperature should be 28°C")
+        assertEquals(36, telemetry.imuTemp, "IMU temp should be 36")
+        assertEquals(83.59, telemetry.voltageV, 0.01, "Voltage should be 83.59V")
+        assertEquals(-0.1, telemetry.currentA, 0.01, "Current should be -0.1A")
+        assertEquals(0.009, telemetry.wheelDistanceKm, 0.001, "Wheel distance should be 0.009 km")
+        assertEquals(21687, telemetry.totalDistance.toInt(), "Total distance should be 21687m")
+        assertEquals(100, telemetry.batteryLevel, "Battery should be 100%")
+        assertEquals(0.079986572265625, telemetry.angle, 1e-10, "Angle should match legacy")
+        assertEquals(0.0, telemetry.roll, 0.001, "Roll should be 0.0")
+        assertEquals("Drive", identity.modeStr, "Mode should be Drive")
     }
 
     // ==================== V8S Full Data ====================
@@ -258,10 +259,10 @@ class InMotionDecoderComparisonTest {
             if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
 
-        var state = ds.toWheelState()
-        assertEquals("1571AA5EBD460106", state.serialNumber, "Serial should match legacy")
-        assertEquals("InMotion V8S", state.model, "Model should match legacy")
-        assertEquals("102.2.21", state.version, "Version should match legacy")
+        var identity = ds.identity
+        assertEquals("1571AA5EBD460106", identity.serialNumber, "Serial should match legacy")
+        assertEquals("InMotion V8S", identity.model, "Model should match legacy")
+        assertEquals("102.2.21", identity.version, "Version should match legacy")
 
         var hasNewData = false
         for (hex in fastPackets) {
@@ -274,19 +275,20 @@ class InMotionDecoderComparisonTest {
 
         assertTrue(hasNewData, "Should have new telemetry data")
 
-        state = ds.toWheelState()
-        assertEquals(0, state.speed, "Raw speed should be 0")
-        assertEquals(0.0, state.speedKmh, 0.01, "Speed should be 0.0 km/h")
-        assertEquals(30, state.temperatureC, "Temperature should be 30°C")
-        assertEquals(-110, state.imuTemp, "IMU temp should be -110")
-        assertEquals(81.98, state.voltageV, 0.01, "Voltage should be 81.98V")
-        assertEquals(0.07, state.currentA, 0.01, "Current should be 0.07A")
-        assertEquals(0.0, state.wheelDistanceKm, 0.001, "Wheel distance should be 0.0 km")
-        assertEquals(1199, state.totalDistance.toInt(), "Total distance should be 1199m")
-        assertEquals(96, state.batteryLevel, "Battery should be 96%")
-        assertEquals(-0.0699920654296875, state.angle, 1e-10, "Angle should match legacy")
-        assertEquals(0.0, state.roll, 0.001, "Roll should be 0.0")
-        assertEquals("Drive", state.modeStr, "Mode should be Drive")
+        val telemetry = ds.telemetry
+        identity = ds.identity
+        assertEquals(0, telemetry.speed, "Raw speed should be 0")
+        assertEquals(0.0, telemetry.speedKmh, 0.01, "Speed should be 0.0 km/h")
+        assertEquals(30, telemetry.temperatureC, "Temperature should be 30°C")
+        assertEquals(-110, telemetry.imuTemp, "IMU temp should be -110")
+        assertEquals(81.98, telemetry.voltageV, 0.01, "Voltage should be 81.98V")
+        assertEquals(0.07, telemetry.currentA, 0.01, "Current should be 0.07A")
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001, "Wheel distance should be 0.0 km")
+        assertEquals(1199, telemetry.totalDistance.toInt(), "Total distance should be 1199m")
+        assertEquals(96, telemetry.batteryLevel, "Battery should be 96%")
+        assertEquals(-0.0699920654296875, telemetry.angle, 1e-10, "Angle should match legacy")
+        assertEquals(0.0, telemetry.roll, 0.001, "Roll should be 0.0")
+        assertEquals("Drive", identity.modeStr, "Mode should be Drive")
     }
 
     // ==================== Escaped Checksum ====================
@@ -316,8 +318,8 @@ class InMotionDecoderComparisonTest {
 
         // Legacy test: only control packets (no telemetry), so result is false
         // but model and version should be extracted
-        val state = ds.toWheelState()
-        assertEquals("InMotion V8F", state.model, "Model should match legacy")
-        assertEquals("2.2.21", state.version, "Version should match legacy")
+        val identity = ds.identity
+        assertEquals("InMotion V8F", identity.model, "Model should match legacy")
+        assertEquals("2.2.21", identity.version, "Version should match legacy")
     }
 }

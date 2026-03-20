@@ -847,17 +847,17 @@ class VeteranDecoderTest {
 
         val result2 = freshDecoder.decode(byteArray2, decoderState, config)
         assertTrue(result2 is DecodeResult.Success)
-        val state = (result2 as DecodeResult.Success).data.stateFrom(decoderState)
+        val telemetry = (result2 as DecodeResult.Success).data.decoderStateFrom(decoderState).telemetry
 
         // Original expected values from VeteranAdapterTest
         // gotwayNegative=0 (default) → abs() applied to speed and phaseCurrent
-        assertEquals(0, abs(state.speed / 100))
-        assertEquals(50, state.temperature / 100)
-        assertEquals(9686, state.voltage)
-        assertEquals(340, state.phaseCurrent) // raw -34 * 10 = -340, abs() → 340
-        assertEquals(15349L, state.wheelDistance)
-        assertEquals(15349L, state.totalDistance)
-        assertEquals(90, state.batteryLevel)
+        assertEquals(0, abs(telemetry.speed / 100))
+        assertEquals(50, telemetry.temperature / 100)
+        assertEquals(9686, telemetry.voltage)
+        assertEquals(340, telemetry.phaseCurrent) // raw -34 * 10 = -340, abs() → 340
+        assertEquals(15349L, telemetry.wheelDistance)
+        assertEquals(15349L, telemetry.totalDistance)
+        assertEquals(90, telemetry.batteryLevel)
     }
 
     // ==================== Charging Status ====================

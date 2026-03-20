@@ -626,13 +626,13 @@ class NinebotZDecoderComparisonTest {
         // speedDouble=27.16, voltageDouble=61.7, currentDouble=44.98
         // temperature=37, totalDistance=2660251, batteryLevel=78
         if (hasNewData) {
-            val state = ds.toWheelState()
-            assertEquals(27.16, state.speedKmh, 0.1, "Speed should be ~27.16 km/h")
-            assertEquals(61.7, state.voltageV, 0.1, "Voltage should be ~61.7V")
-            assertEquals(44.98, state.currentA, 0.1, "Current should be ~44.98A")
-            assertEquals(37, state.temperatureC, "Temperature should be 37°C")
-            assertEquals(2660251, state.totalDistance.toInt(), "Total distance should be 2660251m")
-            assertEquals(78, state.batteryLevel, "Battery should be 78%")
+            val telemetry = ds.telemetry
+            assertEquals(27.16, telemetry.speedKmh, 0.1, "Speed should be ~27.16 km/h")
+            assertEquals(61.7, telemetry.voltageV, 0.1, "Voltage should be ~61.7V")
+            assertEquals(44.98, telemetry.currentA, 0.1, "Current should be ~44.98A")
+            assertEquals(37, telemetry.temperatureC, "Temperature should be 37°C")
+            assertEquals(2660251, telemetry.totalDistance.toInt(), "Total distance should be 2660251m")
+            assertEquals(78, telemetry.batteryLevel, "Battery should be 78%")
         }
     }
 }

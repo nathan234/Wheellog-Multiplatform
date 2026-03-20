@@ -1,6 +1,5 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -19,14 +18,14 @@ class InMotionV2DecoderComparisonTest {
     private val defaultDs = DecoderState()
     private val defaultConfig = DecoderConfig()
 
-    /** Feed all packets in order, returning the final state. */
-    private fun feedPackets(vararg hexPackets: String): WheelState {
+    /** Feed all packets in order, returning the accumulated decoder state. */
+    private fun feedPackets(vararg hexPackets: String): DecoderState {
         var ds = defaultDs
         for (hex in hexPackets) {
             val result = decoder.decode(hex.hexToByteArray(), ds, defaultConfig)
             if (result is DecodeResult.Success) ds = result.data.decoderStateFrom(ds)
         }
-        return ds.toWheelState()
+        return ds
     }
 
     // ==================== V11 Full Data ====================
@@ -35,7 +34,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V11 full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v11 full data
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "AAAA110882010206010201009C",                                                             // wheel type
             "AAAA11178202313438304341313232323037303032420000000000FD",                                 // serial
             "AAAA111D820622080004030F000602214000010110000602230D00010107000001F3",                     // versions
@@ -44,40 +43,42 @@ class InMotionV2DecoderComparisonTest {
             "AAAA141991E86C000066191C002DB2040064E60000974D050000C7DF01A4",                             // totals
             "AAAA143184E61EEB0561094A11AE04A004DF01402958CBB000CE004A010000D4FF7C15641900000000492B00000000000000000000C6" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("1480CA122207002B", state.serialNumber)
-        assertEquals("InMotion V11", state.model)
-        assertEquals("Main:1.1.64 Drv:3.4.8 BLE:1.1.13", state.version)
+        assertEquals("1480CA122207002B", identity.serialNumber)
+        assertEquals("InMotion V11", identity.model)
+        assertEquals("Main:1.1.64 Drv:3.4.8 BLE:1.1.13", identity.version)
 
         // Core telemetry
-        assertEquals(24.01, state.speedKmh, 0.01)
-        assertEquals(79.10, state.voltageV, 0.01)
-        assertEquals(15.15, state.currentA, 0.01)
+        assertEquals(24.01, telemetry.speedKmh, 0.01)
+        assertEquals(79.10, telemetry.voltageV, 0.01)
+        assertEquals(15.15, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(27, state.temperatureC)
-        assertEquals(30, state.temperature2C)
-        assertEquals(-176, state.imuTemp)
-        assertEquals(-176, state.cpuTemp)
+        assertEquals(27, telemetry.temperatureC)
+        assertEquals(30, telemetry.temperature2C)
+        assertEquals(-176, telemetry.imuTemp)
+        assertEquals(-176, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(44.26, state.torque, 0.01)
-        assertEquals(1184.0, state.motorPower, 0.01)
-        assertEquals(55.00, state.speedLimit, 0.01)
-        assertEquals(65.00, state.currentLimit, 0.01)
+        assertEquals(44.26, telemetry.torque, 0.01)
+        assertEquals(1184.0, telemetry.motorPower, 0.01)
+        assertEquals(55.00, telemetry.speedLimit, 0.01)
+        assertEquals(65.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(4.79, state.wheelDistanceKm, 0.001)
-        assertEquals(278800, state.totalDistance.toInt())
+        assertEquals(4.79, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(278800, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(88, state.batteryLevel)
-        assertEquals(1198.0, state.powerW, 0.01)
+        assertEquals(88, telemetry.batteryLevel)
+        assertEquals(1198.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(3.3, state.angle, 0.01)
-        assertEquals(-0.44, state.roll, 0.01)
+        assertEquals(3.3, telemetry.angle, 0.01)
+        assertEquals(-0.44, telemetry.roll, 0.01)
     }
 
     // ==================== V11 Escape Data ====================
@@ -87,27 +88,28 @@ class InMotionV2DecoderComparisonTest {
         // From InMotionAdapterV2Test: decode with v11 escape data
         // Packet contains 0xA5A5 escape sequences
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "AAAA110882010206010201009C",  // wheel type (to set model)
             "aaaa1431843020a5a50068025207870080009400882c5fc4b000d7001000f4ff2b037c1564190000d9d9492b00000000000000000000a5a5" // real-time with escapes
         )
+        val telemetry = ds.telemetry
 
-        assertEquals(6.16, state.speedKmh, 0.01)
-        assertEquals(82.40, state.voltageV, 0.01)
-        assertEquals(1.65, state.currentA, 0.01)
-        assertEquals(20, state.temperatureC)
-        assertEquals(39, state.temperature2C)
-        assertEquals(41, state.imuTemp)
-        assertEquals(41, state.cpuTemp)
-        assertEquals(18.74, state.torque, 0.01)
-        assertEquals(128.0, state.motorPower, 0.01)
-        assertEquals(55.00, state.speedLimit, 0.01)
-        assertEquals(65.00, state.currentLimit, 0.01)
-        assertEquals(1.48, state.wheelDistanceKm, 0.001)
-        assertEquals(95, state.batteryLevel)
-        assertEquals(135.0, state.powerW, 0.01)
-        assertEquals(0.16, state.angle, 0.01)
-        assertEquals(8.11, state.roll, 0.01)
+        assertEquals(6.16, telemetry.speedKmh, 0.01)
+        assertEquals(82.40, telemetry.voltageV, 0.01)
+        assertEquals(1.65, telemetry.currentA, 0.01)
+        assertEquals(20, telemetry.temperatureC)
+        assertEquals(39, telemetry.temperature2C)
+        assertEquals(41, telemetry.imuTemp)
+        assertEquals(41, telemetry.cpuTemp)
+        assertEquals(18.74, telemetry.torque, 0.01)
+        assertEquals(128.0, telemetry.motorPower, 0.01)
+        assertEquals(55.00, telemetry.speedLimit, 0.01)
+        assertEquals(65.00, telemetry.currentLimit, 0.01)
+        assertEquals(1.48, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(95, telemetry.batteryLevel)
+        assertEquals(135.0, telemetry.powerW, 0.01)
+        assertEquals(0.16, telemetry.angle, 0.01)
+        assertEquals(8.11, telemetry.roll, 0.01)
     }
 
     // ==================== V11 v1.4.0 ====================
@@ -117,29 +119,31 @@ class InMotionV2DecoderComparisonTest {
         // From InMotionAdapterV2Test: decode with v11 v1_4_0
         // Uses proto 2 (detected from version 1.4.0)
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "AAAA110882010206010201009C",  // wheel type
             "aaaa111d820622000003040300070221000004011a000602230d00010107000001b9",  // version → Main:1.4.0
             "aaaa1445842d1d10000000efff070000000000000000002b0300000000000000008a149612e02e8813641900000000cbb000cccad1000028000000000049140000000000000000000021" // real-time (proto 2 layout)
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("Main:1.4.0 Drv:4.3.0 BLE:1.1.13", state.version)
-        assertEquals(0.0, state.speedKmh, 0.01)
-        assertEquals(74.69, state.voltageV, 0.01)
-        assertEquals(0.16, state.currentA, 0.01)
-        assertEquals(27, state.temperatureC)
-        assertEquals(28, state.temperature2C)
-        assertEquals(33, state.imuTemp)
-        assertEquals(26, state.cpuTemp)
-        assertEquals(-0.17, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(50.00, state.speedLimit, 0.01)
-        assertEquals(65.00, state.currentLimit, 0.01)
-        assertEquals(0.0, state.wheelDistanceKm, 0.001)
-        assertEquals(53, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
-        assertEquals(0.0, state.angle, 0.01)
-        assertEquals(0.0, state.roll, 0.01)
+        assertEquals("Main:1.4.0 Drv:4.3.0 BLE:1.1.13", identity.version)
+        assertEquals(0.0, telemetry.speedKmh, 0.01)
+        assertEquals(74.69, telemetry.voltageV, 0.01)
+        assertEquals(0.16, telemetry.currentA, 0.01)
+        assertEquals(27, telemetry.temperatureC)
+        assertEquals(28, telemetry.temperature2C)
+        assertEquals(33, telemetry.imuTemp)
+        assertEquals(26, telemetry.cpuTemp)
+        assertEquals(-0.17, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(50.00, telemetry.speedLimit, 0.01)
+        assertEquals(65.00, telemetry.currentLimit, 0.01)
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(53, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
+        assertEquals(0.0, telemetry.angle, 0.01)
+        assertEquals(0.0, telemetry.roll, 0.01)
     }
 
     // ==================== V12HS Full Data ====================
@@ -148,7 +152,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V12HS full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v12 full data
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa110882010207010103009c",                                                             // wheel type
             "aaaa11178202413033313135353133303030393733300000000000fb",                                 // serial
             "aaaa111d820622700002042000060221180004017d000602232400010203000402bc",                     // versions
@@ -156,40 +160,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa1419916350000074471800d1140400c68e00007d350200b0ce000039",                             // totals
             "aaaa144384cd26090000000e00040000000000000000000000eafb000062009d2450463b1b581b000000000000cdce00ced1d0b03d2828000000004900000000000000000000008c" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A031155130009730", state.serialNumber)
-        assertEquals("InMotion V12 HS", state.model)
-        assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", state.version)
+        assertEquals("A031155130009730", identity.serialNumber)
+        assertEquals("InMotion V12 HS", identity.model)
+        assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", identity.version)
 
         // Core telemetry
-        assertEquals(0.0, state.speedKmh, 0.01)
-        assertEquals(99.33, state.voltageV, 0.01)
-        assertEquals(0.09, state.currentA, 0.01)
+        assertEquals(0.0, telemetry.speedKmh, 0.01)
+        assertEquals(99.33, telemetry.voltageV, 0.01)
+        assertEquals(0.09, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(29, state.temperatureC)
-        assertEquals(30, state.temperature2C)
-        assertEquals(32, state.imuTemp)
-        assertEquals(33, state.cpuTemp)
+        assertEquals(29, telemetry.temperatureC)
+        assertEquals(30, telemetry.temperature2C)
+        assertEquals(32, telemetry.imuTemp)
+        assertEquals(33, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(0.14, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(69.71, state.speedLimit, 0.01)
-        assertEquals(70.00, state.currentLimit, 0.01)
+        assertEquals(0.14, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(69.71, telemetry.speedLimit, 0.01)
+        assertEquals(70.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(0.0, state.wheelDistanceKm, 0.001)
-        assertEquals(205790, state.totalDistance.toInt())
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(205790, telemetry.totalDistance.toInt())
 
         // Battery & power — batteryLevel = 1 is a known old firmware issue
-        assertEquals(1, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
+        assertEquals(1, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(0.0, state.angle, 0.01)
-        assertEquals(-10.46, state.roll, 0.01)
+        assertEquals(0.0, telemetry.angle, 0.01)
+        assertEquals(-10.46, telemetry.roll, 0.01)
     }
 
     // ==================== V12HS Full Data 2 (Moving) ====================
@@ -198,7 +204,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V12HS moving data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v12 full data 2
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa110882010207010103009c",
             "aaaa11178202413033313135353133303030393733300000000000fb",
             "aaaa111d820622700002042000060221180004017d000602232400010203000402bc",
@@ -206,28 +212,30 @@ class InMotionV2DecoderComparisonTest {
             "aaaa1419916350000074471800d1140400c68e00007d350200b0ce000039",
             "aaaa144384ae24600479135909c61536085a0b00003f000000eb003700a5aa21b61f50463b1b581b000000000000ddd900dfe5e4b0f9646400000000490800000000000000000000dd"
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
-        assertEquals("A031155130009730", state.serialNumber)
-        assertEquals("InMotion V12 HS", state.model)
-        assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", state.version)
+        assertEquals("A031155130009730", identity.serialNumber)
+        assertEquals("InMotion V12 HS", identity.model)
+        assertEquals("Main:1.4.24 Drv:4.2.112 BLE:2.1.36", identity.version)
 
-        assertEquals(49.85, state.speedKmh, 0.01)
-        assertEquals(93.90, state.voltageV, 0.01)
-        assertEquals(11.20, state.currentA, 0.01)
-        assertEquals(45, state.temperatureC)
-        assertEquals(41, state.temperature2C)
-        assertEquals(52, state.imuTemp)
-        assertEquals(53, state.cpuTemp)
-        assertEquals(23.93, state.torque, 0.01)
-        assertEquals(2906.0, state.motorPower, 0.01)
-        assertEquals(69.71, state.speedLimit, 0.01)
-        assertEquals(70.00, state.currentLimit, 0.01)
-        assertEquals(0.55, state.wheelDistanceKm, 0.001)
-        assertEquals(205790, state.totalDistance.toInt())
-        assertEquals(86, state.batteryLevel)
-        assertEquals(2102.0, state.powerW, 0.01)
-        assertEquals(0.63, state.angle, 0.01)
-        assertEquals(2.35, state.roll, 0.01)
+        assertEquals(49.85, telemetry.speedKmh, 0.01)
+        assertEquals(93.90, telemetry.voltageV, 0.01)
+        assertEquals(11.20, telemetry.currentA, 0.01)
+        assertEquals(45, telemetry.temperatureC)
+        assertEquals(41, telemetry.temperature2C)
+        assertEquals(52, telemetry.imuTemp)
+        assertEquals(53, telemetry.cpuTemp)
+        assertEquals(23.93, telemetry.torque, 0.01)
+        assertEquals(2906.0, telemetry.motorPower, 0.01)
+        assertEquals(69.71, telemetry.speedLimit, 0.01)
+        assertEquals(70.00, telemetry.currentLimit, 0.01)
+        assertEquals(0.55, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(205790, telemetry.totalDistance.toInt())
+        assertEquals(86, telemetry.batteryLevel)
+        assertEquals(2102.0, telemetry.powerW, 0.01)
+        assertEquals(0.63, telemetry.angle, 0.01)
+        assertEquals(2.35, telemetry.roll, 0.01)
     }
 
     // ==================== V12HS Data 3 ====================
@@ -237,27 +245,28 @@ class InMotionV2DecoderComparisonTest {
         // From InMotionAdapterV2Test: decode with v12 data 3
         // Model pre-set via wheel type packet (no serial/version/totals)
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa110882010207010103009c",  // wheel type
             "aaaa14438415273500930496014b0535003a0000008d000000fdfe010010271c255046581b581b000000000000ceca00cfd1d0b08d646400000000490000000000000000000000bc" // real-time
         )
+        val telemetry = ds.telemetry
 
-        assertEquals(11.71, state.speedKmh, 0.01)
-        assertEquals(100.05, state.voltageV, 0.01)
-        assertEquals(0.53, state.currentA, 0.01)
-        assertEquals(30, state.temperatureC)
-        assertEquals(26, state.temperature2C)
-        assertEquals(32, state.imuTemp)
-        assertEquals(33, state.cpuTemp)
-        assertEquals(4.06, state.torque, 0.01)
-        assertEquals(58.0, state.motorPower, 0.01)
-        assertEquals(70.00, state.speedLimit, 0.01)
-        assertEquals(70.00, state.currentLimit, 0.01)
-        assertEquals(0.01, state.wheelDistanceKm, 0.001)
-        assertEquals(100, state.batteryLevel)
-        assertEquals(53.0, state.powerW, 0.01)
-        assertEquals(1.41, state.angle, 0.01)
-        assertEquals(-2.59, state.roll, 0.01)
+        assertEquals(11.71, telemetry.speedKmh, 0.01)
+        assertEquals(100.05, telemetry.voltageV, 0.01)
+        assertEquals(0.53, telemetry.currentA, 0.01)
+        assertEquals(30, telemetry.temperatureC)
+        assertEquals(26, telemetry.temperature2C)
+        assertEquals(32, telemetry.imuTemp)
+        assertEquals(33, telemetry.cpuTemp)
+        assertEquals(4.06, telemetry.torque, 0.01)
+        assertEquals(58.0, telemetry.motorPower, 0.01)
+        assertEquals(70.00, telemetry.speedLimit, 0.01)
+        assertEquals(70.00, telemetry.currentLimit, 0.01)
+        assertEquals(0.01, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(100, telemetry.batteryLevel)
+        assertEquals(53.0, telemetry.powerW, 0.01)
+        assertEquals(1.41, telemetry.angle, 0.01)
+        assertEquals(-2.59, telemetry.roll, 0.01)
     }
 
     // ==================== V12HS Data 4 ====================
@@ -266,27 +275,28 @@ class InMotionV2DecoderComparisonTest {
     fun `V12HS data 4 matches legacy`() {
         // From InMotionAdapterV2Test: decode with v12 data 4
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa110882010207010103009c",
             "aaaa1443842627090000000000060000000000000000000000b3fd000010271c255046581b581b000000000000ceca00ced0cfb048282800000000490000000000000000000000ef"
         )
+        val telemetry = ds.telemetry
 
-        assertEquals(0.0, state.speedKmh, 0.01)
-        assertEquals(100.22, state.voltageV, 0.01)
-        assertEquals(0.09, state.currentA, 0.01)
-        assertEquals(30, state.temperatureC)
-        assertEquals(26, state.temperature2C)
-        assertEquals(31, state.imuTemp)
-        assertEquals(32, state.cpuTemp)
-        assertEquals(0.0, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(70.0, state.speedLimit, 0.01)
-        assertEquals(70.0, state.currentLimit, 0.01)
-        assertEquals(0.0, state.wheelDistanceKm, 0.001)
-        assertEquals(100, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
-        assertEquals(0.0, state.angle, 0.01)
-        assertEquals(-5.89, state.roll, 0.01)
+        assertEquals(0.0, telemetry.speedKmh, 0.01)
+        assertEquals(100.22, telemetry.voltageV, 0.01)
+        assertEquals(0.09, telemetry.currentA, 0.01)
+        assertEquals(30, telemetry.temperatureC)
+        assertEquals(26, telemetry.temperature2C)
+        assertEquals(31, telemetry.imuTemp)
+        assertEquals(32, telemetry.cpuTemp)
+        assertEquals(0.0, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(70.0, telemetry.speedLimit, 0.01)
+        assertEquals(70.0, telemetry.currentLimit, 0.01)
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(100, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
+        assertEquals(0.0, telemetry.angle, 0.01)
+        assertEquals(-5.89, telemetry.roll, 0.01)
     }
 
     // ==================== V12 PRO Full Data ====================
@@ -295,7 +305,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V12PRO full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v12 pro full data
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa110882010207030101009c",                                                             // wheel type
             "aaaa11178202413033313138333135303031333832340000000000f7",                                 // serial
             "aaaa111d820622120005060300080221100007016b00080223420001020000050281",                     // versions
@@ -304,40 +314,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa141991e12603006567dd00f6f117001cf40400954f1300b0c80000ca",                             // totals
             "aaaa144384b7261100000085ff5c00000000000000fcff0000eafe000076266d26803ee015581b000000000000c8c800c9b0c7b0b700000000000049000000000000000000000081" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A031183150013824", state.serialNumber)
-        assertEquals("InMotion V12 PRO", state.model)
-        assertEquals("Main:1.7.16 Drv:6.5.18 BLE:2.1.66", state.version)
+        assertEquals("A031183150013824", identity.serialNumber)
+        assertEquals("InMotion V12 PRO", identity.model)
+        assertEquals("Main:1.7.16 Drv:6.5.18 BLE:2.1.66", identity.version)
 
         // Core telemetry
-        assertEquals(0.0, state.speedKmh, 0.01)
-        assertEquals(99.11, state.voltageV, 0.01)
-        assertEquals(0.17, state.currentA, 0.01)
+        assertEquals(0.0, telemetry.speedKmh, 0.01)
+        assertEquals(99.11, telemetry.voltageV, 0.01)
+        assertEquals(0.17, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(24, state.temperatureC)
-        assertEquals(24, state.temperature2C)
-        assertEquals(23, state.imuTemp)
-        assertEquals(0, state.cpuTemp)
+        assertEquals(24, telemetry.temperatureC)
+        assertEquals(24, telemetry.temperature2C)
+        assertEquals(23, telemetry.imuTemp)
+        assertEquals(0, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(-1.23, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(56.00, state.speedLimit, 0.01)
-        assertEquals(70.00, state.currentLimit, 0.01)
+        assertEquals(-1.23, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(56.00, telemetry.speedLimit, 0.01)
+        assertEquals(70.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(0.0, state.wheelDistanceKm, 0.001)
-        assertEquals(2065610, state.totalDistance.toInt())
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(2065610, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(98, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
+        assertEquals(98, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(-0.04, state.angle, 0.01)
-        assertEquals(-2.78, state.roll, 0.01)
+        assertEquals(-0.04, telemetry.angle, 0.01)
+        assertEquals(-2.78, telemetry.roll, 0.01)
     }
 
     // ==================== V13 Full Data ====================
@@ -346,7 +358,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V13 full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v13 full data 1
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa1108820102080101010091",                                                             // wheel type
             "aaaa111782024130333131364231383030303130343600000000008a",                                 // serial
             "aaaa112f8206223a000005030008022115000002cf000802230a0002020000050224070001010200010125070001010200010172", // versions
@@ -354,40 +366,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa1419915e010000b7660000500900008c0600002d8b0000c9d000007e",                             // totals
             "aaaa145984092f3807000036003735000025130f27b108111d4203b00664fee703050000000000f225e225204e28233421401f401f204e401f709400000000cdccc9d1b0d10000b0286400000000004910000000000000001800000000b3" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A03116B180001046", state.serialNumber)
-        assertEquals("InMotion V13", state.model)
-        assertEquals("Main:2.0.21 Drv:5.0.58 BLE:2.2.10", state.version)
+        assertEquals("A03116B180001046", identity.serialNumber)
+        assertEquals("InMotion V13", identity.model)
+        assertEquals("Main:2.0.21 Drv:5.0.58 BLE:2.2.10", identity.version)
 
         // Core telemetry
-        assertEquals(136.23, state.speedKmh, 0.01)
-        assertEquals(120.41, state.voltageV, 0.01)
-        assertEquals(18.48, state.currentA, 0.01)
+        assertEquals(136.23, telemetry.speedKmh, 0.01)
+        assertEquals(120.41, telemetry.voltageV, 0.01)
+        assertEquals(18.48, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(29, state.temperatureC)
-        assertEquals(28, state.temperature2C)
-        assertEquals(33, state.imuTemp)
-        assertEquals(0, state.cpuTemp)
+        assertEquals(29, telemetry.temperatureC)
+        assertEquals(28, telemetry.temperature2C)
+        assertEquals(33, telemetry.imuTemp)
+        assertEquals(0, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(74.41, state.torque, 0.01)
-        assertEquals(1712.0, state.motorPower, 0.01)
-        assertEquals(90.00, state.speedLimit, 0.01)
-        assertEquals(80.00, state.currentLimit, 0.01)
+        assertEquals(74.41, telemetry.torque, 0.01)
+        assertEquals(1712.0, telemetry.motorPower, 0.01)
+        assertEquals(90.00, telemetry.speedLimit, 0.01)
+        assertEquals(80.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(4.901, state.wheelDistanceKm, 0.001)
-        assertEquals(3500, state.totalDistance.toInt())
+        assertEquals(4.901, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(3500, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(97, state.batteryLevel)
-        assertEquals(2225.0, state.powerW, 0.01)
+        assertEquals(97, telemetry.batteryLevel)
+        assertEquals(2225.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(0.54, state.angle, 0.01)
-        assertEquals(-4.12, state.roll, 0.01)
+        assertEquals(0.54, telemetry.angle, 0.01)
+        assertEquals(-4.12, telemetry.roll, 0.01)
     }
 
     // ==================== V14s Full Data ====================
@@ -396,7 +410,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V14s full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v14 full data 1
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa1108820102090201010093",                                                             // wheel type
             "aaaa1117820241303332313743304230303131323245000000000084",                                 // serial
             "aaaa11418206223c00060503000802212800000301000902230100000208000201240200000501000204260200000501000204250200000501000204270200000501000204eb", // versions
@@ -404,40 +418,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa1419911d9c000059293800d01106007134010097110600cbd051001c",                             // totals
             "aaaa1459847c334000000000002c0800009900430866004f002700efff6400bfff5e0000000000a5aa26a4261027581b581b401f401f401f401fb88800000000cdcfcad0b0d00000b0cc640000000000491000000000000000000000000064" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A03217C0B001122E", state.serialNumber)
-        assertEquals("InMotion V14 50S", state.model)
-        assertEquals("Main:3.0.40 Drv:5.6.60 BLE:2.0.1", state.version)
+        assertEquals("A03217C0B001122E", identity.serialNumber)
+        assertEquals("InMotion V14 50S", identity.model)
+        assertEquals("Main:3.0.40 Drv:5.6.60 BLE:2.0.1", identity.version)
 
         // Core telemetry
-        assertEquals(20.92, state.speedKmh, 0.01)
-        assertEquals(131.80, state.voltageV, 0.01)
-        assertEquals(0.64, state.currentA, 0.01)
+        assertEquals(20.92, telemetry.speedKmh, 0.01)
+        assertEquals(131.80, telemetry.voltageV, 0.01)
+        assertEquals(0.64, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(29, state.temperatureC)
-        assertEquals(31, state.temperature2C)
-        assertEquals(32, state.imuTemp)
-        assertEquals(0, state.cpuTemp)
+        assertEquals(29, telemetry.temperatureC)
+        assertEquals(31, telemetry.temperature2C)
+        assertEquals(32, telemetry.imuTemp)
+        assertEquals(0, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(1.53, state.torque, 0.01)
-        assertEquals(79.0, state.motorPower, 0.01)
-        assertEquals(70.00, state.speedLimit, 0.01)
-        assertEquals(80.00, state.currentLimit, 0.01)
+        assertEquals(1.53, telemetry.torque, 0.01)
+        assertEquals(79.0, telemetry.motorPower, 0.01)
+        assertEquals(70.00, telemetry.speedLimit, 0.01)
+        assertEquals(80.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(0.94, state.wheelDistanceKm, 0.001)
-        assertEquals(399650, state.totalDistance.toInt())
+        assertEquals(0.94, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(399650, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(99, state.batteryLevel)
-        assertEquals(102.0, state.powerW, 0.01)
+        assertEquals(99, telemetry.batteryLevel)
+        assertEquals(102.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(0.39, state.angle, 0.01)
-        assertEquals(-0.17, state.roll, 0.01)
+        assertEquals(0.39, telemetry.angle, 0.01)
+        assertEquals(-0.17, telemetry.roll, 0.01)
     }
 
     // ==================== V11Y Full Data ====================
@@ -446,7 +462,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V11Y full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v11y full data 1
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa110882010206020101009c",                                                             // wheel type
             "aaaa1117820241303332313831304430303130303139000000000083",                                 // serial
             "aaaa112f8206220800030603000802213400050201000902230300030108000201240d00010101000101250d00010101000101ac", // versions
@@ -455,40 +471,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa141991c82e0000266708008d62000091e400005e720300d0cb03009e",                             // totals
             "aaaa145984941e11000000000087000000090104020000000000006502000000000300000000004b20451fe02e0410100e401f401fa816a816c05d00000000ccc5cecdb0cd0000b0c36400000000004900000000000000000000000000fe" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A0321810D0010019", state.serialNumber)
-        assertEquals("InMotion V11y", state.model)
-        assertEquals("Main:2.5.52 Drv:6.3.8 BLE:1.3.3", state.version)
+        assertEquals("A0321810D0010019", identity.serialNumber)
+        assertEquals("InMotion V11y", identity.model)
+        assertEquals("Main:2.5.52 Drv:6.3.8 BLE:1.3.3", identity.version)
 
         // Core telemetry
-        assertEquals(1.35, state.speedKmh, 0.01)
-        assertEquals(78.28, state.voltageV, 0.01)
-        assertEquals(0.17, state.currentA, 0.01)
+        assertEquals(1.35, telemetry.speedKmh, 0.01)
+        assertEquals(78.28, telemetry.voltageV, 0.01)
+        assertEquals(0.17, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(28, state.temperatureC)
-        assertEquals(21, state.temperature2C)
-        assertEquals(29, state.imuTemp)
-        assertEquals(0, state.cpuTemp)
+        assertEquals(28, telemetry.temperatureC)
+        assertEquals(21, telemetry.temperature2C)
+        assertEquals(29, telemetry.imuTemp)
+        assertEquals(0, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(2.65, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(41.00, state.speedLimit, 0.01)
-        assertEquals(58.00, state.currentLimit, 0.01)
+        assertEquals(2.65, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(41.00, telemetry.speedLimit, 0.01)
+        assertEquals(58.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(0.03, state.wheelDistanceKm, 0.001)
-        assertEquals(119760, state.totalDistance.toInt())
+        assertEquals(0.03, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(119760, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(81, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
+        assertEquals(81, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(0.0, state.angle, 0.01)
-        assertEquals(6.13, state.roll, 0.01)
+        assertEquals(0.0, telemetry.angle, 0.01)
+        assertEquals(6.13, telemetry.roll, 0.01)
     }
 
     // ==================== V9 Full Data ====================
@@ -497,7 +515,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V9 full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v9 full data 1
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa11088201020c0101010095",                                                             // wheel type
             "aaaa11178202413134323139353041303030343635460000000000fd",                                 // serial
             "aaaa11388206222800040719000802212600080101000902230a0004010a0002012401000102010001012501000102010001012f0500050101000000b8", // versions
@@ -506,40 +524,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa14199191620000c1a216008bc301006ffe000037890200ffffd5fe55",                             // totals
             "aaaa1457843e1e0c000000000000000000afffc30000000000ffffd7fe000000000600000000009a17191670178510a00f401f401fa00fa00f983a00000000cdc900ceb0cec8ceb03a6400000000004900000000000000000000003f" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A1421950A000465F", state.serialNumber)
-        assertEquals("InMotion V9", state.model)
-        assertEquals("Main:1.8.38 Drv:7.4.40 BLE:1.4.10", state.version)
+        assertEquals("A1421950A000465F", identity.serialNumber)
+        assertEquals("InMotion V9", identity.model)
+        assertEquals("Main:1.8.38 Drv:7.4.40 BLE:1.4.10", identity.version)
 
         // Core telemetry
-        assertEquals(0.0, state.speedKmh, 0.01)
-        assertEquals(77.42, state.voltageV, 0.01)
-        assertEquals(0.12, state.currentA, 0.01)
+        assertEquals(0.0, telemetry.speedKmh, 0.01)
+        assertEquals(77.42, telemetry.voltageV, 0.01)
+        assertEquals(0.12, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(29, state.temperatureC)
-        assertEquals(25, state.temperature2C)
-        assertEquals(30, state.imuTemp)
-        assertEquals(0, state.cpuTemp)
+        assertEquals(29, telemetry.temperatureC)
+        assertEquals(25, telemetry.temperature2C)
+        assertEquals(30, telemetry.imuTemp)
+        assertEquals(0, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(-0.81, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(42.29, state.speedLimit, 0.01)
-        assertEquals(40.00, state.currentLimit, 0.01)
+        assertEquals(-0.81, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(42.29, telemetry.speedLimit, 0.01)
+        assertEquals(40.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(0.06, state.wheelDistanceKm, 0.001)
-        assertEquals(252330, state.totalDistance.toInt())
+        assertEquals(0.06, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(252330, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(58, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
+        assertEquals(58, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(-0.01, state.angle, 0.01)
-        assertEquals(-2.97, state.roll, 0.01)
+        assertEquals(-0.01, telemetry.angle, 0.01)
+        assertEquals(-2.97, telemetry.roll, 0.01)
     }
 
     // ==================== V12S Full Data ====================
@@ -548,7 +568,7 @@ class InMotionV2DecoderComparisonTest {
     fun `V12S full data matches legacy`() {
         // From InMotionAdapterV2Test: decode with v12s full data 1
         decoder.reset()
-        val state = feedPackets(
+        val ds = feedPackets(
             "aaaa11088201020b0101010092",                                                             // wheel type
             "aaaa1117820241313432313934303730303333353943000000000084",                                 // serial
             "aaaa11418206220e0011060300080221380008016b000802232a0003010a0002012400000301040000002508000101040000002e18000001000000012f050005010100000087", // versions
@@ -557,40 +577,42 @@ class InMotionV2DecoderComparisonTest {
             "aaaa1419911d81000080711c00bd92020019000100cd2002008282000037",                             // totals
             "aaaa145784b520010000000000000000000000000000000000d7e40000d7e400000000000000002427f026e02e581b581b401f401f581b581b786900000000cdce00ceb0cbccceb0216403000000000000000000000000000000001b" // real-time
         )
+        val telemetry = ds.telemetry
+        val identity = ds.identity
 
         // Identity
-        assertEquals("A14219407003359C", state.serialNumber)
-        assertEquals("InMotion V12S", state.model)
-        assertEquals("Main:1.8.56 Drv:6.17.14 BLE:1.3.42", state.version)
+        assertEquals("A14219407003359C", identity.serialNumber)
+        assertEquals("InMotion V12S", identity.model)
+        assertEquals("Main:1.8.56 Drv:6.17.14 BLE:1.3.42", identity.version)
 
         // Core telemetry
-        assertEquals(0.0, state.speedKmh, 0.01)
-        assertEquals(83.73, state.voltageV, 0.01)
-        assertEquals(0.01, state.currentA, 0.01)
+        assertEquals(0.0, telemetry.speedKmh, 0.01)
+        assertEquals(83.73, telemetry.voltageV, 0.01)
+        assertEquals(0.01, telemetry.currentA, 0.01)
 
         // Temperatures
-        assertEquals(29, state.temperatureC)
-        assertEquals(30, state.temperature2C)
-        assertEquals(27, state.imuTemp)
-        assertEquals(0, state.cpuTemp)
+        assertEquals(29, telemetry.temperatureC)
+        assertEquals(30, telemetry.temperature2C)
+        assertEquals(27, telemetry.imuTemp)
+        assertEquals(0, telemetry.cpuTemp)
 
         // IM2-specific
-        assertEquals(0.00, state.torque, 0.01)
-        assertEquals(0.0, state.motorPower, 0.01)
-        assertEquals(70.00, state.speedLimit, 0.01)
-        assertEquals(70.00, state.currentLimit, 0.01)
+        assertEquals(0.00, telemetry.torque, 0.01)
+        assertEquals(0.0, telemetry.motorPower, 0.01)
+        assertEquals(70.00, telemetry.speedLimit, 0.01)
+        assertEquals(70.00, telemetry.currentLimit, 0.01)
 
         // Distances
-        assertEquals(0.0, state.wheelDistanceKm, 0.001)
-        assertEquals(330530, state.totalDistance.toInt())
+        assertEquals(0.0, telemetry.wheelDistanceKm, 0.001)
+        assertEquals(330530, telemetry.totalDistance.toInt())
 
         // Battery & power
-        assertEquals(100, state.batteryLevel)
-        assertEquals(0.0, state.powerW, 0.01)
+        assertEquals(100, telemetry.batteryLevel)
+        assertEquals(0.0, telemetry.powerW, 0.01)
 
         // Orientation
-        assertEquals(-69.53, state.angle, 0.01)
-        assertEquals(0.0, state.roll, 0.01)
+        assertEquals(-69.53, telemetry.angle, 0.01)
+        assertEquals(0.0, telemetry.roll, 0.01)
     }
 
     // ==================== Version Parsing ====================
@@ -611,8 +633,8 @@ class InMotionV2DecoderComparisonTest {
         val version = "aaaa111d820622000003040300070221000004011a000602230d00010107000001b9"
         val mainData = "aaaa1445842d1d10000000efff070000000000000000002b0300000000000000008a149612e02e8813641900000000cbb000cccad1000028000000000049140000000000000000000021"
         decoder.reset()
-        val state = feedPackets(wheelType, version, mainData)
-        assertEquals("Main:1.4.0 Drv:4.3.0 BLE:1.1.13", state.version)
+        val ds = feedPackets(wheelType, version, mainData)
+        assertEquals("Main:1.4.0 Drv:4.3.0 BLE:1.1.13", ds.identity.version)
     }
 
     @Test
@@ -623,7 +645,7 @@ class InMotionV2DecoderComparisonTest {
         val version = "aaaa111d820622790002042000060221040005017d000602233700010203000402bb"
         val mainData = "aaaa144384cd26090000000e00040000000000000000000000eafb000062009d2450463b1b581b000000000000cdce00ced1d0b03d2828000000004900000000000000000000008c"
         decoder.reset()
-        val state = feedPackets(wheelType, version, mainData)
-        assertEquals("Main:1.5.4 Drv:4.2.121 BLE:2.1.55", state.version)
+        val ds = feedPackets(wheelType, version, mainData)
+        assertEquals("Main:1.5.4 Drv:4.2.121 BLE:2.1.55", ds.identity.version)
     }
 }

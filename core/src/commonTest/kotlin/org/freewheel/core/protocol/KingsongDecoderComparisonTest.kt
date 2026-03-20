@@ -68,9 +68,9 @@ class KingsongDecoderComparisonTest {
         // Verify key values - note Kingsong uses different units
         // Speed is in 1/100 km/h for Kingsong
         // Voltage is in 1/100 V
-        val state = ds.toWheelState()
-        assertEquals(6505, state.voltage, "Voltage should be 6505 (65.05V)")
-        assertEquals(65.05, state.voltageV, 0.01, "Voltage should be 65.05V")
+        val telemetry = ds.telemetry
+        assertEquals(6505, telemetry.voltage, "Voltage should be 6505 (65.05V)")
+        assertEquals(65.05, telemetry.voltageV, 0.01, "Voltage should be 65.05V")
     }
 
     @Test
@@ -372,12 +372,12 @@ class KingsongDecoderComparisonTest {
 
         val cpuResult = decoder.decode(cpuPacket, ds, defaultConfig)
         assertTrue(cpuResult is DecodeResult.Success, "F5 frame should be decoded")
-        val state = (cpuResult as DecodeResult.Success).data.stateFrom(ds)
+        val telemetry = (cpuResult as DecodeResult.Success).data.assertTelemetry()
 
         // byte 14 = 0x40 = 64 (cpuLoad)
-        assertEquals(64, state.cpuLoad, "CPU load should be 64")
+        assertEquals(64, telemetry.cpuLoad, "CPU load should be 64")
         // byte 15 = 0x0C = 12, output = 12 * 100 = 1200
-        assertEquals(1200, state.output, "Output should be 1200 (12 * 100)")
+        assertEquals(1200, telemetry.output, "Output should be 1200 (12 * 100)")
     }
 
     // ==================== Speed Limit (0xF6 Frame) ====================
@@ -410,7 +410,7 @@ class KingsongDecoderComparisonTest {
 
         val result = decoder.decode(packet, ds, defaultConfig)
         assertTrue(result is DecodeResult.Success, "F6 frame should be decoded")
-        assertEquals(32.05, (result as DecodeResult.Success).data.stateFrom(ds).speedLimit, 0.01, "Speed limit should be 32.05 km/h")
+        assertEquals(32.05, (result as DecodeResult.Success).data.assertTelemetry().speedLimit, 0.01, "Speed limit should be 32.05 km/h")
     }
 
     // ==================== Battery Calculation for 84V Wheel ====================
@@ -453,7 +453,7 @@ class KingsongDecoderComparisonTest {
             val result = decoder.decode(packet, ds, defaultConfig)
             assertTrue(result is DecodeResult.Success, "Should decode 0xA9 frame at voltage $voltage")
             val decoded = (result as DecodeResult.Success).data
-            assertEquals(expectedBattery, decoded.stateFrom(ds).batteryLevel,
+            assertEquals(expectedBattery, decoded.assertTelemetry().batteryLevel,
                 "Battery at ${voltage / 100.0}V for 84V wheel should be $expectedBattery%")
             ds = decoded.decoderStateFrom(ds)
         }
@@ -497,7 +497,7 @@ class KingsongDecoderComparisonTest {
             val result = decoder.decode(packet, ds, defaultConfig)
             assertTrue(result is DecodeResult.Success, "Should decode 0xA9 frame at voltage $voltage")
             val decoded = (result as DecodeResult.Success).data
-            assertEquals(expectedBattery, decoded.stateFrom(ds).batteryLevel,
+            assertEquals(expectedBattery, decoded.assertTelemetry().batteryLevel,
                 "Battery at ${voltage / 100.0}V for 126V wheel should be $expectedBattery%")
             ds = decoded.decoderStateFrom(ds)
         }
@@ -618,7 +618,7 @@ class KingsongDecoderComparisonTest {
 
         val result = decoder.decode(packet, ds, defaultConfig)
         assertTrue(result is DecodeResult.Success, "F1 frame should be decoded")
-        val bms1 = (result as DecodeResult.Success).data.stateFrom(ds).bms1
+        val bms1 = (result as DecodeResult.Success).data.assertBms().bms1
         assertTrue(bms1 != null, "BMS1 should be populated")
         assertEquals(84.0, bms1!!.voltage, 0.01, "BMS voltage should be 84.00V")
         assertEquals(1.0, bms1.current, 0.01, "BMS current should be 1.00A")

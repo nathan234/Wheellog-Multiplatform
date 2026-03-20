@@ -1,6 +1,6 @@
 package org.freewheel.core.protocol
 
-import org.freewheel.core.domain.WheelState
+import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.utils.ByteUtils
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -43,7 +43,7 @@ class VeteranDecoderComparisonTest {
         // Verify we got valid data
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = (result2 as DecodeResult.Success).data.stateFrom(state)
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
 
         // Expected from legacy test:
         // - speed = 0
@@ -55,10 +55,10 @@ class VeteranDecoderComparisonTest {
         // - batteryLevel = 90
         // - version = "000.0.00"
 
-        assertEquals(0, abs(finalState.speed), "Speed should be 0")
-        assertEquals(9686, finalState.voltage, "Voltage should be 9686 (96.86V)")
-        assertEquals(96.86, finalState.voltageV, 0.01, "Voltage should be 96.86V")
-        assertEquals(15349, finalState.totalDistance.toInt(), "Total distance should be 15349m")
+        assertEquals(0, abs(telemetry.speed), "Speed should be 0")
+        assertEquals(9686, telemetry.voltage, "Voltage should be 9686 (96.86V)")
+        assertEquals(96.86, telemetry.voltageV, 0.01, "Voltage should be 96.86V")
+        assertEquals(15349, telemetry.totalDistance.toInt(), "Total distance should be 15349m")
     }
 
     @Test
@@ -77,7 +77,7 @@ class VeteranDecoderComparisonTest {
 
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = (result2 as DecodeResult.Success).data.stateFrom(state)
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
 
         // Expected from legacy test:
         // - speed = 274 (absolute value) - legacy stores raw value in 1/10 km/h
@@ -92,10 +92,10 @@ class VeteranDecoderComparisonTest {
         // Note: KMP decoder stores speed in 1/100 km/h (2740 = 27.4 km/h)
         // Legacy stores in 1/10 km/h (274 = 27.4 km/h)
         // Both represent the same physical speed
-        assertEquals(27.4, abs(finalState.speed) / 100.0, 0.1, "Speed should be ~27.4 km/h")
-        assertEquals(9098, finalState.voltage, "Voltage should be 9098 (90.98V)")
-        assertEquals(90.98, finalState.voltageV, 0.01, "Voltage should be 90.98V")
-        assertEquals(347461, finalState.totalDistance.toInt(), "Total distance should be 347461m")
+        assertEquals(27.4, abs(telemetry.speed) / 100.0, 0.1, "Speed should be ~27.4 km/h")
+        assertEquals(9098, telemetry.voltage, "Voltage should be 9098 (90.98V)")
+        assertEquals(90.98, telemetry.voltageV, 0.01, "Voltage should be 90.98V")
+        assertEquals(347461, telemetry.totalDistance.toInt(), "Total distance should be 347461m")
     }
 
     @Test
@@ -114,7 +114,7 @@ class VeteranDecoderComparisonTest {
 
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = (result2 as DecodeResult.Success).data.stateFrom(state)
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
 
         // Expected from legacy test:
         // - speed = 0 (absolute value)
@@ -127,10 +127,10 @@ class VeteranDecoderComparisonTest {
         // - angle = 0.2 (from 0x0014 = 20 / 100 = 0.2)
         // - version = "001.0.58"
 
-        assertEquals(0, abs(finalState.speed), "Speed should be 0")
-        assertEquals(9677, finalState.voltage, "Voltage should be 9677 (96.77V)")
-        assertEquals(96.77, finalState.voltageV, 0.01, "Voltage should be 96.77V")
-        assertEquals(2672504, finalState.totalDistance.toInt(), "Total distance should be 2672504m")
+        assertEquals(0, abs(telemetry.speed), "Speed should be 0")
+        assertEquals(9677, telemetry.voltage, "Voltage should be 9677 (96.77V)")
+        assertEquals(96.77, telemetry.voltageV, 0.01, "Voltage should be 96.77V")
+        assertEquals(2672504, telemetry.totalDistance.toInt(), "Total distance should be 2672504m")
     }
 
     @Test
@@ -149,7 +149,7 @@ class VeteranDecoderComparisonTest {
 
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode complete frame")
 
-        val finalState = (result2 as DecodeResult.Success).data.stateFrom(state)
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
 
         // Expected from legacy test:
         // - speed = 0 (absolute value)
@@ -162,10 +162,10 @@ class VeteranDecoderComparisonTest {
         // - angle = 0.05 (from 0x0005 = 5 / 100 = 0.05)
         // - version = "002.0.02"
 
-        assertEquals(0, abs(finalState.speed), "Speed should be 0")
-        assertEquals(9837, finalState.voltage, "Voltage should be 9837 (98.37V)")
-        assertEquals(98.37, finalState.voltageV, 0.01, "Voltage should be 98.37V")
-        assertEquals(19119, finalState.totalDistance.toInt(), "Total distance should be 19119m")
+        assertEquals(0, abs(telemetry.speed), "Speed should be 0")
+        assertEquals(9837, telemetry.voltage, "Voltage should be 9837 (98.37V)")
+        assertEquals(98.37, telemetry.voltageV, 0.01, "Voltage should be 98.37V")
+        assertEquals(19119, telemetry.totalDistance.toInt(), "Total distance should be 19119m")
     }
 
     // ==================== Header Detection ====================
@@ -349,13 +349,13 @@ class VeteranDecoderComparisonTest {
         }
 
         // Expected from legacy test:
-        val state = ds.toWheelState()
-        assertEquals(0, abs(state.speed), "Speed should be 0")
-        assertEquals(33, state.temperatureC, "Temperature should be 33°C")
-        assertEquals(123.31, state.voltageV, 0.01, "Voltage should be 123.31V")
-        assertEquals(0.0, state.currentA, 0.01, "Phase current should be 0.0A")
-        assertEquals(8248, state.totalDistance.toInt(), "Total distance should be 8248m")
-        assertEquals(100, state.batteryLevel, "Battery should be 100%")
+        val telemetry = ds.telemetry
+        assertEquals(0, abs(telemetry.speed), "Speed should be 0")
+        assertEquals(33, telemetry.temperatureC, "Temperature should be 33°C")
+        assertEquals(123.31, telemetry.voltageV, 0.01, "Voltage should be 123.31V")
+        assertEquals(0.0, telemetry.currentA, 0.01, "Phase current should be 0.0A")
+        assertEquals(8248, telemetry.totalDistance.toInt(), "Total distance should be 8248m")
+        assertEquals(100, telemetry.batteryLevel, "Battery should be 100%")
     }
 
     // ==================== Battery Calculation for 151V Model (Lynx) ====================
@@ -381,12 +381,12 @@ class VeteranDecoderComparisonTest {
         }
 
         // Expected from legacy test:
-        val state = ds.toWheelState()
-        assertEquals(0, abs(state.speed), "Speed should be 0")
-        assertEquals(30, state.temperatureC, "Temperature should be 30°C")
-        assertEquals(146.19, state.voltageV, 0.01, "Voltage should be 146.19V")
-        assertEquals(1904, state.totalDistance.toInt(), "Total distance should be 1904m")
-        assertEquals(94, state.batteryLevel, "Battery should be 94%")
+        val telemetry = ds.telemetry
+        assertEquals(0, abs(telemetry.speed), "Speed should be 0")
+        assertEquals(30, telemetry.temperatureC, "Temperature should be 30°C")
+        assertEquals(146.19, telemetry.voltageV, 0.01, "Voltage should be 146.19V")
+        assertEquals(1904, telemetry.totalDistance.toInt(), "Total distance should be 1904m")
+        assertEquals(94, telemetry.batteryLevel, "Battery should be 94%")
     }
 
     // ==================== veteranNegative (Speed Polarity) ====================
@@ -405,12 +405,12 @@ class VeteranDecoderComparisonTest {
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode data")
-        val decoded2 = (result2 as DecodeResult.Success).data
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
         // Raw speed = 0x0112 = 274, * 10 = 2740
         // With veteranNegative=1, speed = 2740 * 1 = 2740 (positive)
-        assertEquals(2740, decoded2.stateFrom(state).speed,
+        assertEquals(2740, telemetry.speed,
             "Speed should be 2740 (27.40 km/h)")
-        assertTrue(decoded2.stateFrom(state).speed > 0, "Speed should be positive")
+        assertTrue(telemetry.speed > 0, "Speed should be positive")
     }
 
     @Test
@@ -430,11 +430,11 @@ class VeteranDecoderComparisonTest {
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Should decode data")
-        val decoded2 = (result2 as DecodeResult.Success).data
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
         // Raw speed = -274, * 10 = -2740, abs() → 2740
-        assertEquals(2740, decoded2.stateFrom(state).speed,
+        assertEquals(2740, telemetry.speed,
             "gotwayNegative=0: speed should be absolute (27.40 km/h)")
-        assertTrue(decoded2.stateFrom(state).speed > 0, "Speed should be positive with gotwayNegative=0")
+        assertTrue(telemetry.speed > 0, "Speed should be positive with gotwayNegative=0")
     }
 
     // ==================== Sherman S Variant Header ====================
@@ -453,14 +453,14 @@ class VeteranDecoderComparisonTest {
         val result2 = decoder.decode(byteArray2, state, defaultConfig)
 
         assertTrue(result2 is DecodeResult.Success && result2.data.hasNewData, "Sherman S header variant should decode")
-        val finalState = (result2 as DecodeResult.Success).data.stateFrom(state)
+        val telemetry = (result2 as DecodeResult.Success).data.assertTelemetry()
 
         // Expected from legacy test:
-        assertEquals(0, abs(finalState.speed), "Speed should be 0")
-        assertEquals(31, finalState.temperatureC, "Temperature should be 31°C")
-        assertEquals(98.26, finalState.voltageV, 0.01, "Voltage should be 98.26V")
-        assertEquals(6050, finalState.totalDistance.toInt(), "Total distance should be 6050m")
-        assertEquals(97, finalState.batteryLevel, "Battery should be 97%")
+        assertEquals(0, abs(telemetry.speed), "Speed should be 0")
+        assertEquals(31, telemetry.temperatureC, "Temperature should be 31°C")
+        assertEquals(98.26, telemetry.voltageV, 0.01, "Voltage should be 98.26V")
+        assertEquals(6050, telemetry.totalDistance.toInt(), "Total distance should be 6050m")
+        assertEquals(97, telemetry.batteryLevel, "Battery should be 97%")
     }
 
     // ==================== gotwayNegative (Config-driven) ====================
@@ -545,13 +545,13 @@ class VeteranDecoderComparisonTest {
 
     /**
      * Build and decode a Veteran frame with given raw speed value.
-     * Returns the decoded WheelState.
+     * Returns the decoded TelemetryState.
      */
     private fun decodeVeteranFrameWithSpeed(
         rawSpeed: Int,
         rawPhaseCurrent: Int = 0,
         config: DecoderConfig = defaultConfig
-    ): WheelState {
+    ): TelemetryState {
         val vetDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(
             rawVoltage = 9686,
@@ -562,7 +562,7 @@ class VeteranDecoderComparisonTest {
         val ds = defaultState
         val result = vetDecoder.decode(frame, ds, config)
         assertTrue(result is DecodeResult.Success, "Veteran frame should decode")
-        return (result as DecodeResult.Success).data.stateFrom(ds)
+        return (result as DecodeResult.Success).data.assertTelemetry()
     }
 
     /**
@@ -574,7 +574,7 @@ class VeteranDecoderComparisonTest {
         rawPhaseCurrent: Int,
         rawVoltage: Int = 9686,
         config: DecoderConfig = defaultConfig
-    ): WheelState {
+    ): TelemetryState {
         val vetDecoder = VeteranDecoder()
         val frame = buildVeteranFrame(
             rawVoltage = rawVoltage,
@@ -586,7 +586,7 @@ class VeteranDecoderComparisonTest {
         val ds = defaultState
         val result = vetDecoder.decode(frame, ds, config)
         assertTrue(result is DecodeResult.Success, "Veteran frame should decode")
-        return (result as DecodeResult.Success).data.stateFrom(ds)
+        return (result as DecodeResult.Success).data.assertTelemetry()
     }
 
     /**

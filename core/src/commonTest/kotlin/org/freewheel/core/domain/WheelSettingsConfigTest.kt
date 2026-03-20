@@ -78,9 +78,9 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `InMotionV2 has 10 sections`() {
+    fun `InMotionV2 has 12 sections`() {
         val sections = WheelSettingsConfig.sections(WheelType.INMOTION_V2)
-        assertEquals(10, sections.size)
+        assertEquals(12, sections.size)
         assertEquals("Lighting", sections[0].title)
         assertEquals("Ride", sections[1].title)
         assertEquals("Berm Angle", sections[2].title)
@@ -89,8 +89,10 @@ class WheelSettingsConfigTest {
         assertEquals("Thermal", sections[5].title)
         assertEquals("Safety", sections[6].title)
         assertEquals("Battery", sections[7].title)
-        assertEquals("System", sections[8].title)
-        assertEquals("Dangerous Actions", sections[9].title)
+        assertEquals("Tire Pressure", sections[8].title)
+        assertEquals("Connectivity", sections[9].title)
+        assertEquals("System", sections[10].title)
+        assertEquals("Dangerous Actions", sections[11].title)
     }
 
     @Test
@@ -249,7 +251,7 @@ class WheelSettingsConfigTest {
 
     @Test
     fun `InMotionV2 Dangerous has Lock toggle, Calibrate, Power Off`() {
-        val dangerous = WheelSettingsConfig.sections(WheelType.INMOTION_V2)[9]
+        val dangerous = WheelSettingsConfig.sections(WheelType.INMOTION_V2)[11]
         assertEquals("Dangerous Actions", dangerous.title)
         assertEquals(3, dangerous.controls.size)
 
@@ -310,12 +312,12 @@ class WheelSettingsConfigTest {
     }
 
     @Test
-    fun `InMotionV2 Ride has 11 controls including 7 toggles and 4 sliders`() {
+    fun `InMotionV2 Ride has 13 controls including 8 toggles and 5 sliders`() {
         val ride = WheelSettingsConfig.sections(WheelType.INMOTION_V2)[1]
-        assertEquals(11, ride.controls.size)
+        assertEquals(13, ride.controls.size)
 
         val toggles = ride.controls.filterIsInstance<ControlSpec.Toggle>()
-        assertEquals(7, toggles.size)
+        assertEquals(8, toggles.size)
         assertEquals(SettingsCommandId.HANDLE_BUTTON, toggles[0].commandId)
         assertEquals(SettingsCommandId.RIDE_MODE, toggles[1].commandId)
         assertEquals(SettingsCommandId.GO_HOME_MODE, toggles[2].commandId)
@@ -323,13 +325,15 @@ class WheelSettingsConfigTest {
         assertEquals(SettingsCommandId.TRANSPORT_MODE, toggles[4].commandId)
         assertEquals(SettingsCommandId.ONE_PEDAL_MODE, toggles[5].commandId)
         assertEquals(SettingsCommandId.CRUISE, toggles[6].commandId)
+        assertEquals(SettingsCommandId.SPEED_TILTBACK_ENABLE, toggles[7].commandId)
 
         val sliders = ride.controls.filterIsInstance<ControlSpec.Slider>()
-        assertEquals(4, sliders.size)
+        assertEquals(5, sliders.size)
         assertEquals(SettingsCommandId.MAX_SPEED, sliders[0].commandId)
         assertEquals(SettingsCommandId.PEDAL_TILT, sliders[1].commandId)
         assertEquals(SettingsCommandId.PEDAL_SENSITIVITY, sliders[2].commandId)
         assertEquals(SettingsCommandId.TURNING_SENSITIVITY, sliders[3].commandId)
+        assertEquals(SettingsCommandId.BALANCE_ANGLE, sliders[4].commandId)
     }
 
     // ==================== Dangerous Actions Have Confirmation Messages ====================

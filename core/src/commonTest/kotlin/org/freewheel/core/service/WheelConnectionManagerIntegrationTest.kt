@@ -123,8 +123,8 @@ class WheelConnectionManagerIntegrationTest {
         assertTrue(state is ConnectionState.Connected, "Expected Connected, got $state")
         assertEquals("AA:BB:CC:DD:EE:FF", state.address)
         assertEquals("KS-S18", manager.identityState.value.model)
-        assertEquals(6505, manager.telemetryState.value.voltage)
-        assertEquals(1500, manager.telemetryState.value.speed)
+        assertEquals(6505, manager.telemetryState.value!!.voltage)
+        assertEquals(1500, manager.telemetryState.value!!.speed)
     }
 
     @Test
@@ -173,7 +173,7 @@ class WheelConnectionManagerIntegrationTest {
         manager.onDataReceived(buildKsDistancePacket(distance = 50000, temperature2 = 3800))
         runCurrent()
 
-        val tel = manager.telemetryState.value
+        val tel = manager.telemetryState.value!!
         val id = manager.identityState.value
         assertEquals("KS-S18", id.model)
         assertEquals(8400, tel.voltage)
@@ -295,7 +295,7 @@ class WheelConnectionManagerIntegrationTest {
         manager.onDataReceived(buildKsLivePacket(voltage = 8400, speed = 2500))
         runCurrent()
         assertTrue(manager.connectionState.value is ConnectionState.Connected)
-        assertEquals(2500, manager.telemetryState.value.speed)
+        assertEquals(2500, manager.telemetryState.value!!.speed)
 
         // Disconnect
         manager.disconnect()
@@ -303,7 +303,7 @@ class WheelConnectionManagerIntegrationTest {
 
         // Verify cleanup
         assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
-        assertEquals(TelemetryState(), manager.telemetryState.value)
+        assertNull(manager.telemetryState.value, "Telemetry should be null after disconnect")
         assertEquals(WheelIdentity(), manager.identityState.value)
         assertNull(manager.getCurrentDecoder())
     }
@@ -322,7 +322,7 @@ class WheelConnectionManagerIntegrationTest {
         manager.onDataReceived(buildGotwayLiveDataFrame(voltage = 6000, speed = 100))
         runCurrent()
 
-        val tel = manager.telemetryState.value
+        val tel = manager.telemetryState.value!!
         // GotwayDecoder: voltage is passed through scaleVoltage (default scaler=1.0)
         assertEquals(6000, tel.voltage)
         // GotwayDecoder: speed = signedShort * 3.6, with gotwayNegative=0 → abs()

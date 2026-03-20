@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -80,7 +81,7 @@ class WheelConnectionManagerPipelineTest {
         manager.onDataReceived(ksCpuLoadPacket)
         manager.onDataReceived(ksOutputPacket)
 
-        val tel = manager.telemetryState.value
+        val tel = manager.telemetryState.value!!
         val id = manager.identityState.value
 
         // Voltage: 6505 (65.05V)
@@ -106,7 +107,7 @@ class WheelConnectionManagerPipelineTest {
         manager.onDataReceived(ksNamePacket)
         manager.onDataReceived(ksLiveDataPacket)
 
-        val tel = manager.telemetryState.value
+        val tel = manager.telemetryState.value!!
 
         // Speed from live data packet
         assertTrue(tel.speed > 0, "Speed should be positive after live data")
@@ -179,14 +180,14 @@ class WheelConnectionManagerPipelineTest {
         // Set initial state with a valid packet
         manager.onDataReceived(ksNamePacket)
         manager.onDataReceived(ksLiveDataPacket)
-        val telAfterValid = manager.telemetryState.value
+        val telAfterValid = manager.telemetryState.value!!
         val idAfterValid = manager.identityState.value
 
         // Feed incomplete frame (too short for Kingsong 20-byte frame)
         manager.onDataReceived(byteArrayOf(0xAA.toByte(), 0x55))
 
         // State should be unchanged
-        assertEquals(telAfterValid.voltage, manager.telemetryState.value.voltage)
+        assertEquals(telAfterValid.voltage, manager.telemetryState.value!!.voltage)
         assertEquals(idAfterValid.model, manager.identityState.value.model)
     }
 
@@ -200,8 +201,8 @@ class WheelConnectionManagerPipelineTest {
         // Feed empty array
         manager.onDataReceived(byteArrayOf())
 
-        // Should still be in default state
-        assertEquals(0, manager.telemetryState.value.speed)
+        // Should still be null (no real data received)
+        assertNull(manager.telemetryState.value, "Telemetry should be null before real data")
     }
 
     // ==================== consecutiveDecodeErrors ====================
@@ -302,7 +303,7 @@ class WheelConnectionManagerPipelineTest {
         val newTelemetry = manager.telemetryState.value
         assertNotEquals(initialTelemetry, newTelemetry,
             "TelemetryState should update on live data")
-        assertTrue(newTelemetry.voltage > 0, "Voltage should be set in telemetry")
+        assertTrue(newTelemetry!!.voltage > 0, "Voltage should be set in telemetry")
     }
 
     @Test
@@ -366,7 +367,7 @@ class WheelConnectionManagerPipelineTest {
         manager.onDataReceived(ksCpuLoadPacket)
         manager.onDataReceived(ksOutputPacket)
 
-        val tel = manager.telemetryState.value
+        val tel = manager.telemetryState.value!!
         val id = manager.identityState.value
 
         // After full sequence, should have: model, voltage, speed, battery, distance
@@ -399,7 +400,7 @@ class WheelConnectionManagerPipelineTest {
 
         assertEquals(0, manager.consecutiveDecodeErrors.value,
             "Errors should remain 0 after valid data")
-        assertTrue(manager.telemetryState.value.voltage > 0,
+        assertTrue(manager.telemetryState.value!!.voltage > 0,
             "State should update after recovery")
         assertTrue(
             manager.connectionState.value is ConnectionState.Connected,
@@ -432,7 +433,7 @@ class WheelConnectionManagerPipelineTest {
         manager.onWheelTypeDetected(WheelType.KINGSONG)
         runCurrent()
 
-        val voltageBefore = manager.telemetryState.value.voltage
+        val telemetryBefore = manager.telemetryState.value
 
         // Feed data — decoder throws, but manager catches it
         manager.onDataReceived(ksLiveDataPacket)
@@ -443,8 +444,8 @@ class WheelConnectionManagerPipelineTest {
             "Should increment decode errors on exception"
         )
 
-        // State should be unchanged
-        assertEquals(voltageBefore, manager.telemetryState.value.voltage,
+        // State should be unchanged (still null — no successful decode)
+        assertEquals(telemetryBefore, manager.telemetryState.value,
             "State should not change when decoder throws")
     }
 }

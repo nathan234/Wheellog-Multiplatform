@@ -8,7 +8,7 @@ import FreeWheelCore
 class WheelManager: ObservableObject {
     // MARK: - Published State
 
-    @Published private(set) var telemetry: TelemetryState = TelemetryState.companion.empty()
+    @Published private(set) var telemetry: TelemetryState?
     @Published private(set) var identity: WheelIdentity = WheelIdentity.companion.empty()
     @Published private(set) var bmsState: BmsState = BmsState.companion.empty()
     @Published private(set) var wheelSettings: WheelSettings = WheelSettings.None.shared
@@ -549,7 +549,7 @@ class WheelManager: ObservableObject {
         activeAlarms = []
         isMockMode = false
         connectionState = .disconnected
-        telemetry = TelemetryState.companion.empty()
+        telemetry = nil
         identity = WheelIdentity.companion.empty()
         bmsState = BmsState.companion.empty()
         wheelSettings = WheelSettings.None.shared
@@ -625,7 +625,7 @@ class WheelManager: ObservableObject {
     func stopTestMode() {
         isTestMode = false
         connectionState = .disconnected
-        telemetry = TelemetryState.companion.empty()
+        telemetry = nil
         identity = WheelIdentity.companion.empty()
         bmsState = BmsState.companion.empty()
         wheelSettings = WheelSettings.None.shared
@@ -748,8 +748,9 @@ class WheelManager: ObservableObject {
 
     /// Handle a new TelemetryState emission from the KMP flow.
     /// Runs all telemetry side-effects: alarms, logging, telemetry buffer.
-    private func handleTelemetryUpdate(_ newTelemetry: TelemetryState) {
+    private func handleTelemetryUpdate(_ newTelemetry: TelemetryState?) {
         telemetry = newTelemetry
+        guard let newTelemetry = newTelemetry else { return }
 
         // Check alarms when connected
         if connectionState.isConnected {
@@ -1337,7 +1338,7 @@ class WheelManager: ObservableObject {
         WheelConnectionManagerHelper.shared.stopReplay(engine: replayEngine)
         isReplayMode = false
         connectionState = .disconnected
-        telemetry = TelemetryState.companion.empty()
+        telemetry = nil
         identity = WheelIdentity.companion.empty()
         bmsState = BmsState.companion.empty()
         wheelSettings = WheelSettings.None.shared

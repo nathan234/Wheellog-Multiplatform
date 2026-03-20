@@ -94,7 +94,7 @@ object WheelConnectionManagerHelper {
 
     // MARK: - Granular Sub-state Getters
 
-    fun getTelemetryState(manager: WheelConnectionManager): TelemetryState {
+    fun getTelemetryState(manager: WheelConnectionManager): TelemetryState? {
         return manager.telemetryState.value
     }
 
@@ -424,7 +424,7 @@ object WheelConnectionManagerHelper {
         return FlowObservation(scope)
     }
 
-    fun observeTelemetryState(manager: WheelConnectionManager, onChange: (TelemetryState) -> Unit): FlowObservation {
+    fun observeTelemetryState(manager: WheelConnectionManager, onChange: (TelemetryState?) -> Unit): FlowObservation {
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         scope.launch { manager.telemetryState.collect { onChange(it) } }
         return FlowObservation(scope)
@@ -524,11 +524,11 @@ object WheelConnectionManagerHelper {
 
     fun checkAlarms(
         checker: AlarmChecker,
-        telemetry: TelemetryState,
+        telemetry: TelemetryState?,
         config: AlarmConfig,
         currentTimeMs: Long
-    ): AlarmResult {
-        return checker.check(telemetry, config, currentTimeMs)
+    ): AlarmResult? {
+        return telemetry?.let { checker.check(it, config, currentTimeMs) }
     }
 
     fun resetAlarmChecker(checker: AlarmChecker) {

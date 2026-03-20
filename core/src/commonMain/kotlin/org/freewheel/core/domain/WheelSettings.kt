@@ -129,7 +129,21 @@ sealed class WheelSettings {
         val cruise: Boolean = false,
         val loadDetect: Boolean = false,
         val standbyTime: Int = -1,
-        val chargeLimit: Int = -1
+        val chargeLimit: Int = -1,
+        val speedAlarm: Int = -1,
+        val pwmTiltBackLimit: Int = -1,
+        val pwmAlarm1: Int = -1,
+        val pwmAlarm2: Int = -1,
+        val balanceAngle: Int = -1,
+        // P6-specific settings
+        val autoScreenOff: Boolean = false,
+        val autoLock: Boolean = false,
+        val ignoreTirePressure: Boolean = false,
+        val rideConnectSwitch: Boolean = false,
+        val rideConnectLowBattery: Boolean = false,
+        val minTirePressure: Int = -1,
+        val chargingCurrentAC110V: Int = -1,
+        val chargingCurrentAC220V: Int = -1
     ) : WheelSettings()
 
     data class InMotionV1(
@@ -301,3 +315,17 @@ val WheelSettings.cruise: Boolean get() = (this as? WheelSettings.InMotionV2)?.c
 val WheelSettings.loadDetect: Boolean get() = (this as? WheelSettings.InMotionV2)?.loadDetect ?: false
 val WheelSettings.highSpeedMode: Boolean get() = (this as? WheelSettings.Veteran)?.highSpeedMode ?: false
 val WheelSettings.lowVoltageMode: Boolean get() = (this as? WheelSettings.Veteran)?.lowVoltageMode ?: false
+
+// P6-specific boolean fields
+val WheelSettings.autoScreenOff: Boolean get() = (this as? WheelSettings.InMotionV2)?.autoScreenOff ?: false
+val WheelSettings.autoLock: Boolean get() = (this as? WheelSettings.InMotionV2)?.autoLock ?: false
+val WheelSettings.ignoreTirePressure: Boolean get() = (this as? WheelSettings.InMotionV2)?.ignoreTirePressure ?: false
+val WheelSettings.rideConnectSwitch: Boolean get() = (this as? WheelSettings.InMotionV2)?.rideConnectSwitch ?: false
+val WheelSettings.rideConnectLowBattery: Boolean get() = (this as? WheelSettings.InMotionV2)?.rideConnectLowBattery ?: false
+
+// P6-specific int fields
+val WheelSettings.minTirePressure: Int get() = (this as? WheelSettings.InMotionV2)?.minTirePressure ?: -1
+val WheelSettings.chargingCurrentAC110V: Int get() = (this as? WheelSettings.InMotionV2)?.chargingCurrentAC110V ?: -1
+val WheelSettings.chargingCurrentAC220V: Int get() = (this as? WheelSettings.InMotionV2)?.chargingCurrentAC220V ?: -1
+val WheelSettings.balanceAngle: Int get() = (this as? WheelSettings.InMotionV2)?.balanceAngle ?: -1
+val WheelSettings.speedAlarm: Int get() = (this as? WheelSettings.InMotionV2)?.speedAlarm ?: -1

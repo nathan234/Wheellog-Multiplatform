@@ -28,8 +28,8 @@ class FakeWheelConnectionManager : WheelConnectionManagerPort {
     private val _capabilities = MutableStateFlow(CapabilitySet())
     override val capabilities: StateFlow<CapabilitySet> = _capabilities.asStateFlow()
 
-    private val _telemetryState = MutableStateFlow(TelemetryState())
-    override val telemetryState: StateFlow<TelemetryState> = _telemetryState.asStateFlow()
+    private val _telemetryState = MutableStateFlow<TelemetryState?>(null)
+    override val telemetryState: StateFlow<TelemetryState?> = _telemetryState.asStateFlow()
 
     private val _identityState = MutableStateFlow(WheelIdentity())
     override val identityState: StateFlow<WheelIdentity> = _identityState.asStateFlow()

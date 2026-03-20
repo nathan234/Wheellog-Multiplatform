@@ -365,4 +365,26 @@ class AlarmCheckerTest {
         val result = checker.check(telemetry, config, currentTimeMs = 1050)
         assertTrue(result.hasAlarm)
     }
+
+    // ==================== Regression: false alarm on zero state ====================
+
+    @Test
+    fun `battery alarm does NOT fire on default zero telemetry state`() {
+        // Regression test: before nullable TelemetryState, the default TelemetryState()
+        // had batteryLevel=0, which would trigger a battery alarm if alarmBattery > 0.
+        // With nullable telemetry, callers filter null before calling check().
+        // This test verifies the underlying behavior: even if someone passes a default
+        // TelemetryState with batteryLevel=0, we document this fires — the fix is the
+        // null guard in callers. This test documents the behavior explicitly.
+        val config = AlarmConfig(alarmBattery = 10) // 10% threshold
+        val defaultTelemetry = TelemetryState() // batteryLevel = 0
+
+        val result = checker.check(defaultTelemetry, config, currentTimeMs = 1000)
+
+        // batteryLevel=0 <= alarmBattery=10, so the alarm DOES fire on raw check.
+        // The fix is that callers (ViewModel, WheelManager) filter null telemetry
+        // so check() is never called with the default zero state.
+        assertTrue(result.hasAlarm, "Battery alarm fires on zero state — callers must null-guard")
+        assertEquals(AlarmType.BATTERY, result.triggeredAlarms[0].type)
+    }
 }

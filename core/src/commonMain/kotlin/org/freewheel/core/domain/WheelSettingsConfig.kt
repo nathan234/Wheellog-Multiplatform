@@ -210,12 +210,14 @@ object WheelSettingsConfig {
             ControlSpec.Toggle("Go Home Mode", SettingsCommandId.GO_HOME_MODE),
             ControlSpec.Toggle("Fancier Mode", SettingsCommandId.FANCIER_MODE),
             ControlSpec.Toggle("Transport Mode", SettingsCommandId.TRANSPORT_MODE),
-            ControlSpec.Slider("Max Speed", 3, 60, "km/h", 30, SettingsCommandId.MAX_SPEED),
+            ControlSpec.Slider("Max Speed", 3, 160, "km/h", 30, SettingsCommandId.MAX_SPEED),
             ControlSpec.Slider("Pedal Tilt", -10, 10, "\u00B0", 0, SettingsCommandId.PEDAL_TILT),
             ControlSpec.Slider("Pedal Sensitivity", 0, 100, "%", 50, SettingsCommandId.PEDAL_SENSITIVITY),
             ControlSpec.Toggle("One Pedal Mode", SettingsCommandId.ONE_PEDAL_MODE),
             ControlSpec.Toggle("Cruise", SettingsCommandId.CRUISE),
-            ControlSpec.Slider("Turning Sensitivity", 0, 100, "%", 50, SettingsCommandId.TURNING_SENSITIVITY)
+            ControlSpec.Slider("Turning Sensitivity", 0, 100, "%", 50, SettingsCommandId.TURNING_SENSITIVITY),
+            ControlSpec.Slider("Balance Angle", -500, 500, "\u00D7 0.01\u00B0", 0, SettingsCommandId.BALANCE_ANGLE, step = 10),
+            ControlSpec.Toggle("Speed Tilt-Back", SettingsCommandId.SPEED_TILTBACK_ENABLE)
         )),
         SettingsSection("Berm Angle", listOf(
             ControlSpec.Toggle("Berm Angle Mode", SettingsCommandId.BERM_ANGLE_MODE),
@@ -247,10 +249,21 @@ object WheelSettingsConfig {
         SettingsSection("Battery", listOf(
             ControlSpec.Toggle("Two Battery Mode", SettingsCommandId.TWO_BATTERY_MODE),
             ControlSpec.Toggle("Low Battery Safe Mode", SettingsCommandId.LOW_BATTERY_SAFE_MODE),
-            ControlSpec.Slider("Charge Limit", 50, 100, "%", 100, SettingsCommandId.CHARGE_LIMIT)
+            ControlSpec.Slider("Charge Limit", 50, 100, "%", 100, SettingsCommandId.CHARGE_LIMIT),
+            ControlSpec.Slider("Charging Current AC220V", 0, 200, "\u00D7 0.1A", 100, SettingsCommandId.CHARGING_CURRENT),
+        )),
+        SettingsSection("Tire Pressure", listOf(
+            ControlSpec.Toggle("Ignore Tire Pressure Alert", SettingsCommandId.IGNORE_TIRE_PRESSURE),
+            ControlSpec.Slider("Min Tire Pressure Alert", 0, 100, "psi", 25, SettingsCommandId.MIN_TIRE_PRESSURE)
+        )),
+        SettingsSection("Connectivity", listOf(
+            ControlSpec.Toggle("RideConnect Switch", SettingsCommandId.RIDE_CONNECT_SWITCH),
+            ControlSpec.Toggle("RideConnect Low Battery Mode", SettingsCommandId.RIDE_CONNECT_LOW_BATTERY)
         )),
         SettingsSection("System", listOf(
-            ControlSpec.Slider("Standby Time", 1, 60, "min", 15, SettingsCommandId.STANDBY_TIME)
+            ControlSpec.Slider("Standby Time", 1, 60, "min", 15, SettingsCommandId.STANDBY_TIME),
+            ControlSpec.Toggle("Auto Screen Off", SettingsCommandId.SCREEN_AUTO_OFF),
+            ControlSpec.Toggle("Auto Lock on Power Off", SettingsCommandId.AUTO_LOCK)
         )),
         SettingsSection("Dangerous Actions", listOf(
             lockToggle(),

@@ -430,6 +430,17 @@ sealed class WheelCommand {
     /** Same as SetFancierMode — sub-command 0x24 on InMotion V2 */
     data class SetPerformanceMode(val enabled: Boolean) : WheelCommand()
 
+    // --- InMotion P6 settings ---
+
+    data class SetAutoLock(val enabled: Boolean) : WheelCommand()
+    data class SetBalanceAngle(val angle: Int) : WheelCommand()
+    data class SetChargingCurrent(val ac220v: Int, val ac110v: Int) : WheelCommand()
+    data class SetIgnoreTirePressure(val enabled: Boolean) : WheelCommand()
+    data class SetMinTirePressure(val value1: Int, val value2: Int) : WheelCommand()
+    data class SetRideConnectSwitch(val enabled: Boolean) : WheelCommand()
+    data class SetRideConnectLowBattery(val enabled: Boolean) : WheelCommand()
+    data class SetSpeedTiltbackEnable(val enabled: Boolean) : WheelCommand()
+
     // --- DarknessBot-discovered settings (command bytes TBD via BLE capture) ---
 
     data class SetExtremeMode(val enabled: Boolean) : WheelCommand()

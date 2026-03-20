@@ -1752,6 +1752,153 @@ class InMotionV2DecoderTest {
         assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
     }
 
+    // ==================== P6 New Command Tests ====================
+
+    @Test
+    fun `P6 auto lock uses sub-command 0x2D`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetAutoLock(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x2D, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 balance angle uses sub-command 0x22 with LE short`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetBalanceAngle(200))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x22, 0xC8.toByte(), 0x00)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 charging current uses sub-command 0x39 with two bytes`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetChargingCurrent(ac220v = 100, ac110v = 80))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x39, 100, 80)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 ignore tire pressure uses sub-command 0x4F`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetIgnoreTirePressure(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x4F, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 min tire pressure uses sub-command 0x4D`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetMinTirePressure(0x22, 0x44))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x4D, 0x22, 0x44)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 ride connect switch uses sub-command 0x48`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetRideConnectSwitch(false))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x48, 0x00)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 ride connect low battery uses sub-command 0x47`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetRideConnectLowBattery(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x47, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 speed tiltback enable uses sub-command 0x3E`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetSpeedTiltbackEnable(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x3E, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 auto headlight uses sub-command 0x2F`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetAutoHeadlight(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x2F, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 screen auto off uses sub-command 0x3D`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetScreenAutoOff(true))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x3D, 0x01)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `P6 charge limit uses sub-command 0x28`() {
+        val d = decoderForModel(13, 1) // P6
+        val result = d.buildCommand(WheelCommand.SetChargeLimit(80))
+        assertTrue(result.isNotEmpty())
+        val expected = InMotionV2Decoder.buildMessage(
+            InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
+            byteArrayOf(0x28, 80)
+        )
+        assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
+    }
+
+    @Test
+    fun `non-P6 P6-only commands return empty`() {
+        val d = decoderForModel(6, 1) // V11
+        assertTrue(d.buildCommand(WheelCommand.SetAutoLock(true)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetBalanceAngle(100)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetChargingCurrent(100, 80)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetIgnoreTirePressure(true)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetMinTirePressure(0x22, 0x44)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetRideConnectSwitch(true)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetRideConnectLowBattery(true)).isEmpty())
+        assertTrue(d.buildCommand(WheelCommand.SetSpeedTiltbackEnable(true)).isEmpty())
+    }
+
     // ==================== P6 Extended Protocol Tests ====================
 
     @Test
@@ -1814,7 +1961,8 @@ class InMotionV2DecoderTest {
         assertEquals(-36, decoded.assertTelemetry().current, "Current should be -36")
         assertEquals(12490, decoded.assertTelemetry().speed, "Speed should be 12490")
         assertEquals(97, decoded.assertTelemetry().batteryLevel, "Battery should be 97% (100 - 278/100)")
-        assertEquals(1800, decoded.assertTelemetry().temperature, "MosTemp should be 18°C × 100")
+        // 0x87 is a lightweight frame — it does NOT contain temperatures
+        assertEquals(0, decoded.assertTelemetry().temperature, "0x87 should not set temperature")
     }
 
     @Test
@@ -1898,6 +2046,161 @@ class InMotionV2DecoderTest {
         // Should be EXTENDED flag (0x16), not DEFAULT (0x14)
         val flagsByte = bytes[2].toInt() and 0xFF
         assertEquals(0x16, flagsByte, "P6 keep-alive should use EXTENDED flag")
+    }
+
+    @Test
+    fun `P6 extended settings response 0xA0 parses all fields`() {
+        val decoder = InMotionV2Decoder()
+        // Detect model as P6
+        val initData = ByteArray(80)
+        initData[0] = 0x02; initData[1] = 0x86.toByte()
+        initData[27] = 0x0D; initData[28] = 0x01
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
+
+        // Build 0xA0 settings response using real capture data:
+        // [02 A0 | 20 00 00 00 00 00 FF 00 00 20 35 FE 2D 62 2E 40 1F 40 1F 34 21 ...]
+        val settingsPayload = ByteArray(51)
+        settingsPayload[0] = 0x20 // sub-type echo
+        // data[9:10] = tilt-back speed: LE 13600 (136 km/h × 100) = 0x3520
+        settingsPayload[9] = 0x20; settingsPayload[10] = 0x35
+        // data[11:12] = speed alarm: LE 11774 (117 km/h × 100) = 0x2DFE
+        settingsPayload[11] = 0xFE.toByte(); settingsPayload[12] = 0x2D
+        // data[15:16] = PWM tilt-back limit: LE 8000 (80%) = 0x1F40
+        settingsPayload[15] = 0x40; settingsPayload[16] = 0x1F
+        // data[17:18] = PWM alarm 1: LE 8000 (80%) = 0x1F40
+        settingsPayload[17] = 0x40; settingsPayload[18] = 0x1F
+        // data[19:20] = PWM alarm 2: LE 8500 (85%) = 0x2134
+        settingsPayload[19] = 0x34; settingsPayload[20] = 0x21
+        // data[21:22] = balance angle: LE 100 (1.00°) = 0x0064
+        settingsPayload[21] = 0x64; settingsPayload[22] = 0x00
+        // data[25] = ride mode flags: bit 4 = 1 (sport/fancier)
+        settingsPayload[25] = 0x10
+        // data[26] = comfort sensitivity: 81
+        settingsPayload[26] = 51
+        // data[27] = classic sensitivity: 100
+        settingsPayload[27] = 100
+        // data[30] = standby minutes: 10
+        settingsPayload[30] = 10
+        // data[32] = charging limit: 100%
+        settingsPayload[32] = 100
+        // data[41] = logo light brightness: 100
+        settingsPayload[41] = 100
+        // data[39:40] = min tire pressure: LE 0x4422 = 17442
+        settingsPayload[39] = 0x22; settingsPayload[40] = 0x44
+        // data[42] = cutout angle: 45°
+        settingsPayload[42] = 45
+        // data[44] = charging current AC220V: 100 (× 0.1A)
+        settingsPayload[44] = 100
+        // data[45] = charging current AC110V: 80 (× 0.1A)
+        settingsPayload[45] = 80
+        // data[46] = flags: bit 0=beep ON, bit 3=auto headlight OFF, bit 6=transport OFF
+        settingsPayload[46] = 0x25
+        // data[47] = flags: bit 5=auto screen off ON
+        settingsPayload[47] = 0x31
+        // data[48] = flags: bit 3=rideConnectLowBatt OFF, bit 4=rideConnectSwitch ON, bit 5=DRL ON, bit 6=ignoreTire OFF
+        settingsPayload[48] = 0x34
+        // data[49] = flags: bit 3=auto lock ON
+        settingsPayload[49] = 0x08
+
+        // Frame: extended prefix [02 A0] + settings payload
+        val extData = byteArrayOf(0x02, 0xA0.toByte()) + settingsPayload
+        val frame = buildIM2Frame(0x16, 0x21, extData)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
+
+        assertTrue(result is DecodeResult.Success, "0xA0 settings should be parsed")
+        val settings = (result as DecodeResult.Success).data.assertSettings() as WheelSettings.InMotionV2
+        assertEquals(136, settings.maxSpeed, "Tilt-back speed should be 136 km/h")
+        assertEquals(117, settings.speedAlarm, "Speed alarm should be 117 km/h")
+        assertEquals(80, settings.pwmTiltBackLimit, "PWM tilt-back limit should be 80%")
+        assertEquals(80, settings.pwmAlarm1, "PWM alarm 1 should be 80%")
+        assertEquals(85, settings.pwmAlarm2, "PWM alarm 2 should be 85%")
+        assertEquals(100, settings.balanceAngle, "Balance angle should be 100 (1.00°)")
+        assertTrue(settings.fancierMode, "Fancier/sport mode should be true")
+        assertEquals(100, settings.pedalSensitivity, "Classic sens used when fancier=true")
+        assertEquals(10, settings.standbyTime, "Standby should be 10 min")
+        assertEquals(100, settings.chargeLimit, "Charge limit should be 100%")
+        assertEquals(100, settings.logoLightBrightness, "Logo brightness should be 100")
+        assertEquals(45, settings.cutoutAngle, "Cutout angle should be 45°")
+        assertTrue(settings.drl, "DRL should be ON")
+        // New P6 fields
+        assertFalse(settings.mute, "Beep ON → mute should be false")
+        assertFalse(settings.autoHeadlight, "Auto headlight should be OFF")
+        assertFalse(settings.transportMode, "Transport mode should be OFF")
+        assertTrue(settings.autoScreenOff, "Auto screen off should be ON")
+        assertFalse(settings.rideConnectLowBattery, "RideConnect low battery should be OFF")
+        assertTrue(settings.rideConnectSwitch, "RideConnect switch should be ON")
+        assertFalse(settings.ignoreTirePressure, "Ignore tire pressure should be OFF")
+        assertTrue(settings.autoLock, "Auto lock should be ON")
+        assertEquals(17442, settings.minTirePressure, "Min tire pressure should be 17442")
+        assertEquals(100, settings.chargingCurrentAC220V, "AC220V charging current should be 100")
+        assertEquals(80, settings.chargingCurrentAC110V, "AC110V charging current should be 80")
+    }
+
+    @Test
+    fun `P6 0x87 does not overwrite temps or limits`() {
+        val decoder = InMotionV2Decoder()
+        // Detect model as P6
+        val initData = ByteArray(80)
+        initData[0] = 0x02; initData[1] = 0x86.toByte()
+        initData[27] = 0x0D; initData[28] = 0x01
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
+
+        // First, set baseline temps/limits via a full 0x84 frame
+        val fullPayload = ByteArray(80)
+        fullPayload[0] = 0x62; fullPayload[1] = 0x55 // voltage = 21858
+        fullPayload[8] = 0xCA.toByte(); fullPayload[9] = 0x30 // speed = 12490
+        fullPayload[40] = 0x10; fullPayload[41] = 0x27 // speedLimit = 10000 (100.00 km/h)
+        fullPayload[50] = 0xE8.toByte(); fullPayload[51] = 0x03 // currentLimit = 1000
+        fullPayload[58] = 0xD4.toByte() // mosTemp = (212+80-256) = 36°C
+        fullPayload[59] = 0xD0.toByte() // temp2 = (208+80-256) = 32°C
+        fullPayload[62] = 0xCE.toByte() // cpuTemp = (206+80-256) = 30°C
+        fullPayload[63] = 0xCC.toByte() // imuTemp = (204+80-256) = 28°C
+        val fullFrame = buildIM2Frame(0x14, 0x84, fullPayload)
+        val r1 = decoder.decode(fullFrame, defaultDecoderState, defaultConfig)
+        assertTrue(r1 is DecodeResult.Success)
+        val stateAfterFull = (r1 as DecodeResult.Success).data.decoderStateFrom(defaultDecoderState)
+
+        // Now send a 0x87 frame with different voltage/speed
+        val lightPayload = ByteArray(96)
+        lightPayload[0] = 0x00; lightPayload[1] = 0x50 // voltage = 20480
+        lightPayload[8] = 0x00; lightPayload[9] = 0x10 // speed = 4096
+        lightPayload[14] = 0xE8.toByte(); lightPayload[15] = 0x03 // discharge = 1000
+        val lightData = byteArrayOf(0x02, 0x87.toByte(), 0x01, 0x00) + lightPayload
+        val lightFrame = buildIM2Frame(0x16, 0x21, lightData)
+        val r2 = decoder.decode(lightFrame, stateAfterFull, defaultConfig)
+        assertTrue(r2 is DecodeResult.Success)
+        val telemetry = (r2 as DecodeResult.Success).data.assertTelemetry()
+
+        // Core fields should be updated from 0x87
+        assertEquals(20480, telemetry.voltage, "Voltage should be updated from 0x87")
+        assertEquals(4096, telemetry.speed, "Speed should be updated from 0x87")
+        assertEquals(90, telemetry.batteryLevel, "Battery level should be updated (100 - 1000/100)")
+
+        // Temps and limits should NOT be present in 0x87 result (they stay in current state)
+        // The FrameResult only contains updated fields; temps from 0x84 are preserved
+        // via the currentState passthrough in the copy()
+        assertEquals(3600, telemetry.temperature, "MosTemp should be preserved from 0x84")
+        assertEquals(3200, telemetry.temperature2, "Temp2 should be preserved from 0x84")
+        assertEquals(30, telemetry.cpuTemp, "CPU temp should be preserved from 0x84")
+        assertEquals(28, telemetry.imuTemp, "IMU temp should be preserved from 0x84")
+        assertEquals(100.0, telemetry.speedLimit, "Speed limit should be preserved from 0x84")
+        assertEquals(10.0, telemetry.currentLimit, "Current limit should be preserved from 0x84")
+    }
+
+    @Test
+    fun `P6 0x90 is ignored as ride statistics`() {
+        val decoder = InMotionV2Decoder()
+        // Detect model as P6
+        val initData = ByteArray(80)
+        initData[0] = 0x02; initData[1] = 0x86.toByte()
+        initData[27] = 0x0D; initData[28] = 0x01
+        decoder.decode(buildIM2Frame(0x16, 0x21, initData), defaultDecoderState, defaultConfig)
+
+        // Build 0x90 response (ride statistics, should be ignored)
+        val statsData = byteArrayOf(0x02, 0x90.toByte()) + ByteArray(50)
+        val frame = buildIM2Frame(0x16, 0x21, statsData)
+        val result = decoder.decode(frame, defaultDecoderState, defaultConfig)
+        assertTrue(result is DecodeResult.Unhandled, "0x90 ride statistics should not produce settings")
     }
 
     // ==================== Factory-Confirmed Extended Settings Commands ====================
@@ -2203,10 +2506,10 @@ class InMotionV2DecoderTest {
         val d = InMotionV2Decoder()
         val initCommands = d.getInitCommands()
         // Should include BMS serial init for battery 1 and 2
-        assertEquals(9, initCommands.size)
+        assertEquals(10, initCommands.size)
         // Last two should be BMS serial init
-        assertEquals(700L, (initCommands[7] as WheelCommand.SendDelayed).delayMs)
         assertEquals(800L, (initCommands[8] as WheelCommand.SendDelayed).delayMs)
+        assertEquals(900L, (initCommands[9] as WheelCommand.SendDelayed).delayMs)
     }
 
     @Test

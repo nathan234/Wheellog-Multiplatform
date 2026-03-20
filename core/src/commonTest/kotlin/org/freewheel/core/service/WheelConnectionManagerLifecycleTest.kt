@@ -178,7 +178,7 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
 
         assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
-        assertEquals(TelemetryState(), manager.telemetryState.value)
+        assertNull(manager.telemetryState.value, "Telemetry should be null after disconnect")
         assertEquals(WheelIdentity(), manager.identityState.value)
         assertNull(manager.getCurrentDecoder())
         assertFalse(manager.isKeepAliveRunning.value)
@@ -373,9 +373,9 @@ class WheelConnectionManagerLifecycleTest {
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
 
-        assertEquals(2500, manager.telemetryState.value.speed)
-        assertEquals(8400, manager.telemetryState.value.voltage)
-        assertEquals(85, manager.telemetryState.value.batteryLevel)
+        assertEquals(2500, manager.telemetryState.value!!.speed)
+        assertEquals(8400, manager.telemetryState.value!!.voltage)
+        assertEquals(85, manager.telemetryState.value!!.batteryLevel)
     }
 
     @Test
@@ -388,7 +388,7 @@ class WheelConnectionManagerLifecycleTest {
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
 
-        assertEquals(0, manager.telemetryState.value.speed)
+        assertNull(manager.telemetryState.value, "Telemetry should be null when no decoder is set")
     }
 
     @Test
@@ -404,7 +404,7 @@ class WheelConnectionManagerLifecycleTest {
         ))
         manager.onDataReceived(byteArrayOf(0x01))
         runCurrent()
-        assertEquals(2500, manager.telemetryState.value.speed)
+        assertEquals(2500, manager.telemetryState.value!!.speed)
 
         // Now return Buffering (incomplete frame)
         fakeDecoder.decodeResult = DecodeResult.Buffering
@@ -412,7 +412,7 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
 
         // State should be unchanged
-        assertEquals(2500, manager.telemetryState.value.speed)
+        assertEquals(2500, manager.telemetryState.value!!.speed)
     }
 
     // ==================== Decoder Ready → Connected ====================

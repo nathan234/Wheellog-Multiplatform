@@ -16,8 +16,12 @@ struct DashboardContentView: View {
         layout.filteredFor(wheelType: wheelManager.identity.wheelType)
     }
 
+    private var effectiveTelemetry: TelemetryState {
+        wheelManager.telemetry ?? TelemetryState.companion.empty()
+    }
+
     private var displaySpeed: Double {
-        DisplayUtils.shared.convertSpeed(kmh: wheelManager.telemetry.speedKmh, useMph: wheelManager.useMph)
+        DisplayUtils.shared.convertSpeed(kmh: effectiveTelemetry.speedKmh, useMph: wheelManager.useMph)
     }
 
     private var speedUnit: String {
@@ -83,7 +87,7 @@ struct DashboardContentView: View {
                         .buttonStyle(.plain)
                     } else {
                         // Generic hero gauge for non-speed metrics
-                        let heroRawValue = heroMetric.extractValue(telemetry: wheelManager.telemetry)?.doubleValue ?? 0.0
+                        let heroRawValue = heroMetric.extractValue(telemetry: effectiveTelemetry)?.doubleValue ?? 0.0
                         let heroDisplayValue = DisplayUtils.shared.convertMetricValue(value: heroRawValue, metric: heroMetric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
                         let heroUnit = DisplayUtils.shared.metricUnit(metric: heroMetric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
                         let heroMax = heroMetric.maxValue > 0 ? heroMetric.maxValue : max(abs(heroRawValue), 1.0)
@@ -109,7 +113,7 @@ struct DashboardContentView: View {
                     ForEach(Array(effectiveLayout.tiles), id: \.name) { metric in
                         MetricGaugeTile(
                             metric: metric,
-                            telemetry: wheelManager.telemetry,
+                            telemetry: effectiveTelemetry,
                             gpsSpeed: gpsKmh,
                             useMph: wheelManager.useMph,
                             useFahrenheit: wheelManager.useFahrenheit,
@@ -130,7 +134,7 @@ struct DashboardContentView: View {
                         ForEach(Array(effectiveLayout.stats), id: \.name) { metric in
                             MetricStatRow(
                                 metric: metric,
-                                telemetry: wheelManager.telemetry,
+                                telemetry: effectiveTelemetry,
                                 gpsSpeed: gpsKmh,
                                 useMph: wheelManager.useMph,
                                 useFahrenheit: wheelManager.useFahrenheit

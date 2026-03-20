@@ -20,7 +20,7 @@ import org.freewheel.core.protocol.WheelDecoder
  */
 data class WcmState(
     // Primary domain state
-    val telemetry: TelemetryState = TelemetryState(),
+    val telemetry: TelemetryState? = null,
     val identity: WheelIdentity = WheelIdentity(),
     val bms: BmsState = BmsState(),
     val settings: WheelSettings = WheelSettings.None,
@@ -35,7 +35,7 @@ data class WcmState(
     val connectionInfo: WheelConnectionInfo? = null,
 ) {
     /** Lightweight decoder input — avoids full state composition per frame. */
-    val decoderState: DecoderState get() = DecoderState(telemetry, identity, bms, settings)
+    val decoderState: DecoderState get() = DecoderState(telemetry ?: TelemetryState(), identity, bms, settings)
 }
 
 /**

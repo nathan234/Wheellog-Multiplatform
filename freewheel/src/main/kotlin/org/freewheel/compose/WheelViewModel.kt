@@ -73,6 +73,10 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
@@ -82,6 +86,7 @@ import androidx.core.content.edit
 import org.freewheel.compose.service.AlarmHandler
 import org.freewheel.compose.service.WheelServiceContract
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class WheelViewModel(
     application: Application,
     val appConfig: AppConfig,
@@ -157,8 +162,8 @@ class WheelViewModel(
     private val _discoveredDevices = MutableStateFlow<List<DiscoveredDevice>>(emptyList())
     val discoveredDevices: StateFlow<List<DiscoveredDevice>> = _discoveredDevices.asStateFlow()
 
-    // Real sub-states from WheelConnectionManager
-    private val _realTelemetry = MutableStateFlow(TelemetryState())
+    // Real sub-states from WheelConnectionManager (null = no data from wheel yet)
+    private val _realTelemetry = MutableStateFlow<TelemetryState?>(null)
     private val _realIdentity = MutableStateFlow(WheelIdentity())
     private val _realBms = MutableStateFlow(BmsState())
     private val _realSettings = MutableStateFlow<WheelSettings>(WheelSettings.None)
@@ -178,11 +183,24 @@ class WheelViewModel(
         replayEngine.telemetryState
     ) { source, real, demo, replay ->
         when (source) {
-            WheelDataSource.LIVE -> real
+            WheelDataSource.LIVE -> real ?: TelemetryState()
             WheelDataSource.DEMO -> demo
             WheelDataSource.REPLAY -> replay
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TelemetryState())
+
+    /**
+     * Telemetry for side-effects (alarms, logging, buffering, auto-torch).
+     * Returns null when LIVE and no data received yet; non-null for DEMO/REPLAY.
+     * Side-effect collectors use filterNotNull() to skip the "no data" state.
+     */
+    private val activeTelemetryOrNull = _dataSource.flatMapLatest { source ->
+        when (source) {
+            WheelDataSource.LIVE -> _realTelemetry
+            WheelDataSource.DEMO -> demoDataProvider.telemetryState
+            WheelDataSource.REPLAY -> replayEngine.telemetryState
+        }
+    }
 
     val identityState: StateFlow<WheelIdentity> = combine(
         _dataSource,
@@ -1031,7 +1049,7 @@ class WheelViewModel(
 
     private fun startLogSampling() {
         logSamplingJob = viewModelScope.launch {
-            telemetryState.collect { telemetry ->
+            activeTelemetryOrNull.filterNotNull().collect { telemetry ->
                 if (rideLogger.isLogging) {
                     val gps = _lastGpsLocation.value?.let { loc ->
                         GpsLocation(
@@ -1195,27 +1213,25 @@ class WheelViewModel(
 
     private fun startTelemetryBuffering() {
         viewModelScope.launch {
-            telemetryState.collect { telemetry ->
-                if (telemetry.speed != 0 || telemetry.voltage != 0) {
-                    val sample = TelemetrySample.fromTelemetry(
-                        telemetry, System.currentTimeMillis(), _gpsSpeedKmh.value
-                    )
-                    if (telemetryBuffer.addSampleIfNeeded(sample)) {
-                        _telemetrySamples.value = telemetryBuffer.samples
-                    }
-                    telemetryHistory?.addSample(sample)
+            activeTelemetryOrNull.filterNotNull().collect { telemetry ->
+                val sample = TelemetrySample.fromTelemetry(
+                    telemetry, System.currentTimeMillis(), _gpsSpeedKmh.value
+                )
+                if (telemetryBuffer.addSampleIfNeeded(sample)) {
+                    _telemetrySamples.value = telemetryBuffer.samples
+                }
+                telemetryHistory?.addSample(sample)
 
-                    // Range estimation: capture start battery on first valid reading
-                    if (startBattery < 0 && telemetry.batteryLevel > 0) {
-                        startBattery = telemetry.batteryLevel
-                    }
-                    if (startBattery > 0) {
-                        _rangeEstimateKm.value = RangeEstimator.estimate(
-                            currentBattery = telemetry.batteryLevel,
-                            tripDistanceKm = telemetry.wheelDistanceKm,
-                            startBattery = startBattery
-                        )
-                    }
+                // Range estimation: capture start battery on first valid reading
+                if (startBattery < 0 && telemetry.batteryLevel > 0) {
+                    startBattery = telemetry.batteryLevel
+                }
+                if (startBattery > 0) {
+                    _rangeEstimateKm.value = RangeEstimator.estimate(
+                        currentBattery = telemetry.batteryLevel,
+                        tripDistanceKm = telemetry.wheelDistanceKm,
+                        startBattery = startBattery
+                    )
                 }
             }
         }
@@ -1252,7 +1268,7 @@ class WheelViewModel(
 
     private fun startAutoTorchMonitoring() {
         viewModelScope.launch {
-            telemetryState.collect { telemetry ->
+            activeTelemetryOrNull.filterNotNull().collect { telemetry ->
                 val enabled = getGlobalBool(PreferenceKeys.AUTO_TORCH_ENABLED, PreferenceDefaults.AUTO_TORCH_ENABLED)
                 if (!enabled) {
                     if (autoTorchLightRequested) {
@@ -1302,7 +1318,7 @@ class WheelViewModel(
 
     private fun startAlarmMonitoring() {
         viewModelScope.launch {
-            telemetryState.collect { telemetry ->
+            activeTelemetryOrNull.filterNotNull().collect { telemetry ->
                 if (!appConfig.alarmsEnabled) {
                     if (_activeAlarms.value.isNotEmpty()) {
                         _activeAlarms.value = emptySet()

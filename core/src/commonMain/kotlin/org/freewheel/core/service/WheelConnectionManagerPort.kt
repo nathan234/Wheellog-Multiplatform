@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 interface WheelConnectionManagerPort {
     val connectionState: StateFlow<ConnectionState>
     val capabilities: StateFlow<CapabilitySet>
-    val telemetryState: StateFlow<TelemetryState>
+    val telemetryState: StateFlow<TelemetryState?>
     val identityState: StateFlow<WheelIdentity>
     val bmsState: StateFlow<BmsState>
     val settingsState: StateFlow<WheelSettings>

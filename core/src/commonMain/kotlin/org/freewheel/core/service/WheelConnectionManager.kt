@@ -123,11 +123,11 @@ class WheelConnectionManager(
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, ConnectionState.Disconnected)
 
-    /** Telemetry sub-state (speed, voltage, current, etc.). Updated on every BLE notification. */
-    override val telemetryState: StateFlow<TelemetryState> = _wcmState
+    /** Telemetry sub-state (speed, voltage, current, etc.). Null until first BLE data arrives. */
+    override val telemetryState: StateFlow<TelemetryState?> = _wcmState
         .map { it.telemetry }
         .distinctUntilChanged()
-        .stateIn(derivedScope, SharingStarted.Eagerly, TelemetryState())
+        .stateIn(derivedScope, SharingStarted.Eagerly, null)
 
     /** Settings sub-state (pedals mode, light mode, etc.). Updated rarely. */
     override val settingsState: StateFlow<WheelSettings> = _wcmState
@@ -430,6 +430,14 @@ class WheelConnectionManager(
             SettingsCommandId.PLATE_PROTECTION -> setPlateProtection(boolValue)
             // InMotion P6 settings
             SettingsCommandId.SCREEN_AUTO_OFF -> sendCommand(WheelCommand.SetScreenAutoOff(boolValue))
+            SettingsCommandId.BALANCE_ANGLE -> sendCommand(WheelCommand.SetBalanceAngle(intValue))
+            SettingsCommandId.AUTO_LOCK -> sendCommand(WheelCommand.SetAutoLock(boolValue))
+            SettingsCommandId.CHARGING_CURRENT -> sendCommand(WheelCommand.SetChargingCurrent(intValue, intValue))
+            SettingsCommandId.IGNORE_TIRE_PRESSURE -> sendCommand(WheelCommand.SetIgnoreTirePressure(boolValue))
+            SettingsCommandId.MIN_TIRE_PRESSURE -> sendCommand(WheelCommand.SetMinTirePressure(intValue and 0xFF, (intValue shr 8) and 0xFF))
+            SettingsCommandId.RIDE_CONNECT_SWITCH -> sendCommand(WheelCommand.SetRideConnectSwitch(boolValue))
+            SettingsCommandId.RIDE_CONNECT_LOW_BATTERY -> sendCommand(WheelCommand.SetRideConnectLowBattery(boolValue))
+            SettingsCommandId.SPEED_TILTBACK_ENABLE -> sendCommand(WheelCommand.SetSpeedTiltbackEnable(boolValue))
         }
     }
 

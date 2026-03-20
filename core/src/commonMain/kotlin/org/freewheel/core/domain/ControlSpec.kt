@@ -42,7 +42,15 @@ enum class SettingsCommandId {
     MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM, LATERAL_CUTOFF_ANGLE,
     DYNAMIC_ASSIST, ACCELERATION_LIMIT, WHEEL_DISPLAY_UNIT,
     // InMotion P6 settings
-    SCREEN_AUTO_OFF;
+    SCREEN_AUTO_OFF,
+    BALANCE_ANGLE,
+    AUTO_LOCK,
+    CHARGING_CURRENT,
+    IGNORE_TIRE_PRESSURE,
+    MIN_TIRE_PRESSURE,
+    RIDE_CONNECT_SWITCH,
+    RIDE_CONNECT_LOW_BATTERY,
+    SPEED_TILTBACK_ENABLE;
 
     /**
      * True if this command is firmware-gated (not supported by all models of its WheelType).
@@ -61,6 +69,9 @@ enum class SettingsCommandId {
         LOGO_LIGHT_BRIGHTNESS, AUTO_HEADLIGHT, LIGHT_EFFECT, LIGHT_EFFECT_MODE,
         TWO_BATTERY_MODE, LOW_BATTERY_SAFE_MODE, SPIN_KILL, CRUISE, LOAD_DETECT,
         STANDBY_TIME, CHARGE_LIMIT, SCREEN_AUTO_OFF,
+        BALANCE_ANGLE, AUTO_LOCK, CHARGING_CURRENT, IGNORE_TIRE_PRESSURE,
+        MIN_TIRE_PRESSURE, RIDE_CONNECT_SWITCH, RIDE_CONNECT_LOW_BATTERY,
+        SPEED_TILTBACK_ENABLE,
         // Begode extended
         WEAK_MAGNETISM, EXTENDED_ROLL_ANGLE, POWER_ALARM, PLATE_PROTECTION,
         // InMotion V2 thermal (V11-only)
@@ -113,6 +124,9 @@ enum class SettingsCommandId {
         DYNAMIC_ASSIST -> settings.dynamicAssist.takeIf { it >= 0 }
         ACCELERATION_LIMIT -> settings.accelerationLimit.takeIf { it >= 0 }
         WHEEL_DISPLAY_UNIT -> settings.wheelDisplayUnit.takeIf { it >= 0 }
+        BALANCE_ANGLE -> settings.balanceAngle.takeIf { it >= 0 }
+        MIN_TIRE_PRESSURE -> settings.minTirePressure.takeIf { it >= 0 }
+        CHARGING_CURRENT -> settings.chargingCurrentAC220V.takeIf { it >= 0 }
         // No int readback: bool-only, action-only, or no readback field
         LED, STROBE_MODE, TAIL_LIGHT, DRL, HANDLE_BUTTON, BRAKE_ASSIST,
         RIDE_MODE, GO_HOME_MODE, FANCIER_MODE, TRANSPORT_MODE,
@@ -125,7 +139,9 @@ enum class SettingsCommandId {
         SOUND_WAVE, SAFE_SPEED_LIMIT, BACKWARD_OVERSPEED_ALERT,
         AUTO_HEADLIGHT, LIGHT_EFFECT, TWO_BATTERY_MODE, LOW_BATTERY_SAFE_MODE,
         SPIN_KILL, CRUISE, LOAD_DETECT, PLATE_PROTECTION,
-        HIGH_SPEED_MODE, LOW_VOLTAGE_MODE, SCREEN_AUTO_OFF -> null
+        HIGH_SPEED_MODE, LOW_VOLTAGE_MODE, SCREEN_AUTO_OFF,
+        AUTO_LOCK, IGNORE_TIRE_PRESSURE, RIDE_CONNECT_SWITCH,
+        RIDE_CONNECT_LOW_BATTERY, SPEED_TILTBACK_ENABLE -> null
     }
 
     /** Read current bool value from settings, or null if no readback. */
@@ -155,6 +171,11 @@ enum class SettingsCommandId {
         PLATE_PROTECTION -> settings.plateProtection
         HIGH_SPEED_MODE -> settings.highSpeedMode
         LOW_VOLTAGE_MODE -> settings.lowVoltageMode
+        SCREEN_AUTO_OFF -> settings.autoScreenOff
+        AUTO_LOCK -> settings.autoLock
+        IGNORE_TIRE_PRESSURE -> settings.ignoreTirePressure
+        RIDE_CONNECT_SWITCH -> settings.rideConnectSwitch
+        RIDE_CONNECT_LOW_BATTERY -> settings.rideConnectLowBattery
         // No bool readback: int-only, action-only, or no readback field
         PEDALS_MODE, LIGHT_MODE, LED_MODE, STROBE_MODE, TAIL_LIGHT,
         ROLL_ANGLE_MODE, CUTOUT_ANGLE, BRAKE_ASSIST, LIGHT_BRIGHTNESS,
@@ -171,7 +192,8 @@ enum class SettingsCommandId {
         KEY_TONE, SCREEN_BACKLIGHT, STOP_SPEED, VETERAN_PWM_LIMIT,
         VOLTAGE_CORRECTION, MAX_CHARGE_VOLTAGE, BRAKE_PRESSURE_ALARM,
         LATERAL_CUTOFF_ANGLE, DYNAMIC_ASSIST, ACCELERATION_LIMIT,
-        WHEEL_DISPLAY_UNIT, SCREEN_AUTO_OFF -> null
+        WHEEL_DISPLAY_UNIT, BALANCE_ANGLE, CHARGING_CURRENT,
+        MIN_TIRE_PRESSURE, SPEED_TILTBACK_ENABLE -> null
     }
 
 }

@@ -790,7 +790,7 @@ class VeteranDecoder : WheelDecoder {
         return mVer >= minVer
     }
 
-    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> {
         return stateLock.withLock {
             buildCommandLocked(command)
         }

@@ -1304,7 +1304,7 @@ class InMotionV2Decoder : WheelDecoder {
     private fun controlMsg(vararg bytes: Byte): ByteArray =
         buildMessage(Flag.DEFAULT, Command.CONTROL, bytes.toList().toByteArray())
 
-    override fun buildCommand(command: WheelCommand): List<WheelCommand> = stateLock.withLock {
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> = stateLock.withLock {
         val msg = buildCommandMessage(command) ?: return@withLock emptyList()
         listOf(WheelCommand.SendBytes(msg))
     }

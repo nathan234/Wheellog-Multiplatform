@@ -9,8 +9,6 @@ import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.utils.ByteUtils
-import org.freewheel.core.utils.Lock
-import org.freewheel.core.utils.withLock
 import kotlin.math.roundToInt
 
 /**
@@ -43,16 +41,15 @@ import kotlin.math.roundToInt
  *   0x55 = Headlight mode     0x4D = LED mode readback
  *   0x3F = Turn-off timer     0x5F = Lock status
  *
- * Thread-safe: All mutable state is protected by a lock.
+ * Thread-safe: All methods except [buildCommand] are called from the WCM
+ * event loop (single-threaded). [buildCommand] receives an immutable
+ * [DecoderState] snapshot, so no lock is needed.
  */
 class KingsongDecoder : WheelDecoder {
 
     override val wheelType: WheelType = WheelType.KINGSONG
 
-    // Lock to protect mutable state from concurrent access
-    private val stateLock = Lock()
-
-    // Mutable state (protected by stateLock)
+    // Mutable state — only accessed from the WCM event loop (single-threaded)
     private var ksAlarm1Speed = 0
     private var ksAlarm2Speed = 0
     private var ksAlarm3Speed = 0
@@ -67,7 +64,6 @@ class KingsongDecoder : WheelDecoder {
     private var hasReceivedVoltage = false
     private var bms1 = SmartBms()
     private var bms2 = SmartBms()
-    private var currentLightMode = 0x13  // last-known light mode byte (default: on), for SetMute
     private var versionNum = 0           // firmware version number (e.g., 205 for v2.05)
 
     /** Result from a single Kingsong frame handler. */
@@ -89,76 +85,74 @@ class KingsongDecoder : WheelDecoder {
 
         val frameType = data[16].toInt() and 0xFF
 
-        return stateLock.withLock {
-            val tel = currentState.telemetry
-            val id = currentState.identity
-            val ks = currentState.settings as? WheelSettings.Kingsong ?: WheelSettings.Kingsong()
+        val tel = currentState.telemetry
+        val id = currentState.identity
+        val ks = currentState.settings as? WheelSettings.Kingsong ?: WheelSettings.Kingsong()
 
-            val output: KsFrameOutput? = when (frameType) {
-                FrameType.LIVE_DATA -> processLiveData(data, tel, id, config)
-                FrameType.DISTANCE_TIME -> processDistanceTimeData(data, tel, ks)
-                FrameType.NAME_TYPE -> processNameTypeData(data, id)
-                FrameType.SERIAL_NUMBER -> processSerialNumber(data, id)
-                FrameType.CPU_LOAD_PWM -> processCpuLoadPwm(data, tel)
-                FrameType.SPEED_LIMIT -> processSpeedLimit(data, tel)
-                FrameType.MAX_SPEED_ALERTS, FrameType.MAX_SPEED_ALERTS_2 ->
-                    processMaxSpeedAlerts(data, ks, frameType)
-                FrameType.BMS_DATA_1, FrameType.BMS_DATA_2 -> {
-                    processBmsData(data, frameType)
-                    KsFrameOutput()
-                }
-                FrameType.BMS_SERIAL_1, FrameType.BMS_SERIAL_2 -> {
-                    processBmsSerial(data, frameType)
-                    null
-                }
-                FrameType.BMS_FW_1, FrameType.BMS_FW_2 -> {
-                    processBmsFirmware(data, frameType)
-                    null
-                }
-                FrameType.LOCK_STATUS -> processLockStatus(data, ks)
-                FrameType.LOCK_RESULT -> processLockResult(data, ks)
-                FrameType.RIDE_MODE_CONFIRM -> processRideModeConfirm(data, ks)
-                FrameType.BATTERY_TEMP -> processBatteryTemp(data, tel)
-                FrameType.PASSWORD_LOGIN -> processPasswordLogin(data, ks)
-                FrameType.LIFT_SENSOR -> processLiftSensor(data, ks)
-                FrameType.HEADLIGHT_MODE -> processHeadlightMode(data, ks)
-                FrameType.LED_MODE_READBACK -> processLedModeReadback(data, ks)
-                FrameType.TURN_OFF_TIMER -> processTurnOffTimer(data, ks)
+        val output: KsFrameOutput? = when (frameType) {
+            FrameType.LIVE_DATA -> processLiveData(data, tel, id, config)
+            FrameType.DISTANCE_TIME -> processDistanceTimeData(data, tel, ks)
+            FrameType.NAME_TYPE -> processNameTypeData(data, id)
+            FrameType.SERIAL_NUMBER -> processSerialNumber(data, id)
+            FrameType.CPU_LOAD_PWM -> processCpuLoadPwm(data, tel)
+            FrameType.SPEED_LIMIT -> processSpeedLimit(data, tel)
+            FrameType.MAX_SPEED_ALERTS, FrameType.MAX_SPEED_ALERTS_2 ->
+                processMaxSpeedAlerts(data, ks, frameType)
+            FrameType.BMS_DATA_1, FrameType.BMS_DATA_2 -> {
+                processBmsData(data, frameType)
+                KsFrameOutput()
+            }
+            FrameType.BMS_SERIAL_1, FrameType.BMS_SERIAL_2 -> {
+                processBmsSerial(data, frameType)
+                null
+            }
+            FrameType.BMS_FW_1, FrameType.BMS_FW_2 -> {
+                processBmsFirmware(data, frameType)
+                null
+            }
+            FrameType.LOCK_STATUS -> processLockStatus(data, ks)
+            FrameType.LOCK_RESULT -> processLockResult(data, ks)
+            FrameType.RIDE_MODE_CONFIRM -> processRideModeConfirm(data, ks)
+            FrameType.BATTERY_TEMP -> processBatteryTemp(data, tel)
+            FrameType.PASSWORD_LOGIN -> processPasswordLogin(data, ks)
+            FrameType.LIFT_SENSOR -> processLiftSensor(data, ks)
+            FrameType.HEADLIGHT_MODE -> processHeadlightMode(data, ks)
+            FrameType.LED_MODE_READBACK -> processLedModeReadback(data, ks)
+            FrameType.TURN_OFF_TIMER -> processTurnOffTimer(data, ks)
+            else -> null
+        }
+
+        val typeName = FRAME_TYPE_NAMES[frameType] ?: "0x${frameType.toString(16)}"
+
+        return if (output != null) {
+            val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
+
+            // Ensure wheelType is KINGSONG
+            val resolvedIdentity = when {
+                output.identity != null && output.identity.wheelType == WheelType.Unknown ->
+                    output.identity.copy(wheelType = WheelType.KINGSONG)
+                output.identity != null -> output.identity
+                id.wheelType == WheelType.Unknown -> id.copy(wheelType = WheelType.KINGSONG)
                 else -> null
             }
 
-            val typeName = FRAME_TYPE_NAMES[frameType] ?: "0x${frameType.toString(16)}"
-
-            if (output != null) {
-                val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
-
-                // Ensure wheelType is KINGSONG
-                val resolvedIdentity = when {
-                    output.identity != null && output.identity.wheelType == WheelType.Unknown ->
-                        output.identity.copy(wheelType = WheelType.KINGSONG)
-                    output.identity != null -> output.identity
-                    id.wheelType == WheelType.Unknown -> id.copy(wheelType = WheelType.KINGSONG)
-                    else -> null
-                }
-
-                DecodeResult.Success(DecodedData(
-                    telemetry = output.telemetry?.takeIf { it != tel },
-                    identity = resolvedIdentity?.takeIf { it != id },
-                    bms = bmsSnapshot.takeIf { it != currentState.bms },
-                    settings = output.settings?.takeIf { it != currentState.settings },
-                    commands = output.commands,
-                    hasNewData = output.hasNewData,
-                    frameTypes = listOf(typeName)
-                ))
-            } else {
-                DecodeResult.Unhandled(
-                    reason = UnhandledReason(
-                        UnhandledReason.ErrorClass.UNKNOWN_COMMAND,
-                        "0x${frameType.toString(16)}"
-                    ),
-                    frameData = data.copyOf()
-                )
-            }
+            DecodeResult.Success(DecodedData(
+                telemetry = output.telemetry?.takeIf { it != tel },
+                identity = resolvedIdentity?.takeIf { it != id },
+                bms = bmsSnapshot.takeIf { it != currentState.bms },
+                settings = output.settings?.takeIf { it != currentState.settings },
+                commands = output.commands,
+                hasNewData = output.hasNewData,
+                frameTypes = listOf(typeName)
+            ))
+        } else {
+            DecodeResult.Unhandled(
+                reason = UnhandledReason(
+                    UnhandledReason.ErrorClass.UNKNOWN_COMMAND,
+                    "0x${frameType.toString(16)}"
+                ),
+                frameData = data.copyOf()
+            )
         }
     }
 
@@ -236,8 +230,7 @@ class KingsongDecoder : WheelDecoder {
         val chargingStatus = data[13].toInt()
         val temperature2 = ByteUtils.getInt2R(data, 14)
 
-        // Store light mode for SetMute command and normalize: 0x12=off(0), 0x13=on(1), 0x14=auto(2)
-        currentLightMode = rawLightMode
+        // Normalize: 0x12=off(0), 0x13=on(1), 0x14=auto(2)
         val lightMode = if (rawLightMode in 0x12..0x14) rawLightMode - 0x12 else -1
 
         return KsFrameOutput(
@@ -836,13 +829,12 @@ class KingsongDecoder : WheelDecoder {
     override fun getKeepAliveCommand(): WheelCommand =
         WheelCommand.SendBytes(createRequest(CmdByte.KEEP_ALIVE))
 
-    override fun isReady(): Boolean = stateLock.withLock {
+    override fun isReady(): Boolean =
         model.isNotEmpty() && hasReceivedVoltage
-    }
 
-    override fun getCapabilities(): CapabilitySet = stateLock.withLock {
-        if (model.isEmpty()) return@withLock CapabilitySet()
-        CapabilitySet(
+    override fun getCapabilities(): CapabilitySet {
+        if (model.isEmpty()) return CapabilitySet()
+        return CapabilitySet(
             supportedCommands = SUPPORTED_COMMANDS,
             detectedModel = model,
             firmwareVersion = version,
@@ -850,7 +842,7 @@ class KingsongDecoder : WheelDecoder {
         )
     }
 
-    override fun reset() = stateLock.withLock {
+    override fun reset() {
         ksAlarm1Speed = 0
         ksAlarm2Speed = 0
         ksAlarm3Speed = 0
@@ -865,11 +857,10 @@ class KingsongDecoder : WheelDecoder {
         hasReceivedVoltage = false
         bms1 = SmartBms()
         bms2 = SmartBms()
-        currentLightMode = 0x13
         versionNum = 0
     }
 
-    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> {
         return when (command) {
             is WheelCommand.Beep -> {
                 listOf(WheelCommand.SendBytes(createRequest(CmdByte.BEEP)))
@@ -939,8 +930,16 @@ class KingsongDecoder : WheelDecoder {
             }
             is WheelCommand.SetMute -> {
                 // Voice on/off via 0x73: byte[2]=light mode (preserve), byte[3]=mute flag
+                // Light mode comes from the immutable state snapshot, not mutable decoder fields
+                val ks = state?.settings as? WheelSettings.Kingsong
+                val rawLightMode = when (ks?.lightMode) {
+                    0 -> 0x12  // off
+                    1 -> 0x13  // on
+                    2 -> 0x14  // auto
+                    else -> 0x13  // default: on (before first B9 frame)
+                }
                 val data = getEmptyRequest()
-                data[2] = currentLightMode.toByte()
+                data[2] = rawLightMode.toByte()
                 data[3] = if (command.enabled) 0x01 else 0x00
                 data[16] = CmdByte.LIGHT_MODE.toByte()
                 listOf(WheelCommand.SendBytes(data))

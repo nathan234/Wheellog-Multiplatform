@@ -912,7 +912,7 @@ class NinebotZDecoder : WheelDecoder {
         }
     }
 
-    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> {
         return stateLock.withLock {
             val g = gamma
             when (command) {

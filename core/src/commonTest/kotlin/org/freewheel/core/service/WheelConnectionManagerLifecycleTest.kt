@@ -798,7 +798,7 @@ class FakeDecoder(
 
     override fun getInitCommands(): List<WheelCommand> = initCommandList
 
-    override fun buildCommand(command: WheelCommand): List<WheelCommand> = buildCommandResult
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> = buildCommandResult
 
     override fun getKeepAliveCommand(): WheelCommand? = _keepAliveCommand
 }

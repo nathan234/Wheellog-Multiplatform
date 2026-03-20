@@ -60,7 +60,7 @@ interface WheelDecoder {
      * Build protocol-specific byte commands for a high-level command.
      * Returns a list of SendBytes/SendDelayed commands, or empty list if unsupported.
      */
-    fun buildCommand(command: WheelCommand): List<WheelCommand> = emptyList()
+    fun buildCommand(command: WheelCommand, state: DecoderState? = null): List<WheelCommand> = emptyList()
 
     /**
      * Get keep-alive commands that should be sent periodically.

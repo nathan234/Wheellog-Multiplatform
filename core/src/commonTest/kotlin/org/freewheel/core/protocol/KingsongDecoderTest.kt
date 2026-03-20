@@ -1,7 +1,6 @@
 package org.freewheel.core.protocol
 
 import org.freewheel.core.domain.WheelSettings
-import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.handleButton
 import org.freewheel.core.domain.ksAlarm1Speed
@@ -494,7 +493,7 @@ class KingsongDecoderTest {
         val nameResult2 = decoder.decode(namePacket2, state, defaultConfig)
         assertTrue(nameResult2 is DecodeResult.Success)
         state = (nameResult2 as DecodeResult.Success).data.decoderStateFrom(state)
-        assertEquals("KS-14D", state.toWheelState().model, "Model should reflect new wheel after reset")
+        assertEquals("KS-14D", state.identity.model, "Model should reflect new wheel after reset")
 
         val livePacket2 = buildKsLivePacket(voltage = 6000)
         val liveResult2 = decoder.decode(livePacket2, state, defaultConfig)
@@ -728,8 +727,7 @@ class KingsongDecoderTest {
         state = (result05 as DecodeResult.Success).data.decoderStateFrom(state)
 
         // Verify cells accumulated across frames
-        val wheelState = state.toWheelState()
-        val bms = wheelState.bms1!!
+        val bms = state.bms.bms1!!
         assertEquals(4.200, bms.cells[0], 0.001, "Cell 0 should be 4.200V")
         assertEquals(4.190, bms.cells[1], 0.001, "Cell 1 should be 4.190V")
         assertEquals(4.130, bms.cells[7], 0.001, "Cell 7 should be 4.130V")
@@ -768,8 +766,7 @@ class KingsongDecoderTest {
         val packet06 = buildKsFrame(0xF1, data06, byte17 = 0x06)
         state = (decoder.decode(packet06, state, defaultConfig) as DecodeResult.Success).data.decoderStateFrom(state)
 
-        val wheelState = state.toWheelState()
-        val bms = wheelState.bms1!!
+        val bms = state.bms.bms1!!
         // Cell stats computed over getCellsForWheel() = 16 cells (default model)
         // Min should be 4.050 (cell 12 = index 5 in cells03), max should be 4.200 (cell 0)
         assertEquals(4.050, bms.minCell, 0.001, "Min cell should be 4.050V")
@@ -788,7 +785,7 @@ class KingsongDecoderTest {
         // 0xF1 -> bms1
         val bms1Packet = buildKsBmsInfoFrame(voltage = 8400, current = 500)
         state = (decoder.decode(bms1Packet, state, defaultConfig) as DecodeResult.Success).data.decoderStateFrom(state)
-        assertEquals(84.0, state.toWheelState().bms1!!.voltage, 0.01, "BMS1 voltage should be 84.00V")
+        assertEquals(84.0, state.bms.bms1!!.voltage, 0.01, "BMS1 voltage should be 84.00V")
 
         // 0xF2 -> bms2
         val data = ByteArray(14)
@@ -798,10 +795,9 @@ class KingsongDecoderTest {
         val bms2Packet = buildKsFrame(0xF2, data, byte17 = 0x00)
         state = (decoder.decode(bms2Packet, state, defaultConfig) as DecodeResult.Success).data.decoderStateFrom(state)
 
-        val wheelState = state.toWheelState()
-        assertEquals(82.0, wheelState.bms2!!.voltage, 0.01, "BMS2 voltage should be 82.00V")
+        assertEquals(82.0, state.bms.bms2!!.voltage, 0.01, "BMS2 voltage should be 82.00V")
         // BMS1 should still be intact
-        assertEquals(84.0, wheelState.bms1!!.voltage, 0.01, "BMS1 should still be 84.00V")
+        assertEquals(84.0, state.bms.bms1!!.voltage, 0.01, "BMS1 should still be 84.00V")
     }
 
     // ==================== BMS Serial/Firmware Tests ====================
@@ -852,9 +848,8 @@ class KingsongDecoderTest {
         assertTrue(nameResult is DecodeResult.Success)
         val nameDecoded = (nameResult as DecodeResult.Success).data
         state = nameDecoded.decoderStateFrom(state)
-        var wheelState = state.toWheelState()
-        assertEquals("KS-S18", wheelState.model)
-        assertEquals("2.05", wheelState.version)
+        assertEquals("KS-S18", state.identity.model)
+        assertEquals("2.05", state.identity.version)
         assertFalse(decoder.isReady())
 
         // 2. Serial packet (triggers alarm request)
@@ -874,16 +869,15 @@ class KingsongDecoderTest {
         state = liveDecoded.decoderStateFrom(state)
 
         assertTrue(decoder.isReady(), "Should be ready after name + voltage")
-        wheelState = state.toWheelState()
-        assertEquals(6505, wheelState.voltage)
-        assertEquals(515, wheelState.speed)
-        assertEquals(215, wheelState.current)
-        assertEquals(1300, wheelState.temperature)
-        assertEquals(13, wheelState.temperatureC)
-        assertEquals(WheelType.KINGSONG, wheelState.wheelType)
-        assertEquals("KS-S18", wheelState.model)
+        assertEquals(6505, state.telemetry.voltage)
+        assertEquals(515, state.telemetry.speed)
+        assertEquals(215, state.telemetry.current)
+        assertEquals(1300, state.telemetry.temperature)
+        assertEquals(13, state.telemetry.temperatureC)
+        assertEquals(WheelType.KINGSONG, state.identity.wheelType)
+        assertEquals("KS-S18", state.identity.model)
         // 84v battery: (6505 - 6250) / 20 = 12
-        assertEquals(12, wheelState.batteryLevel)
+        assertEquals(12, state.telemetry.batteryLevel)
     }
 
     // ==================== wheelType Property ====================
@@ -1079,8 +1073,7 @@ class KingsongDecoderTest {
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         // bmsSoc stays at default -1 (no change from initial state), so telemetry may be null
-        val state1 = decoded.stateFrom(defaultState)
-        assertEquals(-1, state1.bmsSoc, "BMS SOC raw 0 should be unknown (-1)")
+        assertEquals(-1, (decoded.telemetry ?: defaultState.telemetry).bmsSoc, "BMS SOC raw 0 should be unknown (-1)")
     }
 
     @Test
@@ -1094,8 +1087,7 @@ class KingsongDecoderTest {
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         // bmsSoc stays at default -1, so telemetry may be null
-        val state1 = decoded.stateFrom(defaultState)
-        assertEquals(-1, state1.bmsSoc, "BMS SOC > 101 should be unknown (-1)")
+        assertEquals(-1, (decoded.telemetry ?: defaultState.telemetry).bmsSoc, "BMS SOC > 101 should be unknown (-1)")
     }
 
     @Test
@@ -1144,9 +1136,9 @@ class KingsongDecoderTest {
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
         // faultCode=0 and error="" match defaults, so telemetry may be null
-        val state1 = decoded.stateFrom(defaultState)
-        assertEquals(0, state1.faultCode, "Fault code should be 0")
-        assertEquals("", state1.error, "Error should be empty for zero fault code")
+        val telemetry = decoded.telemetry ?: defaultState.telemetry
+        assertEquals(0, telemetry.faultCode, "Fault code should be 0")
+        assertEquals("", telemetry.error, "Error should be empty for zero fault code")
     }
 
     // ==================== 16-bit Alarm Speed (0xA4/0xB5) Tests ====================
@@ -1464,9 +1456,8 @@ class KingsongDecoderTest {
         val result = decoder.decode(packet, stateWithMode, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        // On failure, state is unchanged — reconstruct and verify pedalsMode preserved
-        val state = decoded.stateFrom(stateWithMode)
-        assertEquals(1, state.pedalsMode, "Pedals mode should not change on failure")
+        // On failure, state is unchanged — verify pedalsMode preserved
+        assertEquals(1, (decoded.settings ?: stateWithMode.settings).pedalsMode, "Pedals mode should not change on failure")
     }
 
     @Test
@@ -1650,18 +1641,35 @@ class KingsongDecoderTest {
     }
 
     @Test
-    fun `buildCommand SetMute preserves current light mode`() {
-        decoder.reset()
-        // First feed a 0xB9 frame with light mode 0x14 (auto)
-        val b9data = ByteArray(14)
-        b9data[8] = 0x14.toByte()
-        decoder.decode(buildKsFrame(0xB9, b9data), defaultState, defaultConfig)
+    fun `buildCommand SetMute preserves current light mode from state`() {
+        // SetMute reads light mode from the immutable DecoderState, not decoder internals
+        val stateWithAutoLight = DecoderState(
+            settings = WheelSettings.Kingsong(lightMode = 2)  // 2 = auto
+        )
+        val commands = decoder.buildCommand(WheelCommand.SetMute(true), stateWithAutoLight)
+        assertTrue(commands.isNotEmpty())
+        val frame = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x14.toByte(), frame[2], "Should use light mode 0x14 (auto) from state")
+    }
 
-        // Now send SetMute — should preserve 0x14 in byte[2]
+    @Test
+    fun `buildCommand SetMute uses light off from state`() {
+        val stateWithLightOff = DecoderState(
+            settings = WheelSettings.Kingsong(lightMode = 0)  // 0 = off
+        )
+        val commands = decoder.buildCommand(WheelCommand.SetMute(false), stateWithLightOff)
+        assertTrue(commands.isNotEmpty())
+        val frame = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x12.toByte(), frame[2], "Should use light mode 0x12 (off) from state")
+    }
+
+    @Test
+    fun `buildCommand SetMute defaults to light on without settings`() {
+        // With default DecoderState (no Kingsong settings), should default to 0x13 (on)
         val commands = decoder.buildCommand(WheelCommand.SetMute(true))
         assertTrue(commands.isNotEmpty())
         val frame = (commands[0] as WheelCommand.SendBytes).data
-        assertEquals(0x14.toByte(), frame[2], "Should preserve light mode 0x14 in byte[2]")
+        assertEquals(0x13.toByte(), frame[2], "Should default to light mode 0x13 (on)")
     }
 
     @Test

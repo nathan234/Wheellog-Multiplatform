@@ -11,6 +11,7 @@ import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
+import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
 import org.freewheel.core.protocol.WheelDecoderFactory
@@ -728,7 +729,11 @@ class WheelConnectionManager(
 
     private fun reduceSendCommand(state: WcmState, event: WheelEvent.SendCommand): WcmTransition {
         return WcmTransition(state, listOf(
-            WcmEffect.DispatchCommands(listOf(event.command), decoder = state.decoder)
+            WcmEffect.DispatchCommands(
+                listOf(event.command),
+                decoder = state.decoder,
+                decoderState = state.decoderState
+            )
         ))
     }
 
@@ -815,9 +820,10 @@ class WheelConnectionManager(
                 }
                 is WcmEffect.DispatchCommands -> {
                     val decoder = effect.decoder
+                    val decoderState = effect.decoderState
                     commandScheduler.scheduleSequence {
                         effect.commands.forEach { cmd ->
-                            dispatchCommand(cmd, decoder)
+                            dispatchCommand(cmd, decoder, decoderState)
                         }
                     }
                 }
@@ -899,19 +905,18 @@ class WheelConnectionManager(
     /**
      * Dispatch a command to the BLE layer.
      *
-     * The [decoder] is captured by the reducer at effect creation time, so
-     * buildCommand() uses the decoder that was active when the command was
-     * dispatched — not whatever decoder happens to be in state at execution time.
-     *
-     * buildCommand() is called here in the effect layer (not the reducer)
-     * because it may mutate decoder internal state.
+     * The [decoder] and [state] are captured by the reducer at effect creation
+     * time, so buildCommand() uses an immutable state snapshot from when the
+     * command was dispatched — not whatever mutable decoder state exists at
+     * execution time. This eliminates the need for locks in decoders whose
+     * buildCommand() only reads from [state].
      */
-    private suspend fun dispatchCommand(command: WheelCommand, decoder: WheelDecoder?) {
+    private suspend fun dispatchCommand(command: WheelCommand, decoder: WheelDecoder?, state: DecoderState?) {
         when (command) {
             is WheelCommand.SendBytes -> sendBleData(command.data)
             is WheelCommand.SendDelayed -> sendBleData(command.data, command.delayMs)
             else -> {
-                val rawCommands = decoder?.buildCommand(command) ?: return
+                val rawCommands = decoder?.buildCommand(command, state) ?: return
                 for (cmd in rawCommands) {
                     when (cmd) {
                         is WheelCommand.SendBytes -> sendBleData(cmd.data)

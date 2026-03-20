@@ -46,7 +46,8 @@ sealed class WcmEffect {
     data object BleDisconnect : WcmEffect()
     class DispatchCommands(
         val commands: List<WheelCommand>,
-        val decoder: WheelDecoder? = null
+        val decoder: WheelDecoder? = null,
+        val decoderState: DecoderState? = null
     ) : WcmEffect()
     class StartKeepAlive(val intervalMs: Long) : WcmEffect()
     class StartDataTimeout(val address: String, val timeoutMs: Long) : WcmEffect()

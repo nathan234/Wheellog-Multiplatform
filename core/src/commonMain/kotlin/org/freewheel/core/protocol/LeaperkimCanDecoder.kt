@@ -568,7 +568,7 @@ class LeaperkimCanDecoder : WheelDecoder {
 
     // ==================== Command Building ====================
 
-    override fun buildCommand(command: WheelCommand): List<WheelCommand> {
+    override fun buildCommand(command: WheelCommand, state: DecoderState?): List<WheelCommand> {
         return when (command) {
             is WheelCommand.SetLight -> {
                 val payload = ByteArray(CMD_PAYLOAD_SIZE)

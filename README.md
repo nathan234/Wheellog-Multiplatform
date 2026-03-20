@@ -85,81 +85,113 @@ classDef target fill:#1a1f2e,stroke:#a78bfa,stroke-width:1.5px,color:#e6edf3,rx:
 classDef android fill:#132217,stroke:#22c55e,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
 classDef ios fill:#1f1a12,stroke:#f59e0b,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
 classDef wear fill:#1a1a22,stroke:#38bdf8,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
+classDef shared fill:#1a1a22,stroke:#f472b6,stroke-width:1.5px,color:#e6edf3,rx:8,ry:8;
 
 %% ---------- Hardware ----------
-subgraph HW["EUC Hardware"]
-    WHEEL["BLE Radio"]:::hw
+subgraph HW["Hardware"]
+    WHEEL["Wheel BLE"]:::hw
+    CHARGER_HW["Charger BLE"]:::hw
 end
 
 %% ---------- Shared Core ----------
 subgraph CORE["KMP Shared Core · commonMain"]
     direction TB
-    WCM["WheelConnectionManager"]:::core
-    DEC["Protocol Decoders<br/>Kingsong · Gotway · Veteran<br/>Ninebot · InMotion"]:::core
-    STATE["WheelState · ConnectionState<br/>WheelCommand · WheelType"]:::core
-    CFG["Settings · AlarmChecker<br/>TelemetryBuffer"]:::core
-    UTIL["RideLogger · ByteUtils · BleUuids"]:::core
+
+    subgraph SVC_LAYER["Connection"]
+        WCM["WheelConnectionManager<br/>AutoConnect · KeepAlive"]:::core
+        CCM["ChargerConnectionManager<br/>HwChargerDecoder"]:::core
+    end
+
+    subgraph PROTO["Protocol Decoders"]
+        DEC["Kingsong · Gotway · Veteran<br/>Ninebot · NinebotZ · InMotion<br/>InMotionV2 · LeaperkimCan<br/>+ Unpackers · AutoDetect"]:::core
+    end
+
+    subgraph DOMAIN["Domain"]
+        STATE["WheelState · WheelType<br/>WheelCommand · ConnectionState<br/>ChargerState"]:::core
+        CFG["WheelSettingsConfig · ControlSpec<br/>WheelProfile · DashboardLayout"]:::core
+    end
+
+    subgraph SUPPORT["Support"]
+        ALM["AlarmChecker"]:::core
+        TEL["TelemetryBuffer<br/>TelemetryHistory"]:::core
+        LOG["RideLogger · CsvFormatter<br/>BleCaptureLogger · Replay"]:::core
+        UTIL["ByteUtils · DisplayUtils<br/>EnergyCalculator · RangeEstimator"]:::core
+    end
 end
 
 WCM --> DEC --> STATE
+CCM --> STATE
 WCM --> STATE
 STATE --> CFG
-STATE --> UTIL
+STATE --> ALM
+STATE --> TEL
+STATE --> LOG
+CFG --> UTIL
 
 %% ---------- Targets Layer ----------
 subgraph TARGETS["KMP Targets · expect/actual"]
     direction TB
 
-    subgraph AND_T["Android Target"]
+    subgraph AND_T["androidMain"]
         BLE_A["BleManager.android<br/>(Blessed)"]:::target
-        LOCK_A["Lock · File · Logger"]:::target
+        PLAT_A["Lock · Logger · FileWriter<br/>PlatformClock · KeyValueStore"]:::target
     end
 
-    subgraph IOS_T["iOS Target"]
+    subgraph IOS_T["iosMain"]
         BLE_I["BleManager.ios<br/>(CoreBluetooth)"]:::target
-        LOCK_I["Lock · File · Logger"]:::target
+        HELPER["WheelConnectionManagerHelper<br/>ChargerConnectionManagerHelper"]:::target
+        PLAT_I["Lock · Logger · FileWriter<br/>PlatformClock · KeyValueStore"]:::target
     end
 end
 
 %% Hardware connections
-WHEEL <-->|BLE packets| BLE_A
-WHEEL <-->|BLE packets| BLE_I
+WHEEL <-->|"BLE"| BLE_A
+WHEEL <-->|"BLE"| BLE_I
+CHARGER_HW <-->|"BLE"| BLE_A
+CHARGER_HW <-->|"BLE"| BLE_I
 
 %% actual -> core
 BLE_A --> WCM
 BLE_I --> WCM
+BLE_A --> CCM
+BLE_I --> CCM
 
-BLE_A -.-> LOCK_A
-BLE_I -.-> LOCK_I
+%% ---------- Shared (Android-only) ----------
+subgraph SHARED["shared · Android library"]
+    SH["WearPage · SmartDouble · Constants"]:::shared
+end
 
 %% ---------- Android App ----------
-subgraph ANDROID["Android App"]
+subgraph ANDROID["FreeWheel · Android"]
     direction TB
-    SVC["WheelService"]:::android
-    VM["WheelViewModel"]:::android
-    UI_A["Jetpack Compose UI"]:::android
+    SVC["WheelService · AlarmHandler"]:::android
+    VM["WheelViewModel<br/>WheelProfileStore"]:::android
+    DATA["Room DB · TripRepository"]:::android
+    UI_A["Compose UI<br/>Dashboard · Charts · Rides<br/>Settings · BMS · Charger"]:::android
 end
 
 STATE -->|"StateFlow"| SVC
-SVC --> VM --> UI_A
+SVC --> VM
+VM --> DATA
+VM --> UI_A
 
 %% ---------- iOS App ----------
-subgraph IOS_APP["iOS App"]
+subgraph IOS_APP["FreeWheel · iOS"]
     direction TB
-    HELPER["WheelConnectionManagerHelper"]:::ios
-    WM["WheelManager.swift<br/>@Published"]:::ios
-    UI_I["SwiftUI"]:::ios
+    BRIDGE["Bridge Layer<br/>WheelManager · AlarmManager<br/>ChargerManager · RideLogger<br/>BackgroundManager · LocationManager<br/>TelemetryBuffer · RideStore"]:::ios
+    UI_I["SwiftUI<br/>Dashboard · Charts · Rides<br/>Settings · BMS · Charger"]:::ios
 end
 
-STATE -->|"StateFlow"| HELPER
-HELPER --> WM --> UI_I
+HELPER -->|"@Published"| BRIDGE --> UI_I
 
 %% ---------- WearOS ----------
 subgraph WEAR["WearOS"]
-    WEARUI["DataClient (from phone)"]:::wear
+    WEARUI["DataClient Companion"]:::wear
 end
 
 VM -.->|"DataClient"| WEARUI
+SH -.-> WEARUI
+SH -.-> ANDROID
 ```
 
 ### Directory Structure

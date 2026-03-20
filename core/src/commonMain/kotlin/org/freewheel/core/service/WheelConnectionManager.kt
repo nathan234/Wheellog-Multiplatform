@@ -285,6 +285,7 @@ class WheelConnectionManager(
     fun calibrate() { sendCommand(WheelCommand.Calibrate) }
     fun powerOff() { sendCommand(WheelCommand.PowerOff) }
     fun setLock(locked: Boolean) { sendCommand(WheelCommand.SetLock(locked)) }
+    fun setVeteranLock(locked: Boolean, password: String) { sendCommand(WheelCommand.SetVeteranLock(locked, password)) }
     fun resetTrip() { sendCommand(WheelCommand.ResetTrip) }
     fun setMaxSpeed(speed: Int) { sendCommand(WheelCommand.SetMaxSpeed(speed)) }
     fun setAlarmSpeed(speed: Int, num: Int) { sendCommand(WheelCommand.SetAlarmSpeed(speed, num)) }

@@ -268,6 +268,10 @@ object WheelConnectionManagerHelper {
         manager.setLock(locked)
     }
 
+    fun sendSetVeteranLock(manager: WheelConnectionManager, locked: Boolean, password: String) {
+        manager.setVeteranLock(locked, password)
+    }
+
     fun sendResetTrip(manager: WheelConnectionManager) {
         manager.resetTrip()
     }

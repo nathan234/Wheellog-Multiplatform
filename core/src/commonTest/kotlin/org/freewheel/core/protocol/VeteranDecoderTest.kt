@@ -1834,6 +1834,55 @@ class VeteranDecoderTest {
         assertEquals(crc, providedCrc, "PowerOff command should have valid CRC32")
     }
 
+    // ==================== Lock Command ====================
+
+    @Test
+    fun `SetVeteranLock produces LdAp format with command byte 0x19`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetVeteranLock(locked = true, password = "000000"))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        // LdAp header
+        assertEquals(0x4C.toByte(), data[0])
+        assertEquals(0x64.toByte(), data[1])
+        assertEquals(0x41.toByte(), data[2])
+        assertEquals(0x70.toByte(), data[3])
+        // Command byte: 0x19 (time sync 0x12 + 7)
+        assertEquals(0x19.toByte(), data[4])
+        // Lock command at byte 17: 0 = lock
+        assertEquals(0x00.toByte(), data[17])
+        // Total = 21 payload + 4 CRC = 25
+        assertEquals(25, data.size)
+        // Valid CRC32
+        val payloadSize = data.size - 4
+        val crc = veteranCrc32(data, 0, payloadSize)
+        val providedCrc = ((data[payloadSize].toLong() and 0xFF) shl 24) or
+                ((data[payloadSize + 1].toLong() and 0xFF) shl 16) or
+                ((data[payloadSize + 2].toLong() and 0xFF) shl 8) or
+                (data[payloadSize + 3].toLong() and 0xFF)
+        assertEquals(crc, providedCrc, "Lock command should have valid CRC32")
+    }
+
+    @Test
+    fun `SetVeteranLock unlock sends command byte 1`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetVeteranLock(locked = false, password = "000000"))
+        assertEquals(1, commands.size)
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        assertEquals(0x01.toByte(), data[17]) // 1 = unlock
+    }
+
+    @Test
+    fun `SetVeteranLock encodes password as 3-byte big-endian`() {
+        val freshDecoder = decoderWithVer(5000)
+        val commands = freshDecoder.buildCommand(WheelCommand.SetVeteranLock(locked = true, password = "123456"))
+        val data = (commands[0] as WheelCommand.SendBytes).data
+        // 123456 = 0x01E240
+        assertEquals(0x01.toByte(), data[14])
+        assertEquals(0xE2.toByte(), data[15])
+        assertEquals(0x40.toByte(), data[16])
+    }
+
     @Test
     fun `set light binary for new firmware`() {
         val freshDecoder = decoderWithVer(5000) // mVer=5

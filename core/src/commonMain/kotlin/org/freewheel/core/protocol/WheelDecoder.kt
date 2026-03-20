@@ -467,6 +467,9 @@ sealed class WheelCommand {
     data class SetAccelerationLimit(val value: Int) : WheelCommand()
     data class SetWheelDisplayUnit(val miles: Boolean) : WheelCommand()
 
+    /** Veteran lock/unlock with numeric password (e.g. "000000"). */
+    data class SetVeteranLock(val locked: Boolean, val password: String) : WheelCommand()
+
     // --- BMS requests (Kingsong) ---
 
     /**

@@ -721,6 +721,49 @@ class VeteranDecoder : WheelDecoder {
     }
 
     /**
+     * Build a lock/unlock command with time-based prefix and numeric password.
+     *
+     * Format: [LdAp header] [0x19] [0x00 0x05] [datetime 7B] [password 3B BE] [cmd] [0 0 0] + CRC32
+     * - Command byte 0x19 = time sync (0x12) + 7
+     * - Password is parsed as integer and encoded big-endian in 3 bytes
+     * - Lock command: 0 = lock, 1 = unlock
+     *
+     * Reverse-engineered from Leaperkim app v1.4.8 Util.genPwdCmd().
+     */
+    private fun buildLockCommand(locked: Boolean, password: String): ByteArray {
+        val now = Clock.System.now()
+        val tz = TimeZone.currentSystemDefault()
+        val dt = now.toLocalDateTime(tz)
+        val tzOffsetHours = tz.offsetAt(now).totalSeconds / 3600
+        val pwd = password.toIntOrNull() ?: 0
+
+        val payload = ByteArray(21)
+        // LdAp header
+        payload[0] = 0x4C; payload[1] = 0x64; payload[2] = 0x41; payload[3] = 0x70
+        // Command byte: time sync (0x12) + 7 = 0x19
+        payload[4] = 0x19
+        payload[5] = 0x00; payload[6] = 0x05
+        // Date/time
+        payload[7] = (dt.year - 2000).toByte()
+        payload[8] = dt.monthNumber.toByte()
+        payload[9] = dt.dayOfMonth.toByte()
+        payload[10] = dt.hour.toByte()
+        payload[11] = dt.minute.toByte()
+        payload[12] = dt.second.toByte()
+        payload[13] = tzOffsetHours.toByte()
+        // Password (3-byte big-endian)
+        payload[14] = ((pwd shr 16) and 0xFF).toByte()
+        payload[15] = ((pwd shr 8) and 0xFF).toByte()
+        payload[16] = (pwd and 0xFF).toByte()
+        // Lock command: 0 = lock, 1 = unlock
+        payload[17] = if (locked) 0 else 1
+        // Secondary parameter (zeros for lock/unlock)
+        // payload[18..20] already zero from ByteArray init
+
+        return appendCrc32(payload)
+    }
+
+    /**
      * Build a Veteran binary command with CRC32.
      * Format: [4C 6B 41 70] [cmdByte] [byte5] [padding 0x80...] [valueByte] + CRC32 (4 bytes BE)
      *
@@ -892,6 +935,9 @@ class VeteranDecoder : WheelDecoder {
             }
             is WheelCommand.ResetTrip -> {
                 listOf(WheelCommand.SendBytes("CLEARMETER".encodeToByteArray()))
+            }
+            is WheelCommand.SetVeteranLock -> {
+                listOf(WheelCommand.SendBytes(buildLockCommand(command.locked, command.password)))
             }
             is WheelCommand.SetScreenBacklight -> {
                 if (!isSupportedAt(SettingsCommandId.SCREEN_BACKLIGHT, ver)) return emptyList()

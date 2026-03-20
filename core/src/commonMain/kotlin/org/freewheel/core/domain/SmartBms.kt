@@ -41,7 +41,7 @@ class SmartBms {
     var minCellNum: Int = 0
     var maxCellNum: Int = 0
     var cellNum: Int = 0
-    var cells: Array<Double> = Array(MAX_CELLS) { 0.0 }
+    var cells: DoubleArray = DoubleArray(MAX_CELLS)
 
     init {
         reset()
@@ -83,7 +83,7 @@ class SmartBms {
         minCellNum = 0
         maxCellNum = 0
         cellNum = 0
-        cells = Array(MAX_CELLS) { 0.0 }
+        cells = DoubleArray(MAX_CELLS)
     }
 
     fun toSnapshot(): BmsSnapshot = BmsSnapshot(
@@ -170,7 +170,7 @@ data class BmsSnapshot(
     val minCellNum: Int = 0,
     val maxCellNum: Int = 0,
     val cellNum: Int = 0,
-    val cells: Array<Double> = Array(SmartBms.MAX_CELLS) { 0.0 }
+    val cells: DoubleArray = DoubleArray(SmartBms.MAX_CELLS)
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

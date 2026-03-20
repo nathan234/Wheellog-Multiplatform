@@ -84,7 +84,7 @@ class DemoDataProvider {
     private fun generateBmsSnapshot(packVoltage: Double, packCurrent: Double): BmsSnapshot {
         val cellCount = 16
         val nominalCell = packVoltage / cellCount
-        val cells = Array(SmartBms.MAX_CELLS) { i ->
+        val cells = DoubleArray(SmartBms.MAX_CELLS) { i ->
             if (i < cellCount) {
                 // Small variation per cell with slight sine wobble
                 nominalCell + sin((tick + i * 37).toDouble() * 0.02) * 0.015

@@ -165,6 +165,12 @@ class WheelConnectionManager(
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, CapabilitySet())
 
+    /** Accumulated event log entries from the wheel (Veteran/Leaperkim). Sorted by index, deduplicated. */
+    val eventLogEntries: StateFlow<List<org.freewheel.core.domain.EventLogEntry>> = _wcmState
+        .map { it.eventLogEntries }
+        .distinctUntilChanged()
+        .stateIn(derivedScope, SharingStarted.Eagerly, emptyList())
+
     /** Whether the keep-alive timer is running. */
     val isKeepAliveRunning: StateFlow<Boolean> = keepAliveTimer.isRunning
 
@@ -287,6 +293,7 @@ class WheelConnectionManager(
     fun setLock(locked: Boolean) { sendCommand(WheelCommand.SetLock(locked)) }
     fun setVeteranLock(locked: Boolean, password: String) { sendCommand(WheelCommand.SetVeteranLock(locked, password)) }
     fun requestEventLog() { sendCommand(WheelCommand.RequestEventLog) }
+    fun clearEventLog() { events.trySend(WheelEvent.ClearEventLog) }
     fun resetTrip() { sendCommand(WheelCommand.ResetTrip) }
     fun setMaxSpeed(speed: Int) { sendCommand(WheelCommand.SetMaxSpeed(speed)) }
     fun setAlarmSpeed(speed: Int, num: Int) { sendCommand(WheelCommand.SetAlarmSpeed(speed, num)) }
@@ -459,6 +466,7 @@ class WheelConnectionManager(
             is WheelEvent.DataTimeout -> reduceDataTimeout(state, event)
             is WheelEvent.SendCommand -> reduceSendCommand(state, event)
             is WheelEvent.ConfigUpdated -> reduceConfigUpdated(state, event)
+            is WheelEvent.ClearEventLog -> WcmTransition(state.copy(eventLogEntries = emptyList()))
         }
     }
 
@@ -685,6 +693,17 @@ class WheelConnectionManager(
             state.capabilities
         }
 
+        // Accumulate event log entries (deduplicate by index)
+        val newLogEntries = if (decoded.logEntries.isNotEmpty()) {
+            val existing = state.eventLogEntries.associateBy { it.index }.toMutableMap()
+            for (entry in decoded.logEntries) {
+                existing[entry.index] = entry
+            }
+            existing.values.sortedBy { it.index }
+        } else {
+            state.eventLogEntries
+        }
+
         return WcmTransition(
             state = state.copy(
                 telemetry = decoded.telemetry ?: state.telemetry,
@@ -694,7 +713,8 @@ class WheelConnectionManager(
                 connectionState = newConnectionState,
                 capabilities = mergedCapabilities,
                 consecutiveDecodeErrors = 0,
-                consecutiveBleErrors = 0
+                consecutiveBleErrors = 0,
+                eventLogEntries = newLogEntries
             ),
             effects = effects
         )

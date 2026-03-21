@@ -3,6 +3,7 @@ package org.freewheel.core.service
 import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.CapabilitySet
+import org.freewheel.core.domain.EventLogEntry
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
@@ -29,6 +30,8 @@ data class WcmState(
     val capabilities: CapabilitySet = CapabilitySet(),
     val consecutiveDecodeErrors: Int = 0,
     val consecutiveBleErrors: Int = 0,
+    // Event log download (accumulated across frames)
+    val eventLogEntries: List<EventLogEntry> = emptyList(),
     // Internal — not exposed as public flows
     val decoder: WheelDecoder? = null,
     val decoderConfig: DecoderConfig = DecoderConfig(),

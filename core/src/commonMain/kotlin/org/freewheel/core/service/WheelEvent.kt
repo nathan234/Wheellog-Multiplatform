@@ -88,6 +88,11 @@ sealed class WheelEvent {
         val command: WheelCommand
     ) : WheelEvent()
 
+    // --- Event log ---
+
+    /** Clear accumulated event log entries (before re-download). */
+    data object ClearEventLog : WheelEvent()
+
     // --- Config ---
 
     /**

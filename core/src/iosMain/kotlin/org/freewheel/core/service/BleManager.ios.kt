@@ -57,6 +57,7 @@ actual class BleManager : BleManagerPort {
     // Callbacks
     private var onDataReceivedCallback: ((ByteArray) -> Unit)? = null
     private var onBleErrorCallback: (() -> Unit)? = null
+    private var onBleDisconnectedCallback: ((String, String) -> Unit)? = null
     private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
     private var scanCallback: ((BleDevice) -> Unit)? = null
 
@@ -119,6 +120,14 @@ actual class BleManager : BleManagerPort {
      */
     fun setBleErrorCallback(callback: () -> Unit) {
         onBleErrorCallback = callback
+    }
+
+    /**
+     * Set callback for when the OS disconnects unexpectedly.
+     * Called with (address, reason). Not called for user-initiated disconnects.
+     */
+    fun setBleDisconnectedCallback(callback: (String, String) -> Unit) {
+        onBleDisconnectedCallback = callback
     }
 
     /**
@@ -439,20 +448,33 @@ actual class BleManager : BleManagerPort {
             connectionContinuation = null
         }
         val address = peripheral.identifier.UUIDString
-        if (error != null) {
-            _connectionState.value = ConnectionState.ConnectionLost(
-                address = address,
-                reason = error.localizedDescription ?: "Unknown error"
-            )
-        } else {
-            _connectionState.value = ConnectionState.Disconnected
-        }
 
-        currentPeripheral = null
+        // Clear characteristic references (will be re-set on reconnect via configureForWheel)
         writeCharacteristic = null
         readCharacteristic = null
         discoveredServiceUuids.clear()
         expectedServiceCount = 0
+        serviceDiscoveryCompleted = false
+
+        if (error != null) {
+            // Unexpected disconnect — initiate OS-level auto-reconnect.
+            // CoreBluetooth's connect() never times out and works in background.
+            // Keep the peripheral reference alive so CoreBluetooth can reconnect.
+            val reason = error.localizedDescription ?: "Unknown error"
+            _connectionState.value = ConnectionState.ConnectionLost(
+                address = address,
+                reason = reason
+            )
+            Logger.d("BleManager", "Starting OS auto-reconnect for $address")
+            peripheral.delegate = peripheralDelegate
+            centralManager?.connectPeripheral(peripheral, options = null)
+            // Notify WCM immediately so it transitions to ConnectionLost
+            onBleDisconnectedCallback?.invoke(address, reason)
+        } else {
+            // User-initiated disconnect — clean up fully
+            currentPeripheral = null
+            _connectionState.value = ConnectionState.Disconnected
+        }
     }
 
     internal fun onServicesDiscovered(peripheral: CBPeripheral, error: NSError?) {

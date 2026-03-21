@@ -61,9 +61,21 @@ sealed class WheelEvent {
 
     /**
      * BLE characteristic update failed (GATT error on Android, NSError on iOS).
-     * Consecutive errors past a threshold trigger [ConnectionState.ConnectionLost].
+     * Logged for diagnostics but does not trigger disconnection — only the OS
+     * can declare the BLE link dead (via [BleDisconnected]).
      */
     data object BleError : WheelEvent()
+
+    /**
+     * The OS BLE stack reported an unexpected disconnection.
+     * This is the ONLY path (besides user-initiated [DisconnectRequested]) that
+     * transitions to [ConnectionState.ConnectionLost]. The OS will auto-reconnect;
+     * when it does, [ServicesDiscovered] fires and the session resumes.
+     */
+    class BleDisconnected(
+        val address: String,
+        val reason: String
+    ) : WheelEvent()
 
     // --- Timers ---
 

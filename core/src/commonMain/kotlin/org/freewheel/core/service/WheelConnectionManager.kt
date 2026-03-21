@@ -251,10 +251,25 @@ class WheelConnectionManager(
     /**
      * Report a BLE characteristic update error.
      * Called by platform-specific BLE implementation on GATT/CoreBluetooth errors.
-     * Consecutive errors past [MAX_BLE_ERRORS] trigger [ConnectionState.ConnectionLost].
+     * Errors are logged for diagnostics but do not trigger disconnection.
      */
     fun onBleError() {
         events.trySend(WheelEvent.BleError)
+    }
+
+    /**
+     * Report that the OS BLE stack disconnected unexpectedly.
+     * Called by platform-specific BLE implementation when the OS fires a
+     * disconnect callback (not user-initiated). This is the only path
+     * (besides explicit disconnect) that transitions to [ConnectionState.ConnectionLost].
+     *
+     * The platform BLE layer should also initiate OS-level auto-reconnect
+     * (Android: autoConnectPeripheral, iOS: centralManager.connect) before
+     * calling this — when the OS reconnects, [onServicesDiscovered] fires
+     * and the session resumes transparently.
+     */
+    fun onBleDisconnected(address: String, reason: String) {
+        events.trySend(WheelEvent.BleDisconnected(address, reason))
     }
 
     /**
@@ -472,6 +487,7 @@ class WheelConnectionManager(
             is WheelEvent.WheelTypeDetected -> reduceWheelTypeDetected(state, event)
             is WheelEvent.DataReceived -> reduceDataReceived(state, event)
             is WheelEvent.BleError -> reduceBleError(state)
+            is WheelEvent.BleDisconnected -> reduceBleDisconnected(state, event)
             is WheelEvent.KeepAliveTick -> reduceKeepAliveTick(state)
             is WheelEvent.DataTimeout -> reduceDataTimeout(state, event)
             is WheelEvent.SendCommand -> reduceSendCommand(state, event)
@@ -599,20 +615,12 @@ class WheelConnectionManager(
                     writeServiceUuid = result.writeServiceUuid,
                     writeCharacteristicUuid = result.writeCharacteristicUuid
                 )
-                val (decoderState, decoderEffects) = setupDecoderTransition(newState, result.wheelType)
-                WcmTransition(
-                    decoderState.copy(connectionInfo = info),
-                    decoderEffects + info.toConfigureBleEffect()
-                )
+                reconnectOrSetup(newState, result.wheelType, info)
             }
             is WheelTypeDetector.DetectionResult.Ambiguous -> {
                 Logger.d(TAG, "Ambiguous: ${result.possibleTypes}, using GOTWAY_VIRTUAL")
                 val info = WheelConnectionInfo.forType(WheelType.GOTWAY_VIRTUAL)
-                val (decoderState, decoderEffects) = setupDecoderTransition(newState, WheelType.GOTWAY_VIRTUAL)
-                WcmTransition(
-                    decoderState.copy(connectionInfo = info),
-                    decoderEffects + listOfNotNull(info?.toConfigureBleEffect())
-                )
+                reconnectOrSetup(newState, WheelType.GOTWAY_VIRTUAL, info)
             }
             is WheelTypeDetector.DetectionResult.Unknown -> {
                 Logger.w(TAG, "Unknown wheel: ${result.reason}")
@@ -623,6 +631,63 @@ class WheelConnectionManager(
                 )
             }
         }
+    }
+
+    /**
+     * Either reconnect (reuse existing decoder) or set up fresh.
+     *
+     * On OS auto-reconnect after [ConnectionState.ConnectionLost], the decoder and
+     * accumulated state (telemetry, identity, BMS, settings) are preserved. We only
+     * re-emit [WcmEffect.ConfigureBle] to re-enable BLE notifications and transition
+     * back to [ConnectionState.Connected]. This avoids the full re-initialization
+     * sequence that would reset the decoder's isReady() flag and lose state.
+     */
+    private fun reconnectOrSetup(
+        state: WcmState,
+        wheelType: WheelType,
+        info: WheelConnectionInfo?
+    ): WcmTransition {
+        val existingDecoder = state.decoder
+        val isReconnect = state.connectionState is ConnectionState.ConnectionLost &&
+            existingDecoder != null &&
+            existingDecoder.wheelType == wheelType
+
+        if (isReconnect) {
+            val address = (state.connectionState as ConnectionState.ConnectionLost).address
+            val displayName = state.identity.displayName
+            Logger.d(TAG, "Reconnecting — reusing decoder for $wheelType")
+            val effects = buildList {
+                if (info != null) add(info.toConfigureBleEffect())
+                add(WcmEffect.LogConnectionError(ConnectionErrorEvent.StateTransition(
+                    timestampMs = currentTimeMillis(),
+                    from = state.connectionState.statusText,
+                    to = "Connected to $displayName",
+                    reason = "OS auto-reconnect"
+                )))
+            }
+            return WcmTransition(
+                state.copy(
+                    connectionState = ConnectionState.Connected(
+                        address = address,
+                        wheelName = displayName
+                    ),
+                    connectionInfo = info ?: state.connectionInfo
+                ),
+                effects
+            )
+        }
+
+        // First connection — full decoder setup
+        val (decoderState, decoderEffects) = setupDecoderTransition(state, wheelType)
+        val configEffects = if (info != null) {
+            listOf(info.toConfigureBleEffect())
+        } else {
+            emptyList()
+        }
+        return WcmTransition(
+            decoderState.copy(connectionInfo = info ?: state.connectionInfo),
+            decoderEffects + configEffects
+        )
     }
 
     private fun reduceWheelTypeDetected(state: WcmState, event: WheelEvent.WheelTypeDetected): WcmTransition {
@@ -751,36 +816,39 @@ class WheelConnectionManager(
 
     private fun reduceBleError(state: WcmState): WcmTransition {
         val newCount = state.consecutiveBleErrors + 1
-        val now = currentTimeMillis()
         Logger.w(TAG, "BLE error #$newCount")
-        val bleErrorEffect = WcmEffect.LogConnectionError(
-            ConnectionErrorEvent.BleError(timestampMs = now, consecutiveCount = newCount)
-        )
-        if (newCount >= MAX_BLE_ERRORS) {
-            val address = getCurrentAddress(state)
-            val lostState = ConnectionState.ConnectionLost(
-                address = address ?: "",
-                reason = "Too many BLE errors"
-            )
-            val transitionEffect = WcmEffect.LogConnectionError(
-                ConnectionErrorEvent.StateTransition(
-                    timestampMs = now,
-                    from = state.connectionState.statusText,
-                    to = lostState.statusText,
-                    reason = "Too many BLE errors"
-                )
-            )
-            return WcmTransition(
-                state.copy(
-                    consecutiveBleErrors = newCount,
-                    connectionState = lostState
-                ),
-                listOf(bleErrorEffect, transitionEffect)
-            )
-        }
+        // Log for diagnostics but never disconnect — only the OS can declare
+        // the BLE link dead (via BleDisconnected). Counting errors ourselves
+        // caused premature disconnections during brief radio interference.
         return WcmTransition(
             state.copy(consecutiveBleErrors = newCount),
-            listOf(bleErrorEffect)
+            listOf(WcmEffect.LogConnectionError(
+                ConnectionErrorEvent.BleError(
+                    timestampMs = currentTimeMillis(),
+                    consecutiveCount = newCount
+                )
+            ))
+        )
+    }
+
+    private fun reduceBleDisconnected(state: WcmState, event: WheelEvent.BleDisconnected): WcmTransition {
+        val now = currentTimeMillis()
+        val lostState = ConnectionState.ConnectionLost(
+            address = event.address,
+            reason = event.reason
+        )
+        // Don't stop timers or reset decoder — the OS is auto-reconnecting.
+        // Keep-alive commands will silently fail (write returns false) during
+        // the gap, and resume working when the OS reconnects. Preserving the
+        // decoder means we skip re-initialization on reconnect.
+        return WcmTransition(
+            state.copy(connectionState = lostState),
+            listOf(WcmEffect.LogConnectionError(ConnectionErrorEvent.StateTransition(
+                timestampMs = now,
+                from = state.connectionState.statusText,
+                to = lostState.statusText,
+                reason = event.reason
+            )))
         )
     }
 
@@ -791,27 +859,15 @@ class WheelConnectionManager(
     }
 
     private fun reduceDataTimeout(state: WcmState, event: WheelEvent.DataTimeout): WcmTransition {
-        // Don't stop timers — keep-alive must continue so polling wheels
-        // can recover when signal returns. The timeout tracker continues
-        // monitoring and will naturally reset via onDataReceived().
-        val now = currentTimeMillis()
-        val lostState = ConnectionState.ConnectionLost(
-            address = event.address,
-            reason = "No data received"
-        )
+        // Log for diagnostics but don't disconnect — data silence doesn't mean
+        // the BLE link is dead. The OS will fire BleDisconnected if the link
+        // actually drops. Previously this triggered ConnectionLost after 30s,
+        // causing unnecessary mid-ride disconnections during brief radio gaps.
         return WcmTransition(
-            state.copy(connectionState = lostState),
-            listOf(
-                WcmEffect.LogConnectionError(ConnectionErrorEvent.DataTimeout(
-                    timestampMs = now, address = event.address
-                )),
-                WcmEffect.LogConnectionError(ConnectionErrorEvent.StateTransition(
-                    timestampMs = now,
-                    from = state.connectionState.statusText,
-                    to = lostState.statusText,
-                    reason = "No data received"
-                ))
-            )
+            state,
+            listOf(WcmEffect.LogConnectionError(ConnectionErrorEvent.DataTimeout(
+                timestampMs = currentTimeMillis(), address = event.address
+            )))
         )
     }
 
@@ -1034,8 +1090,6 @@ class WheelConnectionManager(
 
     companion object {
         private const val TAG = "WheelConnectionManager"
-        /** Consecutive BLE errors before triggering ConnectionLost. */
-        internal const val MAX_BLE_ERRORS = 50
         /** Timeout for BLE connect phase (30 seconds). */
         private const val BLE_CONNECT_TIMEOUT_MS = 30_000L
     }

@@ -470,10 +470,11 @@ class WheelViewModel(
                     wheelService?.startLocationTracking()
                     startErrorLogSession(state.address)
                 }
-                // Start reconnect-after-loss when connection drops
-                if (state is ConnectionState.ConnectionLost && appConfig.useReconnect) {
-                    autoConnectManager?.startReconnecting(state.address)
-                }
+                // OS-level auto-reconnect handles mid-ride reconnection
+                // (Android: autoConnectPeripheral, iOS: centralManager.connect).
+                // Don't use AutoConnectManager here — it would cancel the OS
+                // reconnect by calling WCM.connect() which tears down + rebuilds.
+                // AutoConnectManager is only for startup auto-connect.
                 // Stop GPS when disconnected
                 if (state is ConnectionState.ConnectionLost ||
                     state is ConnectionState.Disconnected ||

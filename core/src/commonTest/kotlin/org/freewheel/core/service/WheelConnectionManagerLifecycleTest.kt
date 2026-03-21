@@ -702,7 +702,7 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
-    fun `consecutive BLE errors trigger ConnectionLost after threshold`() = runTest(timeout = 0.1.seconds) {
+    fun `BLE errors do not trigger ConnectionLost`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         manager.onWheelTypeDetected(WheelType.KINGSONG)
@@ -718,15 +718,42 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
         assertTrue(manager.connectionState.value is ConnectionState.Connected)
 
-        // Send MAX_BLE_ERRORS consecutive errors
-        repeat(WheelConnectionManager.MAX_BLE_ERRORS) {
+        // Even many consecutive BLE errors should NOT disconnect —
+        // only the OS can declare the link dead (via onBleDisconnected)
+        repeat(100) {
             manager.onBleError()
         }
         runCurrent()
 
+        assertTrue(manager.connectionState.value is ConnectionState.Connected,
+            "BLE errors should not trigger ConnectionLost")
+        assertEquals(100, manager.consecutiveBleErrors.value)
+    }
+
+    @Test
+    fun `onBleDisconnected triggers ConnectionLost`() = runTest(timeout = 0.1.seconds) {
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        // Make decoder ready → Connected
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
+            telemetry = TelemetryState(speed = 2500),
+            identity = WheelIdentity(name = "KS-S18")
+        ))
+        fakeDecoder.ready = true
+        manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
+        assertTrue(manager.connectionState.value is ConnectionState.Connected)
+
+        // OS-level disconnect — this is the only path to ConnectionLost
+        manager.onBleDisconnected("AA:BB:CC:DD:EE:FF", "Link supervision timeout")
+        runCurrent()
+
         val state = manager.connectionState.value
         assertTrue(state is ConnectionState.ConnectionLost, "Expected ConnectionLost, got $state")
-        assertEquals("Too many BLE errors", (state as ConnectionState.ConnectionLost).reason)
+        assertEquals("Link supervision timeout", (state as ConnectionState.ConnectionLost).reason)
         assertEquals("AA:BB:CC:DD:EE:FF", state.address)
     }
 

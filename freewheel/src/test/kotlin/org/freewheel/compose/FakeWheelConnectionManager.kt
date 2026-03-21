@@ -42,6 +42,7 @@ class FakeWheelConnectionManager : WheelConnectionManagerPort {
 
     override var captureCallback: ((data: ByteArray, direction: BlePacketDirection, annotation: String) -> Unit)? = null
     override var unhandledCallback: ((reason: String, frameData: ByteArray) -> Unit)? = null
+    override var errorLogCallback: ((org.freewheel.core.logging.ConnectionErrorEvent) -> Unit)? = null
 
     var connectCallCount = 0
         private set

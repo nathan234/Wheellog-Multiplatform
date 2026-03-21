@@ -82,6 +82,9 @@ actual class BleManager : BleManagerPort {
     // Callback for BLE characteristic update errors (GATT errors)
     private var onBleErrorCallback: (() -> Unit)? = null
 
+    // Callback for unexpected OS-level disconnect (address, reason)
+    private var onBleDisconnectedCallback: ((String, String) -> Unit)? = null
+
     // Callback for services discovered
     private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
 
@@ -151,13 +154,18 @@ actual class BleManager : BleManagerPort {
             readCharacteristic = null
 
             if (!disconnectRequested && address.isNotEmpty()) {
-                // Unexpected disconnect — use passive auto-reconnect
+                // Unexpected disconnect — use passive OS-level auto-reconnect.
+                // autoConnectPeripheral adds the device to the OS whitelist and
+                // reconnects in the background when the peripheral is found again.
                 _connectionState.value = ConnectionState.ConnectionLost(
                     address = address,
                     reason = "Disconnected unexpectedly: $status"
                 )
-                Logger.d("BleManager", "Starting auto-reconnect for $address")
+                Logger.d("BleManager", "Starting OS auto-reconnect for $address")
                 central?.autoConnectPeripheral(peripheral, peripheralCallback)
+                // Notify WCM immediately so it transitions to ConnectionLost
+                // without waiting for data timeout (which could take 30+ seconds)
+                onBleDisconnectedCallback?.invoke(address, "Disconnected unexpectedly: $status")
             } else {
                 // User-requested disconnect
                 currentPeripheral = null
@@ -206,6 +214,14 @@ actual class BleManager : BleManagerPort {
      */
     fun setBleErrorCallback(callback: () -> Unit) {
         onBleErrorCallback = callback
+    }
+
+    /**
+     * Set callback for when the OS disconnects unexpectedly.
+     * Called with (address, reason). Not called for user-initiated disconnects.
+     */
+    fun setBleDisconnectedCallback(callback: (String, String) -> Unit) {
+        onBleDisconnectedCallback = callback
     }
 
     /**

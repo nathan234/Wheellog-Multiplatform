@@ -509,6 +509,11 @@ class WheelManager: ObservableObject {
         bleManager?.setBleErrorCallback { [weak self] in
             self?.connectionManager?.onBleError()
         }
+
+        // Wire OS-level disconnects to connection manager
+        bleManager?.setBleDisconnectedCallback { [weak self] address, reason in
+            self?.connectionManager?.onBleDisconnected(address: address, reason: reason)
+        }
     }
 
     private func setupAlarmCallbacks() {
@@ -912,20 +917,16 @@ class WheelManager: ObservableObject {
             startErrorLogSession(address: address)
         }
 
-        // Detect connection lost → start auto-reconnect via shared manager
-        // Don't stop logging or clear telemetry — ride session stays alive
-        // so it resumes when the wheel reconnects.
-        if case .connectionLost(let address, let reason) = newState {
+        // Connection lost — OS-level auto-reconnect handles mid-ride reconnection
+        // (centralManager.connect in onPeripheralDisconnected). Don't use
+        // AutoConnectManager here — it would cancel the OS reconnect by calling
+        // WCM.connect() which tears down + rebuilds. AutoConnectManager is only
+        // for startup auto-connect.
+        if case .connectionLost(_, let reason) = newState {
             endErrorLogSession(reason: reason)
             if backgroundManager.isInBackground {
                 let wheelName = identity.displayName
                 backgroundManager.postConnectionLostNotification(wheelName: wheelName)
-            }
-
-            if autoReconnect {
-                if let acm = autoConnectManager {
-                    WheelConnectionManagerHelper.shared.startReconnecting(manager: acm, address: address)
-                }
             }
 
             locationManager.stopTracking()
@@ -1202,7 +1203,7 @@ class WheelManager: ObservableObject {
     }
 
     func stopLogging() {
-        if let metadata = rideLogger.stopLogging(currentDistance: telemetry?.totalDistanceKm ?? 0) {
+        if let metadata = rideLogger.stopLogging(currentDistance: ttelemetry?.totalDistanceKm ?? 0) {
             rideStore.addRide(metadata)
         }
         isLogging = false

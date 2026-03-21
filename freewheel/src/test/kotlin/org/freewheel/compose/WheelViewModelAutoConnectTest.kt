@@ -191,28 +191,18 @@ class WheelViewModelAutoConnectTest {
     }
 
     // --- Reconnect-after-loss wiring ---
+    // OS-level auto-reconnect (Android: autoConnectPeripheral, iOS: centralManager.connect)
+    // now handles mid-ride reconnection. The ViewModel no longer starts AutoConnectManager
+    // on ConnectionLost — that would cancel the OS reconnect.
 
     @Test
-    fun `ConnectionLost triggers reconnect when autoReconnect enabled`() = runTest(testDispatcher, timeout = 5.seconds) {
+    fun `ConnectionLost does not trigger app-level reconnect`() = runTest(testDispatcher, timeout = 5.seconds) {
         setUseReconnect(true)
         setLastMac("AA:BB:CC:DD:EE:FF")
         viewModel.attachService(fakeService, fakeCm, fakeBle)
         advanceUntilIdle()
 
-        // Simulate connection lost via the fake CM's flow
-        fakeCm.setConnectionState(ConnectionState.ConnectionLost("AA:BB:CC:DD:EE:FF", "timeout"))
-        advanceUntilIdle()
-
-        assertThat(viewModel.reconnectState.value).isNotEqualTo(AutoConnectManager.ReconnectState.Idle)
-    }
-
-    @Test
-    fun `ConnectionLost does not trigger reconnect when autoReconnect disabled`() = runTest(testDispatcher, timeout = 5.seconds) {
-        setUseReconnect(false)
-        setLastMac("AA:BB:CC:DD:EE:FF")
-        viewModel.attachService(fakeService, fakeCm, fakeBle)
-        advanceUntilIdle()
-
+        // Simulate connection lost — should NOT start AutoConnectManager reconnect
         fakeCm.setConnectionState(ConnectionState.ConnectionLost("AA:BB:CC:DD:EE:FF", "timeout"))
         advanceUntilIdle()
 

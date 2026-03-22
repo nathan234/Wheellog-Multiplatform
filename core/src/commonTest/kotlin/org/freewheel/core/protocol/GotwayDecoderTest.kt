@@ -556,6 +556,56 @@ class GotwayDecoderTest {
             "model should persist after NAME response")
     }
 
+    // ==================== Firmware Brand ====================
+
+    @Test
+    fun `JN firmware sets Extreme Bull brand`() {
+        val freshDecoder = GotwayDecoder()
+        var ds = DecoderState()
+
+        // 1) JN firmware response
+        val fwData = "JN2.05".encodeToByteArray()
+        val r1 = freshDecoder.decode(fwData, ds, config)
+        assertTrue(r1 is DecodeResult.Success)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
+        assertEquals("Extreme Bull", ds.identity.brand)
+
+        // 2) NAME response — brand persists, displayName uses brand
+        val nameData = "NAME Commander Max".encodeToByteArray()
+        val r2 = freshDecoder.decode(nameData, ds, config)
+        assertTrue(r2 is DecodeResult.Success)
+        ds = (r2 as DecodeResult.Success).data.decoderStateFrom(ds)
+        assertEquals("Commander Max", ds.identity.model)
+        assertEquals("Extreme Bull", ds.identity.brand)
+        assertEquals("Extreme Bull Commander Max", ds.identity.displayName)
+    }
+
+    @Test
+    fun `GW firmware sets Begode brand`() {
+        val freshDecoder = GotwayDecoder()
+        val fwData = "GW1.23".encodeToByteArray()
+        val result = freshDecoder.decode(fwData, DecoderState(), config)
+
+        assertTrue(result is DecodeResult.Success)
+        assertEquals("Begode", (result as DecodeResult.Success).data.assertIdentity().brand)
+    }
+
+    @Test
+    fun `NAME before firmware leaves brand empty until firmware arrives`() {
+        val freshDecoder = GotwayDecoder()
+        var ds = DecoderState()
+
+        // NAME arrives first (fwProt still "")
+        val nameData = "NAME Rocket".encodeToByteArray()
+        val r1 = freshDecoder.decode(nameData, ds, config)
+        assertTrue(r1 is DecodeResult.Success)
+        ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
+        assertEquals("Rocket", ds.identity.model)
+        assertEquals("", ds.identity.brand)
+        // Falls back to wheelType brand
+        assertEquals("Begode Rocket", ds.identity.displayName)
+    }
+
     // ==================== Miles Normalization ====================
     // When the wheel is configured for miles (inMiles=true), the decoder must
     // convert speed and distance values to metric before storing in WheelState.

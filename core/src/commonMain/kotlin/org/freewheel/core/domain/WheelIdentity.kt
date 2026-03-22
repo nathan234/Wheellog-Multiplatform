@@ -11,7 +11,9 @@ data class WheelIdentity(
     val modeStr: String = "",
     val version: String = "",
     val serialNumber: String = "",
-    val btName: String = ""
+    val btName: String = "",
+    /** Firmware-derived brand override (e.g. "Extreme Bull" for JN-prefix Gotway firmware). */
+    val brand: String = ""
 ) {
     companion object {
         /** Swift-callable factory — Kotlin default-parameter constructors aren't visible from ObjC/Swift. */
@@ -19,10 +21,10 @@ data class WheelIdentity(
     }
 
     val displayName: String get() {
-        val brand = wheelType.displayName
+        val effectiveBrand = brand.ifEmpty { wheelType.displayName }
         val label = model.ifEmpty { name }.ifEmpty { btName }
-        if (label.isEmpty()) return brand.ifEmpty { "Dashboard" }
-        if (brand.isEmpty() || label.startsWith(brand, ignoreCase = true)) return label
-        return "$brand $label"
+        if (label.isEmpty()) return effectiveBrand.ifEmpty { "Dashboard" }
+        if (effectiveBrand.isEmpty() || label.startsWith(effectiveBrand, ignoreCase = true)) return label
+        return "$effectiveBrand $label"
     }
 }

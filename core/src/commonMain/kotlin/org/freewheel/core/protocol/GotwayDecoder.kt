@@ -77,6 +77,12 @@ class GotwayDecoder : WheelDecoder {
     private var imu = ""
     private var fw = ""
     private var fwProt = ""
+
+    /** User-facing brand derived from firmware prefix. */
+    private val brandDisplayName: String get() = when (fwProt) {
+        "ExtremeBull" -> "Extreme Bull"
+        else -> fwProt // "Begode", "Freestyl3r", "SV", or "" (not yet known)
+    }
     private var smartBmsCells = 0
     private var trueVoltage = false
     private var trueCurrent = false
@@ -135,31 +141,31 @@ class GotwayDecoder : WheelDecoder {
                 when {
                     dataStr.startsWith("NAME") -> {
                         model = dataStr.substring(5).trim()
-                        preIdentity = currentState.identity.copy(model = model)
+                        preIdentity = currentState.identity.copy(model = model, brand = brandDisplayName)
                     }
                     dataStr.startsWith("GW") -> {
                         fw = dataStr.substring(2).trim()
                         fwProt = "Begode"
                         isReady = true
-                        preIdentity = currentState.identity.copy(version = fw)
+                        preIdentity = currentState.identity.copy(version = fw, brand = brandDisplayName)
                     }
                     dataStr.startsWith("JN") -> {
                         fw = dataStr.substring(2).trim()
                         fwProt = "ExtremeBull"
                         isReady = true
-                        preIdentity = currentState.identity.copy(version = fw)
+                        preIdentity = currentState.identity.copy(version = fw, brand = brandDisplayName)
                     }
                     dataStr.startsWith("CF") -> {
                         fw = dataStr.substring(2).trim()
                         fwProt = "Freestyl3r"
                         isReady = true
-                        preIdentity = currentState.identity.copy(version = fw)
+                        preIdentity = currentState.identity.copy(version = fw, brand = brandDisplayName)
                     }
                     dataStr.startsWith("BF") -> {
                         fw = dataStr.substring(2).trim()
                         fwProt = "SV"
                         isReady = true
-                        preIdentity = currentState.identity.copy(version = fw)
+                        preIdentity = currentState.identity.copy(version = fw, brand = brandDisplayName)
                     }
                     dataStr.startsWith("MPU") -> {
                         imu = dataStr.substring(1, minOf(7, dataStr.length)).trim()
@@ -197,11 +203,11 @@ class GotwayDecoder : WheelDecoder {
                     // Fallback after max attempts
                     if (model.isEmpty()) {
                         model = fwProt.ifEmpty { "Begode" }
-                        resultIdentity = (resultIdentity ?: currentState.identity).copy(model = model)
+                        resultIdentity = (resultIdentity ?: currentState.identity).copy(model = model, brand = brandDisplayName)
                     }
                     if (fw.isEmpty()) {
                         fw = "-"
-                        resultIdentity = (resultIdentity ?: currentState.identity).copy(version = fw)
+                        resultIdentity = (resultIdentity ?: currentState.identity).copy(version = fw, brand = brandDisplayName)
                         isReady = true
                     }
                 }
@@ -370,7 +376,8 @@ class GotwayDecoder : WheelDecoder {
 
         val newIdentity = currentState.identity.copy(
             wheelType = WheelType.GOTWAY,
-            model = model.ifEmpty { currentState.identity.model }
+            model = model.ifEmpty { currentState.identity.model },
+            brand = brandDisplayName
         )
 
         val newSettings = gw.copy(

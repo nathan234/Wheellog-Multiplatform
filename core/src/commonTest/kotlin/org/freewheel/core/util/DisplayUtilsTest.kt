@@ -1,6 +1,7 @@
 package org.freewheel.core.util
 
 import org.freewheel.core.domain.AlarmType
+import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelState
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.utils.currentTimeMillis
@@ -254,6 +255,36 @@ class DisplayUtilsTest {
     fun `WheelState displayName brand only when btName also empty`() {
         val state = WheelState(wheelType = WheelType.GOTWAY)
         assertEquals("Begode", state.displayName)
+    }
+
+    @Test
+    fun `WheelState displayName uses brand override for Extreme Bull`() {
+        val state = WheelState(wheelType = WheelType.GOTWAY, model = "Commander Max", brand = "Extreme Bull")
+        assertEquals("Extreme Bull Commander Max", state.displayName)
+    }
+
+    @Test
+    fun `WheelState displayName brand override without model`() {
+        val state = WheelState(wheelType = WheelType.GOTWAY, brand = "Extreme Bull")
+        assertEquals("Extreme Bull", state.displayName)
+    }
+
+    @Test
+    fun `WheelState displayName brand override dedup`() {
+        val state = WheelState(wheelType = WheelType.GOTWAY, model = "Extreme Bull RS", brand = "Extreme Bull")
+        assertEquals("Extreme Bull RS", state.displayName)
+    }
+
+    @Test
+    fun `WheelIdentity displayName uses brand override`() {
+        val identity = WheelIdentity(wheelType = WheelType.GOTWAY, model = "Rocket", brand = "Extreme Bull")
+        assertEquals("Extreme Bull Rocket", identity.displayName)
+    }
+
+    @Test
+    fun `WheelIdentity displayName falls back to wheelType when brand empty`() {
+        val identity = WheelIdentity(wheelType = WheelType.GOTWAY, model = "MCM5")
+        assertEquals("Begode MCM5", identity.displayName)
     }
 
     // ==================== formatDurationCompact ====================

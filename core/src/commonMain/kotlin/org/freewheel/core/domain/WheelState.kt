@@ -91,6 +91,8 @@ data class WheelState(
     /** Serial number. Populated by: KS, NB, NZ, IM1, IM2. */
     val serialNumber: String = "",
     val btName: String = "",
+    /** Firmware-derived brand override (e.g. "Extreme Bull" for JN-prefix Gotway firmware). */
+    val brand: String = "",
 
     // BMS data — populated by: KS, GW, VT, NZ
     val bms1: BmsSnapshot? = null,
@@ -232,11 +234,11 @@ data class WheelState(
 
     /** Human-readable display name combining brand, model, and name */
     val displayName: String get() {
-        val brand = wheelType.displayName
+        val effectiveBrand = brand.ifEmpty { wheelType.displayName }
         val label = model.ifEmpty { name }.ifEmpty { btName }
-        if (label.isEmpty()) return brand.ifEmpty { "Dashboard" }
-        if (brand.isEmpty() || label.startsWith(brand, ignoreCase = true)) return label
-        return "$brand $label"
+        if (label.isEmpty()) return effectiveBrand.ifEmpty { "Dashboard" }
+        if (effectiveBrand.isEmpty() || label.startsWith(effectiveBrand, ignoreCase = true)) return label
+        return "$effectiveBrand $label"
     }
 
     // ==================== Sub-state Views ====================
@@ -324,7 +326,7 @@ data class WheelState(
     /** Extract identity fields (set once per connection). */
     fun toIdentity() = WheelIdentity(
         wheelType = wheelType, name = name, model = model, modeStr = modeStr,
-        version = version, serialNumber = serialNumber, btName = btName
+        version = version, serialNumber = serialNumber, btName = btName, brand = brand
     )
 
     /** Extract BMS fields (periodic updates). */

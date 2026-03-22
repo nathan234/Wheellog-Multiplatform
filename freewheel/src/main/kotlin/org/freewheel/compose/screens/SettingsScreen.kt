@@ -18,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -122,8 +121,8 @@ fun SettingsScreen(
             .fillMaxSize()
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
             SettingsLabels.TITLE,
@@ -430,34 +429,18 @@ fun SettingsScreen(
 
         // UI section
         SettingsSection(title = "Interface") {
-            ListItem(
-                headlineContent = { Text("Customize Navigation") },
-                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
-                modifier = Modifier.clickable { onNavigateToEditNavigation() }
-            )
+            SettingsNavRow(label = "Customize Navigation", onClick = { onNavigateToEditNavigation() })
         }
 
         // Developer tools
         SettingsSection(title = "Developer") {
-            ListItem(
-                headlineContent = { Text("BLE Capture") },
-                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
-                modifier = Modifier.clickable { onNavigateToCapture() }
-            )
+            SettingsNavRow(label = "BLE Capture", onClick = { onNavigateToCapture() })
             HorizontalDivider()
-            ListItem(
-                headlineContent = { Text(SettingsLabels.CONNECTION_ERROR_LOG) },
-                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
-                modifier = Modifier.clickable { onNavigateToErrorLog() }
-            )
+            SettingsNavRow(label = SettingsLabels.CONNECTION_ERROR_LOG, onClick = { onNavigateToErrorLog() })
             if (identity.wheelType == org.freewheel.core.domain.WheelType.VETERAN ||
                 identity.wheelType == org.freewheel.core.domain.WheelType.LEAPERKIM) {
                 HorizontalDivider()
-                ListItem(
-                    headlineContent = { Text("Wheel Event Log") },
-                    trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
-                    modifier = Modifier.clickable { onNavigateToEventLog() }
-                )
+                SettingsNavRow(label = "Wheel Event Log", onClick = { onNavigateToEventLog() })
             }
         }
 
@@ -466,10 +449,9 @@ fun SettingsScreen(
             StatRow(label = SettingsLabels.VERSION, value = BuildConfig.VERSION_NAME)
             StatRow(label = "Build Date", value = BuildConfig.BUILD_DATE)
             HorizontalDivider()
-            ListItem(
-                headlineContent = { Text(SettingsLabels.GITHUB_REPOSITORY) },
-                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
-                modifier = Modifier.clickable {
+            SettingsNavRow(
+                label = SettingsLabels.GITHUB_REPOSITORY,
+                onClick = {
                     context.startActivity(
                         Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.GITHUB_REPO_URL))
                     )
@@ -517,19 +499,40 @@ private fun SettingsSection(
     Column {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 4.dp)
         )
         Surface(
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                 content()
             }
         }
+    }
+}
+
+@Composable
+private fun SettingsNavRow(
+    label: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label)
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

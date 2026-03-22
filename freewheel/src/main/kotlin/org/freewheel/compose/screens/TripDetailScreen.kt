@@ -18,7 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,7 +53,10 @@ import org.freewheel.compose.components.VOLTAGE_COLOR
 import org.freewheel.compose.components.CsvReplayController
 import org.freewheel.compose.components.ReplayStatsPanel
 import org.freewheel.compose.components.RideReplayControls
-import org.freewheel.compose.components.ToggleChip
+import org.freewheel.compose.components.RideStatsHeader
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.graphics.Color
 import org.freewheel.compose.components.VicoLineChart
 import org.freewheel.compose.components.rememberChartMarker
 import org.freewheel.core.telemetry.MetricType
@@ -209,17 +211,48 @@ fun TripDetailScreen(
 
             is TripDetailState.Loaded -> {
                 val rc = replayController
+
+                // Compute header stats
+                val headerStartTimeMs: Long
+                val headerEndTimeMs: Long
+                val headerDurationSec: Int
+                val headerDistanceKm: Double
+                val headerMaxSpeedKmh: Double
+                if (s.trip != null) {
+                    headerStartTimeMs = s.trip.start.toLong() * 1000L
+                    headerDurationSec = s.trip.duration * 60
+                    headerEndTimeMs = headerStartTimeMs + headerDurationSec * 1000L
+                    headerDistanceKm = s.trip.distance / 1000.0
+                    headerMaxSpeedKmh = s.trip.maxSpeed.toDouble()
+                } else {
+                    headerStartTimeMs = s.samples.first().timestampMs
+                    headerEndTimeMs = s.samples.last().timestampMs
+                    headerDurationSec = ((headerEndTimeMs - headerStartTimeMs) / 1000).toInt()
+                    headerMaxSpeedKmh = s.samples.maxOf { it.speedKmh }
+                    headerDistanceKm = 0.0
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
                 ) {
+                // Persistent ride stats header
+                RideStatsHeader(
+                    startTimeMs = headerStartTimeMs,
+                    endTimeMs = headerEndTimeMs,
+                    durationSeconds = headerDurationSec,
+                    distanceKm = headerDistanceKm,
+                    maxSpeedKmh = headerMaxSpeedKmh,
+                    useMph = useMph
+                )
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    // Summary card or replay stats panel
+                    // Replay live telemetry panel (only during replay)
                     if (rc != null) {
                         val sample = rc.currentSample
                         if (sample != null) {
@@ -230,13 +263,6 @@ fun TripDetailScreen(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
-                    } else {
-                        TripSummaryCard(
-                            trip = s.trip,
-                            samples = s.samples,
-                            useMph = useMph,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
                     }
 
                     // Toggle chips
@@ -244,12 +270,12 @@ fun TripDetailScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item { ToggleChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
-                        item { ToggleChip(ChartLabels.GPS, GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
-                        item { ToggleChip(ChartLabels.CURRENT, CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
-                        item { ToggleChip(MetricType.POWER.label, POWER_COLOR, showPower, { showPower = !showPower }) }
-                        item { ToggleChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
-                        item { ToggleChip(MetricType.PWM.label, PWM_COLOR, showPwm, { showPwm = !showPwm }) }
+                        item { SeriesChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed) { showSpeed = !showSpeed } }
+                        item { SeriesChip(ChartLabels.GPS, GPS_SPEED_COLOR, showGpsSpeed) { showGpsSpeed = !showGpsSpeed } }
+                        item { SeriesChip(ChartLabels.CURRENT, CURRENT_COLOR, showCurrent) { showCurrent = !showCurrent } }
+                        item { SeriesChip(MetricType.POWER.label, POWER_COLOR, showPower) { showPower = !showPower } }
+                        item { SeriesChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature) { showTemperature = !showTemperature } }
+                        item { SeriesChip(MetricType.PWM.label, PWM_COLOR, showPwm) { showPwm = !showPwm } }
                     }
 
                     val speedUnit = if (useMph) "mph" else "km/h"
@@ -346,89 +372,19 @@ fun TripDetailScreen(
 }
 
 @Composable
-private fun TripSummaryCard(
-    trip: TripDataDbEntry?,
-    samples: List<TelemetrySample>,
-    useMph: Boolean,
-    modifier: Modifier = Modifier
+private fun SeriesChip(
+    label: String,
+    color: Color,
+    selected: Boolean,
+    onToggle: () -> Unit
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            if (trip != null) {
-                // Use DB summary data
-                val durationStr = DisplayUtils.formatDurationShort(trip.duration)
-                val distStr = DisplayUtils.formatDistance(trip.distance / 1000.0, useMph)
-                val maxSpeedStr = DisplayUtils.formatSpeed(trip.maxSpeed.toDouble(), useMph)
-                val avgSpeedStr = DisplayUtils.formatSpeed(trip.avgSpeed.toDouble(), useMph)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    SummaryItem(RidesLabels.DURATION, durationStr)
-                    SummaryItem(RidesLabels.DISTANCE, distStr)
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    SummaryItem(RidesLabels.MAX_SPEED, maxSpeedStr)
-                    SummaryItem(RidesLabels.AVG_SPEED, avgSpeedStr)
-                }
-                if (trip.maxPower > 0 || trip.consumptionByKm > 0) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        if (trip.maxPower > 0) {
-                            SummaryItem(RidesLabels.MAX_POWER, "${trip.maxPower.toInt()} W")
-                        }
-                        if (trip.consumptionByKm > 0) {
-                            SummaryItem(RidesLabels.ENERGY, DisplayUtils.formatEnergyConsumption(trip.consumptionByKm.toDouble(), useMph))
-                        }
-                    }
-                }
-            } else {
-                // Fallback: compute from samples
-                val stats = TelemetrySample.computeTripStats(samples)
-                if (stats != null) {
-                    val durationMin = (stats.durationMs / 60000).toInt()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        SummaryItem(RidesLabels.DURATION, DisplayUtils.formatDurationShort(durationMin))
-                        SummaryItem(RidesLabels.MAX_SPEED, DisplayUtils.formatSpeed(stats.maxSpeedKmh, useMph))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        SummaryItem(RidesLabels.AVG_SPEED, DisplayUtils.formatSpeed(stats.avgSpeedKmh, useMph))
-                        SummaryItem(RidesLabels.MAX_POWER, "${stats.maxPowerW.toInt()} W")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryItem(label: String, value: String) {
-    Column {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+    FilterChip(
+        selected = selected,
+        onClick = onToggle,
+        label = { Text(label) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = color.copy(alpha = 0.2f),
+            selectedLabelColor = color
         )
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium
-        )
-    }
+    )
 }
-

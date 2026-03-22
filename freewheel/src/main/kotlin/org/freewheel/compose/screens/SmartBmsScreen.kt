@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import org.freewheel.ui.theme.ZoneColors
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -102,10 +103,10 @@ private fun BmsBlock(bms: BmsSnapshot) {
 
 @Composable
 private fun CellCard(index: Int, voltage: Double, bms: BmsSnapshot, modifier: Modifier) {
-    val bg = when (index) {
-        bms.maxCellNum -> Color(0xFF4CAF50).copy(alpha = 0.12f)
-        bms.minCellNum -> Color(0xFFF44336).copy(alpha = 0.12f)
-        else -> MaterialTheme.colorScheme.surfaceVariant
+    val bg = when {
+        index == bms.maxCellNum -> ZoneColors.green.copy(alpha = 0.12f)
+        index == bms.minCellNum -> ZoneColors.red.copy(alpha = 0.12f)
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
     Surface(
         modifier = modifier,

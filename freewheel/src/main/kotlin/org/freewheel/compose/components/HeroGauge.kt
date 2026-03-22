@@ -17,14 +17,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.freewheel.core.domain.dashboard.ColorZone
 import org.freewheel.core.domain.dashboard.DashboardMetric
+import org.freewheel.ui.theme.ZoneColors
 import org.freewheel.core.utils.StringUtil
 import java.util.Locale
 import kotlin.math.abs
@@ -50,14 +49,10 @@ fun HeroGauge(
         label = "hero_progress"
     )
 
-    val arcColor = when (metric.colorZone(progress.toDouble())) {
-        ColorZone.GREEN -> Color(0xFF4CAF50)
-        ColorZone.ORANGE -> Color(0xFFFF9800)
-        ColorZone.RED -> Color(0xFFF44336)
-    }
+    val arcColor = ZoneColors.forZone(metric.colorZone(progress.toDouble()))
 
     val formattedValue = String.format(Locale.US, "%.${metric.decimals}f", value)
-    val trackColor = MaterialTheme.colorScheme.surfaceVariant
+    val trackColor = MaterialTheme.colorScheme.surfaceContainer
 
     Box(
         modifier = modifier

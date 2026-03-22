@@ -27,9 +27,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import org.freewheel.ui.theme.ZoneColors
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.compose.components.DashboardContent
 import org.freewheel.compose.components.ReplayControls
+import org.freewheel.compose.components.RideStatsHeader
 import org.freewheel.core.domain.SpeedDisplayMode
 import org.freewheel.core.domain.PreferenceKeys
 import org.freewheel.core.replay.ReplayState
@@ -88,7 +90,7 @@ fun DashboardScreen(
                             Icon(
                                 if (isLightOn) Icons.Default.FlashOn else Icons.Default.FlashOff,
                                 contentDescription = "Light",
-                                tint = if (isLightOn) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurface
+                                tint = if (isLightOn) ZoneColors.lightOnAmber else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -109,6 +111,19 @@ fun DashboardScreen(
         }
     ) { contentPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(contentPadding)) {
+            if (isLogging) {
+                val liveStats by viewModel.liveRideStats.collectAsStateWithLifecycle()
+                liveStats?.let { stats ->
+                    RideStatsHeader(
+                        startTimeMs = stats.startTimeMs,
+                        endTimeMs = null,
+                        durationSeconds = (stats.elapsedMs / 1000).toInt(),
+                        distanceKm = stats.distanceMeters / 1000.0,
+                        maxSpeedKmh = stats.maxSpeedKmh,
+                        useMph = useMph
+                    )
+                }
+            }
             DashboardContent(
                 layout = dashboardLayout,
                 telemetry = telemetry,

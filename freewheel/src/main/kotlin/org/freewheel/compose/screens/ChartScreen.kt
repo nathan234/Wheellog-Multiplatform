@@ -21,6 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,7 +47,8 @@ import org.freewheel.compose.components.CURRENT_COLOR
 import org.freewheel.compose.components.POWER_COLOR
 import org.freewheel.compose.components.TEMP_COLOR
 import org.freewheel.compose.components.VOLTAGE_COLOR
-import org.freewheel.compose.components.ToggleChip
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import org.freewheel.compose.components.TimeRangePicker
 import org.freewheel.compose.components.VicoLineChart
 import org.freewheel.compose.components.rememberChartMarker
@@ -109,11 +111,11 @@ fun ChartScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item { ToggleChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed, { showSpeed = !showSpeed }) }
-                item { ToggleChip(ChartLabels.GPS, GPS_SPEED_COLOR, showGpsSpeed, { showGpsSpeed = !showGpsSpeed }) }
-                item { ToggleChip(ChartLabels.CURRENT, CURRENT_COLOR, showCurrent, { showCurrent = !showCurrent }) }
-                item { ToggleChip(MetricType.POWER.label, POWER_COLOR, showPower, { showPower = !showPower }) }
-                item { ToggleChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature, { showTemperature = !showTemperature }) }
+                item { SeriesChip(MetricType.SPEED.label, SPEED_COLOR, showSpeed) { showSpeed = !showSpeed } }
+                item { SeriesChip(ChartLabels.GPS, GPS_SPEED_COLOR, showGpsSpeed) { showGpsSpeed = !showGpsSpeed } }
+                item { SeriesChip(ChartLabels.CURRENT, CURRENT_COLOR, showCurrent) { showCurrent = !showCurrent } }
+                item { SeriesChip(MetricType.POWER.label, POWER_COLOR, showPower) { showPower = !showPower } }
+                item { SeriesChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature) { showTemperature = !showTemperature } }
             }
 
             if (samples.isEmpty()) {
@@ -222,4 +224,22 @@ fun ChartScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SeriesChip(
+    label: String,
+    color: Color,
+    selected: Boolean,
+    onToggle: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onToggle,
+        label = { Text(label) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = color.copy(alpha = 0.2f),
+            selectedLabelColor = color
+        )
+    )
 }

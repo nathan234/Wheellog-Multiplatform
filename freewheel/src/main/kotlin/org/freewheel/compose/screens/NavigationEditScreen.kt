@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -119,8 +118,8 @@ fun NavigationEditScreen(
                 color = MaterialTheme.colorScheme.primary
             )
             Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     NavigationTab.builtIn.forEachIndexed { index, tab ->
@@ -208,8 +207,8 @@ fun NavigationEditScreen(
             val customTabs = activeTabs.filterIsInstance<NavigationTab.Custom>()
             if (customTabs.isNotEmpty()) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         customTabs.forEachIndexed { index, tab ->
@@ -296,7 +295,7 @@ fun NavigationEditScreen(
             OutlinedButton(
                 onClick = { showCreateDialog = true },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
+                shape = MaterialTheme.shapes.small,
                 enabled = activeTabs.size < 5
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
@@ -314,7 +313,7 @@ fun NavigationEditScreen(
             // Warnings
             if (warnings.isNotEmpty()) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {

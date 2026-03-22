@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.dashboard.ColorZone
+import org.freewheel.ui.theme.ZoneColors
 import org.freewheel.core.domain.dashboard.DashboardMetric
 import org.freewheel.core.telemetry.TelemetryBuffer
 import org.freewheel.core.telemetry.TelemetrySample
@@ -117,9 +118,5 @@ private fun maxForDisplay(metric: DashboardMetric, useMph: Boolean): Double = wh
 }
 
 private fun tileColorForMetric(metric: DashboardMetric, progress: Double): Color {
-    return when (metric.colorZone(progress)) {
-        ColorZone.GREEN -> Color(0xFF4CAF50)
-        ColorZone.ORANGE -> Color(0xFFFF9800)
-        ColorZone.RED -> Color(0xFFF44336)
-    }
+    return ZoneColors.forZone(metric.colorZone(progress))
 }

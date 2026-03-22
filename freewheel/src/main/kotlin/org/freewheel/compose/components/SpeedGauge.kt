@@ -28,8 +28,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.freewheel.core.domain.SpeedDisplayMode
-import org.freewheel.core.telemetry.ColorZone
 import org.freewheel.core.telemetry.MetricType
+import org.freewheel.ui.theme.ZoneColors
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import java.util.Locale
@@ -38,7 +38,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private val GPS_CYAN = Color(0xFF00BCD4)
+private val GPS_CYAN = ZoneColors.gpsCyan
 
 @Composable
 fun SpeedGauge(
@@ -62,13 +62,11 @@ fun SpeedGauge(
         label = "speed_progress"
     )
 
+    val zoneColor = ZoneColors.forZone(MetricType.SPEED.colorZone(progress.toDouble()))
     val arcColor = when (mode) {
         SpeedDisplayMode.GPS -> GPS_CYAN
-        else -> when (MetricType.SPEED.colorZone(progress.toDouble())) {
-            ColorZone.GREEN -> Color(0xFF4CAF50)
-            ColorZone.ORANGE -> Color(0xFFFF9800)
-            ColorZone.RED -> Color(0xFFF44336)
-        }
+        SpeedDisplayMode.WHEEL -> zoneColor
+        SpeedDisplayMode.BOTH -> zoneColor
     }
 
     val textMeasurer = rememberTextMeasurer()

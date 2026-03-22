@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryFull
@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -54,6 +55,7 @@ import org.freewheel.core.service.ConnectionState
 import org.freewheel.core.telemetry.TelemetryBuffer
 import org.freewheel.core.telemetry.TelemetrySample
 import org.freewheel.core.utils.DisplayUtils
+import org.freewheel.ui.theme.ZoneColors
 
 /**
  * Stateless dashboard body driven by [DashboardLayout].
@@ -239,8 +241,8 @@ fun DashboardContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .clickable { onNavigateToBms() },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -270,8 +272,8 @@ fun DashboardContent(
                             label = DashboardLabels.BMS_MAX_CELL,
                             value = DisplayUtils.formatBmsCellLabeled(bms.maxCell, bms.maxCellNum)
                         )
-                        val diffColor = if (bms.cellDiff > 0.1) Color(0xFFF44336)
-                            else if (bms.cellDiff > 0.05) Color(0xFFFF9800)
+                        val diffColor = if (bms.cellDiff > 0.1) ZoneColors.red
+                            else if (bms.cellDiff > 0.05) ZoneColors.orange
                             else Color.Unspecified
                         StatRow(
                             label = DashboardLabels.BMS_CELL_DIFF,
@@ -336,10 +338,9 @@ fun DashboardContent(
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Button(
+            FilledTonalButton(
                 onClick = onNavigateToWheelSettings,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.Tune, contentDescription = null)
@@ -347,10 +348,9 @@ fun DashboardContent(
                 Text(SettingsLabels.TITLE)
             }
 
-            Button(
+            FilledTonalButton(
                 onClick = onNavigateToChart,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null)
@@ -358,10 +358,9 @@ fun DashboardContent(
                 Text(DashboardLabels.CHART)
             }
 
-            Button(
+            FilledTonalButton(
                 onClick = onNavigateToBms,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                shape = RoundedCornerShape(12.dp),
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(Icons.Default.BatteryFull, contentDescription = null)
@@ -376,7 +375,7 @@ fun DashboardContent(
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isDemo) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
@@ -397,8 +396,8 @@ private fun StatsSection(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -418,7 +417,7 @@ private fun ModeBadge(text: String, color: Color) {
         horizontalArrangement = Arrangement.Center
     ) {
         Surface(
-            shape = RoundedCornerShape(8.dp),
+            shape = MaterialTheme.shapes.small,
             color = color.copy(alpha = 0.15f)
         ) {
             Row(

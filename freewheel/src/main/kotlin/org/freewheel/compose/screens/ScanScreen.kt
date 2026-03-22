@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import org.freewheel.ui.theme.ZoneColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -497,7 +498,7 @@ private fun SignalStrengthBars(rssi: Int) {
                     .height((6 + i * 3).dp)
                     .clip(RoundedCornerShape(1.dp))
                     .background(
-                        if (i < bars) Color(0xFF4CAF50)
+                        if (i < bars) ZoneColors.green
                         else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
                     )
             )
@@ -511,7 +512,7 @@ private fun BluetoothBanner(
     buttonLabel: String?,
     onClick: (() -> Unit)?
 ) {
-    val warningColor = Color(0xFFF57C00) // Orange 700
+    val warningColor = ZoneColors.warningOrange
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -519,7 +520,7 @@ private fun BluetoothBanner(
             .padding(horizontal = 16.dp)
             .background(
                 warningColor.copy(alpha = 0.08f),
-                RoundedCornerShape(12.dp)
+                MaterialTheme.shapes.medium
             )
             .padding(16.dp)
     ) {

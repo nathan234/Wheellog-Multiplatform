@@ -179,10 +179,14 @@ class AutoConnectManager(
     companion object {
         private const val TAG = "AutoConnectManager"
 
-        /** Default exponential backoff delays matching iOS behavior: 2s, 4s, 8s, 16s, 30s */
-        val DEFAULT_BACKOFF = listOf(2_000L, 4_000L, 8_000L, 16_000L, 30_000L)
+        /**
+         * Default reconnect backoff: fast first retry (500ms) for BLE hiccups,
+         * then exponential backoff for longer outages.
+         */
+        val DEFAULT_BACKOFF = listOf(500L, 2_000L, 4_000L, 8_000L, 16_000L, 30_000L)
 
-        /** Time to wait after a reconnect attempt to see if connection succeeds */
-        private const val RECONNECT_SETTLE_MS = 10_000L
+        /** Time to wait after a reconnect attempt to see if connection succeeds.
+         * BLE connections typically resolve within 1-3s on iOS/Android. */
+        private const val RECONNECT_SETTLE_MS = 4_000L
     }
 }

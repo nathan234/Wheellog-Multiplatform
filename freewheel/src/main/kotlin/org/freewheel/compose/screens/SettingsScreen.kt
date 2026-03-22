@@ -380,17 +380,14 @@ fun SettingsScreen(
             )
             if (autoTorchEnabled) {
                 HorizontalDivider()
-                val speedThreshold = viewModel.getGlobalInt(
-                    PreferenceKeys.AUTO_TORCH_SPEED_THRESHOLD,
-                    PreferenceDefaults.AUTO_TORCH_SPEED_THRESHOLD
-                )
+                var speedThreshold by remember { mutableStateOf(viewModel.getGlobalInt(PreferenceKeys.AUTO_TORCH_SPEED_THRESHOLD, PreferenceDefaults.AUTO_TORCH_SPEED_THRESHOLD)) }
                 AlarmSlider(
                     label = SettingsLabels.AUTO_TORCH_SPEED_THRESHOLD,
                     value = speedThreshold.toFloat(),
                     range = 0f..60f,
                     displayValue = displaySpeed(speedThreshold, useMph),
                     unit = if (useMph) "mph" else "km/h",
-                    onValueChange = { viewModel.setGlobalInt(PreferenceKeys.AUTO_TORCH_SPEED_THRESHOLD, it.toInt()) }
+                    onValueChange = { speedThreshold = it.toInt(); viewModel.setGlobalInt(PreferenceKeys.AUTO_TORCH_SPEED_THRESHOLD, it.toInt()) }
                 )
                 HorizontalDivider()
                 var useSunset by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.AUTO_TORCH_USE_SUNSET, PreferenceDefaults.AUTO_TORCH_USE_SUNSET)) }

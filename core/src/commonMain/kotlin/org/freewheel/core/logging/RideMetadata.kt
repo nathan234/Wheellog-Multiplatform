@@ -1,6 +1,16 @@
 package org.freewheel.core.logging
 
 /**
+ * Live statistics snapshot for an in-progress ride recording.
+ */
+data class LiveRideStats(
+    val startTimeMs: Long,
+    val elapsedMs: Long,
+    val maxSpeedKmh: Double,
+    val distanceMeters: Long
+)
+
+/**
  * Metadata about a completed ride recording.
  */
 data class RideMetadata(

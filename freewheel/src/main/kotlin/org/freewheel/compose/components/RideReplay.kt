@@ -296,3 +296,63 @@ private fun ReplayStatItem(label: String, value: String) {
     }
 }
 
+// ==================== Ride Stats Header ====================
+
+@Composable
+fun RideStatsHeader(
+    startTimeMs: Long,
+    endTimeMs: Long?,
+    durationSeconds: Int,
+    distanceKm: Double,
+    maxSpeedKmh: Double,
+    useMph: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        tonalElevation = 1.dp,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                HeaderStatItem(RidesLabels.START_TIME, formatEpochAsTime(startTimeMs))
+                if (endTimeMs != null) {
+                    HeaderStatItem(RidesLabels.END_TIME, formatEpochAsTime(endTimeMs))
+                }
+                HeaderStatItem(RidesLabels.DURATION, DisplayUtils.formatDurationCompact(durationSeconds))
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                HeaderStatItem(RidesLabels.TOP_SPEED, DisplayUtils.formatSpeed(maxSpeedKmh, useMph))
+                HeaderStatItem(RidesLabels.DISTANCE, DisplayUtils.formatDistance(distanceKm, useMph))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderStatItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+private fun formatEpochAsTime(epochMs: Long): String {
+    val fmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
+    return fmt.format(java.util.Date(epochMs))
+}
+

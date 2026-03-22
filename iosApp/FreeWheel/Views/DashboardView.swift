@@ -14,6 +14,16 @@ struct DashboardView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if wheelManager.isLogging, let startDate = wheelManager.liveRideStartDate {
+                LiveRecordingHeader(
+                    startDate: startDate,
+                    elapsedSeconds: wheelManager.liveRideElapsedSeconds,
+                    maxSpeedKmh: wheelManager.liveRideMaxSpeedKmh,
+                    distanceKm: wheelManager.liveRideDistanceKm,
+                    useMph: wheelManager.useMph
+                )
+            }
+
             DashboardContentView(
                 layout: wheelManager.dashboardLayout,
                 selectedMetric: $selectedMetric,
@@ -156,6 +166,51 @@ struct StatRow: View {
                 .fontWeight(.medium)
                 .foregroundColor(valueColor ?? .primary)
         }
+    }
+}
+
+// MARK: - Live Recording Header
+
+struct LiveRecordingHeader: View {
+    let startDate: Date
+    let elapsedSeconds: TimeInterval
+    let maxSpeedKmh: Double
+    let distanceKm: Double
+    let useMph: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack {
+                headerStatItem(label: RidesLabels.shared.START_TIME, value: formatTime(startDate))
+                Spacer()
+                headerStatItem(label: RidesLabels.shared.DURATION, value: DisplayUtils.shared.formatDurationCompact(seconds: Int32(elapsedSeconds)))
+            }
+            HStack {
+                headerStatItem(label: RidesLabels.shared.TOP_SPEED, value: DisplayUtils.shared.formatSpeed(kmh: maxSpeedKmh, useMph: useMph, decimals: 0))
+                Spacer()
+                headerStatItem(label: RidesLabels.shared.DISTANCE, value: DisplayUtils.shared.formatDistance(km: distanceKm, useMph: useMph, decimals: 2))
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(Color(.secondarySystemGroupedBackground))
+    }
+
+    private func headerStatItem(label: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.medium)
+        }
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 }
 

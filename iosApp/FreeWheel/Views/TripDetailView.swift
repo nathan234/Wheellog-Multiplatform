@@ -69,12 +69,13 @@ struct TripDetailView: View {
                 .frame(maxWidth: .infinity)
             } else {
                 VStack(spacing: 0) {
+                // Persistent ride stats header
+                rideStatsHeader
+
                 ScrollView {
                     VStack(spacing: 16) {
                         if let controller = replayController {
                             ReplayStatsView(controller: controller, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
-                        } else {
-                            summaryCard
                         }
                         toggleChips
                         if !samples.isEmpty {
@@ -145,47 +146,49 @@ struct TripDetailView: View {
         return formatter.string(from: ride.startDate)
     }
 
-    // MARK: - Summary Card
+    // MARK: - Ride Stats Header
 
-    private var summaryCard: some View {
-        VStack(spacing: 8) {
+    private var rideStatsHeader: some View {
+        let startTimeStr = formatTime(ride.startDate)
+        let endTimeStr = formatTime(ride.endDate)
+        let durationStr = DisplayUtils.shared.formatDurationCompact(seconds: Int32(ride.duration))
+        let topSpeedStr = DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0)
+        let distanceStr = DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2)
+
+        return VStack(spacing: 4) {
             HStack {
-                summaryItem(label: RidesLabels.shared.DURATION, value: DisplayUtils.shared.formatDurationCompact(seconds: Int32(ride.duration)))
+                headerStatItem(label: RidesLabels.shared.START_TIME, value: startTimeStr)
                 Spacer()
-                summaryItem(label: RidesLabels.shared.DISTANCE, value: DisplayUtils.shared.formatDistance(km: ride.distance, useMph: wheelManager.useMph, decimals: 2))
+                headerStatItem(label: RidesLabels.shared.END_TIME, value: endTimeStr)
+                Spacer()
+                headerStatItem(label: RidesLabels.shared.DURATION, value: durationStr)
             }
             HStack {
-                summaryItem(label: RidesLabels.shared.MAX_SPEED, value: DisplayUtils.shared.formatSpeed(kmh: ride.maxSpeed, useMph: wheelManager.useMph, decimals: 0))
+                headerStatItem(label: RidesLabels.shared.TOP_SPEED, value: topSpeedStr)
                 Spacer()
-                summaryItem(label: RidesLabels.shared.AVG_SPEED, value: DisplayUtils.shared.formatSpeed(kmh: ride.avgSpeed, useMph: wheelManager.useMph, decimals: 0))
-            }
-            if ride.maxPower > 0 || ride.consumptionWhPerKm > 0 {
-                HStack {
-                    if ride.maxPower > 0 {
-                        summaryItem(label: RidesLabels.shared.MAX_POWER, value: "\(Int(ride.maxPower)) W")
-                    }
-                    Spacer()
-                    if ride.consumptionWhPerKm > 0 {
-                        summaryItem(label: RidesLabels.shared.ENERGY, value: DisplayUtils.shared.formatEnergyConsumption(whPerKm: ride.consumptionWhPerKm, useMph: wheelManager.useMph, decimals: 1))
-                    }
-                }
+                headerStatItem(label: RidesLabels.shared.DISTANCE, value: distanceStr)
             }
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
         .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(Color(.secondarySystemGroupedBackground))
     }
 
-    private func summaryItem(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private func headerStatItem(label: String, value: String) -> some View {
+        VStack(spacing: 2) {
             Text(label)
-                .font(.caption)
+                .font(.caption2)
                 .foregroundColor(.secondary)
             Text(value)
-                .font(.body)
+                .font(.subheadline)
                 .fontWeight(.medium)
         }
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 
     // MARK: - Toggle Chips

@@ -36,6 +36,22 @@ class RideLogger(private val fileWriter: FileWriter = FileWriter()) {
     val isLogging: Boolean get() = isActive
 
     /**
+     * Returns a snapshot of live ride stats, or null if not recording.
+     */
+    fun liveStats(currentTimeMs: Long, currentTotalDistance: Long): LiveRideStats? {
+        if (!isActive) return null
+        val distM = if (startTotalDistance > 0 && currentTotalDistance > startTotalDistance) {
+            currentTotalDistance - startTotalDistance
+        } else 0L
+        return LiveRideStats(
+            startTimeMs = startTimeMs,
+            elapsedMs = currentTimeMs - startTimeMs,
+            maxSpeedKmh = maxSpeedKmh,
+            distanceMeters = distM
+        )
+    }
+
+    /**
      * Start a new ride recording.
      *
      * @param filePath Full path to the CSV file to create.

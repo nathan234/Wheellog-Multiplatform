@@ -91,6 +91,14 @@ class RideLogger: ObservableObject {
         )
     }
 
+    // MARK: - Live Stats
+
+    func liveStats(currentDistance: Double) -> FreeWheelCore.LiveRideStats? {
+        let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let totalDistanceM = Int64(currentDistance * 1000.0)
+        return kmpLogger.liveStats(currentTimeMs: currentTimeMs, currentTotalDistance: totalDistanceM)
+    }
+
     // MARK: - Write Sample
 
     func writeTelemetrySample(telemetry: TelemetryState, modeStr: String, location: CLLocation?, includeGPS: Bool) {

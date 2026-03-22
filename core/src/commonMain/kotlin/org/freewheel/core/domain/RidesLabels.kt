@@ -16,6 +16,11 @@ object RidesLabels {
     const val MAX_POWER = "Max Power"
     const val ENERGY = "Energy"
 
+    // Ride stats header
+    const val START_TIME = "Start"
+    const val END_TIME = "End"
+    const val TOP_SPEED = "Top Speed"
+
     // Ride replay
     const val REPLAY = "Replay"
     const val EXIT_REPLAY = "Exit Replay"

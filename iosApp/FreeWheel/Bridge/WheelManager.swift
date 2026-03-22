@@ -145,6 +145,10 @@ class WheelManager: ObservableObject {
         didSet { UserDefaults.standard.set(logGPS, forKey: PreferenceKeys.shared.LOG_LOCATION_DATA) }
     }
     @Published private(set) var isLogging: Bool = false
+    @Published private(set) var liveRideStartDate: Date?
+    @Published private(set) var liveRideElapsedSeconds: TimeInterval = 0
+    @Published private(set) var liveRideMaxSpeedKmh: Double = 0
+    @Published private(set) var liveRideDistanceKm: Double = 0
 
     // Auto-torch settings (persisted to UserDefaults)
     @Published var autoTorchEnabled: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.AUTO_TORCH_ENABLED) {
@@ -787,6 +791,12 @@ class WheelManager: ObservableObject {
                 location: locationManager.currentLocation,
                 includeGPS: logGPS
             )
+            if let stats = rideLogger.liveStats(currentDistance: newTelemetry.totalDistanceKm) {
+                liveRideStartDate = Date(timeIntervalSince1970: Double(stats.startTimeMs) / 1000.0)
+                liveRideElapsedSeconds = Double(stats.elapsedMs) / 1000.0
+                liveRideMaxSpeedKmh = stats.maxSpeedKmh
+                liveRideDistanceKm = Double(stats.distanceMeters) / 1000.0
+            }
         }
 
         // Range estimate
@@ -1207,6 +1217,10 @@ class WheelManager: ObservableObject {
             rideStore.addRide(metadata)
         }
         isLogging = false
+        liveRideStartDate = nil
+        liveRideElapsedSeconds = 0
+        liveRideMaxSpeedKmh = 0
+        liveRideDistanceKm = 0
     }
 
     // MARK: - BLE Capture

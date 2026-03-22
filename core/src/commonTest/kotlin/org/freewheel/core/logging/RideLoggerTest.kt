@@ -354,6 +354,52 @@ class RideLoggerTest {
         assertEquals(30.0, metadata.maxSpeedKmh, 0.01)
     }
 
+    // ==================== Live Stats ====================
+
+    @Test
+    fun `liveStats returns null when not logging`() {
+        val logger = RideLogger()
+        assertNull(logger.liveStats(1000, 0))
+    }
+
+    @Test
+    fun `liveStats returns correct elapsed time`() {
+        val logger = RideLogger()
+        logger.start(createTempPath(), withGps = false, currentTimeMs = 10_000)
+        logger.writeSample(TelemetryState(speed = 2000), gps = null, currentTimeMs = 11_000)
+
+        val stats = logger.liveStats(15_000, 0)
+        assertNotNull(stats)
+        assertEquals(10_000, stats.startTimeMs)
+        assertEquals(5_000, stats.elapsedMs)
+        logger.stop(16_000)
+    }
+
+    @Test
+    fun `liveStats returns correct max speed and distance`() {
+        val logger = RideLogger()
+        logger.start(createTempPath(), withGps = false, currentTimeMs = 0)
+
+        logger.writeSample(TelemetryState(speed = 2000, totalDistance = 50_000), gps = null, currentTimeMs = 1000)
+        logger.writeSample(TelemetryState(speed = 4000, totalDistance = 51_000), gps = null, currentTimeMs = 2000)
+        logger.writeSample(TelemetryState(speed = 3000, totalDistance = 52_000), gps = null, currentTimeMs = 3000)
+
+        val stats = logger.liveStats(3500, 52_000)
+        assertNotNull(stats)
+        assertEquals(40.0, stats.maxSpeedKmh, 0.01)
+        assertEquals(2000, stats.distanceMeters)
+        logger.stop(4000)
+    }
+
+    @Test
+    fun `liveStats returns null after stop`() {
+        val logger = RideLogger()
+        logger.start(createTempPath(), withGps = false, currentTimeMs = 0)
+        logger.writeSample(TelemetryState(), gps = null, currentTimeMs = 1000)
+        logger.stop(2000)
+        assertNull(logger.liveStats(3000, 0))
+    }
+
     // ==================== Helpers ====================
 
     private var tempCounter = 0

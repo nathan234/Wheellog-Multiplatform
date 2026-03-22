@@ -278,6 +278,8 @@ class WheelViewModel(
     // Logging
     private val _isLogging = MutableStateFlow(false)
     val isLogging: StateFlow<Boolean> = _isLogging.asStateFlow()
+    private val _liveRideStats = MutableStateFlow<org.freewheel.core.logging.LiveRideStats?>(null)
+    val liveRideStats: StateFlow<org.freewheel.core.logging.LiveRideStats?> = _liveRideStats.asStateFlow()
 
     // BLE Capture
     private val _isCapturing = MutableStateFlow(false)
@@ -1050,6 +1052,7 @@ class WheelViewModel(
         logSamplingJob = null
         val metadata = rideLogger.stop(System.currentTimeMillis(), telemetryState.value.totalDistance)
         _isLogging.value = false
+        _liveRideStats.value = null
 
         if (metadata != null) {
             // Must use runBlocking — callers (disconnect, shutdownService, onCleared)
@@ -1091,6 +1094,9 @@ class WheelViewModel(
                         )
                     }
                     rideLogger.writeSample(telemetry, identityState.value.modeStr, gps, System.currentTimeMillis())
+                    _liveRideStats.value = rideLogger.liveStats(
+                        System.currentTimeMillis(), telemetry.totalDistance
+                    )
                 }
             }
         }

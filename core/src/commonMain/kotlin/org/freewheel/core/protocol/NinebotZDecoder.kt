@@ -224,18 +224,7 @@ class CANMessage private constructor(
             return result
         }
 
-        /**
-         * Compute CRC16 checksum for Ninebot Z protocol.
-         */
-        fun computeCheck(buffer: ByteArray): Int {
-            var check = 0
-            for (c in buffer) {
-                check += (c.toInt() and 0xFF)
-            }
-            check = check xor 0xFFFF
-            check = check and 0xFFFF
-            return check
-        }
+        fun computeCheck(buffer: ByteArray): Int = ProtocolChecksums.sumCrc16(buffer)
 
         /**
          * Build a complete message buffer including header and CRC.
@@ -429,15 +418,7 @@ class NinebotZDecoder : WheelDecoder {
             when (loopResult) {
                 is DecodeResult.Success -> {
                     val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
-                    // Ensure wheelType is NINEBOT_Z
-                    val resolvedIdentity = when {
-                        loopResult.data.identity != null && loopResult.data.identity.wheelType == WheelType.Unknown ->
-                            loopResult.data.identity.copy(wheelType = WheelType.NINEBOT_Z)
-                        loopResult.data.identity != null -> loopResult.data.identity
-                        currentState.identity.wheelType == WheelType.Unknown ->
-                            currentState.identity.copy(wheelType = WheelType.NINEBOT_Z)
-                        else -> null
-                    }
+                    val resolvedIdentity = resolveWheelIdentity(loopResult.data.identity, currentState.identity, WheelType.NINEBOT_Z)
                     DecodeResult.Success(DecodedData(
                         telemetry = loopResult.data.telemetry,
                         identity = resolvedIdentity?.takeIf { it != currentState.identity },

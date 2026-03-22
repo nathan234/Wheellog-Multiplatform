@@ -18,9 +18,8 @@ class AlarmManager: ObservableObject {
     private var audioEngine: AVAudioEngine?
     private var playerNode: AVAudioPlayerNode?
 
-    // Throttle — suppress repeated alarm of the same type within 500ms
-    private var lastFiredAt: [AlarmType: TimeInterval] = [:]
-    private static let throttleInterval: TimeInterval = 0.5
+    // KMP throttler — shared 500ms per-type notification suppression
+    private let throttler: AlarmNotificationThrottler
 
     // Haptics
     private let heavyImpact = UIImpactFeedbackGenerator(style: .heavy)
@@ -28,6 +27,9 @@ class AlarmManager: ObservableObject {
 
     init() {
         kmpChecker = WheelConnectionManagerHelper.shared.createAlarmChecker()
+        throttler = AlarmNotificationThrottler(throttleMs: 500) {
+            KotlinLong(value: Int64(Date().timeIntervalSince1970 * 1000))
+        }
     }
 
     // MARK: - KMP Alarm Check
@@ -49,24 +51,22 @@ class AlarmManager: ObservableObject {
     func reset() {
         WheelConnectionManagerHelper.shared.resetAlarmChecker(checker: kmpChecker)
         activeAlarms = []
-        lastFiredAt = [:]
+        throttler.reset()
     }
 
     // MARK: - Process Result
 
     private func processAlarmResult(_ result: AlarmResult, action: FreeWheelCore.AlarmAction) {
-        let now = Date().timeIntervalSince1970
         var newActive: Set<AlarmType> = []
 
         for alarm in result.triggeredAlarms {
             newActive.insert(alarm.type)
 
             // Throttle: skip if same alarm type fired within 500ms
-            if let last = lastFiredAt[alarm.type],
-               (now - last) < Self.throttleInterval {
+            if throttler.isThrottled(type: alarm.type) {
                 continue
             }
-            lastFiredAt[alarm.type] = now
+            throttler.recordFired(type: alarm.type)
 
             fireAlarm(
                 type: alarm.type,
@@ -87,15 +87,7 @@ class AlarmManager: ObservableObject {
 
     private func fireAlarm(type: AlarmType, action: FreeWheelCore.AlarmAction, toneDurationMs: Int) {
         // Audio beep with KMP-computed duration
-        let frequency: Float
-        switch type {
-        case .speed1, .speed2, .speed3, .pwm: frequency = 1000
-        case .current: frequency = 800
-        case .temperature: frequency = 600
-        case .battery: frequency = 400
-        case .wheel: frequency = 1200
-        default: frequency = 1000
-        }
+        let frequency = Float(type.audioFrequencyHz)
 
         setupAudioSessionIfNeeded()
         let duration = Float(toneDurationMs) / 1000.0
@@ -125,7 +117,7 @@ class AlarmManager: ObservableObject {
     private func playPreWarning(type: PreWarningType) {
         setupAudioSessionIfNeeded()
         // Distinct advisory tone: lower volume, shorter, different frequency
-        let frequency: Float = type == .pwm ? 700 : 500
+        let frequency = Float(type.audioFrequencyHz)
         generateTone(frequency: frequency, duration: 0.1)
     }
 

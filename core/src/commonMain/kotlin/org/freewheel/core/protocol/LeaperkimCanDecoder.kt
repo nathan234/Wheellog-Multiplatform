@@ -206,15 +206,7 @@ class LeaperkimCanDecoder : WheelDecoder {
 
         return when (loopResult) {
             is DecodeResult.Success -> {
-                // Ensure wheelType is LEAPERKIM
-                val resolvedIdentity = when {
-                    loopResult.data.identity != null && loopResult.data.identity.wheelType == WheelType.Unknown ->
-                        loopResult.data.identity.copy(wheelType = WheelType.LEAPERKIM)
-                    loopResult.data.identity != null -> loopResult.data.identity
-                    currentState.identity.wheelType == WheelType.Unknown ->
-                        currentState.identity.copy(wheelType = WheelType.LEAPERKIM)
-                    else -> null
-                }
+                val resolvedIdentity = resolveWheelIdentity(loopResult.data.identity, currentState.identity, WheelType.LEAPERKIM)
                 DecodeResult.Success(DecodedData(
                     telemetry = loopResult.data.telemetry,
                     identity = resolvedIdentity?.takeIf { it != currentState.identity },

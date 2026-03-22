@@ -526,3 +526,25 @@ interface WheelDecoderFactory {
      */
     fun supportedTypes(): List<WheelType>
 }
+
+/**
+ * Resolve a wheel identity, ensuring the [WheelType] is set.
+ *
+ * All decoders follow this same logic:
+ * 1. If the decode produced an identity with Unknown type, stamp the expected type
+ * 2. If the decode produced an identity with a known type, use it as-is
+ * 3. If no identity was produced but current state has Unknown type, stamp the expected type
+ * 4. Otherwise, nothing to update
+ */
+internal fun resolveWheelIdentity(
+    resultIdentity: WheelIdentity?,
+    currentIdentity: WheelIdentity,
+    expectedType: WheelType
+): WheelIdentity? = when {
+    resultIdentity != null && resultIdentity.wheelType == WheelType.Unknown ->
+        resultIdentity.copy(wheelType = expectedType)
+    resultIdentity != null -> resultIdentity
+    currentIdentity.wheelType == WheelType.Unknown ->
+        currentIdentity.copy(wheelType = expectedType)
+    else -> null
+}

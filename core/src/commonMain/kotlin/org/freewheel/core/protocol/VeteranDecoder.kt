@@ -41,24 +41,8 @@ internal fun lookupSoc(voltage: Int, table: IntArray): Int {
     return (low + fraction).roundToInt()
 }
 
-/**
- * Simple CRC32 calculation for KMP.
- */
-internal fun veteranCrc32(data: ByteArray, offset: Int, length: Int): Long {
-    var crc = 0xFFFFFFFFL
-    for (i in offset until offset + length) {
-        val byte = data[i].toLong() and 0xFF
-        crc = crc xor byte
-        for (j in 0 until 8) {
-            crc = if ((crc and 1L) == 1L) {
-                (crc ushr 1) xor 0xEDB88320L
-            } else {
-                crc ushr 1
-            }
-        }
-    }
-    return crc xor 0xFFFFFFFFL
-}
+internal fun veteranCrc32(data: ByteArray, offset: Int, length: Int): Long =
+    ProtocolChecksums.crc32(data, offset, length)
 
 /**
  * Frame unpacker for Veteran/Leaperkim wheels.
@@ -267,15 +251,7 @@ class VeteranDecoder : WheelDecoder {
                     buildTimeSyncCommands()
                 } else emptyList()
                 val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
-                // Ensure wheelType is VETERAN
-                val resolvedIdentity = when {
-                    loopResult.data.identity != null && loopResult.data.identity.wheelType == WheelType.Unknown ->
-                        loopResult.data.identity.copy(wheelType = WheelType.VETERAN)
-                    loopResult.data.identity != null -> loopResult.data.identity
-                    currentState.identity.wheelType == WheelType.Unknown ->
-                        currentState.identity.copy(wheelType = WheelType.VETERAN)
-                    else -> null
-                }
+                val resolvedIdentity = resolveWheelIdentity(loopResult.data.identity, currentState.identity, WheelType.VETERAN)
                 DecodeResult.Success(DecodedData(
                     telemetry = loopResult.data.telemetry,
                     identity = resolvedIdentity?.takeIf { it != currentState.identity },

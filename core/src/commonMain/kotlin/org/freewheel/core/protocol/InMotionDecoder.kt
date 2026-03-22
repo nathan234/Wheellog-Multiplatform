@@ -52,15 +52,7 @@ class InMotionDecoder : WheelDecoder {
 
         return when (loopResult) {
             is DecodeResult.Success -> {
-                // Ensure wheelType is INMOTION
-                val resolvedIdentity = when {
-                    loopResult.data.identity != null && loopResult.data.identity.wheelType == WheelType.Unknown ->
-                        loopResult.data.identity.copy(wheelType = WheelType.INMOTION)
-                    loopResult.data.identity != null -> loopResult.data.identity
-                    currentState.identity.wheelType == WheelType.Unknown ->
-                        currentState.identity.copy(wheelType = WheelType.INMOTION)
-                    else -> null
-                }
+                val resolvedIdentity = resolveWheelIdentity(loopResult.data.identity, currentState.identity, WheelType.INMOTION)
                 DecodeResult.Success(DecodedData(
                     telemetry = loopResult.data.telemetry,
                     identity = resolvedIdentity?.takeIf { it != currentState.identity },

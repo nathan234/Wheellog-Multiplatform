@@ -92,6 +92,15 @@ enum class AlarmType(val value: Int) {
         WHEEL -> "Wheel alarm triggered"
     }
 
+    /** Audio frequency in Hz for alarm tone generation. */
+    val audioFrequencyHz: Int get() = when (this) {
+        SPEED1, SPEED2, SPEED3, PWM -> 1000
+        CURRENT -> 800
+        TEMPERATURE -> 600
+        BATTERY -> 400
+        WHEEL -> 1200
+    }
+
     companion object {
         fun fromValue(value: Int): AlarmType? = entries.find { it.value == value }
     }

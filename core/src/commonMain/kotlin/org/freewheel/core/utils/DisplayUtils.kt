@@ -94,7 +94,7 @@ object DisplayUtils {
 
     // --- DashboardMetric conversion ---
 
-    fun convertMetricValue(
+    fun convertDashboardMetricValue(
         value: Double,
         metric: DashboardMetric,
         useMph: Boolean,
@@ -106,7 +106,7 @@ object DisplayUtils {
         else -> value
     }
 
-    fun metricUnit(metric: DashboardMetric, useMph: Boolean, useFahrenheit: Boolean): String =
+    fun dashboardMetricUnit(metric: DashboardMetric, useMph: Boolean, useFahrenheit: Boolean): String =
         when (metric.unitCategory) {
             UnitCategory.SPEED -> speedUnit(useMph)
             UnitCategory.DISTANCE -> distanceUnit(useMph)
@@ -143,6 +143,29 @@ object DisplayUtils {
 
     fun formatBmsCellIndexed(index: Int, voltage: Double): String =
         "#$index: ${StringUtil.formatDecimal(voltage, 3)} V"
+
+    // --- Charger formatting ---
+
+    fun formatChargerVoltage(voltage: Float): String =
+        "${StringUtil.formatDecimal(voltage.toDouble(), 1)} V"
+
+    fun formatChargerCurrent(current: Float): String =
+        "${StringUtil.formatDecimal(current.toDouble(), 2)} A"
+
+    fun formatChargerPower(watts: Float): String =
+        "${StringUtil.formatDecimal(watts.toDouble(), 0)} W"
+
+    fun formatChargerFrequency(hz: Float): String =
+        "${StringUtil.formatDecimal(hz.toDouble(), 1)} Hz"
+
+    fun formatChargerEfficiency(percent: Float): String =
+        "${StringUtil.formatDecimal(percent.toDouble(), 1)}%"
+
+    fun formatChargerTemperature(celsius: Float): String =
+        "${StringUtil.formatDecimal(celsius.toDouble(), 1)}\u00B0C"
+
+    fun formatChargerCurrentLimit(amps: Float): String =
+        "${StringUtil.formatDecimal(amps.toDouble(), 1)} A"
 
     // --- Wheel settings text ---
 

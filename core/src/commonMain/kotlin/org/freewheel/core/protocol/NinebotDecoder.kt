@@ -173,15 +173,7 @@ class NinebotDecoder(
 
         return when (loopResult) {
             is DecodeResult.Success -> {
-                // Ensure wheelType is NINEBOT
-                val resolvedIdentity = when {
-                    loopResult.data.identity != null && loopResult.data.identity.wheelType == WheelType.Unknown ->
-                        loopResult.data.identity.copy(wheelType = WheelType.NINEBOT)
-                    loopResult.data.identity != null -> loopResult.data.identity
-                    currentState.identity.wheelType == WheelType.Unknown ->
-                        currentState.identity.copy(wheelType = WheelType.NINEBOT)
-                    else -> null
-                }
+                val resolvedIdentity = resolveWheelIdentity(loopResult.data.identity, currentState.identity, WheelType.NINEBOT)
                 DecodeResult.Success(DecodedData(
                     telemetry = loopResult.data.telemetry,
                     identity = resolvedIdentity?.takeIf { it != currentState.identity },
@@ -232,18 +224,7 @@ class NinebotDecoder(
         return CANMessage(len, source, destination, parameter, msgData)
     }
 
-    /**
-     * Compute CRC16 checksum.
-     */
-    private fun computeCrc(buffer: ByteArray): Int {
-        var check = 0
-        for (byte in buffer) {
-            check += (byte.toInt() and 0xFF)
-        }
-        check = check xor 0xFFFF
-        check = check and 0xFFFF
-        return check
-    }
+    private fun computeCrc(buffer: ByteArray): Int = ProtocolChecksums.sumCrc16(buffer)
 
     /**
      * XOR encrypt/decrypt with gamma key.

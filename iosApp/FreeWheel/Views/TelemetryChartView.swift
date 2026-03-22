@@ -36,31 +36,10 @@ struct TelemetryChartView: View {
         }
     }
 
-    private var axisStride: Calendar.Component {
-        switch wheelManager.telemetryHistory.timeRange {
-        case .fiveMinutes: return .second
-        case .oneHour: return .minute
-        case .twentyFourHours: return .hour
-        default: return .second
-        }
-    }
-
-    private var axisStrideCount: Int {
-        switch wheelManager.telemetryHistory.timeRange {
-        case .fiveMinutes: return 10
-        case .oneHour: return 5
-        case .twentyFourHours: return 2
-        default: return 10
-        }
-    }
-
-    private var axisFormat: Date.FormatStyle {
-        if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
-            return .dateTime.minute().second()
-        } else {
-            return .dateTime.hour().minute()
-        }
-    }
+    private var timeRange: ChartTimeRange { wheelManager.telemetryHistory.timeRange }
+    private var axisStride: Calendar.Component { timeRange.axisStride }
+    private var axisStrideCount: Int { timeRange.axisStrideCount }
+    private var axisFormat: Date.FormatStyle { timeRange.axisFormat }
 
     private func displaySpeed(_ kmh: Double) -> Double {
         displaySpeed(kmh, useMph: wheelManager.useMph)

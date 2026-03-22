@@ -34,6 +34,35 @@ struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
+/// Chart axis configuration shared by TelemetryChartView and MetricDetailView.
+extension FreeWheelCore.ChartTimeRange {
+    var axisStride: Calendar.Component {
+        switch self {
+        case .fiveMinutes: return .second
+        case .oneHour: return .minute
+        case .twentyFourHours: return .hour
+        default: return .second
+        }
+    }
+
+    var axisStrideCount: Int {
+        switch self {
+        case .fiveMinutes: return 10
+        case .oneHour: return 5
+        case .twentyFourHours: return 2
+        default: return 10
+        }
+    }
+
+    var axisFormat: Date.FormatStyle {
+        if self == .fiveMinutes {
+            return .dateTime.minute().second()
+        } else {
+            return .dateTime.hour().minute()
+        }
+    }
+}
+
 /// Shared unit conversion helpers used across multiple views.
 /// Replaces private displaySpeed/displayTemp helpers in SettingsView, TelemetryChartView, TripDetailView.
 extension View {

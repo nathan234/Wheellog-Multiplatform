@@ -1,22 +1,22 @@
 package org.freewheel.compose.service
 
+import org.freewheel.core.alarm.AlarmNotificationThrottler
 import org.freewheel.core.alarm.AlarmResult
 import org.freewheel.core.alarm.VibrationPatterns
 import org.freewheel.core.domain.AlarmAction
-import org.freewheel.core.domain.AlarmType
 
 class AlarmHandler(
     private val vibrate: (pattern: LongArray) -> Unit,
     private val playTone: (toneType: Int, durationMs: Int) -> Unit,
     private val onWheelBeep: () -> Unit,
-    private val clock: () -> Long = System::currentTimeMillis
+    clock: () -> Long = System::currentTimeMillis
 ) {
-    private val lastFiredAt = mutableMapOf<AlarmType, Long>()
+    private val throttler = AlarmNotificationThrottler(clock = clock)
 
     fun handleAlarmResult(result: AlarmResult, action: AlarmAction) {
         for (alarm in result.triggeredAlarms) {
-            if (isThrottled(alarm.type)) continue
-            lastFiredAt[alarm.type] = clock()
+            if (throttler.isThrottled(alarm.type)) continue
+            throttler.recordFired(alarm.type)
             vibrate(VibrationPatterns.forAlarmType(alarm.type))
             playTone(TONE_ALARM, alarm.toneDuration)
             if (action != AlarmAction.PHONE_ONLY) onWheelBeep()
@@ -27,13 +27,7 @@ class AlarmHandler(
         }
     }
 
-    private fun isThrottled(type: AlarmType): Boolean {
-        val last = lastFiredAt[type] ?: return false
-        return (clock() - last) < THROTTLE_MS
-    }
-
     companion object {
-        const val THROTTLE_MS = 500L
         const val TONE_ALARM = 56 // ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD
         const val TONE_PRE_WARNING = 24 // ToneGenerator.TONE_PROP_BEEP
         const val PRE_WARNING_DURATION_MS = 50

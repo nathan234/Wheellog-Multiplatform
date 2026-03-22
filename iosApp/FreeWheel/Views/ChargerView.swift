@@ -41,9 +41,9 @@ private struct ConnectedChargerContent: View {
 
         // DC Output
         GroupBox("DC Output") {
-            TelemetryRow(label: "Voltage", value: String(format: "%.1f V", state.dcVoltage))
-            TelemetryRow(label: "Current", value: String(format: "%.2f A", state.dcCurrent))
-            TelemetryRow(label: "Power", value: String(format: "%.0f W", state.dcPower))
+            TelemetryRow(label: "Voltage", value: DisplayUtils.shared.formatChargerVoltage(voltage: state.dcVoltage))
+            TelemetryRow(label: "Current", value: DisplayUtils.shared.formatChargerCurrent(current: state.dcCurrent))
+            TelemetryRow(label: "Power", value: DisplayUtils.shared.formatChargerPower(watts: state.dcPower))
             if state.isCharging {
                 Text("Charging")
                     .font(.caption)
@@ -53,25 +53,25 @@ private struct ConnectedChargerContent: View {
 
         // AC Input
         GroupBox("AC Input") {
-            TelemetryRow(label: "Voltage", value: String(format: "%.1f V", state.acVoltage))
-            TelemetryRow(label: "Current", value: String(format: "%.2f A", state.acCurrent))
-            TelemetryRow(label: "Power", value: String(format: "%.0f W", state.acPower))
-            TelemetryRow(label: "Frequency", value: String(format: "%.1f Hz", state.acFrequency))
+            TelemetryRow(label: "Voltage", value: DisplayUtils.shared.formatChargerVoltage(voltage: state.acVoltage))
+            TelemetryRow(label: "Current", value: DisplayUtils.shared.formatChargerCurrent(current: state.acCurrent))
+            TelemetryRow(label: "Power", value: DisplayUtils.shared.formatChargerPower(watts: state.acPower))
+            TelemetryRow(label: "Frequency", value: DisplayUtils.shared.formatChargerFrequency(hz: state.acFrequency))
         }
 
         // Status
         GroupBox("Status") {
-            TelemetryRow(label: "Efficiency", value: String(format: "%.1f%%", state.efficiency))
-            TelemetryRow(label: "Temp 1", value: String(format: "%.1f \u{00B0}C", state.temperature1))
-            TelemetryRow(label: "Temp 2", value: String(format: "%.1f \u{00B0}C", state.temperature2))
-            TelemetryRow(label: "Current Limit", value: String(format: "%.1f A", state.currentLimitingPoint))
+            TelemetryRow(label: "Efficiency", value: DisplayUtils.shared.formatChargerEfficiency(percent: state.efficiency))
+            TelemetryRow(label: "Temp 1", value: DisplayUtils.shared.formatChargerTemperature(celsius: state.temperature1))
+            TelemetryRow(label: "Temp 2", value: DisplayUtils.shared.formatChargerTemperature(celsius: state.temperature2))
+            TelemetryRow(label: "Current Limit", value: DisplayUtils.shared.formatChargerCurrentLimit(amps: state.currentLimitingPoint))
         }
 
         // Setpoints
         if state.targetVoltage > 0 || state.targetCurrent > 0 {
             GroupBox("Setpoints") {
-                TelemetryRow(label: "Target Voltage", value: String(format: "%.1f V", state.targetVoltage))
-                TelemetryRow(label: "Target Current", value: String(format: "%.1f A", state.targetCurrent))
+                TelemetryRow(label: "Target Voltage", value: DisplayUtils.shared.formatChargerVoltage(voltage: state.targetVoltage))
+                TelemetryRow(label: "Target Current", value: DisplayUtils.shared.formatChargerCurrent(current: state.targetCurrent))
             }
         }
 

@@ -94,5 +94,11 @@ data class PreWarning(
 
 enum class PreWarningType {
     PWM,
-    SPEED
+    SPEED;
+
+    /** Audio frequency in Hz for pre-warning tone generation. */
+    val audioFrequencyHz: Int get() = when (this) {
+        PWM -> 700
+        SPEED -> 500
+    }
 }

@@ -151,15 +151,7 @@ class InMotionV2Decoder : WheelDecoder {
         return when (loopResult) {
             is DecodeResult.Success -> {
                 val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
-                // Ensure wheelType is INMOTION_V2
-                val resolvedIdentity = when {
-                    loopResult.data.identity != null && loopResult.data.identity.wheelType == WheelType.Unknown ->
-                        loopResult.data.identity.copy(wheelType = WheelType.INMOTION_V2)
-                    loopResult.data.identity != null -> loopResult.data.identity
-                    currentState.identity.wheelType == WheelType.Unknown ->
-                        currentState.identity.copy(wheelType = WheelType.INMOTION_V2)
-                    else -> null
-                }
+                val resolvedIdentity = resolveWheelIdentity(loopResult.data.identity, currentState.identity, WheelType.INMOTION_V2)
                 DecodeResult.Success(DecodedData(
                     telemetry = loopResult.data.telemetry,
                     identity = resolvedIdentity?.takeIf { it != currentState.identity },
@@ -209,11 +201,7 @@ class InMotionV2Decoder : WheelDecoder {
         if (buffer.size < 5) return null
 
         // Calculate checksum (XOR of all bytes except header and checksum)
-        val dataBuffer = buffer.copyOfRange(2, buffer.size - 1)
-        var check = 0
-        for (byte in dataBuffer) {
-            check = (check xor (byte.toInt() and 0xFF)) and 0xFF
-        }
+        val check = ProtocolChecksums.xorChecksum(buffer, offset = 2, length = buffer.size - 3)
 
         val bufferCheck = buffer[buffer.size - 1].toInt() and 0xFF
         if (check != bufferCheck) {
@@ -1885,10 +1873,7 @@ class InMotionV2Decoder : WheelDecoder {
             buffer.addAll(data.toList())
 
             // Calculate checksum
-            var check = 0
-            for (byte in buffer) {
-                check = (check xor (byte.toInt() and 0xFF)) and 0xFF
-            }
+            val check = ProtocolChecksums.xorChecksum(buffer.toByteArray())
 
             // Build output with header and escape sequences
             val output = mutableListOf<Byte>()

@@ -38,8 +38,8 @@ fun RenderGaugeTile(
 ) {
     val rawValue = metric.extractValue(telemetry) ?: gpsSpeed
 
-    val displayValue = DisplayUtils.convertMetricValue(rawValue, metric, useMph, useFahrenheit)
-    val displayUnit = DisplayUtils.metricUnit(metric, useMph, useFahrenheit)
+    val displayValue = DisplayUtils.convertDashboardMetricValue(rawValue, metric, useMph, useFahrenheit)
+    val displayUnit = DisplayUtils.dashboardMetricUnit(metric, useMph, useFahrenheit)
     val maxValue = maxForDisplay(metric, useMph)
 
     val metricType = metric.sparklineKey
@@ -90,8 +90,8 @@ fun RenderStatRow(
 ) {
     val rawValue = metric.extractValue(telemetry) ?: gpsSpeed
 
-    val displayValue = DisplayUtils.convertMetricValue(rawValue, metric, useMph, useFahrenheit)
-    val displayUnit = DisplayUtils.metricUnit(metric, useMph, useFahrenheit)
+    val displayValue = DisplayUtils.convertDashboardMetricValue(rawValue, metric, useMph, useFahrenheit)
+    val displayUnit = DisplayUtils.dashboardMetricUnit(metric, useMph, useFahrenheit)
 
     val formatted = when {
         metric == DashboardMetric.FAN_STATUS -> if (rawValue > 0) "On" else "Off"

@@ -1,5 +1,6 @@
 package org.freewheel.compose.screens
 
+import org.freewheel.core.utils.DisplayUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -119,9 +120,9 @@ private fun ConnectedChargerContent(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("DC Output", style = MaterialTheme.typography.titleMedium)
-            TelemetryRow("Voltage", "%.1f V".format(chargerState.dcVoltage))
-            TelemetryRow("Current", "%.2f A".format(chargerState.dcCurrent))
-            TelemetryRow("Power", "%.0f W".format(chargerState.dcPower))
+            TelemetryRow("Voltage", DisplayUtils.formatChargerVoltage(chargerState.dcVoltage))
+            TelemetryRow("Current", DisplayUtils.formatChargerCurrent(chargerState.dcCurrent))
+            TelemetryRow("Power", DisplayUtils.formatChargerPower(chargerState.dcPower))
             if (chargerState.isCharging) {
                 Text(
                     "Charging",
@@ -136,10 +137,10 @@ private fun ConnectedChargerContent(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("AC Input", style = MaterialTheme.typography.titleMedium)
-            TelemetryRow("Voltage", "%.1f V".format(chargerState.acVoltage))
-            TelemetryRow("Current", "%.2f A".format(chargerState.acCurrent))
-            TelemetryRow("Power", "%.0f W".format(chargerState.acPower))
-            TelemetryRow("Frequency", "%.1f Hz".format(chargerState.acFrequency))
+            TelemetryRow("Voltage", DisplayUtils.formatChargerVoltage(chargerState.acVoltage))
+            TelemetryRow("Current", DisplayUtils.formatChargerCurrent(chargerState.acCurrent))
+            TelemetryRow("Power", DisplayUtils.formatChargerPower(chargerState.acPower))
+            TelemetryRow("Frequency", DisplayUtils.formatChargerFrequency(chargerState.acFrequency))
         }
     }
 
@@ -147,10 +148,10 @@ private fun ConnectedChargerContent(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Status", style = MaterialTheme.typography.titleMedium)
-            TelemetryRow("Efficiency", "%.1f%%".format(chargerState.efficiency))
-            TelemetryRow("Temp 1", "%.1f \u00B0C".format(chargerState.temperature1))
-            TelemetryRow("Temp 2", "%.1f \u00B0C".format(chargerState.temperature2))
-            TelemetryRow("Current Limit", "%.1f A".format(chargerState.currentLimitingPoint))
+            TelemetryRow("Efficiency", DisplayUtils.formatChargerEfficiency(chargerState.efficiency))
+            TelemetryRow("Temp 1", DisplayUtils.formatChargerTemperature(chargerState.temperature1))
+            TelemetryRow("Temp 2", DisplayUtils.formatChargerTemperature(chargerState.temperature2))
+            TelemetryRow("Current Limit", DisplayUtils.formatChargerCurrentLimit(chargerState.currentLimitingPoint))
         }
     }
 
@@ -159,8 +160,8 @@ private fun ConnectedChargerContent(
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Setpoints", style = MaterialTheme.typography.titleMedium)
-                TelemetryRow("Target Voltage", "%.1f V".format(chargerState.targetVoltage))
-                TelemetryRow("Target Current", "%.1f A".format(chargerState.targetCurrent))
+                TelemetryRow("Target Voltage", DisplayUtils.formatChargerVoltage(chargerState.targetVoltage))
+                TelemetryRow("Target Current", DisplayUtils.formatChargerCurrent(chargerState.targetCurrent))
             }
         }
     }

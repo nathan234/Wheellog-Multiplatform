@@ -88,8 +88,8 @@ struct DashboardContentView: View {
                     } else {
                         // Generic hero gauge for non-speed metrics
                         let heroRawValue = heroMetric.extractValue(telemetry: effectiveTelemetry)?.doubleValue ?? 0.0
-                        let heroDisplayValue = DisplayUtils.shared.convertMetricValue(value: heroRawValue, metric: heroMetric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
-                        let heroUnit = DisplayUtils.shared.metricUnit(metric: heroMetric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
+                        let heroDisplayValue = DisplayUtils.shared.convertDashboardMetricValue(value: heroRawValue, metric: heroMetric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
+                        let heroUnit = DisplayUtils.shared.dashboardMetricUnit(metric: heroMetric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
                         let heroMax = heroMetric.maxValue > 0 ? heroMetric.maxValue : max(abs(heroRawValue), 1.0)
 
                         Button(action: { selectedMetric = heroMetric.name.lowercased() }) {

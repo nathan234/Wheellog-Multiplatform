@@ -218,15 +218,7 @@ class GotwayDecoder : WheelDecoder {
             if (preIdentity != null && successData?.identity == null) {
                 frameTypes.add(0, "IDENTITY")
             }
-            // Ensure wheelType is GOTWAY
-            val resolvedIdentity = when {
-                resultIdentity != null && resultIdentity.wheelType == WheelType.Unknown ->
-                    resultIdentity.copy(wheelType = WheelType.GOTWAY)
-                resultIdentity != null -> resultIdentity
-                currentState.identity.wheelType == WheelType.Unknown ->
-                    currentState.identity.copy(wheelType = WheelType.GOTWAY)
-                else -> null
-            }
+            val resolvedIdentity = resolveWheelIdentity(resultIdentity, currentState.identity, WheelType.GOTWAY)
             val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
             DecodeResult.Success(DecodedData(
                 telemetry = successData?.telemetry,

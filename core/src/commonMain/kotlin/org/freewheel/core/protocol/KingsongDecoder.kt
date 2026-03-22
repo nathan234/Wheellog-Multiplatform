@@ -127,14 +127,7 @@ class KingsongDecoder : WheelDecoder {
         return if (output != null) {
             val bmsSnapshot = BmsState(bms1 = bms1.toSnapshot(), bms2 = bms2.toSnapshot())
 
-            // Ensure wheelType is KINGSONG
-            val resolvedIdentity = when {
-                output.identity != null && output.identity.wheelType == WheelType.Unknown ->
-                    output.identity.copy(wheelType = WheelType.KINGSONG)
-                output.identity != null -> output.identity
-                id.wheelType == WheelType.Unknown -> id.copy(wheelType = WheelType.KINGSONG)
-                else -> null
-            }
+            val resolvedIdentity = resolveWheelIdentity(output.identity, id, WheelType.KINGSONG)
 
             DecodeResult.Success(DecodedData(
                 telemetry = output.telemetry?.takeIf { it != tel },

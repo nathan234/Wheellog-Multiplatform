@@ -18,58 +18,21 @@ struct MetricDetailView: View {
         }
     }
 
-    private var axisStride: Calendar.Component {
-        switch wheelManager.telemetryHistory.timeRange {
-        case .fiveMinutes: return .second
-        case .oneHour: return .minute
-        case .twentyFourHours: return .hour
-        default: return .second
-        }
-    }
-
-    private var axisStrideCount: Int {
-        switch wheelManager.telemetryHistory.timeRange {
-        case .fiveMinutes: return 10
-        case .oneHour: return 5
-        case .twentyFourHours: return 2
-        default: return 10
-        }
-    }
-
-    private var axisFormat: Date.FormatStyle {
-        if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
-            return .dateTime.minute().second()
-        } else {
-            return .dateTime.hour().minute()
-        }
-    }
+    private var timeRange: ChartTimeRange { wheelManager.telemetryHistory.timeRange }
+    private var axisStride: Calendar.Component { timeRange.axisStride }
+    private var axisStrideCount: Int { timeRange.axisStrideCount }
+    private var axisFormat: Date.FormatStyle { timeRange.axisFormat }
 
     private var metric: MetricType {
         MetricType.entries.first { $0.name.lowercased() == metricId.lowercased() } ?? .speed
     }
 
     private var displayUnit: String {
-        // Inline to avoid KMP overload ambiguity (MetricType vs DashboardMetric)
-        switch metric {
-        case .speed, .gpsSpeed:
-            return DisplayUtils.shared.speedUnit(useMph: wheelManager.useMph)
-        case .temperature:
-            return DisplayUtils.shared.temperatureUnit(useFahrenheit: wheelManager.useFahrenheit)
-        default:
-            return metric.unit
-        }
+        DisplayUtils.shared.metricUnit(metric: metric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
     }
 
     private func convertValue(_ raw: Double) -> Double {
-        // Inline to avoid KMP overload ambiguity (MetricType vs DashboardMetric)
-        switch metric {
-        case .speed, .gpsSpeed:
-            return wheelManager.useMph ? ByteUtils.shared.kmToMiles(km: raw) : raw
-        case .temperature:
-            return wheelManager.useFahrenheit ? ByteUtils.shared.celsiusToFahrenheit(temp: raw) : raw
-        default:
-            return raw
-        }
+        DisplayUtils.shared.convertMetricValue(value: raw, metric: metric, useMph: wheelManager.useMph, useFahrenheit: wheelManager.useFahrenheit)
     }
 
     private var chartColor: Color {

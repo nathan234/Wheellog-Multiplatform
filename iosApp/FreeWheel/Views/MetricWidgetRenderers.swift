@@ -18,11 +18,11 @@ struct MetricGaugeTile: View {
     }
 
     private var displayValue: Double {
-        DisplayUtils.shared.convertMetricValue(value: rawValue, metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
+        DisplayUtils.shared.convertDashboardMetricValue(value: rawValue, metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
     }
 
     private var displayUnit: String {
-        DisplayUtils.shared.metricUnit(metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
+        DisplayUtils.shared.dashboardMetricUnit(metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
     }
 
     private var maxValue: Double {
@@ -88,8 +88,8 @@ struct MetricStatRow: View {
         if metric.isDistanceMetric {
             return DisplayUtils.shared.formatDistance(km: rawValue, useMph: useMph, decimals: Int32(metric.decimals))
         }
-        let converted = DisplayUtils.shared.convertMetricValue(value: rawValue, metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
-        let unit = DisplayUtils.shared.metricUnit(metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
+        let converted = DisplayUtils.shared.convertDashboardMetricValue(value: rawValue, metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
+        let unit = DisplayUtils.shared.dashboardMetricUnit(metric: metric, useMph: useMph, useFahrenheit: useFahrenheit)
         return "\(StringUtil.shared.formatDecimal(value: converted, decimals: Int32(metric.decimals))) \(unit)"
     }
 

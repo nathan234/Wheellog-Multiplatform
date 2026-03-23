@@ -1,23 +1,29 @@
 package org.freewheel.compose.screens
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -26,9 +32,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -37,47 +41,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.app.Activity
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
-import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.freewheel.BuildConfig
 import org.freewheel.compose.WheelViewModel
-import org.freewheel.core.domain.AlarmAction
-import org.freewheel.core.domain.CommonLabels
-import org.freewheel.core.domain.SettingsLabels
 import org.freewheel.compose.components.DangerousActionDialog
 import org.freewheel.compose.components.SectionCard
 import org.freewheel.compose.components.StatRow
-import org.freewheel.core.domain.AppConstants
+import org.freewheel.core.domain.AlarmAction
+import org.freewheel.core.domain.AppSettingId
+import org.freewheel.core.domain.AppSettingSpec
+import org.freewheel.core.domain.AppSettingVisibilityEvaluator
+import org.freewheel.core.domain.AppSettingsConfig
+import org.freewheel.core.domain.AppSettingsDestinations
+import org.freewheel.core.domain.AppSettingsActions
+import org.freewheel.core.domain.AppSettingsSection
+import org.freewheel.core.domain.AppSettingsState
+import org.freewheel.core.domain.AppSettingsValueIds
 import org.freewheel.core.domain.ControlSpec
-import org.freewheel.core.domain.PreferenceDefaults
-import org.freewheel.core.domain.PreferenceKeys
 import org.freewheel.core.domain.SettingsCommandId
+import org.freewheel.core.domain.SettingsLabels
+import org.freewheel.core.domain.SettingScope
 import org.freewheel.core.domain.WheelSettingsConfig
-import org.freewheel.core.utils.DisplayUtils
+import org.freewheel.core.domain.displayUnit
+import org.freewheel.core.domain.displayValue
 
-// CROSS-PLATFORM SYNC: This screen mirrors iosApp/FreeWheel/Views/SettingsView.swift.
-// When adding, removing, or reordering sections, update the counterpart.
-//
-// Shared sections (in order):
-//  1. Units: MPH toggle, Fahrenheit toggle
-//  2. Alarms: Enable toggle, action picker, PWM-based toggle
-//  3. PWM thresholds (if PWM-based): Factor 1, Factor 2
-//  4. Speed alarms (if not PWM-based): Alarm 1/2/3 speed
-//  5. Other alarms: Current, Phase Current, Temperature, Motor Temp, Battery, Wheel Alarm
-//  6. Connection: Auto Reconnect, Show Unknown Devices
-//  7. Logging: Auto-start, Include GPS
-//  8. Wheel settings (config-driven, when connected)
-//  9. About: Version, GitHub link
-// 10. Close App button
-//  Note: iOS has additional PWM pre-warning section; alarm battery thresholds per speed alarm
+// Settings screen structure is driven by AppSettingsConfig (KMP shared).
+// Both Android and iOS render from the same config to prevent drift.
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,20 +80,49 @@ fun SettingsScreen(
     onNavigateToEventLog: () -> Unit = {},
     onNavigateToErrorLog: () -> Unit = {}
 ) {
-    val appConfig = viewModel.appConfig
     val wheelSettings by viewModel.settingsState.collectAsStateWithLifecycle()
     val identity by viewModel.identityState.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
-    var useMph by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.USE_MPH, PreferenceDefaults.USE_MPH)) }
-    var useFahrenheit by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.USE_FAHRENHEIT, PreferenceDefaults.USE_FAHRENHEIT)) }
     val context = LocalContext.current
 
-    // Wheel settings config-driven state
+    // App settings state (for reading/writing prefs and evaluating visibility)
+    val boolStates = remember { mutableStateMapOf<AppSettingId, Boolean>() }
+    val intStates = remember { mutableStateMapOf<AppSettingId, Int>() }
+
+    // Initialize state from prefs on first composition
+    val sections = remember { AppSettingsConfig.sections() }
+    remember {
+        for (section in sections) {
+            for (control in section.controls) {
+                val id = control.settingId ?: continue
+                when (control) {
+                    is AppSettingSpec.Toggle -> boolStates[id] = readBool(id, viewModel)
+                    is AppSettingSpec.Slider -> intStates[id] = readInt(id, viewModel)
+                    is AppSettingSpec.Picker -> intStates[id] = readInt(id, viewModel)
+                    else -> {}
+                }
+            }
+        }
+        true // Stable return for remember
+    }
+
+    // Build visibility state
+    val visibilityState = AppSettingsState(
+        boolValues = boolStates.toMap(),
+        intValues = intStates.toMap(),
+        isConnected = connectionState.isConnected,
+        wheelType = identity.wheelType
+    )
+
+    val useMph = boolStates[AppSettingId.USE_MPH] ?: AppSettingId.USE_MPH.defaultBool
+    val useFahrenheit = boolStates[AppSettingId.USE_FAHRENHEIT] ?: AppSettingId.USE_FAHRENHEIT.defaultBool
+
+    // Wheel settings config-driven state (existing system)
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val wheelSections = remember(identity.wheelType, capabilities) {
         WheelSettingsConfig.sections(identity.wheelType, capabilities)
     }
-    val toggleStates = remember { mutableStateMapOf<SettingsCommandId, Boolean>() }
+    val wheelToggleStates = remember { mutableStateMapOf<SettingsCommandId, Boolean>() }
     val sliderOverrides = remember(wheelSections) {
         val map = mutableStateMapOf<SettingsCommandId, Int>()
         for (section in wheelSections) {
@@ -130,346 +151,95 @@ fun SettingsScreen(
             fontWeight = FontWeight.Bold
         )
 
-        // Units section
-        SettingsSection(title = SettingsLabels.SECTION_UNITS) {
-            SettingsToggle(
-                label = SettingsLabels.USE_MPH,
-                checked = useMph,
-                onCheckedChange = { useMph = it; viewModel.setGlobalBool(PreferenceKeys.USE_MPH, it) }
-            )
-            HorizontalDivider()
-            SettingsToggle(
-                label = SettingsLabels.USE_FAHRENHEIT,
-                checked = useFahrenheit,
-                onCheckedChange = { useFahrenheit = it; viewModel.setGlobalBool(PreferenceKeys.USE_FAHRENHEIT, it) }
-            )
-        }
+        for (section in sections) {
+            if (!AppSettingVisibilityEvaluator.isVisible(section.visibility, visibilityState)) continue
 
-        // Alarms section
-        var alarmsEnabled by remember { mutableStateOf(viewModel.getPerWheelBool(PreferenceKeys.ALARMS_ENABLED, PreferenceDefaults.ALARMS_ENABLED)) }
-        var pwmBasedAlarms by remember { mutableStateOf(viewModel.getPerWheelBool(PreferenceKeys.ALTERED_ALARMS, PreferenceDefaults.PWM_BASED_ALARMS)) }
-        SettingsSection(title = SettingsLabels.SECTION_ALARMS) {
-            SettingsToggle(
-                label = SettingsLabels.ENABLE_ALARMS,
-                checked = alarmsEnabled,
-                onCheckedChange = { alarmsEnabled = it; viewModel.setPerWheelBool(PreferenceKeys.ALARMS_ENABLED, it) }
-            )
-
-            if (alarmsEnabled) {
-                HorizontalDivider()
-
-                // Alarm Action picker
-                val alarmActionLabels = AlarmAction.entries.map { it.label }
-                var alarmActionExpanded by remember { mutableStateOf(false) }
-                val selectedAction = AlarmAction.fromValue(viewModel.getGlobalInt(PreferenceKeys.ALARM_ACTION, 0))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(SettingsLabels.ALARM_ACTION)
-                    ExposedDropdownMenuBox(
-                        expanded = alarmActionExpanded,
-                        onExpandedChange = { alarmActionExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = selectedAction.label,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = alarmActionExpanded) },
-                            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            textStyle = MaterialTheme.typography.bodyMedium
+            // Wheel settings placeholder: delegate to existing WheelSettingsConfig rendering
+            if (section.title == AppSettingsConfig.WHEEL_SETTINGS_TITLE) {
+                if (wheelSections.isNotEmpty()) {
+                    for (ws in wheelSections) {
+                        SectionCard(
+                            section = ws,
+                            wheelSettings = wheelSettings,
+                            toggleStates = wheelToggleStates,
+                            sliderOverrides = sliderOverrides,
+                            onIntCommand = { id, value ->
+                                viewModel.saveSliderValue(id, value)
+                                sliderOverrides[id] = value
+                                viewModel.executeWheelCommand(id, intValue = value)
+                            },
+                            onBoolCommand = { id, value ->
+                                wheelToggleStates[id] = value
+                                viewModel.executeWheelCommand(id, boolValue = value)
+                            },
+                            onDangerousAction = { control -> pendingAction = control }
                         )
-                        ExposedDropdownMenu(
-                            expanded = alarmActionExpanded,
-                            onDismissRequest = { alarmActionExpanded = false }
-                        ) {
-                            alarmActionLabels.forEachIndexed { index, label ->
-                                DropdownMenuItem(
-                                    text = { Text(label) },
-                                    onClick = {
-                                        viewModel.setGlobalInt(PreferenceKeys.ALARM_ACTION, index)
-                                        alarmActionExpanded = false
-                                    }
-                                )
-                            }
-                        }
                     }
                 }
+                continue
+            }
 
-                HorizontalDivider()
+            // Close App section: render as standalone button
+            if (section.controls.singleOrNull() is AppSettingSpec.ActionButton) {
+                val action = section.controls.single() as AppSettingSpec.ActionButton
+                OutlinedButton(
+                    onClick = {
+                        when (action.actionId) {
+                            AppSettingsActions.CLOSE_APP -> {
+                                viewModel.shutdownService()
+                                (context as? Activity)?.finishAffinity()
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                    colors = if (action.isDestructive) {
+                        ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    } else {
+                        ButtonDefaults.outlinedButtonColors()
+                    }
+                ) {
+                    Text(action.label)
+                }
+                continue
+            }
 
-                SettingsToggle(
-                    label = SettingsLabels.PWM_BASED_ALARMS,
-                    checked = pwmBasedAlarms,
-                    onCheckedChange = { pwmBasedAlarms = it; viewModel.setPerWheelBool(PreferenceKeys.ALTERED_ALARMS, it) }
-                )
-                Text(
-                    SettingsLabels.PWM_DESCRIPTION,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                )
+            // Standard section
+            val visibleControls = section.controls.filter {
+                AppSettingVisibilityEvaluator.isVisible(it.visibility, visibilityState)
+            }
+            if (visibleControls.isEmpty() && section.footer == null) continue
 
-                HorizontalDivider()
-
-                if (pwmBasedAlarms) {
-                    var alarmFactor1 by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_FACTOR_1, PreferenceDefaults.ALARM_FACTOR_1)) }
-                    var alarmFactor2 by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_FACTOR_2, PreferenceDefaults.ALARM_FACTOR_2)) }
-                    AlarmSlider(
-                        label = SettingsLabels.ALARM_FACTOR_1,
-                        value = alarmFactor1.toFloat(),
-                        range = 0f..100f,
-                        displayValue = alarmFactor1,
-                        unit = "%",
-                        onValueChange = { alarmFactor1 = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_FACTOR_1, it.toInt()) }
-                    )
-                    AlarmSlider(
-                        label = SettingsLabels.ALARM_FACTOR_2,
-                        value = alarmFactor2.toFloat(),
-                        range = 0f..100f,
-                        displayValue = alarmFactor2,
-                        unit = "%",
-                        onValueChange = { alarmFactor2 = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_FACTOR_2, it.toInt()) }
-                    )
-                } else {
-                    var alarm1Speed by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_1_SPEED, PreferenceDefaults.ALARM_1_SPEED)) }
-                    var alarm2Speed by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_2_SPEED, PreferenceDefaults.ALARM_2_SPEED)) }
-                    var alarm3Speed by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_3_SPEED, PreferenceDefaults.ALARM_3_SPEED)) }
-                    AlarmSlider(
-                        label = SettingsLabels.ALARM_1_SPEED,
-                        value = alarm1Speed.toFloat(),
-                        range = 0f..100f,
-                        displayValue = displaySpeed(alarm1Speed, useMph),
-                        unit = if (useMph) "mph" else "km/h",
-                        onValueChange = { alarm1Speed = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_1_SPEED, it.toInt()) }
-                    )
-                    AlarmSlider(
-                        label = SettingsLabels.ALARM_2_SPEED,
-                        value = alarm2Speed.toFloat(),
-                        range = 0f..100f,
-                        displayValue = displaySpeed(alarm2Speed, useMph),
-                        unit = if (useMph) "mph" else "km/h",
-                        onValueChange = { alarm2Speed = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_2_SPEED, it.toInt()) }
-                    )
-                    AlarmSlider(
-                        label = SettingsLabels.ALARM_3_SPEED,
-                        value = alarm3Speed.toFloat(),
-                        range = 0f..100f,
-                        displayValue = displaySpeed(alarm3Speed, useMph),
-                        unit = if (useMph) "mph" else "km/h",
-                        onValueChange = { alarm3Speed = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_3_SPEED, it.toInt()) }
+            SettingsSection(title = section.title) {
+                visibleControls.forEachIndexed { index, spec ->
+                    if (index > 0) HorizontalDivider()
+                    RenderAppControl(
+                        spec = spec,
+                        viewModel = viewModel,
+                        boolStates = boolStates,
+                        intStates = intStates,
+                        useMph = useMph,
+                        useFahrenheit = useFahrenheit,
+                        context = context,
+                        onNavigate = { destinationId ->
+                            when (destinationId) {
+                                AppSettingsDestinations.CUSTOMIZE_NAVIGATION -> onNavigateToEditNavigation()
+                                AppSettingsDestinations.BLE_CAPTURE -> onNavigateToCapture()
+                                AppSettingsDestinations.CONNECTION_ERROR_LOG -> onNavigateToErrorLog()
+                                AppSettingsDestinations.WHEEL_EVENT_LOG -> onNavigateToEventLog()
+                            }
+                        }
                     )
                 }
-
-                var alarmCurrent by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_CURRENT, PreferenceDefaults.ALARM_CURRENT)) }
-                var alarmPhaseCurrent by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_PHASE_CURRENT, PreferenceDefaults.ALARM_PHASE_CURRENT)) }
-                var alarmTemperature by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_TEMPERATURE, PreferenceDefaults.ALARM_TEMPERATURE)) }
-                var alarmMotorTemperature by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_MOTOR_TEMPERATURE, PreferenceDefaults.ALARM_MOTOR_TEMPERATURE)) }
-                var alarmBattery by remember { mutableStateOf(viewModel.getPerWheelInt(PreferenceKeys.ALARM_BATTERY, PreferenceDefaults.ALARM_BATTERY)) }
-                AlarmSlider(
-                    label = SettingsLabels.CURRENT_ALARM,
-                    value = alarmCurrent.toFloat(),
-                    range = 0f..100f,
-                    displayValue = alarmCurrent,
-                    unit = "A",
-                    onValueChange = { alarmCurrent = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_CURRENT, it.toInt()) }
-                )
-                AlarmSlider(
-                    label = SettingsLabels.PHASE_CURRENT_ALARM,
-                    value = alarmPhaseCurrent.toFloat(),
-                    range = 0f..400f,
-                    displayValue = alarmPhaseCurrent,
-                    unit = "A",
-                    onValueChange = { alarmPhaseCurrent = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_PHASE_CURRENT, it.toInt()) }
-                )
-                AlarmSlider(
-                    label = SettingsLabels.TEMPERATURE_ALARM,
-                    value = alarmTemperature.toFloat(),
-                    range = 0f..80f,
-                    displayValue = displayTemperature(alarmTemperature, useFahrenheit),
-                    unit = if (useFahrenheit) "\u00B0F" else "\u00B0C",
-                    onValueChange = { alarmTemperature = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_TEMPERATURE, it.toInt()) }
-                )
-                AlarmSlider(
-                    label = SettingsLabels.MOTOR_TEMP_ALARM,
-                    value = alarmMotorTemperature.toFloat(),
-                    range = 0f..200f,
-                    displayValue = displayTemperature(alarmMotorTemperature, useFahrenheit),
-                    unit = if (useFahrenheit) "\u00B0F" else "\u00B0C",
-                    onValueChange = { alarmMotorTemperature = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_MOTOR_TEMPERATURE, it.toInt()) }
-                )
-                AlarmSlider(
-                    label = SettingsLabels.BATTERY_ALARM,
-                    value = alarmBattery.toFloat(),
-                    range = 0f..100f,
-                    displayValue = alarmBattery,
-                    unit = "%",
-                    onValueChange = { alarmBattery = it.toInt(); viewModel.setPerWheelInt(PreferenceKeys.ALARM_BATTERY, it.toInt()) }
-                )
-                var alarmWheel by remember { mutableStateOf(viewModel.getPerWheelBool(PreferenceKeys.ALARM_WHEEL, PreferenceDefaults.ALARM_WHEEL)) }
-                SettingsToggle(
-                    label = SettingsLabels.WHEEL_ALARM,
-                    checked = alarmWheel,
-                    onCheckedChange = { alarmWheel = it; viewModel.setPerWheelBool(PreferenceKeys.ALARM_WHEEL, it) }
-                )
-
-                Text(
-                    SettingsLabels.DISABLE_HINT,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-        }
-
-        // Connection section
-        var autoReconnect by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.USE_RECONNECT, PreferenceDefaults.USE_RECONNECT)) }
-        var showUnknown by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.SHOW_UNKNOWN_DEVICES, PreferenceDefaults.SHOW_UNKNOWN_DEVICES)) }
-        SettingsSection(title = SettingsLabels.SECTION_CONNECTION) {
-            SettingsToggle(
-                label = SettingsLabels.AUTO_RECONNECT,
-                checked = autoReconnect,
-                onCheckedChange = { autoReconnect = it; viewModel.setGlobalBool(PreferenceKeys.USE_RECONNECT, it) }
-            )
-            Text(
-                SettingsLabels.RECONNECT_HINT,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            HorizontalDivider()
-            SettingsToggle(
-                label = SettingsLabels.SHOW_UNKNOWN_DEVICES,
-                checked = showUnknown,
-                onCheckedChange = { showUnknown = it; viewModel.setGlobalBool(PreferenceKeys.SHOW_UNKNOWN_DEVICES, it) }
-            )
-        }
-
-        // Logging section
-        var autoLog by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.AUTO_LOG, PreferenceDefaults.AUTO_LOG)) }
-        var logGps by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.LOG_LOCATION_DATA, PreferenceDefaults.LOG_LOCATION_DATA)) }
-        SettingsSection(title = SettingsLabels.SECTION_LOGGING) {
-            SettingsToggle(
-                label = SettingsLabels.AUTO_START_LOGGING,
-                checked = autoLog,
-                onCheckedChange = { autoLog = it; viewModel.setGlobalBool(PreferenceKeys.AUTO_LOG, it) }
-            )
-            HorizontalDivider()
-            SettingsToggle(
-                label = SettingsLabels.INCLUDE_GPS,
-                checked = logGps,
-                onCheckedChange = { logGps = it; viewModel.setGlobalBool(PreferenceKeys.LOG_LOCATION_DATA, it) }
-            )
-            Text(
-                SettingsLabels.GPS_HINT,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        // Auto-torch section
-        var autoTorchEnabled by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.AUTO_TORCH_ENABLED, PreferenceDefaults.AUTO_TORCH_ENABLED)) }
-        SettingsSection(title = SettingsLabels.SECTION_AUTO_TORCH) {
-            SettingsToggle(
-                label = SettingsLabels.AUTO_TORCH_ENABLED,
-                checked = autoTorchEnabled,
-                onCheckedChange = { autoTorchEnabled = it; viewModel.setGlobalBool(PreferenceKeys.AUTO_TORCH_ENABLED, it) }
-            )
-            if (autoTorchEnabled) {
-                HorizontalDivider()
-                var speedThreshold by remember { mutableStateOf(viewModel.getGlobalInt(PreferenceKeys.AUTO_TORCH_SPEED_THRESHOLD, PreferenceDefaults.AUTO_TORCH_SPEED_THRESHOLD)) }
-                AlarmSlider(
-                    label = SettingsLabels.AUTO_TORCH_SPEED_THRESHOLD,
-                    value = speedThreshold.toFloat(),
-                    range = 0f..60f,
-                    displayValue = displaySpeed(speedThreshold, useMph),
-                    unit = if (useMph) "mph" else "km/h",
-                    onValueChange = { speedThreshold = it.toInt(); viewModel.setGlobalInt(PreferenceKeys.AUTO_TORCH_SPEED_THRESHOLD, it.toInt()) }
-                )
-                HorizontalDivider()
-                var useSunset by remember { mutableStateOf(viewModel.getGlobalBool(PreferenceKeys.AUTO_TORCH_USE_SUNSET, PreferenceDefaults.AUTO_TORCH_USE_SUNSET)) }
-                SettingsToggle(
-                    label = SettingsLabels.AUTO_TORCH_USE_SUNSET,
-                    checked = useSunset,
-                    onCheckedChange = { useSunset = it; viewModel.setGlobalBool(PreferenceKeys.AUTO_TORCH_USE_SUNSET, it) }
-                )
-            }
-            Text(
-                SettingsLabels.AUTO_TORCH_HINT,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-        }
-
-        // Wheel settings (config-driven, when connected)
-        if (connectionState.isConnected && wheelSections.isNotEmpty()) {
-            for (section in wheelSections) {
-                SectionCard(
-                    section = section,
-                    wheelSettings = wheelSettings,
-                    toggleStates = toggleStates,
-                    sliderOverrides = sliderOverrides,
-                    onIntCommand = { id, value ->
-                        viewModel.saveSliderValue(id, value)
-                        sliderOverrides[id] = value
-                        viewModel.executeWheelCommand(id, intValue = value)
-                    },
-                    onBoolCommand = { id, value ->
-                        toggleStates[id] = value
-                        viewModel.executeWheelCommand(id, boolValue = value)
-                    },
-                    onDangerousAction = { control -> pendingAction = control }
-                )
-            }
-        }
-
-        // UI section
-        SettingsSection(title = "Interface") {
-            SettingsNavRow(label = "Customize Navigation", onClick = { onNavigateToEditNavigation() })
-        }
-
-        // Developer tools
-        SettingsSection(title = "Developer") {
-            SettingsNavRow(label = "BLE Capture", onClick = { onNavigateToCapture() })
-            HorizontalDivider()
-            SettingsNavRow(label = SettingsLabels.CONNECTION_ERROR_LOG, onClick = { onNavigateToErrorLog() })
-            if (identity.wheelType == org.freewheel.core.domain.WheelType.VETERAN ||
-                identity.wheelType == org.freewheel.core.domain.WheelType.LEAPERKIM) {
-                HorizontalDivider()
-                SettingsNavRow(label = "Wheel Event Log", onClick = { onNavigateToEventLog() })
-            }
-        }
-
-        // About section
-        SettingsSection(title = SettingsLabels.SECTION_ABOUT) {
-            StatRow(label = SettingsLabels.VERSION, value = BuildConfig.VERSION_NAME)
-            StatRow(label = "Build Date", value = BuildConfig.BUILD_DATE)
-            HorizontalDivider()
-            SettingsNavRow(
-                label = SettingsLabels.GITHUB_REPOSITORY,
-                onClick = {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(AppConstants.GITHUB_REPO_URL))
+                section.footer?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
-            )
-        }
-
-        // Close app
-        OutlinedButton(
-            onClick = {
-                viewModel.shutdownService()
-                (context as? Activity)?.finishAffinity()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-        ) {
-            Text(SettingsLabels.CLOSE_APP)
+            }
         }
 
         Spacer(Modifier.height(16.dp))
@@ -484,12 +254,165 @@ fun SettingsScreen(
             pendingAction = null
         },
         onConfirmToggle = { commandId ->
-            toggleStates[commandId] = true
+            wheelToggleStates[commandId] = true
             viewModel.executeWheelCommand(commandId, boolValue = true)
             pendingAction = null
         }
     )
 }
+
+// ---------------------------------------------------------------------------
+// Generic control renderer
+// ---------------------------------------------------------------------------
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RenderAppControl(
+    spec: AppSettingSpec,
+    viewModel: WheelViewModel,
+    boolStates: MutableMap<AppSettingId, Boolean>,
+    intStates: MutableMap<AppSettingId, Int>,
+    useMph: Boolean,
+    useFahrenheit: Boolean,
+    context: android.content.Context,
+    onNavigate: (String) -> Unit
+) {
+    when (spec) {
+        is AppSettingSpec.Toggle -> {
+            val id = spec.settingId
+            val checked = boolStates[id] ?: id.defaultBool
+            SettingsToggle(
+                label = spec.label,
+                checked = checked,
+                onCheckedChange = {
+                    boolStates[id] = it
+                    writeBool(id, it, viewModel)
+                }
+            )
+        }
+
+        is AppSettingSpec.Picker -> {
+            val id = spec.settingId
+            val currentIndex = intStates[id] ?: id.defaultInt
+            val selectedLabel = AlarmAction.fromValue(currentIndex).label
+            var expanded by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(spec.label)
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedLabel,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        textStyle = MaterialTheme.typography.bodyMedium
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        spec.options.forEachIndexed { index, label ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    intStates[id] = index
+                                    writeInt(id, index, viewModel)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        is AppSettingSpec.Slider -> {
+            val id = spec.settingId
+            val storedValue = intStates[id] ?: id.defaultInt
+            val display = spec.displayValue(storedValue, useMph, useFahrenheit)
+            val unitText = spec.displayUnit(useMph, useFahrenheit)
+            AlarmSlider(
+                label = spec.label,
+                value = storedValue.toFloat(),
+                range = spec.min.toFloat()..spec.max.toFloat(),
+                displayValue = display,
+                unit = unitText,
+                onValueChange = {
+                    val newValue = it.toInt()
+                    intStates[id] = newValue
+                    writeInt(id, newValue, viewModel)
+                }
+            )
+        }
+
+        is AppSettingSpec.NavLink -> {
+            SettingsNavRow(label = spec.label, onClick = { onNavigate(spec.destinationId) })
+        }
+
+        is AppSettingSpec.StaticInfo -> {
+            val value = when (spec.valueId) {
+                AppSettingsValueIds.APP_VERSION -> BuildConfig.VERSION_NAME
+                AppSettingsValueIds.BUILD_DATE -> BuildConfig.BUILD_DATE
+                else -> ""
+            }
+            StatRow(label = spec.label, value = value)
+        }
+
+        is AppSettingSpec.ExternalLink -> {
+            SettingsNavRow(
+                label = spec.label,
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(spec.url)))
+                }
+            )
+        }
+
+        is AppSettingSpec.ActionButton -> {
+            // Handled at section level for standalone rendering
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Pref read/write helpers
+// ---------------------------------------------------------------------------
+
+private fun readBool(id: AppSettingId, viewModel: WheelViewModel): Boolean =
+    when (id.scope) {
+        SettingScope.GLOBAL -> viewModel.getGlobalBool(id.prefKey, id.defaultBool)
+        SettingScope.PER_WHEEL -> viewModel.getPerWheelBool(id.prefKey, id.defaultBool)
+    }
+
+private fun readInt(id: AppSettingId, viewModel: WheelViewModel): Int =
+    when (id.scope) {
+        SettingScope.GLOBAL -> viewModel.getGlobalInt(id.prefKey, id.defaultInt)
+        SettingScope.PER_WHEEL -> viewModel.getPerWheelInt(id.prefKey, id.defaultInt)
+    }
+
+private fun writeBool(id: AppSettingId, value: Boolean, viewModel: WheelViewModel) {
+    when (id.scope) {
+        SettingScope.GLOBAL -> viewModel.setGlobalBool(id.prefKey, value)
+        SettingScope.PER_WHEEL -> viewModel.setPerWheelBool(id.prefKey, value)
+    }
+}
+
+private fun writeInt(id: AppSettingId, value: Int, viewModel: WheelViewModel) {
+    when (id.scope) {
+        SettingScope.GLOBAL -> viewModel.setGlobalInt(id.prefKey, value)
+        SettingScope.PER_WHEEL -> viewModel.setPerWheelInt(id.prefKey, value)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Reusable composables
+// ---------------------------------------------------------------------------
 
 @Composable
 private fun SettingsSection(
@@ -497,12 +420,14 @@ private fun SettingsSection(
     content: @Composable () -> Unit
 ) {
     Column {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
+        if (title.isNotEmpty()) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
         Surface(
             shape = MaterialTheme.shapes.medium,
             color = MaterialTheme.colorScheme.surfaceContainerLow
@@ -582,9 +507,3 @@ private fun AlarmSlider(
         )
     }
 }
-
-private fun displaySpeed(kmh: Int, useMph: Boolean): Int =
-    DisplayUtils.convertSpeed(kmh.toDouble(), useMph).toInt()
-
-private fun displayTemperature(celsius: Int, useFahrenheit: Boolean): Int =
-    DisplayUtils.convertTemp(celsius.toDouble(), useFahrenheit).toInt()

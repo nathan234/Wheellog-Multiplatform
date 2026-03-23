@@ -86,7 +86,6 @@ class GotwayDecoder : WheelDecoder {
     private var smartBmsCells = 0
     private var trueVoltage = false
     private var trueCurrent = false
-    private var bmsCurrent = false
     private var truePWM = false
     private var isReady = false
     private var hasReceivedData = false
@@ -346,10 +345,8 @@ class GotwayDecoder : WheelDecoder {
         val calculatedPwm = hwPwm / 10000.0
         val current = if (isAlexovikFW && trueCurrent) {
             alexovikCurrent
-        } else if (!trueCurrent || !bmsCurrent) {
-            (calculatedPwm * phaseCurrent).roundToInt()
         } else {
-            tel.current
+            (calculatedPwm * phaseCurrent).roundToInt()
         }
         val power = ((current / 100.0) * voltage).roundToInt()
 
@@ -374,7 +371,7 @@ class GotwayDecoder : WheelDecoder {
             beeperVolume = if (beeperVolume in 0..9) beeperVolume else gw.beeperVolume
         )
 
-        val hasNewData = !((trueVoltage && autoVoltage) || trueCurrent || bmsCurrent) || isAlexovikFW
+        val hasNewData = !((trueVoltage && autoVoltage) || trueCurrent) || isAlexovikFW
 
         return FrameResult(
             telemetry = newTel,
@@ -399,7 +396,7 @@ class GotwayDecoder : WheelDecoder {
         val autoVoltage = config.autoVoltage && !isAlexovikFW
 
         // Compute hasNewData BEFORE setting flag (matches legacy timing)
-        val hasNewData = bmsCurrent || (!trueCurrent && trueVoltage)
+        val hasNewData = !trueCurrent && trueVoltage
         trueVoltage = true
         val batVoltage = ByteUtils.shortFromBytesBE(buff, 6)
         val bmsNum = buff[19].toInt() and 0xFF
@@ -407,8 +404,6 @@ class GotwayDecoder : WheelDecoder {
 
         val bmsCurrentVal = ByteUtils.signedShortFromBytesBE(buff, 8)
         bms.current = bmsCurrentVal / 10.0
-
-        if (bmsCurrentVal > 0) bmsCurrent = false
 
         if (bmsNum % 2 == 0) {
             bms.temp1 = ByteUtils.signedShortFromBytesBE(buff, 10).toDouble()
@@ -419,12 +414,9 @@ class GotwayDecoder : WheelDecoder {
             bms.temp4 = ByteUtils.signedShortFromBytesBE(buff, 12).toDouble()
             bms.semiVoltage2 = ByteUtils.signedShortFromBytesBE(buff, 14) / 10.0
         }
-
-        val current = if (bmsCurrent) bmsCurrentVal * 20 else tel.current
         return FrameResult(
             telemetry = tel.copy(
-                voltage = if (autoVoltage) batVoltage * 10 else tel.voltage,
-                current = current
+                voltage = if (autoVoltage) batVoltage * 10 else tel.voltage
             ),
             hasNewData = hasNewData
         )
@@ -554,7 +546,7 @@ class GotwayDecoder : WheelDecoder {
         val gw = currentState.settings as? WheelSettings.Begode ?: WheelSettings.Begode()
 
         // Compute hasNewData BEFORE setting flag (matches legacy timing)
-        val hasNewData = trueCurrent && !bmsCurrent
+        val hasNewData = trueCurrent
         trueCurrent = true
         val batteryCurrent = ByteUtils.signedShortFromBytesBE(buff, 2)
         val cutoutStep = ByteUtils.shortFromBytesBE(buff, 4) // 0-9 → 45-90° in 5° increments
@@ -574,7 +566,7 @@ class GotwayDecoder : WheelDecoder {
             }
         }
 
-        val current = if (!bmsCurrent) (-1) * batteryCurrent else tel.current
+        val current = (-1) * batteryCurrent
         val output = if (truePWM) hwPWMb * 100 else tel.output
         val calculatedPwm = if (truePWM) output / 10000.0 else tel.calculatedPwm
 
@@ -672,7 +664,6 @@ class GotwayDecoder : WheelDecoder {
         smartBmsCells = 0
         trueVoltage = false
         trueCurrent = false
-        bmsCurrent = false
         truePWM = false
         isReady = false
         hasReceivedData = false

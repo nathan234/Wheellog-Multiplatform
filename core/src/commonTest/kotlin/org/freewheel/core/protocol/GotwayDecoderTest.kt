@@ -1499,48 +1499,11 @@ class GotwayDecoderTest {
     }
 
     @Test
-    fun `frame 0x01 passes BMS current x20 to state when bmsCurrent flag is true`() {
+    fun `frame 0x01 does not overwrite current`() {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
-        var ds = DecoderState()
-        val liveFrame = buildLiveDataFrame(voltage = 6000)
-        val r1 = freshDecoder.decode(liveFrame, ds, config)
-        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
-
-        // Send first frame 0x01 with bmsCurrentVal = -50 (negative triggers bmsCurrent=true via bmsCurrentVal > 0 check)
-        // Actually, bmsCurrent starts as false. Looking at the code:
-        // bmsCurrent starts false, and is only set via the 0x07 frame.
-        // In the extended frame, if bmsCurrentVal > 0, bmsCurrent = false (it's already false)
-        // The BMS current passthrough happens when bmsCurrent is true.
-        // We need to set bmsCurrent=true first - it gets set when current frame 0x07 arrives
-        // and bmsCurrentVal <= 0 in extended frame keeps it true.
-        // Actually wait - let me re-read: bmsCurrent is set to false when bmsCurrentVal > 0.
-        // It's never set to true in the code explicitly... Let me look again.
-        // The variable starts as false. The only place that could set it true would be externally.
-        // Actually looking at legacy: bmsCurrent is set from frame 0x07 `processCurrentTempFrame`.
-        // Wait no - in legacy code bmsCurrent is set in the extended frame handler.
-        // In KMP code, `if (bmsCurrentVal > 0) bmsCurrent = false` — it only sets it to false.
-        // It's never set to true. So the BMS current passthrough (`if (bmsCurrent) bmsCurrentVal * 20`)
-        // only triggers if bmsCurrent was somehow set to true from elsewhere.
-        // This means the fix as described won't actually trigger in practice because bmsCurrent is never true.
-        // Let me just test that when bmsCurrent IS false, the current is not overwritten from frame 0x01.
-
-        // With bmsCurrent=false (default), frame 0x01 should NOT write BMS current to state
-        val extFrame = buildExtendedFrame(batVoltage = 6700)
-        val r2 = freshDecoder.decode(extFrame, ds, config)
-        assertTrue(r2 is DecodeResult.Success)
-        // Current should remain from the live data frame's calculated value
-        assertEquals(ds.telemetry.current, (r2 as DecodeResult.Success).data.assertTelemetry().current,
-            "Frame 0x01 should not overwrite current when bmsCurrent is false")
-    }
-
-    @Test
-    fun `frame 0x01 does not overwrite current when bmsCurrent flag is false`() {
-        val freshDecoder = GotwayDecoder()
-        initDecoder(freshDecoder)
-
-        // Set up state with a known current value
+        // Set up state with a known current value from live data
         val liveFrame = buildLiveDataFrame(voltage = 6000)
         var ds = DecoderState()
         val r1 = freshDecoder.decode(liveFrame, ds, config)
@@ -1549,12 +1512,12 @@ class GotwayDecoderTest {
         ds = decoded1.decoderStateFrom(ds)
         val originalCurrent = decoded1.assertTelemetry().current
 
-        // Frame 0x01 with bmsCurrent=false (default) should preserve current
+        // Frame 0x01 only carries BMS voltage/temps — current is preserved from prior frames
         val extFrame = buildExtendedFrame(batVoltage = 6700)
         val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         assertEquals(originalCurrent, (r2 as DecodeResult.Success).data.assertTelemetry().current,
-            "Frame 0x01 should preserve current when bmsCurrent is false")
+            "Frame 0x01 should preserve current from prior frames")
     }
 
     // ==================== autoVoltage Config Gate ====================
@@ -1681,7 +1644,7 @@ class GotwayDecoderTest {
         ds = (r1 as DecodeResult.Success).data.decoderStateFrom(ds)
 
         // First frame 0x01 - trueVoltage was false before this frame
-        // hasNewData should be computed as: bmsCurrent(false) || (!trueCurrent(false) && trueVoltage(false)) = false
+        // hasNewData = !trueCurrent(false) && trueVoltage(false) = false
         val extFrame = buildExtendedFrame(batVoltage = 6700)
         val r2 = freshDecoder.decode(extFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
@@ -1705,7 +1668,7 @@ class GotwayDecoderTest {
         if (r2 is DecodeResult.Success) ds = r2.data.decoderStateFrom(ds)
 
         // Second frame 0x01 — trueVoltage is now true, trueCurrent still false
-        // hasNewData = bmsCurrent(false) || (!trueCurrent(false) && trueVoltage(true)) = true
+        // hasNewData = !trueCurrent(false) && trueVoltage(true) = true
         val extFrame2 = buildExtendedFrame(batVoltage = 6700)
         val r3 = freshDecoder.decode(extFrame2, ds, config)
         assertTrue(r3 is DecodeResult.Success)
@@ -1724,7 +1687,7 @@ class GotwayDecoderTest {
         if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
         // First frame 0x07 — trueCurrent was false before this frame
-        // hasNewData = trueCurrent(false) && !bmsCurrent(false) = false
+        // hasNewData = trueCurrent(false) = false
         val currentFrame = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
         val r2 = freshDecoder.decode(currentFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
@@ -1747,8 +1710,8 @@ class GotwayDecoderTest {
         val r2 = freshDecoder.decode(currentFrame1, ds, config)
         if (r2 is DecodeResult.Success) ds = r2.data.decoderStateFrom(ds)
 
-        // Second frame 0x07 — trueCurrent is now true, bmsCurrent still false
-        // hasNewData = trueCurrent(true) && !bmsCurrent(false) = true
+        // Second frame 0x07 — trueCurrent is now true
+        // hasNewData = trueCurrent(true) = true
         val currentFrame2 = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 0)
         val r3 = freshDecoder.decode(currentFrame2, ds, config)
         assertTrue(r3 is DecodeResult.Success)

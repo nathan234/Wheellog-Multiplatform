@@ -11,7 +11,7 @@ package org.freewheel.core.protocol
  * - Bytes 5-(len+3): Data payload
  * - Byte (len+4): Checksum (XOR of bytes 2 to len+3)
  *
- * Escape sequence: 0xA5 is used to escape special bytes (AA, 55, A5)
+ * Escape sequence: 0xA5 is used to escape special bytes (AA, A5)
  * When 0xA5 is encountered, the next byte is taken as literal data.
  */
 internal class InMotionV2Unpacker : Unpacker {
@@ -67,20 +67,21 @@ internal class InMotionV2Unpacker : Unpacker {
                         oldC = 0
                         return true
                     }
+                    oldC = 0
                 }
 
                 State.LEN_SEARCH -> {
                     buffer.write(byte)
                     len = byte
                     state = State.COLLECTING
-                    oldC = byte
+                    oldC = 0
                 }
 
                 State.FLAG_SEARCH -> {
                     buffer.write(byte)
                     flags = byte
                     state = State.LEN_SEARCH
-                    oldC = byte
+                    oldC = 0
                 }
 
                 else -> {

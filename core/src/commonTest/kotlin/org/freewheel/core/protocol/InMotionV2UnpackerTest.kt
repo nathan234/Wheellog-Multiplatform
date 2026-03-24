@@ -121,6 +121,61 @@ class InMotionV2UnpackerTest {
     }
 
     @Test
+    fun consecutiveEscapedBytes_decodedCorrectly() {
+        val unpacker = InMotionV2Unpacker()
+        // Frame with two consecutive escaped bytes in data: literal 0xAA followed by literal 0xA5
+        // Wire: AA AA [flags] [len] [cmd] A5 AA A5 A5 [checksum]
+        //                                 ^^^^^ ^^^^^ escaped 0xAA, escaped 0xA5
+        val rawBytes = mutableListOf<Byte>()
+        rawBytes.add(0xAA.toByte()) // header
+        rawBytes.add(0xAA.toByte()) // header
+        rawBytes.add(0x14.toByte()) // flags
+        rawBytes.add(0x03.toByte()) // len (1 cmd + 2 data bytes)
+        rawBytes.add(0x01.toByte()) // command
+        rawBytes.add(0xA5.toByte()) // escape prefix
+        rawBytes.add(0xAA.toByte()) // escaped AA → literal 0xAA
+        rawBytes.add(0xA5.toByte()) // escape prefix
+        rawBytes.add(0xA5.toByte()) // escaped A5 → literal 0xA5
+        // Checksum: flags XOR len XOR cmd XOR data[0] XOR data[1]
+        val checksum = 0x14 xor 0x03 xor 0x01 xor 0xAA xor 0xA5
+        rawBytes.add(checksum.toByte())
+
+        val result = feedBytes(unpacker, rawBytes.toByteArray())
+        assertTrue(result, "Should handle consecutive escaped bytes")
+        val buffer = unpacker.getBuffer()
+        // Buffer: AA AA 14 03 01 AA A5 <checksum> = 8 bytes (len+5 = 3+5 = 8)
+        assertEquals(8, buffer.size)
+        assertEquals(0xAA.toByte(), buffer[5], "First escaped byte should be literal 0xAA")
+        assertEquals(0xA5.toByte(), buffer[6], "Second escaped byte should be literal 0xA5")
+    }
+
+    @Test
+    fun escapedA5_followedByEscapePrefix_decodedCorrectly() {
+        val unpacker = InMotionV2Unpacker()
+        // Wire: A5 A5 A5 AA → literal 0xA5 then literal 0xAA
+        // This catches the bug where oldC retains 0xA5 after decoding an escaped 0xA5
+        val rawBytes = mutableListOf<Byte>()
+        rawBytes.add(0xAA.toByte()) // header
+        rawBytes.add(0xAA.toByte()) // header
+        rawBytes.add(0x14.toByte()) // flags
+        rawBytes.add(0x03.toByte()) // len (1 cmd + 2 data bytes)
+        rawBytes.add(0x01.toByte()) // command
+        rawBytes.add(0xA5.toByte()) // escape prefix
+        rawBytes.add(0xA5.toByte()) // escaped A5 → literal 0xA5
+        rawBytes.add(0xA5.toByte()) // escape prefix (must NOT be treated as literal)
+        rawBytes.add(0xAA.toByte()) // escaped AA → literal 0xAA
+        val checksum = 0x14 xor 0x03 xor 0x01 xor 0xA5 xor 0xAA
+        rawBytes.add(checksum.toByte())
+
+        val result = feedBytes(unpacker, rawBytes.toByteArray())
+        assertTrue(result, "Should handle escaped 0xA5 followed by another escape sequence")
+        val buffer = unpacker.getBuffer()
+        assertEquals(8, buffer.size)
+        assertEquals(0xA5.toByte(), buffer[5], "First data byte should be literal 0xA5")
+        assertEquals(0xAA.toByte(), buffer[6], "Second data byte should be literal 0xAA")
+    }
+
+    @Test
     fun escapeInFlags_handledCorrectly() {
         val unpacker = InMotionV2Unpacker()
         // If flags byte were 0xAA, it would need escaping on the wire

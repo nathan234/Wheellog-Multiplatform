@@ -1148,10 +1148,12 @@ class InMotionV2Decoder : WheelDecoder {
         val pwmAlarm1 = ByteUtils.shortFromBytesLE(data, 17) / 100
         val pwmAlarm2 = ByteUtils.shortFromBytesLE(data, 19) / 100
         val balAngle = ByteUtils.signedShortFromBytesLE(data, 21)
-        val comfSens = data[26].toInt() and 0xFF
-        val classSens = data[27].toInt() and 0xFF
+        val sens1 = data[26].toInt() and 0xFF
+        val sens2 = data[27].toInt() and 0xFF
         val fancier = ((data[25].toInt() shr 4) and 0x01) != 0
-        val sensitivity = if (fancier) classSens else comfSens
+        // P6 shows sens1 when fancier is active (confirmed via InMotion app BLE capture).
+        // WheelLog had this backwards, showing sens2 ("classSens") in fancier mode.
+        val sensitivity = if (fancier) sens1 else sens2
         val standbyMinutes = data[30].toInt() and 0xFF
         val chargingLimit = data[32].toInt() and 0xFF
         val minTirePressure = ByteUtils.shortFromBytesLE(data, 39)
@@ -1361,6 +1363,8 @@ class InMotionV2Decoder : WheelDecoder {
                     // P6 has no pedal tilt setting or speaker volume
                     remove(SettingsCommandId.PEDAL_TILT)
                     remove(SettingsCommandId.SPEAKER_VOLUME)
+                    // P6 has no separate "Fancier Mode" toggle — ride mode is a single setting
+                    remove(SettingsCommandId.FANCIER_MODE)
                     putAll(P6_COMMANDS)
                 }
                 Model.V9 -> { /* base commands only */ }

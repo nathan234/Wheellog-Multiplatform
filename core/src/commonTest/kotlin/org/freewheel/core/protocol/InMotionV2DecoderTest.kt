@@ -2083,9 +2083,9 @@ class InMotionV2DecoderTest {
         settingsPayload[21] = 0x64; settingsPayload[22] = 0x00
         // data[25] = ride mode flags: bit 4 = 1 (sport/fancier)
         settingsPayload[25] = 0x10
-        // data[26] = comfort sensitivity: 81
+        // data[26] = sensitivity 1 (shown when fancier=true): 51
         settingsPayload[26] = 51
-        // data[27] = classic sensitivity: 100
+        // data[27] = sensitivity 2 (shown when fancier=false): 100
         settingsPayload[27] = 100
         // data[30] = standby minutes: 10
         settingsPayload[30] = 10
@@ -2124,7 +2124,7 @@ class InMotionV2DecoderTest {
         assertEquals(85, settings.pwmAlarm2, "PWM alarm 2 should be 85%")
         assertEquals(100, settings.balanceAngle, "Balance angle should be 100 (1.00°)")
         assertTrue(settings.fancierMode, "Fancier/sport mode should be true")
-        assertEquals(100, settings.pedalSensitivity, "Classic sens used when fancier=true")
+        assertEquals(51, settings.pedalSensitivity, "Sens1 used when fancier=true")
         assertEquals(10, settings.standbyTime, "Standby should be 10 min")
         assertEquals(100, settings.chargeLimit, "Charge limit should be 100%")
         assertEquals(100, settings.logoLightBrightness, "Logo brightness should be 100")

@@ -1443,9 +1443,10 @@ class InMotionV2Decoder : WheelDecoder {
             is WheelCommand.SetPedalSensitivity -> {
                 val s = (command.sensitivity.coerceIn(0, 100) and 0xFF).toByte()
                 when (model) {
-                    Model.V9, Model.P6 -> controlMsg(0x25, 0x64, s)
-                    Model.V11, Model.V11Y, Model.V12HS, Model.V12HT, Model.V12PRO, Model.V12S,
-                    Model.V13, Model.V13PRO, Model.V14g, Model.V14s -> controlMsg(0x25, s, 0x64)
+                    Model.V9 -> controlMsg(0x25, 0x64, s)
+                    Model.P6, Model.V11, Model.V11Y, Model.V12HS, Model.V12HT, Model.V12PRO,
+                    Model.V12S, Model.V13, Model.V13PRO, Model.V14g, Model.V14s ->
+                        controlMsg(0x25, s, 0x64)
                     Model.UNKNOWN -> null
                 }
             }

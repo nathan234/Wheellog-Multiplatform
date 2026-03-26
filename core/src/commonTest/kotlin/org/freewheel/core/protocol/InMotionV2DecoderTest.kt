@@ -1718,13 +1718,13 @@ class InMotionV2DecoderTest {
     }
 
     @Test
-    fun `P6 pedal sensitivity uses V9 byte swap`() {
+    fun `P6 pedal sensitivity uses standard byte order`() {
         val d = decoderForModel(13, 1) // P6
         val result = d.buildCommand(WheelCommand.SetPedalSensitivity(50))
         assertTrue(result.isNotEmpty())
         val expected = InMotionV2Decoder.buildMessage(
             InMotionV2Decoder.Flag.DEFAULT, InMotionV2Decoder.Command.CONTROL,
-            byteArrayOf(0x25, 0x64, 0x32) // V9-style: 100, value
+            byteArrayOf(0x25, 0x32, 0x64) // Standard: value, 100
         )
         assertTrue((result[0] as WheelCommand.SendBytes).data.contentEquals(expected))
     }

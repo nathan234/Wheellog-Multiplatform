@@ -142,6 +142,12 @@ class InMotionV2Decoder : WheelDecoder {
     }
 
     override fun decode(data: ByteArray, currentState: DecoderState, config: DecoderConfig): DecodeResult {
+        // Detect model from BLE name eagerly — before any frame processing.
+        // When model is UNKNOWN, keep-alive sends standard-protocol commands that the P6
+        // ignores, so no responses arrive and processMessage never fires. Detecting here
+        // breaks that deadlock because decode() is called on every raw BLE notification.
+        detectModelFromName(currentState.identity.btName)
+
         val loopResult = decodeFrames(data, unpacker, currentState) { buffer, state ->
             val msg = verifyAndParse(buffer) ?: return@decodeFrames FrameOutcome.Unrecognized("verify_failed")
             val result = processMessage(msg, state)

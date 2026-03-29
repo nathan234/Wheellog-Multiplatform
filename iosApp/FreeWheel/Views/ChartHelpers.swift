@@ -91,12 +91,12 @@ extension View {
         return self
             .chartScrollableAxes(.horizontal)
             .chartXVisibleDomain(length: max(visibleDomain.wrappedValue, 1))
-            .gesture(
+            .simultaneousGesture(
                 MagnifyGesture()
                     .onChanged { value in
                         let base = baseDomain.wrappedValue > 0 ? baseDomain.wrappedValue : fullDomain
                         let newDomain = base / value.magnification
-                        let minDomain = max(10, fullDomain / 50)
+                        let minDomain = max(5, fullDomain / 100)
                         visibleDomain.wrappedValue = min(max(newDomain, minDomain), fullDomain)
                     }
                     .onEnded { _ in

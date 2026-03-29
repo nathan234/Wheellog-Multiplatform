@@ -9,6 +9,7 @@ struct MetricDetailView: View {
     @State private var visibleDomain: TimeInterval = 0
     @State private var baseDomain: TimeInterval = 0
     @State private var selectedDate: Date?
+    @State private var selectedSample: TelemetrySample?
 
     private var chartSamples: [TelemetrySample] {
         if wheelManager.telemetryHistory.timeRange == .fiveMinutes {
@@ -131,6 +132,25 @@ struct MetricDetailView: View {
                 )
                 .foregroundStyle(chartColor)
             }
+
+            if let selected = selectedSample {
+                RuleMark(x: .value("Time", selected.timestamp))
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .annotation(position: chartAnnotationPosition(for: selected, in: samples), spacing: 8) {
+                        ChartAnnotationContent(
+                            sample: selected,
+                            visibleSeries: [(metric.label, chartColor, formatValue(convertValue(metric.extractValue(sample: selected))) + " " + displayUnit)]
+                        )
+                    }
+
+                PointMark(
+                    x: .value("Time", selected.timestamp),
+                    y: .value(metric.label, convertValue(metric.extractValue(sample: selected)))
+                )
+                .foregroundStyle(chartColor)
+                .symbolSize(60)
+            }
         }
         .chartXAxis {
             AxisMarks(values: .stride(by: axisStride, count: axisStrideCount)) { _ in
@@ -149,8 +169,19 @@ struct MetricDetailView: View {
             chart
                 .chartXSelection(value: $selectedDate)
                 .zoomableChart(samples: samples, visibleDomain: $visibleDomain, baseDomain: $baseDomain)
+                .onChange(of: selectedDate) { _, newDate in
+                    selectedSample = newDate.flatMap { nearestSample(to: $0, in: samples) }
+                }
         } else {
             chart
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
+                    }
+                }
         }
     }
 

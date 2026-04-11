@@ -126,6 +126,25 @@ class ConnectionErrorCsvFormatterTest {
     }
 
     @Test
+    fun `formatEvent TelemetryOutOfBounds`() {
+        val event = ConnectionErrorEvent.TelemetryOutOfBounds(
+            timestampMs = 1710600015000L,
+            field = "pwm_percent",
+            value = 127.5,
+            min = 0.0,
+            max = 100.0
+        )
+        val row = ConnectionErrorCsvFormatter.formatEvent(event, sessionStartMs = 1710600000000L)
+
+        assertTrue(row.contains(",15000,"))
+        assertTrue(row.contains("telemetry_out_of_bounds"))
+        assertTrue(row.contains("field=pwm_percent"))
+        assertTrue(row.contains("value=127.5"))
+        assertTrue(row.contains("min=0.0"))
+        assertTrue(row.contains("max=100.0"))
+    }
+
+    @Test
     fun `footerComment escapes commas in disconnect reason`() {
         val result = ConnectionErrorCsvFormatter.footerComment(
             disconnectTimeMs = 1710600060000L,

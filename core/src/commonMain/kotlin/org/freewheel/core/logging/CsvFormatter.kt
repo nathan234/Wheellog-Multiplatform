@@ -68,7 +68,7 @@ class CsvFormatter private constructor(private val includeGps: Boolean) {
             append(',')
             append(formatFixed(telemetry.pwmPercent, 2))
             append(',')
-            append(telemetry.batteryLevel)
+            append(telemetry.batteryLevelDisplay)
             append(',')
             append(tripDistance)
             append(',')

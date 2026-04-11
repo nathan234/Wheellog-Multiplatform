@@ -75,6 +75,8 @@ object ConnectionErrorCsvFormatter {
                 val safeReason = event.reason.replace(",", ";")
                 "$safeTimestamp,$elapsed,state_transition,from=${event.from} to=${event.to} reason=$safeReason"
             }
+            is ConnectionErrorEvent.TelemetryOutOfBounds ->
+                "$safeTimestamp,$elapsed,telemetry_out_of_bounds,field=${event.field} value=${event.value} min=${event.min} max=${event.max}"
         }
     }
 }

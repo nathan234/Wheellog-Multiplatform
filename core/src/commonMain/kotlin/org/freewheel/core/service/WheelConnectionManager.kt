@@ -20,6 +20,7 @@ import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.logging.ConnectionErrorEvent
 import org.freewheel.core.utils.Logger
 import org.freewheel.core.utils.currentTimeMillis
+import org.freewheel.core.validation.TelemetryValidator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -758,6 +759,17 @@ class WheelConnectionManager(
 
         val decoded = result.data
 
+        // Run the impossible-value validator on any new telemetry before committing.
+        // The validator is a pure function; throttling state rides along in WcmState
+        // so the reducer stays pure. Any violation is a decoder bug by definition —
+        // real rides (even face-plants and 300A phase spikes) never trip these bounds.
+        val now = currentTimeMillis()
+        val validation = if (decoded.telemetry != null) {
+            TelemetryValidator.validate(decoded.telemetry, state.telemetryThrottleState, now)
+        } else {
+            null
+        }
+
         // Determine display name for Connected state
         val displayName = (decoded.identity ?: state.identity).displayName
 
@@ -776,6 +788,19 @@ class WheelConnectionManager(
             add(captureEffect)
             if (decoded.commands.isNotEmpty()) {
                 add(WcmEffect.DispatchCommands(decoded.commands))
+            }
+            if (validation != null) {
+                for (v in validation.violations) {
+                    add(WcmEffect.LogConnectionError(
+                        ConnectionErrorEvent.TelemetryOutOfBounds(
+                            timestampMs = v.timestampMs,
+                            field = v.field.name,
+                            value = v.value,
+                            min = v.bound.min,
+                            max = v.bound.max,
+                        )
+                    ))
+                }
             }
         }
 
@@ -808,7 +833,8 @@ class WheelConnectionManager(
                 capabilities = mergedCapabilities,
                 consecutiveDecodeErrors = 0,
                 consecutiveBleErrors = 0,
-                eventLogEntries = newLogEntries
+                eventLogEntries = newLogEntries,
+                telemetryThrottleState = validation?.newThrottleState ?: state.telemetryThrottleState,
             ),
             effects = effects
         )

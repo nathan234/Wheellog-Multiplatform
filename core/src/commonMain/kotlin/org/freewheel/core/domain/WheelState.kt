@@ -226,8 +226,16 @@ data class WheelState(
     /** Wheel distance in km */
     val wheelDistanceKm: Double get() = wheelDistance / 1000.0
 
-    /** PWM as percentage (0-100) */
-    val pwmPercent: Double get() = calculatedPwm * 100.0
+    /**
+     * PWM as percentage (0-100), clamped for safe user-facing display.
+     * Values outside 0..100 are physically impossible; the diagnostic signal
+     * is produced by [org.freewheel.core.validation.TelemetryValidator] from
+     * the raw [calculatedPwm] field.
+     */
+    val pwmPercent: Double get() = (calculatedPwm * 100.0).coerceIn(0.0, 100.0)
+
+    /** Battery level clamped to 0..100 for safe user-facing display. */
+    val batteryLevelDisplay: Int get() = batteryLevel.coerceIn(0, 100)
 
     /** Output as percentage */
     val outputPercent: Int get() = output / 100

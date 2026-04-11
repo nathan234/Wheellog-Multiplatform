@@ -41,4 +41,16 @@ sealed class ConnectionErrorEvent {
         val to: String,
         val reason: String
     ) : ConnectionErrorEvent()
+
+    /**
+     * Decoded telemetry field fell outside a physically-impossible bound.
+     * Emitted by [org.freewheel.core.validation.TelemetryValidator] — always a decoder bug.
+     */
+    data class TelemetryOutOfBounds(
+        override val timestampMs: Long,
+        val field: String,
+        val value: Double,
+        val min: Double,
+        val max: Double
+    ) : ConnectionErrorEvent()
 }

@@ -29,7 +29,7 @@ data class TelemetrySample(
             currentA = telemetry.currentA,
             powerW = telemetry.powerW,
             temperatureC = telemetry.temperatureC.toDouble(),
-            batteryPercent = telemetry.batteryLevel.toDouble(),
+            batteryPercent = telemetry.batteryLevelDisplay.toDouble(),
             pwmPercent = telemetry.pwmPercent,
             gpsSpeedKmh = gpsSpeedKmh
         )

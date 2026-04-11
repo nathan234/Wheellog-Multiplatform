@@ -61,7 +61,25 @@ data class TelemetryState(
     val temperature2C: Int get() = temperature2 / 100
     val totalDistanceKm: Double get() = totalDistance / 1000.0
     val wheelDistanceKm: Double get() = wheelDistance / 1000.0
-    val pwmPercent: Double get() = calculatedPwm * 100.0
+
+    /**
+     * PWM as a 0-100% percentage, **clamped for safe user-facing display**.
+     *
+     * A duty cycle outside 0..100 is physically impossible, so presenting a raw
+     * out-of-bounds value would mislead users. The unclamped diagnostic signal
+     * lives in [org.freewheel.core.validation.TelemetryValidator], which reads
+     * [calculatedPwm] directly — do not use this property for bug detection.
+     */
+    val pwmPercent: Double get() = (calculatedPwm * 100.0).coerceIn(0.0, 100.0)
+
+    /**
+     * Battery level clamped to 0..100 for safe user-facing display.
+     *
+     * The validator reads the raw [batteryLevel] field directly so an
+     * out-of-bounds decoder reading is still reported to the error log.
+     */
+    val batteryLevelDisplay: Int get() = batteryLevel.coerceIn(0, 100)
+
     val outputPercent: Int get() = output / 100
     companion object {
         /** Swift-callable factory — Kotlin default-parameter constructors aren't visible from ObjC/Swift. */

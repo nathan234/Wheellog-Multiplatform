@@ -13,6 +13,7 @@ import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.DecoderState
 import org.freewheel.core.protocol.WheelCommand
 import org.freewheel.core.protocol.WheelDecoder
+import org.freewheel.core.validation.TelemetryThrottleState
 
 /**
  * Single source of truth for all [WheelConnectionManager] state.
@@ -41,6 +42,9 @@ data class WcmState(
     val consecutiveBleErrors: Int = 0,
     // Event log download (accumulated across frames)
     val eventLogEntries: List<EventLogEntry> = emptyList(),
+    // Per-field throttle state for telemetry bounds validator (reducer stays pure
+    // by carrying this across frames instead of mutating a field-side cache).
+    val telemetryThrottleState: TelemetryThrottleState = TelemetryThrottleState(),
     // Internal — not exposed as public flows
     val decoder: WheelDecoder? = null,
     val decoderConfig: DecoderConfig = DecoderConfig(),

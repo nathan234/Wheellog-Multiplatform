@@ -280,7 +280,7 @@ enum class DashboardMetric(
     fun extractValue(telemetry: TelemetryState): Double? = when (this) {
         GPS_SPEED -> null
         SPEED -> telemetry.speedKmh
-        BATTERY -> telemetry.batteryLevel.toDouble()
+        BATTERY -> telemetry.batteryLevelDisplay.toDouble()
         VOLTAGE -> telemetry.voltageV
         CURRENT -> telemetry.currentA
         PHASE_CURRENT -> telemetry.phaseCurrentA

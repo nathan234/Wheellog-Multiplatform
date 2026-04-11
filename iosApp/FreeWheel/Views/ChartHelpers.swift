@@ -3,11 +3,14 @@ import Charts
 import FreeWheelCore
 
 // MARK: - Shared Chart Utilities
+//
+// Thin Swift-friendly wrappers over `ChartDataPrep` in KMP core. The Date/TimeInterval
+// API is kept for SwiftUI Charts ergonomics; the implementation delegates to the shared
+// reducer so Android and iOS cannot drift on nearest-sample / full-domain semantics.
 
 func nearestSample(to date: Date, in samples: [TelemetrySample]) -> TelemetrySample? {
-    samples.min(by: {
-        abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date))
-    })
+    let targetMs = Int64(date.timeIntervalSince1970 * 1000)
+    return ChartDataPrep.shared.nearestSample(samples: samples, targetTimestampMs: targetMs)
 }
 
 func chartAnnotationPosition(for sample: TelemetrySample, in samples: [TelemetrySample]) -> AnnotationPosition {
@@ -70,9 +73,10 @@ func chartSelectionOverlay(
 // MARK: - Chart Zoom/Pan Helpers
 
 func chartFullDomain(samples: [TelemetrySample]) -> TimeInterval {
-    guard let first = samples.first?.timestamp,
-          let last = samples.last?.timestamp else { return 1 }
-    return max(last.timeIntervalSince(first), 1)
+    let ms = ChartDataPrep.shared.fullDomainMs(samples: samples)
+    // SwiftUI Charts' chartXVisibleDomain requires length > 0; single-sample and empty
+    // lists return 0 from KMP, so floor at 1 second here to keep the chart renderable.
+    return max(TimeInterval(ms) / 1000.0, 1)
 }
 
 func isChartZoomed(visibleDomain: TimeInterval, samples: [TelemetrySample]) -> Bool {

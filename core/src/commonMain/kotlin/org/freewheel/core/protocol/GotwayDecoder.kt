@@ -554,7 +554,11 @@ class GotwayDecoder : WheelDecoder {
         val motorTemp = ByteUtils.signedShortFromBytesBE(buff, 6)
         var hwPWMb = ByteUtils.signedShortFromBytesBE(buff, 8)
 
-        if (hwPWMb > 0) {
+        // Hardware PWM reporting was added in BG firmware after 09.2024 (legacy PR #504).
+        // Older firmwares put unrelated data here — observed constant 320 in CSVs from pre-
+        // hwPwm wheels, which latches truePWM and displays nonsense like "320% PWM". Only
+        // trust the field when its value is inside the legal duty-cycle range.
+        if (hwPWMb in 1..100) {
             truePWM = true
         }
 

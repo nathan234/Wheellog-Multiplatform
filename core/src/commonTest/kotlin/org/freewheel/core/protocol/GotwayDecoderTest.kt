@@ -1371,7 +1371,7 @@ class GotwayDecoderTest {
     }
 
     @Test
-    fun `frame 0x07 with positive hwPwm sets display PWM`() {
+    fun `frame 0x07 with in-range hwPwm sets display PWM`() {
         val freshDecoder = GotwayDecoder()
         initDecoder(freshDecoder)
 
@@ -1381,15 +1381,39 @@ class GotwayDecoderTest {
         val r1 = freshDecoder.decode(liveFrame, ds, config)
         if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
 
-        // Send frame 0x07 with positive hwPwm → sets truePWM
-        val currentFrame = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 500)
+        // Send frame 0x07 with in-range hwPwm (legal duty cycle 1..100) → sets truePWM
+        val currentFrame = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 45)
         val r2 = freshDecoder.decode(currentFrame, ds, config)
         assertTrue(r2 is DecodeResult.Success)
         val decoded = (r2 as DecodeResult.Success).data
 
-        // hwPwm=500 → output = 500 * 100 = 50000, calculatedPwm = 50000 / 10000.0 = 5.0
-        assertEquals(50000, decoded.assertTelemetry().output)
-        assertEquals(5.0, decoded.assertTelemetry().calculatedPwm)
+        // hwPwm=45 → output = 45 * 100 = 4500, calculatedPwm = 4500 / 10000.0 = 0.45 (45%)
+        assertEquals(4500, decoded.assertTelemetry().output)
+        assertEquals(0.45, decoded.assertTelemetry().calculatedPwm)
+    }
+
+    @Test
+    fun `frame 0x07 with out-of-range hwPwm is rejected as non-hwPwm firmware`() {
+        val freshDecoder = GotwayDecoder()
+        initDecoder(freshDecoder)
+
+        // Send a live frame first so decoder has initial state
+        val liveFrame = buildLiveDataFrame(voltage = 6000)
+        var ds = DecoderState()
+        val r1 = freshDecoder.decode(liveFrame, ds, config)
+        if (r1 is DecodeResult.Success) ds = r1.data.decoderStateFrom(ds)
+
+        // Pre-hwPwm firmware puts unrelated data in byte 8 (observed constant 320 in real
+        // captures). A value outside the legal PWM range 1..100 must NOT latch truePWM,
+        // otherwise every subsequent frame would display bogus "320% PWM".
+        val currentFrame = buildCurrentTempFrame(batteryCurrent = 100, motorTemp = 40, hwPwm = 320)
+        val r2 = freshDecoder.decode(currentFrame, ds, config)
+        assertTrue(r2 is DecodeResult.Success)
+        val decoded = (r2 as DecodeResult.Success).data
+
+        // truePWM stays false — output/calculatedPwm untouched at their default 0.
+        assertEquals(0, decoded.assertTelemetry().output)
+        assertEquals(0.0, decoded.assertTelemetry().calculatedPwm)
     }
 
     @Test

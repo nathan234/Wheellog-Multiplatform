@@ -464,6 +464,9 @@ struct TripDetailView: View {
                 errorMessage = "No data in CSV file"
             } else {
                 samples = parsed
+                let domain = chartFullDomain(samples: parsed)
+                mainChartDomain = domain
+                mainChartBaseDomain = domain
             }
         } catch {
             errorMessage = "Failed to parse ride: \(error.localizedDescription)"

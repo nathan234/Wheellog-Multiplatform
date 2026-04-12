@@ -389,7 +389,7 @@ struct TripDetailView: View {
             }
         }
         .chartXAxis {
-            AxisMarks(values: .stride(by: .minute, count: axisStrideCount)) { _ in
+            AxisMarks { _ in
                 AxisGridLine()
                 AxisValueLabel(format: .dateTime.hour().minute())
             }

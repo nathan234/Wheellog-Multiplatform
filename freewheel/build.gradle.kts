@@ -1,5 +1,6 @@
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -27,6 +28,14 @@ android {
         val buildDate = SimpleDateFormat("dd.MM.yyyy").format(Date())
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
         buildConfigField("String", "BUILD_DATE", "\"$buildDate\"")
+
+        // Google Maps API key from local.properties (not committed to git)
+        val localProps = Properties()
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) localProps.load(localPropsFile.inputStream())
+        val mapsKey = localProps.getProperty("MAPS_API_KEY", "")
+        manifestPlaceholders["MAPS_API_KEY"] = mapsKey
+
         vectorDrawables.useSupportLibrary = true
         multiDexEnabled = true
         ksp {
@@ -107,6 +116,9 @@ dependencies {
     implementation(libs.compose.icons.extended)
     // Charting
     implementation(libs.vico.compose.m3)
+    // Maps
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
     // Lifecycle
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.viewmodel.compose)

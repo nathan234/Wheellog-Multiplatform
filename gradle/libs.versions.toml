@@ -16,6 +16,8 @@ material = "1.13.0"
 appcompat = "1.7.1"
 coreKtx = "1.15.0"
 playServicesWearable = "19.0.0"
+playServicesMaps = "19.1.0"
+mapsCompose = "6.4.1"
 preferenceKtx = "1.2.1"
 timber = "5.0.1"
 wearable = "2.9.0"
@@ -71,6 +73,8 @@ androidx-wear = { module = "androidx.wear:wear", version.ref = "wear" }
 # Google
 google-material = { module = "com.google.android.material:material", version.ref = "material" }
 play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "playServicesWearable" }
+play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
 wearable-support = { module = "com.google.android.support:wearable", version.ref = "wearable" }
 wearable-compile = { module = "com.google.android.wearable:wearable", version.ref = "wearable" }
 

@@ -68,8 +68,10 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.freewheel.compose.components.RideMapView
 import org.freewheel.compose.components.VicoLineChart
 import org.freewheel.compose.components.rememberChartMarker
+import org.freewheel.core.logging.RoutePoint
 import org.freewheel.core.telemetry.ChartDataPrep
 import org.freewheel.core.telemetry.MetricType
 import org.freewheel.core.telemetry.TelemetrySample
@@ -86,7 +88,8 @@ private sealed class TripDetailState {
     data class Error(val message: String) : TripDetailState()
     data class Loaded(
         val trip: TripDataDbEntry?,
-        val samples: List<TelemetrySample>
+        val samples: List<TelemetrySample>,
+        val routePoints: List<RoutePoint> = emptyList()
     ) : TripDetailState()
 }
 
@@ -120,6 +123,9 @@ fun TripDetailScreen(
     var showPwm by remember { mutableStateOf(false) }
     var showVoltage by remember { mutableStateOf(false) }
 
+    // Map ↔ chart selection state
+    var mapSelectedPoint by remember { mutableStateOf<RoutePoint?>(null) }
+
     LaunchedEffect(fileName) {
         state = TripDetailState.Loading
         state = withContext(Dispatchers.IO) {
@@ -130,11 +136,13 @@ fun TripDetailScreen(
                 if (!csvFile.exists()) {
                     TripDetailState.Error("CSV file not found")
                 } else {
-                    val samples = CsvParser.parse(csvFile.readText())
+                    val csvContent = csvFile.readText()
+                    val samples = CsvParser.parse(csvContent)
                     if (samples.isEmpty()) {
                         TripDetailState.Error("No data in CSV file")
                     } else {
-                        TripDetailState.Loaded(trip, samples)
+                        val routePoints = CsvParser.parseRoute(csvContent)
+                        TripDetailState.Loaded(trip, samples, routePoints)
                     }
                 }
             } catch (e: Exception) {
@@ -395,6 +403,21 @@ fun TripDetailScreen(
                         item { SeriesChip(MetricType.TEMPERATURE.label, TEMP_COLOR, showTemperature) { showTemperature = !showTemperature } }
                         item { SeriesChip(MetricType.PWM.label, PWM_COLOR, showPwm) { showPwm = !showPwm } }
                         item { SeriesChip(ChartLabels.VOLTAGE, VOLTAGE_COLOR, showVoltage) { showVoltage = !showVoltage } }
+                    }
+
+                    // Route map (only when GPS data is present)
+                    if (s.routePoints.size >= 2) {
+                        RideMapView(
+                            routePoints = s.routePoints,
+                            selectedPoint = mapSelectedPoint,
+                            onTapPoint = { point: RoutePoint? ->
+                                mapSelectedPoint = point
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp)
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
                     }
 
                     val speedUnit = if (useMph) "mph" else "km/h"

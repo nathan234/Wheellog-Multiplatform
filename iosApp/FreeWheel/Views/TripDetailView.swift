@@ -21,7 +21,6 @@ struct TripDetailView: View {
     @State private var showPwm = false
     @State private var showVoltage = false
     @State private var selectedSample: TelemetrySample?
-    @State private var selectedDate: Date?
     @State private var mainChartDomain: TimeInterval = 0
     @State private var mainChartBaseDomain: TimeInterval = 0
 
@@ -401,12 +400,20 @@ struct TripDetailView: View {
             }
         }
 
+        // chartOverlay's DragGesture is layered *after* zoomableChart so it sits on top
+        // and captures drags before they reach the scroll axes — Apple's chartXSelection
+        // API defers to long-press on scrollable charts, which is not what we want here:
+        // a plain one-finger drag should show per-sample values as the user scrubs.
         if #available(iOS 17, *) {
             chart
-                .chartXSelection(value: $selectedDate)
                 .zoomableChart(samples: samples, visibleDomain: $mainChartDomain, baseDomain: $mainChartBaseDomain)
-                .onChange(of: selectedDate) { _, newDate in
-                    selectedSample = newDate.flatMap { nearestSample(to: $0, in: samples) }
+                .chartOverlay { proxy in
+                    GeometryReader { geometry in
+                        Rectangle()
+                            .fill(Color.clear)
+                            .contentShape(Rectangle())
+                            .gesture(chartSelectionOverlay(proxy: proxy, geometry: geometry, samples: samples) { selectedSample = $0 })
+                    }
                 }
                 .frame(height: 250)
                 .padding(.horizontal)

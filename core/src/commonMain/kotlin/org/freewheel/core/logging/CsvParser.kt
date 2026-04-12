@@ -72,10 +72,68 @@ object CsvParser {
         return downsample(samples)
     }
 
-    private fun downsample(samples: List<TelemetrySample>): List<TelemetrySample> {
-        if (samples.size <= MAX_CHART_SAMPLES) return samples
-        val step = samples.size / MAX_CHART_SAMPLES
-        return samples.filterIndexed { index, _ -> index % step == 0 }
+    /**
+     * Parse CSV content into a list of [RoutePoint] for map display.
+     * Only returns points from GPS-enabled CSVs with valid (non-zero) coordinates.
+     * Long routes (> [MAX_CHART_SAMPLES]) are downsampled.
+     *
+     * @param csvContent Full CSV file content as a string.
+     * @return Parsed route points. Empty list if no GPS columns or parsing fails.
+     */
+    fun parseRoute(csvContent: String): List<RoutePoint> {
+        val lines = csvContent.lineSequence().iterator()
+        if (!lines.hasNext()) return emptyList()
+
+        val headerLine = lines.next()
+        val headers = headerLine.split(",")
+        val colIndex = HashMap<String, Int>(headers.size)
+        headers.forEachIndexed { i, name -> colIndex[name.trim()] = i }
+
+        val dateIdx = colIndex[CsvColumns.DATE] ?: return emptyList()
+        val timeIdx = colIndex[CsvColumns.TIME] ?: return emptyList()
+        val latIdx = colIndex[CsvColumns.LATITUDE] ?: return emptyList()
+        val lonIdx = colIndex[CsvColumns.LONGITUDE] ?: return emptyList()
+        val speedIdx = colIndex[CsvColumns.SPEED] ?: return emptyList()
+        val gpsSpeedIdx = colIndex[CsvColumns.GPS_SPEED]
+        val altIdx = colIndex[CsvColumns.GPS_ALT]
+        val headingIdx = colIndex[CsvColumns.GPS_HEADING]
+
+        val tz = TimeZone.currentSystemDefault()
+        val points = mutableListOf<RoutePoint>()
+
+        while (lines.hasNext()) {
+            val line = lines.next()
+            if (line.isBlank()) continue
+            val cols = line.split(",")
+
+            try {
+                val lat = cols.getOrNull(latIdx)?.toDoubleOrNull() ?: continue
+                val lon = cols.getOrNull(lonIdx)?.toDoubleOrNull() ?: continue
+                if (lat == 0.0 && lon == 0.0) continue
+
+                val timestampMs = parseTimestamp(cols[dateIdx], cols[timeIdx], tz) ?: continue
+
+                points.add(RoutePoint(
+                    timestampMs = timestampMs,
+                    latitude = lat,
+                    longitude = lon,
+                    altitude = altIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() } ?: 0.0,
+                    bearing = headingIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() } ?: 0.0,
+                    speedKmh = cols.getOrNull(speedIdx)?.toDoubleOrNull() ?: 0.0,
+                    gpsSpeedKmh = gpsSpeedIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() } ?: 0.0,
+                ))
+            } catch (e: Exception) {
+                Logger.w("CsvParser", "Skipping malformed route row: ${e.message}")
+            }
+        }
+
+        return downsample(points)
+    }
+
+    private fun <T> downsample(items: List<T>): List<T> {
+        if (items.size <= MAX_CHART_SAMPLES) return items
+        val step = items.size / MAX_CHART_SAMPLES
+        return items.filterIndexed { index, _ -> index % step == 0 }
     }
 
     /**

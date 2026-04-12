@@ -1,5 +1,6 @@
 package org.freewheel.core.telemetry
 
+import org.freewheel.core.logging.RoutePoint
 import kotlin.math.abs
 
 /**
@@ -66,6 +67,46 @@ object ChartDataPrep {
             }
         }
         return best
+    }
+
+    /**
+     * Route point whose timestamp is closest to [targetTimestampMs], or null if
+     * [points] is empty. Used by chart→map scrubbing to move the map marker.
+     */
+    fun nearestRoutePoint(points: List<RoutePoint>, targetTimestampMs: Long): RoutePoint? {
+        if (points.isEmpty()) return null
+        var best = points[0]
+        var bestDist = abs(best.timestampMs - targetTimestampMs)
+        for (i in 1 until points.size) {
+            val p = points[i]
+            val d = abs(p.timestampMs - targetTimestampMs)
+            if (d < bestDist) {
+                best = p
+                bestDist = d
+            }
+        }
+        return best
+    }
+
+    /**
+     * Normalize [speedKmh] to a 0.0–1.0 fraction relative to the min/max
+     * speeds in [points]. Used by both platforms to map speed values to a
+     * color gradient for the route polyline.
+     *
+     * Returns 0.0 when [points] is empty or all speeds are equal.
+     * Clamps values outside the min/max range.
+     */
+    fun speedColorFraction(speedKmh: Double, points: List<RoutePoint>): Double {
+        if (points.isEmpty()) return 0.0
+        var min = Double.MAX_VALUE
+        var max = Double.MIN_VALUE
+        for (p in points) {
+            if (p.speedKmh < min) min = p.speedKmh
+            if (p.speedKmh > max) max = p.speedKmh
+        }
+        val range = max - min
+        if (range <= 0.0) return 0.0
+        return ((speedKmh - min) / range).coerceIn(0.0, 1.0)
     }
 
     /**

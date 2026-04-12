@@ -1,5 +1,6 @@
 package org.freewheel.core.telemetry
 
+import org.freewheel.core.logging.RoutePoint
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -142,5 +143,110 @@ class ChartDataPrepTest {
         val samples = listOf(sample(1_000L), sample(2_500L), sample(91_000L))
         val stats = ChartDataPrep.computeTripStats(samples)!!
         assertEquals(90_000L, stats.durationMs)
+    }
+
+    // ==================== nearestRoutePoint ====================
+
+    private fun routePoint(
+        timestampMs: Long,
+        latitude: Double = 37.7749,
+        longitude: Double = -122.4194,
+        speedKmh: Double = 0.0
+    ) = RoutePoint(
+        timestampMs = timestampMs,
+        latitude = latitude,
+        longitude = longitude,
+        altitude = 0.0,
+        bearing = 0.0,
+        speedKmh = speedKmh,
+        gpsSpeedKmh = 0.0
+    )
+
+    @Test
+    fun `nearestRoutePoint returns null for empty list`() {
+        assertNull(ChartDataPrep.nearestRoutePoint(emptyList(), 1000L))
+    }
+
+    @Test
+    fun `nearestRoutePoint returns only point when list has one`() {
+        val only = routePoint(1000L, latitude = 37.78)
+        assertEquals(only, ChartDataPrep.nearestRoutePoint(listOf(only), 5000L))
+    }
+
+    @Test
+    fun `nearestRoutePoint picks closest by absolute distance`() {
+        val points = listOf(
+            routePoint(0L, speedKmh = 10.0),
+            routePoint(1000L, speedKmh = 20.0),
+            routePoint(5000L, speedKmh = 30.0),
+            routePoint(9000L, speedKmh = 40.0)
+        )
+        assertEquals(20.0, ChartDataPrep.nearestRoutePoint(points, 600L)?.speedKmh)
+        assertEquals(30.0, ChartDataPrep.nearestRoutePoint(points, 4000L)?.speedKmh)
+    }
+
+    @Test
+    fun `nearestRoutePoint handles targets outside range`() {
+        val points = listOf(
+            routePoint(1000L, speedKmh = 10.0),
+            routePoint(2000L, speedKmh = 20.0)
+        )
+        assertEquals(10.0, ChartDataPrep.nearestRoutePoint(points, 0L)?.speedKmh)
+        assertEquals(20.0, ChartDataPrep.nearestRoutePoint(points, 10_000L)?.speedKmh)
+    }
+
+    // ==================== speedColorFraction ====================
+
+    @Test
+    fun `speedColorFraction returns 0 for minimum speed`() {
+        val points = listOf(
+            routePoint(0L, speedKmh = 10.0),
+            routePoint(1000L, speedKmh = 30.0),
+            routePoint(2000L, speedKmh = 50.0)
+        )
+        assertEquals(0.0, ChartDataPrep.speedColorFraction(10.0, points), 0.001)
+    }
+
+    @Test
+    fun `speedColorFraction returns 1 for maximum speed`() {
+        val points = listOf(
+            routePoint(0L, speedKmh = 10.0),
+            routePoint(1000L, speedKmh = 30.0),
+            routePoint(2000L, speedKmh = 50.0)
+        )
+        assertEquals(1.0, ChartDataPrep.speedColorFraction(50.0, points), 0.001)
+    }
+
+    @Test
+    fun `speedColorFraction returns 0_5 for midpoint speed`() {
+        val points = listOf(
+            routePoint(0L, speedKmh = 0.0),
+            routePoint(1000L, speedKmh = 100.0)
+        )
+        assertEquals(0.5, ChartDataPrep.speedColorFraction(50.0, points), 0.001)
+    }
+
+    @Test
+    fun `speedColorFraction returns 0 when all speeds are equal`() {
+        val points = listOf(
+            routePoint(0L, speedKmh = 25.0),
+            routePoint(1000L, speedKmh = 25.0)
+        )
+        assertEquals(0.0, ChartDataPrep.speedColorFraction(25.0, points), 0.001)
+    }
+
+    @Test
+    fun `speedColorFraction clamps values outside range`() {
+        val points = listOf(
+            routePoint(0L, speedKmh = 10.0),
+            routePoint(1000L, speedKmh = 50.0)
+        )
+        assertEquals(0.0, ChartDataPrep.speedColorFraction(5.0, points), 0.001)
+        assertEquals(1.0, ChartDataPrep.speedColorFraction(60.0, points), 0.001)
+    }
+
+    @Test
+    fun `speedColorFraction returns 0 for empty list`() {
+        assertEquals(0.0, ChartDataPrep.speedColorFraction(25.0, emptyList()), 0.001)
     }
 }

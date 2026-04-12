@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import MapKit
 import FreeWheelCore
 
 struct TripDetailView: View {
@@ -23,9 +24,16 @@ struct TripDetailView: View {
     @State private var selectedSample: TelemetrySample?
     @State private var mainChartDomain: TimeInterval = 0
     @State private var mainChartBaseDomain: TimeInterval = 0
+    @State private var routePoints: [RoutePoint] = []
 
     @State private var replayController: RideReplayController?
     private var isReplaying: Bool { replayController != nil }
+
+    /// Chart → Map: find the route point nearest the selected telemetry sample.
+    private var selectedRoutePoint: RoutePoint? {
+        guard let sample = selectedSample, !routePoints.isEmpty else { return nil }
+        return ChartDataPrep.shared.nearestRoutePoint(points: routePoints, targetTimestampMs: sample.timestampMs)
+    }
 
     // Split mode state
     @State private var isSplitMode = false
@@ -103,6 +111,27 @@ struct TripDetailView: View {
                 }
                 toggleChips
                     .padding(.vertical, 8)
+
+                if routePoints.count >= 2 {
+                    RideMapView(
+                        routePoints: routePoints,
+                        selectedPoint: selectedRoutePoint,
+                        onTapPoint: { point in
+                            if let point {
+                                selectedSample = ChartDataPrep.shared.nearestSample(
+                                    samples: samples,
+                                    targetTimestampMs: point.timestampMs
+                                )
+                            } else {
+                                selectedSample = nil
+                            }
+                        }
+                    )
+                    .frame(height: 250)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                }
 
                 if !samples.isEmpty {
                     ZStack(alignment: .topTrailing) {
@@ -511,6 +540,7 @@ struct TripDetailView: View {
                 let domain = chartFullDomain(samples: parsed)
                 mainChartDomain = domain
                 mainChartBaseDomain = domain
+                routePoints = CsvParser.shared.parseRoute(csvContent: csvContent).compactMap { $0 }
             }
         } catch {
             errorMessage = "Failed to parse ride: \(error.localizedDescription)"

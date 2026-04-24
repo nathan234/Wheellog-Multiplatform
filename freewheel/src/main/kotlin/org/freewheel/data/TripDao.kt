@@ -13,6 +13,9 @@ interface TripDao {
     @Query("SELECT * FROM trip_database WHERE fileName LIKE :fileName LIMIT 1")
     fun getTripByFileName(fileName: String): TripDataDbEntry?
 
+    @Query("SELECT * FROM trip_database WHERE rideId = :rideId LIMIT 1")
+    fun getTripByRideId(rideId: String): TripDataDbEntry?
+
     @Insert(entity = TripDataDbEntry::class, onConflict = OnConflictStrategy.IGNORE)
     fun insert(vararg tripDatumTuples: TripDataDbEntry)
 

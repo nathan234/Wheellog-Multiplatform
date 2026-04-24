@@ -23,6 +23,23 @@ class TripRepository (private val tripDao: TripDao) {
         }
     }
 
+    suspend fun getTripByRideId(rideId: String): TripDataDbEntry? {
+        return withContext(Dispatchers.IO) {
+            return@withContext tripDao.getTripByRideId(rideId)
+        }
+    }
+
+    suspend fun upsertByRideId(entry: TripDataDbEntry) {
+        withContext(Dispatchers.IO) {
+            val existing = tripDao.getTripByRideId(entry.rideId)
+            if (existing == null) {
+                tripDao.insert(entry)
+            } else {
+                tripDao.update(entry.copy(id = existing.id))
+            }
+        }
+    }
+
     suspend fun removeDataById(id: Long) {
         withContext(Dispatchers.IO) {
             tripDao.deleteDataById(id)

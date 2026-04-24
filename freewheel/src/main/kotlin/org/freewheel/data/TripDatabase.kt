@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [TripDataDbEntry::class], version = 3, exportSchema = false)
+@Database(entities = [TripDataDbEntry::class], version = 4, exportSchema = false)
 abstract class TripDatabase : RoomDatabase() {
     abstract fun tripDao(): TripDao
 
@@ -65,6 +65,35 @@ abstract class TripDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds `rideId` + `source` columns for P1.1 of the saved-routes / ghost
+         * replay work. Existing rows get a random UUID via `hex(randomblob)` and
+         * source=OWN_LOG. The unique index on `rideId` enforces dedup on import.
+         *
+         * Note: the UUID generated here is 128 bits of randomness in UUID shape
+         * but doesn't set the v4 version/variant bits — dedup only cares about
+         * uniqueness, which randomblob(16) gives us.
+         */
+        private val migration3To4: Migration = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.apply {
+                    execSQL("ALTER TABLE `trip_database` ADD COLUMN `rideId` TEXT NOT NULL DEFAULT ''")
+                    execSQL("ALTER TABLE `trip_database` ADD COLUMN `source` TEXT NOT NULL DEFAULT 'OWN_LOG'")
+                    execSQL("""
+                        UPDATE `trip_database`
+                        SET `rideId` =
+                            lower(substr(hex(randomblob(4)), 1, 8) || '-' ||
+                                  substr(hex(randomblob(2)), 1, 4) || '-' ||
+                                  substr(hex(randomblob(2)), 1, 4) || '-' ||
+                                  substr(hex(randomblob(2)), 1, 4) || '-' ||
+                                  substr(hex(randomblob(6)), 1, 12))
+                        WHERE `rideId` = ''
+                    """.trimIndent())
+                    execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_trip_database_rideId` ON `trip_database` (`rideId`)")
+                }
+            }
+        }
+
         fun getDataBase(context: Context): TripDatabase {
             val tempInstance = INSTANCE
             if (tempInstance != null) {
@@ -76,7 +105,7 @@ abstract class TripDatabase : RoomDatabase() {
                     TripDatabase::class.java,
                     "trip_database"
                 )
-                    .addMigrations(migration1To2, migration2To3)
+                    .addMigrations(migration1To2, migration2To3, migration3To4)
                     .build()
                 INSTANCE = instance
                 return instance

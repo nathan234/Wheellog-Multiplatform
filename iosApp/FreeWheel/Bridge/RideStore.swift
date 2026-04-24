@@ -1,5 +1,12 @@
 import Foundation
 
+/// Where a ride row came from. Mirrors the Android `RideSource` enum so the
+/// sqlite side + on-disk JSON stay semantically aligned.
+enum RideSource: String, Codable {
+    case ownLog = "OWN_LOG"
+    case imported = "IMPORTED"
+}
+
 struct RideMetadata: Codable, Identifiable {
     let id: String
     let fileName: String
@@ -16,12 +23,17 @@ struct RideMetadata: Codable, Identifiable {
     let maxPwm: Double
     let consumptionWh: Double
     let consumptionWhPerKm: Double
+    /// OWN_LOG for rides captured on this device; IMPORTED for rides loaded
+    /// from a shared GPX. Decoded lenient-ly so rides persisted before this
+    /// field existed default to .ownLog.
+    let source: RideSource
 
     init(id: String, fileName: String, startDate: Date, endDate: Date,
          duration: TimeInterval, distance: Double, maxSpeed: Double,
          avgSpeed: Double, sampleCount: Int, fileSize: Int64,
          maxCurrent: Double = 0, maxPower: Double = 0, maxPwm: Double = 0,
-         consumptionWh: Double = 0, consumptionWhPerKm: Double = 0) {
+         consumptionWh: Double = 0, consumptionWhPerKm: Double = 0,
+         source: RideSource = .ownLog) {
         self.id = id
         self.fileName = fileName
         self.startDate = startDate
@@ -37,6 +49,7 @@ struct RideMetadata: Codable, Identifiable {
         self.maxPwm = maxPwm
         self.consumptionWh = consumptionWh
         self.consumptionWhPerKm = consumptionWhPerKm
+        self.source = source
     }
 
     init(from decoder: Decoder) throws {
@@ -56,6 +69,7 @@ struct RideMetadata: Codable, Identifiable {
         maxPwm = try c.decodeIfPresent(Double.self, forKey: .maxPwm) ?? 0
         consumptionWh = try c.decodeIfPresent(Double.self, forKey: .consumptionWh) ?? 0
         consumptionWhPerKm = try c.decodeIfPresent(Double.self, forKey: .consumptionWhPerKm) ?? 0
+        source = try c.decodeIfPresent(RideSource.self, forKey: .source) ?? .ownLog
     }
 }
 
@@ -101,6 +115,29 @@ class RideStore: ObservableObject {
                 rides.remove(at: idx)
             }
         }
+        saveRides()
+    }
+
+    /// Dedup lookup for imported rides — returns the existing row with the
+    /// same rideId (Identifiable `id`) if one is already persisted.
+    func ride(withId id: String) -> RideMetadata? {
+        rides.first { $0.id == id }
+    }
+
+    /// Insert or replace by rideId — used by import flows so re-importing the
+    /// same shared GPX refreshes in place rather than duplicating.
+    func upsertByRideId(_ ride: RideMetadata) {
+        if let idx = rides.firstIndex(where: { $0.id == ride.id }) {
+            let old = rides[idx]
+            if old.fileName != ride.fileName {
+                let oldURL = Self.ridesDirectory().appendingPathComponent(old.fileName)
+                try? FileManager.default.removeItem(at: oldURL)
+            }
+            rides[idx] = ride
+        } else {
+            rides.insert(ride, at: 0)
+        }
+        rides.sort { $0.startDate > $1.startDate }
         saveRides()
     }
 

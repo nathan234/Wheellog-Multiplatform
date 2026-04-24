@@ -17,8 +17,11 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         guard !isTracking else { return }
         isTracking = true
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 1
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        manager.distanceFilter = kCLDistanceFilterNone
+        manager.activityType = .otherNavigation
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.allowsBackgroundLocationUpdates = true
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }

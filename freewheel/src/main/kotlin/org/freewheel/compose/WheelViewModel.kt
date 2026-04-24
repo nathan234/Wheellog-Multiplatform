@@ -69,7 +69,10 @@ import org.freewheel.data.TripDataDbEntry
 import org.freewheel.data.TripRepository
 import android.content.Context
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -111,19 +114,24 @@ class WheelViewModel(
         const val RIDE_PAUSE_TIMEOUT_MS = 3_600_000L // 1 hour
     }
 
-    // Service references (set via attachService/detachService)
-    private var wheelService: WheelServiceContract? = null
-    private var connectionManager: WheelConnectionManagerPort? = null
-    private var bleManager: BleManagerPort? = null
-    private var stateCollectionJob: Job? = null
-    private var connectionCollectionJob: Job? = null
-    private var capabilitiesCollectionJob: Job? = null
+    /**
+     * Bundles all service-attached state into one object.
+     * When null, no service is attached. Constructing requires all fields,
+     * so adding a new one produces a compile error until attachService() provides it.
+     */
+    private class ServiceBinding(
+        val service: WheelServiceContract,
+        val connectionManager: WheelConnectionManagerPort,
+        val bleManager: BleManagerPort,
+        val chargerConnectionManager: ChargerConnectionManagerPort,
+        val chargerBleManager: BleManagerPort,
+        val autoConnectManager: AutoConnectManager,
+        val wearOsManager: WearOsManager,
+        /** Child scope of viewModelScope — cancel to stop all collection coroutines. */
+        val collectionScope: CoroutineScope,
+    )
 
-    // Charger service references
-    private var chargerConnectionManager: ChargerConnectionManagerPort? = null
-    private var chargerBleManager: BleManagerPort? = null
-    private var chargerStateCollectionJob: Job? = null
-    private var chargerConnectionCollectionJob: Job? = null
+    private var binding: ServiceBinding? = null
 
     // Connection state
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -312,14 +320,9 @@ class WheelViewModel(
     private var errorLogSessionStartMs: Long = 0L
     private var errorLogFrameCount: Int = 0
 
-    // WearOS manager (created when service is attached)
-    private var wearOsManager: WearOsManager? = null
-
-    // Auto-connect manager (created when service is attached)
-    private var autoConnectManager: AutoConnectManager? = null
-    val isAutoConnecting: StateFlow<Boolean> get() = autoConnectManager?.isAutoConnecting ?: MutableStateFlow(false)
+    val isAutoConnecting: StateFlow<Boolean> get() = binding?.autoConnectManager?.isAutoConnecting ?: MutableStateFlow(false)
     val reconnectState: StateFlow<AutoConnectManager.ReconnectState>
-        get() = autoConnectManager?.reconnectState ?: MutableStateFlow(AutoConnectManager.ReconnectState.Idle)
+        get() = binding?.autoConnectManager?.reconnectState ?: MutableStateFlow(AutoConnectManager.ReconnectState.Idle)
 
     // Light state
     private val _isLightOn = MutableStateFlow(false)
@@ -373,7 +376,7 @@ class WheelViewModel(
     }
 
     private fun pushDecoderConfig() {
-        connectionManager?.updateConfig(buildDecoderConfig())
+        binding?.connectionManager?.updateConfig(buildDecoderConfig())
     }
 
     // Alarm checking — alarmChecker injected via constructor; must be declared before init{}
@@ -410,8 +413,7 @@ class WheelViewModel(
     override fun onCleared() {
         super.onCleared()
         endErrorLogSession(null)
-        wearOsManager?.stop()
-        wearOsManager = null
+        binding?.wearOsManager?.stop()
         prefs.unregisterOnSharedPreferenceChangeListener(prefChangeListener)
         if (captureLogger.isCapturing) stopCapture()
         if (rideLogger.isLogging) {
@@ -423,11 +425,8 @@ class WheelViewModel(
     // --- Service binding ---
 
     fun attachService(service: WheelServiceContract, cm: WheelConnectionManagerPort, ble: BleManagerPort) {
-        wheelService = service
-        connectionManager = cm
-        bleManager = ble
-        chargerConnectionManager = service.chargerConnectionManager
-        chargerBleManager = service.chargerBleManager
+        // Tear down any existing binding
+        detachService()
 
         // Wire capture callback if capture was started before connection
         if (captureLogger.isCapturing) wireCaptureCallback(cm)
@@ -438,24 +437,13 @@ class WheelViewModel(
         // Wire connection error log callback (always on)
         wireErrorLogCallback(cm)
 
-        pushDecoderConfig()
-
-        // Create shared auto-connect manager
-        autoConnectManager?.destroy()
-        autoConnectManager = AutoConnectManager(
+        val acm = AutoConnectManager(
             connectionState = cm.connectionState,
             connect = { address -> cm.connect(address) },
             scope = viewModelScope
         )
 
-        // Refresh saved addresses (profiles may have been added before attach)
-        _savedAddresses.value = profileStore.getSavedAddresses()
-
-        service.onLightToggleRequested = ::toggleLight
-        service.onLogToggleRequested = ::toggleLogging
-        service.onGpsLocationUpdate = ::updateGpsLocation
-
-        wearOsManager = WearOsManager(
+        val wom = WearOsManager(
             context = getApplication(),
             telemetryFlow = telemetryState,
             activeAlarmsFlow = activeAlarms,
@@ -464,17 +452,43 @@ class WheelViewModel(
             onLightToggleRequested = ::toggleLight
         ).also { it.start(viewModelScope) }
 
-        stateCollectionJob = viewModelScope.launch {
+        val collectionScope = CoroutineScope(
+            viewModelScope.coroutineContext + SupervisorJob(viewModelScope.coroutineContext[Job])
+        )
+
+        binding = ServiceBinding(
+            service = service,
+            connectionManager = cm,
+            bleManager = ble,
+            chargerConnectionManager = service.chargerConnectionManager,
+            chargerBleManager = service.chargerBleManager,
+            autoConnectManager = acm,
+            wearOsManager = wom,
+            collectionScope = collectionScope
+        )
+
+        pushDecoderConfig()
+
+        // Refresh saved addresses (profiles may have been added before attach)
+        _savedAddresses.value = profileStore.getSavedAddresses()
+
+        service.onLightToggleRequested = ::toggleLight
+        service.onLogToggleRequested = ::toggleLogging
+        service.onGpsLocationUpdate = ::updateGpsLocation
+
+        // Launch all collection coroutines in the binding's scope.
+        // Cancelling collectionScope in detachService() stops them all at once.
+        collectionScope.launch {
             launch { cm.telemetryState.collect { _realTelemetry.value = it } }
             launch { cm.identityState.collect { _realIdentity.value = it } }
             launch { cm.bmsState.collect { _realBms.value = it } }
             launch { cm.settingsState.collect { _realSettings.value = it } }
             launch { cm.eventLogEntries.collect { _eventLogEntries.value = it } }
         }
-        capabilitiesCollectionJob = viewModelScope.launch {
+        collectionScope.launch {
             cm.capabilities.collect { _capabilities.value = it }
         }
-        connectionCollectionJob = viewModelScope.launch {
+        collectionScope.launch {
             cm.connectionState.collect { state ->
                 if (_dataSource.value == WheelDataSource.LIVE) {
                     _connectionState.value = state
@@ -484,7 +498,7 @@ class WheelViewModel(
                     autoSaveProfile(state.address)
                     initHistoryForWheel(state.address)
                     loadDashboardLayout()
-                    wheelService?.startLocationTracking()
+                    service.startLocationTracking()
                     startErrorLogSession(state.address)
 
                     // Auto BLE capture
@@ -522,7 +536,7 @@ class WheelViewModel(
                             stopLogging()
                         }
                     }
-                    wheelService?.stopLocationTracking()
+                    service.stopLocationTracking()
                     endErrorLogSession(state)
                 }
 
@@ -532,7 +546,7 @@ class WheelViewModel(
                 ) {
                     if (captureLogger.isCapturing) stopCapture()
                     if (rideLogger.isLogging) stopLogging()
-                    wheelService?.stopLocationTracking()
+                    service.stopLocationTracking()
                     endErrorLogSession(state)
                 }
             }
@@ -540,10 +554,10 @@ class WheelViewModel(
 
         // Charger state collection
         val ccm = service.chargerConnectionManager
-        chargerStateCollectionJob = viewModelScope.launch {
+        collectionScope.launch {
             ccm.chargerState.collect { _chargerState.value = it }
         }
-        chargerConnectionCollectionJob = viewModelScope.launch {
+        collectionScope.launch {
             ccm.connectionState.collect { state ->
                 _chargerConnectionState.value = state
                 if (state is ConnectionState.Connected) {
@@ -554,31 +568,17 @@ class WheelViewModel(
     }
 
     fun detachService() {
-        wearOsManager?.stop()
-        wearOsManager = null
-        stateCollectionJob?.cancel()
-        connectionCollectionJob?.cancel()
-        capabilitiesCollectionJob?.cancel()
-        chargerStateCollectionJob?.cancel()
-        chargerConnectionCollectionJob?.cancel()
-        stateCollectionJob = null
-        connectionCollectionJob = null
-        capabilitiesCollectionJob = null
-        chargerStateCollectionJob = null
-        chargerConnectionCollectionJob = null
-        autoConnectManager?.destroy()
-        autoConnectManager = null
-        wheelService?.onGpsLocationUpdate = null
-        wheelService?.onLightToggleRequested = null
-        wheelService?.onLogToggleRequested = null
-        connectionManager?.unhandledCallback = null
-        connectionManager?.errorLogCallback = null
+        val b = binding ?: return
+        b.collectionScope.cancel()
+        b.wearOsManager.stop()
+        b.autoConnectManager.destroy()
+        b.service.onGpsLocationUpdate = null
+        b.service.onLightToggleRequested = null
+        b.service.onLogToggleRequested = null
+        b.connectionManager.unhandledCallback = null
+        b.connectionManager.errorLogCallback = null
         endErrorLogSession(ConnectionState.Disconnected)
-        wheelService = null
-        connectionManager = null
-        bleManager = null
-        chargerConnectionManager = null
-        chargerBleManager = null
+        binding = null
     }
 
     // --- Demo mode ---
@@ -634,7 +634,7 @@ class WheelViewModel(
     // --- BLE operations ---
 
     fun startScan() {
-        val ble = bleManager ?: return
+        val ble = binding?.bleManager ?: return
         _isScanning.value = true
         _discoveredDevices.value = emptyList()
         viewModelScope.launch {
@@ -647,7 +647,7 @@ class WheelViewModel(
     fun stopScan() {
         _isScanning.value = false
         viewModelScope.launch {
-            bleManager?.stopScan()
+            binding?.bleManager?.stopScan()
         }
     }
 
@@ -671,14 +671,14 @@ class WheelViewModel(
     }
 
     fun connect(address: String) {
-        val cm = connectionManager ?: return
+        val cm = binding?.connectionManager ?: return
         _isScanning.value = false
         appConfig.lastMac = address
         // Clear unhandled frames from previous session
         unhandledCollector.clear()
         _unhandledCount.value = 0
         connectJob = viewModelScope.launch {
-            bleManager?.stopScan()
+            binding?.bleManager?.stopScan()
             cm.connect(address)
         }
     }
@@ -694,14 +694,14 @@ class WheelViewModel(
         }
         connectJob?.cancel()
         connectJob = null
-        wearOsManager?.stop()
+        binding?.wearOsManager?.stop()
         appConfig.lastMac = ""
-        autoConnectManager?.stop()
+        binding?.autoConnectManager?.stop()
         if (captureLogger.isCapturing) stopCapture()
         if (rideLogger.isLogging) stopLogging()
-        wheelService?.stopLocationTracking()
+        binding?.service?.stopLocationTracking()
         telemetryHistory?.save()
-        connectionManager?.disconnect()
+        binding?.connectionManager?.disconnect()
         telemetryBuffer.clear()
         _telemetrySamples.value = emptyList()
         alarmChecker.reset()
@@ -713,7 +713,7 @@ class WheelViewModel(
 
     fun setBluetoothAdapterState(state: BluetoothAdapterState) {
         _bluetoothState.value = state
-        bleManager?.setBluetoothAdapterState(state)
+        binding?.bleManager?.setBluetoothAdapterState(state)
 
         if (state == BluetoothAdapterState.POWERED_OFF) {
             _isScanning.value = false
@@ -731,14 +731,14 @@ class WheelViewModel(
         // BLE disconnect is handled by WheelService.onDestroy().
         // Must not be in a coroutine — viewModelScope may be cancelled
         // before it runs if finishAffinity() is called immediately after.
-        wheelService?.shutdown()
+        binding?.service?.shutdown()
     }
 
     fun attemptStartupAutoConnect() {
         val lastMac = appConfig.lastMac
         if (lastMac.isEmpty()) return
         if (!appConfig.useReconnect) return
-        val acm = autoConnectManager ?: return
+        val acm = binding?.autoConnectManager ?: return
 
         acm.attemptStartupConnect(lastMac)
     }
@@ -750,7 +750,7 @@ class WheelViewModel(
     fun startupScan() {
         val lastMac = appConfig.lastMac
         if (lastMac.isEmpty()) return
-        val ble = bleManager ?: return
+        val ble = binding?.bleManager ?: return
 
         _isScanning.value = true
         _discoveredDevices.value = emptyList()
@@ -806,7 +806,7 @@ class WheelViewModel(
 
     fun wheelBeep() {
         viewModelScope.launch {
-            connectionManager?.wheelBeep()
+            binding?.connectionManager?.wheelBeep()
         }
     }
 
@@ -818,13 +818,13 @@ class WheelViewModel(
             autoTorchManualOverride = true
         }
         viewModelScope.launch {
-            connectionManager?.toggleLight(newState)
+            binding?.connectionManager?.toggleLight(newState)
         }
     }
 
     fun setPedalsMode(mode: Int) {
         viewModelScope.launch {
-            connectionManager?.setPedalsMode(mode)
+            binding?.connectionManager?.setPedalsMode(mode)
         }
     }
 
@@ -834,12 +834,12 @@ class WheelViewModel(
     val eventLogEntries: StateFlow<List<org.freewheel.core.domain.EventLogEntry>> = _eventLogEntries.asStateFlow()
 
     fun requestEventLog() {
-        connectionManager?.clearEventLog()
-        connectionManager?.requestEventLog()
+        binding?.connectionManager?.clearEventLog()
+        binding?.connectionManager?.requestEventLog()
     }
 
     fun clearEventLog() {
-        connectionManager?.clearEventLog()
+        binding?.connectionManager?.clearEventLog()
     }
 
     // --- Slider persistence for write-only commands ---
@@ -883,7 +883,7 @@ class WheelViewModel(
         prefs.edit().putInt("${macPrefix}_$key", value).apply()
 
     fun executeWheelCommand(commandId: SettingsCommandId, intValue: Int = 0, boolValue: Boolean = false) {
-        connectionManager?.executeCommand(commandId, intValue, boolValue)
+        binding?.connectionManager?.executeCommand(commandId, intValue, boolValue)
     }
 
     // --- Charger scanning ---
@@ -895,7 +895,7 @@ class WheelViewModel(
     val discoveredChargers: StateFlow<List<DiscoveredDevice>> = _discoveredChargers.asStateFlow()
 
     fun scanForChargers() {
-        val ble = chargerBleManager ?: return
+        val ble = binding?.chargerBleManager ?: return
         _isChargerScanning.value = true
         _discoveredChargers.value = emptyList()
         viewModelScope.launch {
@@ -908,7 +908,7 @@ class WheelViewModel(
     fun stopChargerScan() {
         _isChargerScanning.value = false
         viewModelScope.launch {
-            chargerBleManager?.stopScan()
+            binding?.chargerBleManager?.stopScan()
         }
     }
 
@@ -932,39 +932,39 @@ class WheelViewModel(
 
     fun connectCharger(address: String, password: String) {
         stopChargerScan()
-        chargerConnectionManager?.connect(address, password)
+        binding?.chargerConnectionManager?.connect(address, password)
     }
 
     fun disconnectCharger() {
-        chargerConnectionManager?.disconnect()
+        binding?.chargerConnectionManager?.disconnect()
     }
 
     fun setChargerVoltage(voltage: Float) {
-        chargerConnectionManager?.setOutputVoltage(voltage)
+        binding?.chargerConnectionManager?.setOutputVoltage(voltage)
     }
 
     fun setChargerCurrent(current: Float) {
-        chargerConnectionManager?.setOutputCurrent(current)
+        binding?.chargerConnectionManager?.setOutputCurrent(current)
     }
 
     fun toggleChargerOutput(enable: Boolean) {
-        chargerConnectionManager?.toggleOutput(enable)
+        binding?.chargerConnectionManager?.toggleOutput(enable)
     }
 
     fun setChargerPowerLimit(watts: Int) {
-        chargerConnectionManager?.setPowerLimit(watts)
+        binding?.chargerConnectionManager?.setPowerLimit(watts)
     }
 
     fun setChargerAutoStop(enabled: Boolean) {
-        chargerConnectionManager?.setAutoStop(enabled)
+        binding?.chargerConnectionManager?.setAutoStop(enabled)
     }
 
     fun setChargerTwoStageCharging(enabled: Boolean) {
-        chargerConnectionManager?.setTwoStageCharging(enabled)
+        binding?.chargerConnectionManager?.setTwoStageCharging(enabled)
     }
 
     fun setChargerEndOfChargeCurrent(current: Float) {
-        chargerConnectionManager?.setEndOfChargeCurrent(current)
+        binding?.chargerConnectionManager?.setEndOfChargeCurrent(current)
     }
 
     // --- Charger profiles ---
@@ -1281,7 +1281,7 @@ class WheelViewModel(
         } catch (_: Exception) { "" }
 
         if (captureLogger.start(filePath, wheelTypeName, wheelName, firmware, appVersion, now)) {
-            connectionManager?.let { wireCaptureCallback(it) }
+            binding?.connectionManager?.let { wireCaptureCallback(it) }
             _captureStats.value = CaptureStats(startTimeMs = now)
             _isCapturing.value = true
         }
@@ -1361,7 +1361,7 @@ class WheelViewModel(
                 is ConnectionState.Disconnected -> "User disconnect"
                 else -> "Unknown"
             }
-            val cm = connectionManager
+            val cm = binding?.connectionManager
             val unpackerStats = cm?.let {
                 // Access unpacker stats from the decoder via the WCM state flow
                 // The decoder exposes getUnpackerStats() but we need it from the port;
@@ -1418,7 +1418,7 @@ class WheelViewModel(
     }
 
     fun stopCapture(): BleCaptureMetadata? {
-        val cm = connectionManager
+        val cm = binding?.connectionManager
         cm?.captureCallback = null
 
         val footer = cm?.let { buildDiagnosticFooter(it) }
@@ -1432,7 +1432,7 @@ class WheelViewModel(
      * Returns null if not connected.
      */
     fun buildDiagnosticText(): String? {
-        val cm = connectionManager ?: return null
+        val cm = binding?.connectionManager ?: return null
         val snapshot = DiagnosticSnapshotBuilder.buildSnapshot(
             identity = identityState.value,
             capabilities = _capabilities.value,
@@ -1549,7 +1549,7 @@ class WheelViewModel(
                         // Auto-torch was on but user disabled the feature — turn off
                         autoTorchLightRequested = false
                         _isLightOn.value = false
-                        connectionManager?.toggleLight(false)
+                        binding?.connectionManager?.toggleLight(false)
                     }
                     return@collect
                 }
@@ -1578,11 +1578,11 @@ class WheelViewModel(
                 if (result.shouldBeOn && !autoTorchLightRequested) {
                     autoTorchLightRequested = true
                     _isLightOn.value = true
-                    connectionManager?.toggleLight(true)
+                    binding?.connectionManager?.toggleLight(true)
                 } else if (!result.shouldBeOn && autoTorchLightRequested) {
                     autoTorchLightRequested = false
                     _isLightOn.value = false
-                    connectionManager?.toggleLight(false)
+                    binding?.connectionManager?.toggleLight(false)
                 }
             }
         }

@@ -8,7 +8,6 @@ android {
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 35
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -30,6 +29,12 @@ android {
     }
 
     namespace = "org.freewheel.shared"
+    lint {
+        targetSdk = 35
+    }
+    testOptions {
+        targetSdk = 35
+    }
 }
 
 dependencies {

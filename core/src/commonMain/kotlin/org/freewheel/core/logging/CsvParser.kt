@@ -1,5 +1,6 @@
 package org.freewheel.core.logging
 
+import org.freewheel.core.ride.RideSample
 import org.freewheel.core.telemetry.TelemetrySample
 import org.freewheel.core.utils.Logger
 import kotlinx.datetime.LocalDateTime
@@ -128,6 +129,72 @@ object CsvParser {
         }
 
         return downsample(points)
+    }
+
+    /**
+     * Parse CSV content into a list of [RideSample] for ride export. Only rows
+     * with valid GPS coordinates are returned — samples without a fix can't be
+     * placed on a `<trkpt>` and would lose meaning.
+     *
+     * Unlike [parse]/[parseRoute], this does NOT downsample — ride exports
+     * keep full fidelity so importers (and ghost replay) get the original
+     * sample cadence.
+     */
+    fun parseRideSamples(csvContent: String): List<RideSample> {
+        val lines = csvContent.lineSequence().iterator()
+        if (!lines.hasNext()) return emptyList()
+
+        val headerLine = lines.next()
+        val headers = headerLine.split(",")
+        val colIndex = HashMap<String, Int>(headers.size)
+        headers.forEachIndexed { i, name -> colIndex[name.trim()] = i }
+
+        val dateIdx = colIndex[CsvColumns.DATE] ?: return emptyList()
+        val timeIdx = colIndex[CsvColumns.TIME] ?: return emptyList()
+        val latIdx = colIndex[CsvColumns.LATITUDE] ?: return emptyList()
+        val lonIdx = colIndex[CsvColumns.LONGITUDE] ?: return emptyList()
+        val speedIdx = colIndex[CsvColumns.SPEED]
+        val voltageIdx = colIndex[CsvColumns.VOLTAGE]
+        val currentIdx = colIndex[CsvColumns.CURRENT]
+        val powerIdx = colIndex[CsvColumns.POWER]
+        val tempIdx = colIndex[CsvColumns.SYSTEM_TEMP]
+        val batteryIdx = colIndex[CsvColumns.BATTERY_LEVEL]
+        val pwmIdx = colIndex[CsvColumns.PWM]
+        val altIdx = colIndex[CsvColumns.GPS_ALT]
+
+        val tz = TimeZone.currentSystemDefault()
+        val out = mutableListOf<RideSample>()
+
+        while (lines.hasNext()) {
+            val line = lines.next()
+            if (line.isBlank()) continue
+            val cols = line.split(",")
+
+            try {
+                val lat = cols.getOrNull(latIdx)?.toDoubleOrNull() ?: continue
+                val lon = cols.getOrNull(lonIdx)?.toDoubleOrNull() ?: continue
+                if (lat == 0.0 && lon == 0.0) continue
+
+                val timestampMs = parseTimestamp(cols[dateIdx], cols[timeIdx], tz) ?: continue
+
+                out.add(RideSample(
+                    timestampMs = timestampMs,
+                    latitude = lat,
+                    longitude = lon,
+                    elevationMeters = altIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    speedKmh = speedIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    batteryPct = batteryIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    pwmPct = pwmIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    powerW = powerIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    voltageV = voltageIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    currentA = currentIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                    motorTempC = tempIdx?.let { cols.getOrNull(it)?.toDoubleOrNull() },
+                ))
+            } catch (e: Exception) {
+                Logger.w("CsvParser", "Skipping malformed sample row: ${e.message}")
+            }
+        }
+        return out
     }
 
     private fun <T> downsample(items: List<T>): List<T> {

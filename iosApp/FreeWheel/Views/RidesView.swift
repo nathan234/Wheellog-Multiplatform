@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import FreeWheelCore
 
 // CROSS-PLATFORM SYNC: This view mirrors freewheel/.../compose/screens/RidesScreen.kt.
@@ -21,6 +22,8 @@ struct RidesView: View {
     @State private var isSelecting = false
     @State private var selectedIds: Set<String> = []
     @State private var showMergeConfirm = false
+    @State private var showImporter = false
+    @State private var pendingShareURL: URL?
 
     var body: some View {
         Group {
@@ -42,6 +45,13 @@ struct RidesView: View {
                 }
             }
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if !isSelecting {
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
+                }
                 if wheelManager.rideStore.rides.count >= 2 {
                     Button(isSelecting ? CommonLabels.shared.DONE : CommonLabels.shared.SELECT) {
                         isSelecting.toggle()
@@ -76,6 +86,27 @@ struct RidesView: View {
         } message: {
             Text(RidesLabels.shared.MERGE_CONFIRM_MESSAGE)
         }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: gpxContentTypes
+        ) { result in
+            if case .success(let url) = result {
+                _ = wheelManager.importRideFromGpxURL(url)
+            }
+        }
+        .sheet(item: $pendingShareURL) { url in
+            ShareSheet(items: [url])
+        }
+    }
+
+    /// GPX is `public.gpx` on Apple platforms. Fall back to xml so older OS
+    /// versions and pickers that don't recognize the GPX UTI still work.
+    private var gpxContentTypes: [UTType] {
+        var types: [UTType] = [.xml]
+        if let gpx = UTType("public.gpx") {
+            types.insert(gpx, at: 0)
+        }
+        return types
     }
 
     private var emptyState: some View {
@@ -137,7 +168,11 @@ struct RidesView: View {
 
                 Spacer()
 
-                ShareLink(item: wheelManager.rideStore.fileURL(for: ride)) {
+                Button {
+                    if let url = wheelManager.exportRideAsGpxURL(ride) {
+                        pendingShareURL = url
+                    }
+                } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.caption)
                 }
@@ -192,6 +227,10 @@ struct RidesView: View {
         }
     }
 
+}
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
 }
 
 #Preview {

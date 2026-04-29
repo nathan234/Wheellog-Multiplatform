@@ -1366,6 +1366,146 @@ class WheelManager: ObservableObject {
 
     // MARK: - Ride Stitch & Split
 
+    /// Build a shareable GPX file in cache for [ride] and return its URL.
+    /// Own-logged rides are converted from their CSV via the KMP CsvParser +
+    /// GpxWriter; imported rides re-emit their stored GPX so the share is
+    /// always the canonical file.
+    func exportRideAsGpxURL(_ ride: RideMetadata) -> URL? {
+        let ridesDir = RideStore.ridesDirectory()
+        let storedURL = ridesDir.appendingPathComponent(ride.fileName)
+
+        let gpx: String
+        switch ride.source {
+        case .imported:
+            guard let content = try? String(contentsOf: storedURL, encoding: .utf8) else { return nil }
+            gpx = content
+        case .ownLog:
+            guard let csv = try? String(contentsOf: storedURL, encoding: .utf8) else { return nil }
+            let samples = CsvParser.shared.parseRideSamples(csvContent: csv)
+            guard !samples.isEmpty else { return nil }
+            let manifest = RideManifest(
+                rideId: ride.id,
+                name: ride.fileName.replacingOccurrences(of: ".csv", with: ""),
+                startedAtUtc: Int64(ride.startDate.timeIntervalSince1970 * 1000),
+                wheelType: nil,
+                wheelName: nil,
+                wheelAddress: nil,
+                distanceMeters: KotlinLong(value: Int64(ride.distance * 1000)),
+                durationMs: KotlinLong(value: Int64(ride.duration * 1000)),
+                appVersion: "0.1.0",
+                schemaVersion: Int32(RideManifest.companion.SCHEMA_VERSION_V1)
+            )
+            let bundle = RideBundle(manifest: manifest, samples: samples)
+            gpx = GpxWriter.shared.write(bundle: bundle)
+        }
+
+        let cacheURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("share-\(ride.id).gpx")
+        do {
+            try gpx.write(to: cacheURL, atomically: true, encoding: .utf8)
+        } catch {
+            return nil
+        }
+        return cacheURL
+    }
+
+    /// Import a GPX file picked from the file system. Writes the file to
+    /// `Documents/rides/imported/<rideId>.gpx`, upserts the RideStore row by
+    /// rideId, returns the rideId on success or nil on parse failure.
+    func importRideFromGpxURL(_ url: URL) -> String? {
+        let needsScopedAccess = url.startAccessingSecurityScopedResource()
+        defer { if needsScopedAccess { url.stopAccessingSecurityScopedResource() } }
+
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        guard let bundle = GpxReader.shared.parse(input: content) else { return nil }
+
+        let ridesDir = RideStore.ridesDirectory()
+        let importedDir = ridesDir.appendingPathComponent("imported")
+        try? FileManager.default.createDirectory(at: importedDir, withIntermediateDirectories: true)
+
+        let storedFileName = "imported/\(bundle.manifest.rideId).gpx"
+        let storedURL = ridesDir.appendingPathComponent(storedFileName)
+        let canonicalGpx = GpxWriter.shared.write(bundle: bundle)
+        try? canonicalGpx.write(to: storedURL, atomically: true, encoding: .utf8)
+
+        let stats = derivedStats(from: bundle)
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: storedURL.path)[.size] as? Int64) ?? 0
+        let firstSampleMs = bundle.samples.first?.timestampMs ?? bundle.manifest.startedAtUtc
+        let lastSampleMs = bundle.samples.last?.timestampMs ?? firstSampleMs
+        let durationSec = max(0, Double(lastSampleMs - firstSampleMs) / 1000.0)
+
+        let metadata = RideMetadata(
+            id: bundle.manifest.rideId,
+            fileName: storedFileName,
+            startDate: Date(timeIntervalSince1970: Double(bundle.manifest.startedAtUtc) / 1000),
+            endDate: Date(timeIntervalSince1970: Double(lastSampleMs) / 1000),
+            duration: durationSec,
+            distance: Double(bundle.manifest.distanceMeters?.int64Value ?? Int64(stats.distanceMeters)) / 1000,
+            maxSpeed: stats.maxSpeedKmh,
+            avgSpeed: stats.avgSpeedKmh,
+            sampleCount: bundle.samples.count,
+            fileSize: fileSize,
+            maxCurrent: stats.maxCurrentA,
+            maxPower: stats.maxPowerW,
+            maxPwm: stats.maxPwmPercent,
+            consumptionWh: 0,
+            consumptionWhPerKm: 0,
+            source: .imported
+        )
+        rideStore.upsertByRideId(metadata)
+        return bundle.manifest.rideId
+    }
+
+    private struct DerivedRideStats {
+        let maxSpeedKmh: Double
+        let avgSpeedKmh: Double
+        let maxPwmPercent: Double
+        let maxCurrentA: Double
+        let maxPowerW: Double
+        let distanceMeters: Double
+    }
+
+    private func derivedStats(from bundle: RideBundle) -> DerivedRideStats {
+        let samples = bundle.samples
+        let speeds = samples.compactMap { $0.speedKmh?.doubleValue }
+        let maxSpeed = speeds.max() ?? 0
+        let avgSpeed = speeds.isEmpty ? 0 : speeds.reduce(0, +) / Double(speeds.count)
+        let maxPwm = samples.compactMap { $0.pwmPct?.doubleValue }.max() ?? 0
+        let maxCurrent = samples.compactMap { $0.currentA?.doubleValue }.max() ?? 0
+        let maxPower = samples.compactMap { $0.powerW?.doubleValue }.max() ?? 0
+        let distance = bundle.manifest.distanceMeters?.doubleValue ?? estimateDistanceMeters(samples)
+        return DerivedRideStats(
+            maxSpeedKmh: maxSpeed,
+            avgSpeedKmh: avgSpeed,
+            maxPwmPercent: maxPwm,
+            maxCurrentA: maxCurrent,
+            maxPowerW: maxPower,
+            distanceMeters: distance
+        )
+    }
+
+    private func estimateDistanceMeters(_ samples: [RideSample]) -> Double {
+        guard samples.count >= 2 else { return 0 }
+        var total = 0.0
+        for i in 1..<samples.count {
+            total += haversineMeters(
+                lat1: samples[i - 1].latitude, lng1: samples[i - 1].longitude,
+                lat2: samples[i].latitude, lng2: samples[i].longitude
+            )
+        }
+        return total
+    }
+
+    private func haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double) -> Double {
+        let r = 6_371_000.0
+        let dLat = (lat2 - lat1) * .pi / 180
+        let dLng = (lng2 - lng1) * .pi / 180
+        let a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(lat1 * .pi / 180) * cos(lat2 * .pi / 180) *
+            sin(dLng / 2) * sin(dLng / 2)
+        return 2 * r * atan2(sqrt(a), sqrt(1 - a))
+    }
+
     func stitchRides(_ rideIds: [String]) -> Bool {
         let ridesDir = RideStore.ridesDirectory()
         let selectedRides = rideStore.rides.filter { rideIds.contains($0.id) }

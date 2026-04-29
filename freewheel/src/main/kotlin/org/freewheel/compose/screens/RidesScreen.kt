@@ -1,6 +1,8 @@
 package org.freewheel.compose.screens
 
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -22,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Share
@@ -53,7 +56,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.core.domain.CommonLabels
 import org.freewheel.core.domain.RidesLabels
@@ -93,6 +98,21 @@ fun RidesScreen(
 
     LaunchedEffect(Unit) {
         trips = viewModel.loadTrips()
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val content = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                }
+                if (content != null && viewModel.importRideFromGpx(content, context) != null) {
+                    trips = viewModel.loadTrips()
+                }
+            }
+        }
     }
 
     // Merge confirmation dialog
@@ -167,6 +187,14 @@ fun RidesScreen(
                         selectedIds = emptySet()
                     }) {
                         Icon(Icons.Default.Close, contentDescription = CommonLabels.CANCEL)
+                    }
+                } else {
+                    IconButton(onClick = {
+                        // application/gpx+xml is the canonical type, but many file pickers
+                        // type GPX files as octet-stream — accept both.
+                        importLauncher.launch(arrayOf("application/gpx+xml", "application/octet-stream", "*/*"))
+                    }) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Import GPX")
                     }
                 }
             }
@@ -271,20 +299,21 @@ fun RidesScreen(
                                     },
                                     trailing = {
                                         IconButton(onClick = {
-                                            val ridesDir = File(context.getExternalFilesDir(null), "rides")
-                                            val csvFile = File(ridesDir, trip.fileName)
-                                            if (csvFile.exists()) {
-                                                val uri = FileProvider.getUriForFile(
-                                                    context,
-                                                    "${context.packageName}.fileprovider",
-                                                    csvFile
-                                                )
-                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                    type = "text/csv"
-                                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            scope.launch {
+                                                val gpxFile = viewModel.exportRideAsGpx(trip, context)
+                                                if (gpxFile != null) {
+                                                    val uri = FileProvider.getUriForFile(
+                                                        context,
+                                                        "${context.packageName}.fileprovider",
+                                                        gpxFile
+                                                    )
+                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "application/gpx+xml"
+                                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    context.startActivity(Intent.createChooser(shareIntent, RidesLabels.SHARE_RIDE))
                                                 }
-                                                context.startActivity(Intent.createChooser(shareIntent, RidesLabels.SHARE_RIDE))
                                             }
                                         }) {
                                             Icon(

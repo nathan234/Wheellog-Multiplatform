@@ -70,8 +70,15 @@ import android.media.ToneGenerator
 import android.os.VibrationEffect
 import android.os.Vibrator
 import org.freewheel.core.telemetry.TelemetryFileIO
+import org.freewheel.data.RideSource
 import org.freewheel.data.TripDataDbEntry
 import org.freewheel.data.TripRepository
+import org.freewheel.core.ride.GpxReader
+import org.freewheel.core.ride.GpxWriter
+import org.freewheel.core.ride.RideBundle
+import org.freewheel.core.ride.RideManifest
+import org.freewheel.core.ride.RideSample
+import org.freewheel.core.logging.CsvParser
 import android.content.Context
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -1210,6 +1217,122 @@ class WheelViewModel(
 
     suspend fun loadTrips(): List<TripDataDbEntry> {
         return tripRepository.getAllData().sortedByDescending { it.start }
+    }
+
+    /**
+     * Build a shareable GPX file in cache for [trip] and return it.
+     * - Own logs: parse the CSV → samples → wrap in [RideBundle] with the
+     *   trip's metadata.
+     * - Imported rides: re-emit the file we already have in `rides/imported/`.
+     */
+    suspend fun exportRideAsGpx(trip: TripDataDbEntry, context: Context): File? = withContext(Dispatchers.IO) {
+        val source = RideSource.fromStringOrDefault(trip.source)
+        val ridesDir = File(context.getExternalFilesDir(null), "rides")
+        val outFile = File(context.cacheDir, "share-${trip.rideId}.gpx")
+
+        val gpx: String = when (source) {
+            RideSource.IMPORTED -> {
+                File(ridesDir, trip.fileName).takeIf { it.exists() }?.readText()
+                    ?: return@withContext null
+            }
+            RideSource.OWN_LOG -> {
+                val csvFile = File(ridesDir, trip.fileName)
+                if (!csvFile.exists()) return@withContext null
+                val samples = CsvParser.parseRideSamples(csvFile.readText())
+                if (samples.isEmpty()) return@withContext null
+                val bundle = RideBundle(
+                    manifest = RideManifest(
+                        rideId = trip.rideId,
+                        name = trip.fileName.removeSuffix(".csv"),
+                        startedAtUtc = trip.start.toLong() * 1000L,
+                        distanceMeters = trip.distance.toLong(),
+                        durationMs = trip.duration.toLong() * 60_000L,
+                        appVersion = "0.1.0",
+                    ),
+                    samples = samples,
+                )
+                GpxWriter.write(bundle)
+            }
+        }
+
+        outFile.writeText(gpx)
+        outFile
+    }
+
+    /**
+     * Import a GPX file into saved rides. Writes the file to
+     * `external_files/rides/imported/<rideId>.gpx`, upserts the DB row by
+     * rideId, returns the rideId on success or null on parse failure.
+     */
+    suspend fun importRideFromGpx(content: String, context: Context): String? = withContext(Dispatchers.IO) {
+        val bundle = GpxReader.parse(content) ?: return@withContext null
+
+        val importedDir = File(context.getExternalFilesDir(null), "rides/imported").apply { mkdirs() }
+        val storedFileName = "imported/${bundle.manifest.rideId}.gpx"
+        File(importedDir, "${bundle.manifest.rideId}.gpx").writeText(GpxWriter.write(bundle))
+
+        val derived = deriveTripStats(bundle)
+        tripRepository.upsertByRideId(
+            TripDataDbEntry(
+                fileName = storedFileName,
+                start = (bundle.manifest.startedAtUtc / 1000L).toInt(),
+                duration = ((bundle.manifest.durationMs ?: 0L) / 60_000L).toInt(),
+                maxSpeed = derived.maxSpeedKmh.toFloat(),
+                avgSpeed = derived.avgSpeedKmh.toFloat(),
+                maxPwm = derived.maxPwmPercent.toFloat(),
+                maxCurrent = derived.maxCurrentA.toFloat(),
+                maxPower = derived.maxPowerW.toFloat(),
+                distance = (bundle.manifest.distanceMeters ?: derived.distanceMeters).toInt(),
+                consumptionTotal = 0f,
+                consumptionByKm = 0f,
+                rideId = bundle.manifest.rideId,
+                source = RideSource.IMPORTED.name,
+            )
+        )
+        bundle.manifest.rideId
+    }
+
+    private data class DerivedStats(
+        val maxSpeedKmh: Double,
+        val avgSpeedKmh: Double,
+        val maxPwmPercent: Double,
+        val maxCurrentA: Double,
+        val maxPowerW: Double,
+        val distanceMeters: Long,
+    )
+
+    private fun deriveTripStats(bundle: RideBundle): DerivedStats {
+        val samples = bundle.samples
+        val speeds = samples.mapNotNull { it.speedKmh }
+        val maxSpeed = speeds.maxOrNull() ?: 0.0
+        val avgSpeed = if (speeds.isNotEmpty()) speeds.average() else 0.0
+        val maxPwm = samples.mapNotNull { it.pwmPct }.maxOrNull() ?: 0.0
+        val maxCurrent = samples.mapNotNull { it.currentA }.maxOrNull() ?: 0.0
+        val maxPower = samples.mapNotNull { it.powerW }.maxOrNull() ?: 0.0
+        val distance = bundle.manifest.distanceMeters ?: estimateDistanceMeters(samples)
+        return DerivedStats(maxSpeed, avgSpeed, maxPwm, maxCurrent, maxPower, distance)
+    }
+
+    private fun estimateDistanceMeters(samples: List<RideSample>): Long {
+        if (samples.size < 2) return 0L
+        var total = 0.0
+        for (i in 1 until samples.size) {
+            total += haversineMeters(
+                samples[i - 1].latitude, samples[i - 1].longitude,
+                samples[i].latitude, samples[i].longitude,
+            )
+        }
+        return total.toLong()
+    }
+
+    private fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+        val a = kotlin.math.sin(dLat / 2).let { it * it } +
+            kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+            kotlin.math.sin(dLng / 2).let { it * it }
+        return 2 * r * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
     }
 
     suspend fun loadTripByFileName(fileName: String): TripDataDbEntry? {

@@ -118,12 +118,12 @@ class WheelManager: ObservableObject {
         didSet { UserDefaults.standard.set(alarmWheel, forKey: PreferenceKeys.shared.ALARM_WHEEL) }
     }
 
-    // Connection settings (persisted to UserDefaults)
-    @Published var autoReconnect: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.USE_RECONNECT) {
-        didSet { UserDefaults.standard.set(autoReconnect, forKey: PreferenceKeys.shared.USE_RECONNECT) }
+    // Connection settings (persisted via AppSettingsStore; GLOBAL scope)
+    @Published var autoReconnect: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.autoReconnect) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.autoReconnect, value: autoReconnect) }
     }
-    @Published var showUnknownDevices: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.SHOW_UNKNOWN_DEVICES) {
-        didSet { UserDefaults.standard.set(showUnknownDevices, forKey: PreferenceKeys.shared.SHOW_UNKNOWN_DEVICES) }
+    @Published var showUnknownDevices: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.showUnknownDevices) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.showUnknownDevices, value: showUnknownDevices) }
     }
 
     // Auto-reconnect state (Feature 2) — from shared KMP AutoConnectManager
@@ -137,19 +137,15 @@ class WheelManager: ObservableObject {
     // Startup auto-connect state — from shared KMP AutoConnectManager
     @Published private(set) var isAutoConnecting: Bool = false
 
-    // Logging settings (Feature 3)
-    @Published var autoStartLogging: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.AUTO_LOG) {
-        didSet { UserDefaults.standard.set(autoStartLogging, forKey: PreferenceKeys.shared.AUTO_LOG) }
+    // Logging settings (persisted via AppSettingsStore; GLOBAL scope)
+    @Published var autoStartLogging: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.autoLog) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.autoLog, value: autoStartLogging) }
     }
-    @Published var logGPS: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.LOG_LOCATION_DATA) {
-        didSet { UserDefaults.standard.set(logGPS, forKey: PreferenceKeys.shared.LOG_LOCATION_DATA) }
+    @Published var logGPS: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.logLocationData) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.logLocationData, value: logGPS) }
     }
-    @Published var autoCapture: Bool = {
-        let key = PreferenceKeys.shared.AUTO_CAPTURE
-        // UserDefaults.bool returns false for unset keys; default to true
-        return UserDefaults.standard.object(forKey: key) == nil || UserDefaults.standard.bool(forKey: key)
-    }() {
-        didSet { UserDefaults.standard.set(autoCapture, forKey: PreferenceKeys.shared.AUTO_CAPTURE) }
+    @Published var autoCapture: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.autoCapture) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.autoCapture, value: autoCapture) }
     }
     @Published private(set) var isLogging: Bool = false
     @Published private(set) var isRidePaused: Bool = false
@@ -185,25 +181,15 @@ class WheelManager: ObservableObject {
     private var pausedRideAddress: String?
     private static let ridePauseTimeoutSeconds: TimeInterval = 3600 // 1 hour
 
-    // Auto-torch settings (persisted to UserDefaults)
-    @Published var autoTorchEnabled: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.AUTO_TORCH_ENABLED) {
-        didSet { UserDefaults.standard.set(autoTorchEnabled, forKey: PreferenceKeys.shared.AUTO_TORCH_ENABLED) }
+    // Auto-torch settings (persisted via AppSettingsStore; GLOBAL scope)
+    @Published var autoTorchEnabled: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.autoTorchEnabled) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.autoTorchEnabled, value: autoTorchEnabled) }
     }
-    @Published var autoTorchSpeedThreshold: Double = {
-        let ud = UserDefaults.standard
-        return ud.object(forKey: PreferenceKeys.shared.AUTO_TORCH_SPEED_THRESHOLD) != nil
-            ? Double(ud.integer(forKey: PreferenceKeys.shared.AUTO_TORCH_SPEED_THRESHOLD))
-            : Double(PreferenceDefaults.shared.AUTO_TORCH_SPEED_THRESHOLD)
-    }() {
-        didSet { UserDefaults.standard.set(Int(autoTorchSpeedThreshold), forKey: PreferenceKeys.shared.AUTO_TORCH_SPEED_THRESHOLD) }
+    @Published var autoTorchSpeedThreshold: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.autoTorchSpeedThreshold)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.autoTorchSpeedThreshold, value: Int32(autoTorchSpeedThreshold)) }
     }
-    @Published var autoTorchUseSunset: Bool = {
-        let ud = UserDefaults.standard
-        return ud.object(forKey: PreferenceKeys.shared.AUTO_TORCH_USE_SUNSET) != nil
-            ? ud.bool(forKey: PreferenceKeys.shared.AUTO_TORCH_USE_SUNSET)
-            : PreferenceDefaults.shared.AUTO_TORCH_USE_SUNSET
-    }() {
-        didSet { UserDefaults.standard.set(autoTorchUseSunset, forKey: PreferenceKeys.shared.AUTO_TORCH_USE_SUNSET) }
+    @Published var autoTorchUseSunset: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.autoTorchUseSunset) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.autoTorchUseSunset, value: autoTorchUseSunset) }
     }
     private var autoTorchLightRequested: Bool = false
     private var autoTorchManualOverride: Bool = false

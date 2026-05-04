@@ -44,7 +44,7 @@ internal fun buildKsFrame(
  *
  * Payload layout (within the 14-byte data region, offsets relative to frame byte 2):
  * - [0-1] LE: voltage (raw, e.g. 6505 = 65.05V)
- * - [2-3] LE: speed (raw, decoder stores directly in WheelState.speed)
+ * - [2-3] LE: speed (raw, decoder stores directly in TelemetryState.speed)
  * - [4-7] LE-pairs: totalDistance (4-byte, read via getInt4R)
  * - [8-9] LE: current (read manually as data[10]+(data[11]<<8) in frame coords)
  * - [10-11] LE: temperature (raw, e.g. 3600 = 36.00C)

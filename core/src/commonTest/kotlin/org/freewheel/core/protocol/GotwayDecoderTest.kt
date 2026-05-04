@@ -612,7 +612,7 @@ class GotwayDecoderTest {
 
     // ==================== Miles Normalization ====================
     // When the wheel is configured for miles (inMiles=true), the decoder must
-    // convert speed and distance values to metric before storing in WheelState.
+    // convert speed and distance values to metric before storing in TelemetryState.
     // This prevents double-conversion when the display layer converts km→miles.
 
     @Test
@@ -1477,7 +1477,7 @@ class GotwayDecoderTest {
 
     // ==================== Alexovik Current + BMS Current ====================
     // Bug fix A: Alexovik battery current was extracted but discarded.
-    // Bug fix B: Frame 0x01 BMS current not passed to WheelState.current.
+    // Bug fix B: Frame 0x01 BMS current not passed to TelemetryState.current.
 
     @Test
     fun `Alexovik frame 0x00 with battery current flag stores current in state`() {

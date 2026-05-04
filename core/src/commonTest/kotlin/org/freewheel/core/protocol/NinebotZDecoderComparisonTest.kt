@@ -553,7 +553,7 @@ class NinebotZDecoderComparisonTest {
         val result = decoder.decode(fullPacket, defaultDs, defaultConfig)
 
         // The decoder should process Params1 and advance state machine
-        // Since Params1 data is stored internally (not in WheelState), we verify
+        // Since Params1 data is stored internally (not in TelemetryState), we verify
         // the connection state advanced by checking that subsequent decoding
         // continues the state machine (Params1 → Params2)
         // The important thing is that it didn't crash and the message was accepted

@@ -10,7 +10,7 @@ import java.util.Locale
 /**
  * Parity tests comparing the legacy LoggingService CSV format string against KMP CsvFormatter.
  * Each test applies the exact format string from LoggingService.kt:286 to known values,
- * then generates a KMP CSV row from an equivalent WheelState, and asserts they match.
+ * then generates a KMP CSV row from an equivalent TelemetryState, and asserts they match.
  *
  * No WheelData instance is needed — we use known values in both the legacy format string
  * and the KMP TelemetryState, which proves the format is identical.

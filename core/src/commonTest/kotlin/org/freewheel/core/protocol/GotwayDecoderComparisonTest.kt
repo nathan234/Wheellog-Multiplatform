@@ -214,7 +214,7 @@ class GotwayDecoderComparisonTest {
         // The formula is: round((raw/340.0 + 36.53) * 100)
         if (result is DecodeResult.Success && result.data.hasNewData) {
             val expectedTemp = ((99.0 / 340.0 + 36.53) * 100).roundToInt()
-            // Temperature in WheelState is in 1/100 degrees
+            // Temperature in TelemetryState is in 1/100 degrees
             assertTrue(result.data.assertTelemetry().temperature > 3000, "Temperature should be reasonable")
         }
     }

@@ -82,4 +82,53 @@ class WheelProfileStoreTest {
         assertEquals(1, store.getSavedAddresses().size)
         assertEquals("New Name", store.getDisplayName("A"))
     }
+
+    @Test
+    fun topSpeedOverrideDefaultsToNull() {
+        val (store, _) = createStore()
+        store.saveProfile(WheelProfile("AA:BB:CC", "My Wheel", "GOTWAY", 100L))
+        assertNull(store.getTopSpeedOverrideKmh("AA:BB:CC"))
+    }
+
+    @Test
+    fun setAndGetTopSpeedOverride() {
+        val (store, _) = createStore()
+        store.saveProfile(WheelProfile("AA:BB:CC", "My Wheel", "GOTWAY", 100L))
+        store.setTopSpeedOverrideKmh("AA:BB:CC", 80.0)
+        assertEquals(80.0, store.getTopSpeedOverrideKmh("AA:BB:CC"))
+    }
+
+    @Test
+    fun clearTopSpeedOverrideWithNull() {
+        val (store, _) = createStore()
+        store.saveProfile(WheelProfile("AA:BB:CC", "My Wheel", "GOTWAY", 100L))
+        store.setTopSpeedOverrideKmh("AA:BB:CC", 80.0)
+        store.setTopSpeedOverrideKmh("AA:BB:CC", null)
+        assertNull(store.getTopSpeedOverrideKmh("AA:BB:CC"))
+    }
+
+    @Test
+    fun nonPositiveOverrideIsTreatedAsUnset() {
+        val (store, _) = createStore()
+        store.setTopSpeedOverrideKmh("AA:BB:CC", 0.0)
+        assertNull(store.getTopSpeedOverrideKmh("AA:BB:CC"))
+        store.setTopSpeedOverrideKmh("AA:BB:CC", -5.0)
+        assertNull(store.getTopSpeedOverrideKmh("AA:BB:CC"))
+    }
+
+    @Test
+    fun saveProfilePersistsOverride() {
+        val (store, _) = createStore()
+        store.saveProfile(WheelProfile("X", "Name", "GOTWAY", 100L, topSpeedOverrideKmh = 75.0))
+        val loaded = store.getSavedProfiles().single { it.address == "X" }
+        assertEquals(75.0, loaded.topSpeedOverrideKmh)
+    }
+
+    @Test
+    fun deleteProfileRemovesOverride() {
+        val (store, _) = createStore()
+        store.saveProfile(WheelProfile("X", "Name", "GOTWAY", 100L, topSpeedOverrideKmh = 75.0))
+        store.deleteProfile("X")
+        assertNull(store.getTopSpeedOverrideKmh("X"))
+    }
 }

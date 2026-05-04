@@ -22,6 +22,10 @@ import kotlin.math.abs
  * - Extracting the value from TelemetryState (with unit conversion)
  * - Computing progress and color from the metric's thresholds
  * - Providing sparkline data via sparklineKey mapping
+ *
+ * [effectiveMaxOverrideKmh] lets callers inject a wheel-aware max (e.g.
+ * [org.freewheel.core.domain.wheel.WheelCatalog.resolveTopSpeedKmh] for SPEED).
+ * When null, the per-metric [DashboardMetric.effectiveMax] fallback is used.
  */
 @Composable
 fun RenderGaugeTile(
@@ -34,13 +38,15 @@ fun RenderGaugeTile(
     useFahrenheit: Boolean,
     onNavigateToMetric: (String) -> Unit,
     onLongPress: (() -> Unit)? = null,
+    effectiveMaxOverrideKmh: Double? = null,
     modifier: Modifier = Modifier
 ) {
     val rawValue = metric.extractValue(telemetry) ?: gpsSpeed
 
     val displayValue = DisplayUtils.convertDashboardMetricValue(rawValue, metric, useMph, useFahrenheit)
     val displayUnit = DisplayUtils.dashboardMetricUnit(metric, useMph, useFahrenheit)
-    val maxValue = maxForDisplay(metric, useMph)
+    val effectiveMax = effectiveMaxOverrideKmh?.takeIf { it > 0.0 } ?: metric.effectiveMax(telemetry)
+    val maxValue = maxForDisplay(metric, useMph, effectiveMax)
 
     val metricType = metric.sparklineKey
     val sparkline = remember(samples) {
@@ -49,7 +55,6 @@ fun RenderGaugeTile(
     }
 
     val progress = if (maxValue > 0) (abs(displayValue) / maxValue).toFloat() else 0f
-    val effectiveMax = metric.effectiveMax(telemetry)
     val rawProgress = if (effectiveMax > 0) (abs(rawValue) / effectiveMax) else 0.0
     val color = tileColorForMetric(metric, rawProgress)
 
@@ -86,6 +91,7 @@ fun RenderStatRow(
     gpsSpeed: Double,
     useMph: Boolean,
     useFahrenheit: Boolean,
+    effectiveMaxOverrideKmh: Double? = null,
     modifier: Modifier = Modifier
 ) {
     val rawValue = metric.extractValue(telemetry) ?: gpsSpeed
@@ -99,7 +105,7 @@ fun RenderStatRow(
         else -> "${StringUtil.formatDecimal(displayValue, metric.decimals)} $displayUnit"
     }
 
-    val effectiveMax = metric.effectiveMax(telemetry)
+    val effectiveMax = effectiveMaxOverrideKmh?.takeIf { it > 0.0 } ?: metric.effectiveMax(telemetry)
     val rawProgress = if (effectiveMax > 0) (abs(rawValue) / effectiveMax) else 0.0
     val zone = metric.colorZone(rawProgress)
     val valueColor = if (zone != ColorZone.GREEN) tileColorForMetric(metric, rawProgress) else Color.Unspecified
@@ -112,8 +118,17 @@ fun RenderStatRow(
     )
 }
 
-private fun maxForDisplay(metric: DashboardMetric, useMph: Boolean): Double = when {
-    metric.isSpeedMetric && metric.maxValue > 0 -> DisplayUtils.maxSpeedDefault(useMph)
+/**
+ * Display-unit max used for the gauge fill ratio.
+ * For speed metrics, converts the resolved [effectiveMaxKmh] to mph if needed.
+ * For other metrics, uses the metric's static [DashboardMetric.maxValue].
+ */
+private fun maxForDisplay(metric: DashboardMetric, useMph: Boolean, effectiveMaxKmh: Double): Double = when {
+    metric.isSpeedMetric -> if (useMph) {
+        effectiveMaxKmh * org.freewheel.core.utils.ByteUtils.KM_TO_MILES_MULTIPLIER
+    } else {
+        effectiveMaxKmh
+    }
     else -> metric.maxValue
 }
 

@@ -49,6 +49,7 @@ object PreferenceKeys {
     const val SUFFIX_PROFILE_NAME = "_profile_name"
     const val SUFFIX_WHEEL_TYPE = "_wheel_type_name"
     const val SUFFIX_LAST_CONNECTED = "_last_connected"
+    const val SUFFIX_TOP_SPEED_OVERRIDE_KMH = "_top_speed_override_kmh"
 
     // Wheel settings slider persistence
     const val WHEEL_SLIDER_PREFIX = "wheel_slider_"

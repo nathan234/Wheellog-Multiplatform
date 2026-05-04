@@ -51,6 +51,7 @@ import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.dashboard.DashboardLayout
 import org.freewheel.core.domain.dashboard.DashboardMetric
 import org.freewheel.core.domain.dashboard.DashboardPresets
+import org.freewheel.core.domain.wheel.WheelCatalog
 import org.freewheel.core.service.ConnectionState
 import org.freewheel.core.telemetry.TelemetryBuffer
 import org.freewheel.core.telemetry.TelemetrySample
@@ -87,6 +88,9 @@ fun DashboardContent(
     onEditDashboard: (() -> Unit)? = null,
     rangeEstimateKm: Double? = null,
     showControls: Boolean = true,
+    topSpeedOverrideKmh: Double? = null,
+    observedMaxKmh: Double = 0.0,
+    appVersion: String = "",
     modifier: Modifier = Modifier
 ) {
     val effectiveLayout = remember(layout, identity.wheelType) {
@@ -96,7 +100,15 @@ fun DashboardContent(
     val displaySpeed = DisplayUtils.convertSpeed(telemetry.speedKmh, useMph)
     val displayGpsSpeed = DisplayUtils.convertSpeed(gpsSpeed, useMph)
     val speedUnit = DisplayUtils.speedUnit(useMph)
-    val maxSpeed = DisplayUtils.maxSpeedDefault(useMph)
+    val gaugeMaxKmh = remember(identity, topSpeedOverrideKmh, observedMaxKmh) {
+        WheelCatalog.resolveTopSpeedKmh(
+            userOverrideKmh = topSpeedOverrideKmh,
+            wheelType = identity.wheelType,
+            identity = identity,
+            observedMaxKmh = observedMaxKmh,
+        )
+    }
+    val maxSpeed = DisplayUtils.convertSpeed(gaugeMaxKmh, useMph)
 
     Column(
         modifier = modifier
@@ -109,6 +121,14 @@ fun DashboardContent(
 
         // Alarm banner
         AlarmBanner(activeAlarms = activeAlarms)
+
+        // Unrecognized-wheel banner — surfaces when the live wheel doesn't match any catalog entry
+        UnknownWheelReportBanner(
+            identity = identity,
+            observedMaxKmh = observedMaxKmh,
+            appVersion = appVersion,
+            isConnected = connectionState is ConnectionState.Connected,
+        )
 
         // Hero metric rendering (null = tiles-only layout, skip hero gauge)
         val heroMetric = effectiveLayout.heroMetric
@@ -187,6 +207,9 @@ fun DashboardContent(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 for (metric in row) {
+                    val tileMaxOverride = if (
+                        metric == DashboardMetric.SPEED || metric == DashboardMetric.GPS_SPEED
+                    ) gaugeMaxKmh else null
                     RenderGaugeTile(
                         metric = metric,
                         telemetry = telemetry,
@@ -197,6 +220,7 @@ fun DashboardContent(
                         useFahrenheit = useFahrenheit,
                         onNavigateToMetric = onNavigateToMetric,
                         onLongPress = onEditDashboard,
+                        effectiveMaxOverrideKmh = tileMaxOverride,
                         modifier = tileModifier
                     )
                 }
@@ -211,12 +235,16 @@ fun DashboardContent(
         if (effectiveLayout.stats.isNotEmpty()) {
             StatsSection(modifier = Modifier.padding(horizontal = 16.dp)) {
                 for (metric in effectiveLayout.stats) {
+                    val statMaxOverride = if (
+                        metric == DashboardMetric.SPEED || metric == DashboardMetric.GPS_SPEED
+                    ) gaugeMaxKmh else null
                     RenderStatRow(
                         metric = metric,
                         telemetry = telemetry,
                         gpsSpeed = gpsSpeed,
                         useMph = useMph,
-                        useFahrenheit = useFahrenheit
+                        useFahrenheit = useFahrenheit,
+                        effectiveMaxOverrideKmh = statMaxOverride
                     )
                 }
             }

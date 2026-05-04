@@ -149,6 +149,20 @@ class WheelViewModel(
 
     private var binding: ServiceBinding? = null
 
+    private val _topSpeedOverrideKmh = MutableStateFlow<Double?>(null)
+    /** Per-wheel gauge top-speed override for the currently connected wheel. */
+    val topSpeedOverrideKmh: StateFlow<Double?> = _topSpeedOverrideKmh.asStateFlow()
+
+    fun setTopSpeedOverrideForCurrentWheel(kmh: Double?) {
+        val address = (_connectionState.value as? ConnectionState.Connected)?.address ?: return
+        profileStore.setTopSpeedOverrideKmh(address, kmh)
+        _topSpeedOverrideKmh.value = kmh
+    }
+
+    private val _observedMaxKmhInSession = MutableStateFlow(0.0)
+    /** Peak speed observed during the current connection session (resets on connect). */
+    val observedMaxKmhInSession: StateFlow<Double> = _observedMaxKmhInSession.asStateFlow()
+
     // Connection state
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -551,7 +565,15 @@ class WheelViewModel(
         // Launch all collection coroutines in the binding's scope.
         // Cancelling collectionScope in detachService() stops them all at once.
         collectionScope.launch {
-            launch { cm.telemetryState.collect { _realTelemetry.value = it } }
+            launch {
+                cm.telemetryState.collect {
+                    _realTelemetry.value = it
+                    if (it != null) {
+                        val s = it.speedKmh
+                        if (s > _observedMaxKmhInSession.value) _observedMaxKmhInSession.value = s
+                    }
+                }
+            }
             launch { cm.identityState.collect { _realIdentity.value = it } }
             launch { cm.bmsState.collect { _realBms.value = it } }
             launch { cm.settingsState.collect { _realSettings.value = it } }
@@ -561,9 +583,21 @@ class WheelViewModel(
             cm.capabilities.collect { _capabilities.value = it }
         }
         collectionScope.launch {
+            var wasConnected = false
             cm.connectionState.collect { state ->
                 if (_dataSource.value == WheelDataSource.LIVE) {
                     _connectionState.value = state
+                }
+                val isConnected = state is ConnectionState.Connected
+                if (isConnected && !wasConnected) {
+                    _observedMaxKmhInSession.value = 0.0
+                }
+                wasConnected = isConnected
+                // Refresh per-wheel gauge top-speed override on connect / clear on disconnect
+                if (state is ConnectionState.Connected) {
+                    _topSpeedOverrideKmh.value = profileStore.getTopSpeedOverrideKmh(state.address)
+                } else if (state is ConnectionState.Disconnected) {
+                    _topSpeedOverrideKmh.value = null
                 }
                 // Auto-save profile when connected
                 if (state is ConnectionState.Connected) {

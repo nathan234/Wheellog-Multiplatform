@@ -6,16 +6,25 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Card
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
@@ -89,30 +98,28 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
             )
         }
     ) { contentPadding ->
-        if (sections.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(contentPadding)
-                    .padding(32.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    DashboardLabels.WHEEL_SETTINGS_EMPTY,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(contentPadding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                item { Spacer(Modifier.height(4.dp)) }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item { Spacer(Modifier.height(4.dp)) }
 
+            item("__gauge_override__") {
+                GaugeTopSpeedOverrideCard(viewModel)
+            }
+
+            if (sections.isEmpty()) {
+                item("__empty__") {
+                    Text(
+                        DashboardLabels.WHEEL_SETTINGS_EMPTY,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+            } else {
                 for (section in sections) {
                     item(key = section.title) {
                         SectionCard(
@@ -134,9 +141,9 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                         )
                     }
                 }
-
-                item { Spacer(Modifier.height(16.dp)) }
             }
+
+            item { Spacer(Modifier.height(16.dp)) }
         }
 
         // Confirmation dialog
@@ -153,5 +160,60 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
                 pendingAction = null
             }
         )
+    }
+}
+
+/**
+ * App-side per-wheel override for the speedometer gauge maximum (km/h). Wins over
+ * the catalog match and any auto-resolution. Empty / non-positive value clears the override.
+ */
+@Composable
+private fun GaugeTopSpeedOverrideCard(viewModel: WheelViewModel) {
+    val current by viewModel.topSpeedOverrideKmh.collectAsStateWithLifecycle()
+    var draft by remember(current) { mutableStateOf(current?.let { it.toInt().toString() } ?: "") }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Speedometer scale",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Override the gauge maximum for this wheel. Empty = use catalog / auto.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { v -> draft = v.filter { it.isDigit() }.take(3) },
+                    label = { Text("Top speed (km/h)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = {
+                        val kmh = draft.toIntOrNull()?.toDouble()?.takeIf { it > 0.0 }
+                        viewModel.setTopSpeedOverrideForCurrentWheel(kmh)
+                    },
+                    modifier = Modifier.padding(start = 8.dp),
+                ) { Text("Save") }
+                TextButton(
+                    onClick = {
+                        draft = ""
+                        viewModel.setTopSpeedOverrideForCurrentWheel(null)
+                    }
+                ) { Text("Reset") }
+            }
+        }
     }
 }

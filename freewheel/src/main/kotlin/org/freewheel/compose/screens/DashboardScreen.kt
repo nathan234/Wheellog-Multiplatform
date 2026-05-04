@@ -63,6 +63,8 @@ fun DashboardScreen(
     val gpsSpeed by viewModel.gpsSpeedKmh.collectAsStateWithLifecycle()
     val dashboardLayout by viewModel.dashboardLayout.collectAsStateWithLifecycle()
     val rangeEstimateKm by viewModel.rangeEstimateKm.collectAsStateWithLifecycle()
+    val topSpeedOverrideKmh by viewModel.topSpeedOverrideKmh.collectAsStateWithLifecycle()
+    val observedMaxKmh by viewModel.observedMaxKmhInSession.collectAsStateWithLifecycle()
     val dataSource by viewModel.dataSource.collectAsStateWithLifecycle()
     val replayState by viewModel.replayEngine.replayState.collectAsStateWithLifecycle()
     val replayPosition by viewModel.replayEngine.position.collectAsStateWithLifecycle()
@@ -151,6 +153,9 @@ fun DashboardScreen(
                 onDisconnect = { viewModel.disconnect() },
                 onEditDashboard = onNavigateToEditDashboard,
                 rangeEstimateKm = rangeEstimateKm,
+                topSpeedOverrideKmh = topSpeedOverrideKmh,
+                observedMaxKmh = observedMaxKmh,
+                appVersion = org.freewheel.BuildConfig.VERSION_NAME,
                 modifier = Modifier.weight(1f)
             )
 

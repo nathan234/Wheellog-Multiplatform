@@ -12,5 +12,10 @@ data class WheelProfile(
     /** WheelType enum name for icon/hint (e.g., "KINGSONG"), empty if unknown. */
     val wheelTypeName: String,
     /** Epoch millis of last successful connection, used for sorting. */
-    val lastConnectedMs: Long
+    val lastConnectedMs: Long,
+    /**
+     * User-set gauge top-speed override in km/h. When set (>0), this wins over the catalog
+     * lookup and any auto-estimate. `null` means "use the catalog/auto-estimate cascade".
+     */
+    val topSpeedOverrideKmh: Double? = null,
 )

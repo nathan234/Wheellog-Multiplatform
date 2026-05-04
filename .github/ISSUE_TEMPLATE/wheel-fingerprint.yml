@@ -1,0 +1,67 @@
+name: Wheel fingerprint
+description: Submit info about a wheel FreeWheel doesn't recognize so it can be added to the catalog.
+title: "Wheel fingerprint: "
+labels: ["wheel-fingerprint"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping grow the FreeWheel catalog. The app pre-fills this form
+        with the BLE name, decoded firmware/model, and observed peak speed for the
+        wheel you connected to. **Review the contents below and click Submit** —
+        nothing leaves your device until you do.
+
+  - type: input
+    id: wheel_type
+    attributes:
+      label: Wheel type
+      description: Detected manufacturer protocol (KINGSONG, GOTWAY, VETERAN, …)
+    validations:
+      required: true
+
+  - type: input
+    id: advertised_name
+    attributes:
+      label: Advertised BLE name
+      description: The name your wheel broadcasts over Bluetooth (e.g. `GotWay-COMMANDER-MAX`).
+
+  - type: input
+    id: decoded_model
+    attributes:
+      label: Decoded model
+      description: Model string the wheel reports to the decoder (may be empty for some wheels).
+
+  - type: input
+    id: firmware_version
+    attributes:
+      label: Firmware version
+      description: Firmware string from the wheel (often contains the model).
+
+  - type: input
+    id: brand_override
+    attributes:
+      label: Brand override
+      description: Firmware-derived brand (e.g. "Extreme Bull" for JN-prefix Begode firmware).
+
+  - type: input
+    id: observed_max_kmh
+    attributes:
+      label: Observed peak speed (km/h)
+      description: Highest speed recorded during this session — useful as a lower bound on capability.
+
+  - type: input
+    id: real_top_speed_kmh
+    attributes:
+      label: Stock top speed (km/h)
+      description: Manufacturer-stated top speed. Optional — leave blank if unsure.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Service UUIDs, serial number, anything you think will help identify this model.
+
+  - type: input
+    id: app_version
+    attributes:
+      label: FreeWheel version

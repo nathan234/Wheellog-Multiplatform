@@ -15,7 +15,6 @@ enum DiagnosticsBootstrap {
         let store = DiagnosticLogStore()
         store.configure(dirPath: dir.path, maxBytes: 5 * 1024 * 1024)
         Diagnostics.shared.doInit(store: store)
-        Diagnostics.shared.appLifecycle(type: "APP_LAUNCH")
     }
 
     /// `~/Library/Logs/` is the idiomatic iOS location for log files —

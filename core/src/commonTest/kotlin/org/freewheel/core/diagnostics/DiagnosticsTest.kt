@@ -40,21 +40,6 @@ class DiagnosticsTest {
         assertEquals("AA:BB:CC", redactMac("AA:BB:CC"))
     }
 
-    // ---- formatMacForDiagnostics with toggle ------------------------------
-
-    @Test
-    fun `formatMacForDiagnostics respects redact toggle`() {
-        val original = Diagnostics.redactMacAddresses
-        try {
-            Diagnostics.redactMacAddresses = true
-            assertEquals("AA:BB:CC:**:**:FF", formatMacForDiagnostics("AA:BB:CC:DD:EE:FF"))
-            Diagnostics.redactMacAddresses = false
-            assertEquals("AA:BB:CC:DD:EE:FF", formatMacForDiagnostics("AA:BB:CC:DD:EE:FF"))
-        } finally {
-            Diagnostics.redactMacAddresses = original
-        }
-    }
-
     // ---- DiagnosticEventEncoder ------------------------------------------
 
     @Test

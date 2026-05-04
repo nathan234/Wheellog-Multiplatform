@@ -22,6 +22,5 @@ class FreeWheel : Application() {
         val dir = File(getExternalFilesDir(null), "diagnostics")
         store.configure(dir.absolutePath)
         Diagnostics.init(store)
-        Diagnostics.appLifecycle("APP_LAUNCH")
     }
 }

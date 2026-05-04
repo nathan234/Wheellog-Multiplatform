@@ -18,7 +18,7 @@ import org.freewheel.core.logging.GpsLocation
 import org.freewheel.core.logging.LiveRouteBuffer
 import org.freewheel.core.logging.RideCsvEditor
 import org.freewheel.core.diagnostics.Diagnostics
-import org.freewheel.core.diagnostics.formatMacForDiagnostics
+import org.freewheel.core.diagnostics.redactMac
 import org.freewheel.core.logging.RideLogger
 import org.freewheel.core.logging.RoutePoint
 import org.freewheel.data.createRideReconciler
@@ -450,7 +450,7 @@ class WheelViewModel(
                     isLogging = false,
                     currentlyConnected = false,
                     lastWheelType = lastProfile?.wheelTypeName,
-                    lastWheelMacRedacted = formatMacForDiagnostics(lastProfile?.address),
+                    lastWheelMacRedacted = redactMac(lastProfile?.address),
                     currentLogFileBytes = activeLogBytes,
                 )
             } catch (e: Throwable) {

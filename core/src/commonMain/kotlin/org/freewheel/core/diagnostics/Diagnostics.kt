@@ -16,13 +16,6 @@ object Diagnostics {
 
     private var store: DiagnosticLogStore? = null
 
-    /**
-     * Debug toggle — when false, [formatMacForDiagnostics] returns the raw
-     * MAC instead of the redacted form. Default true. Off only in debug
-     * builds where you've explicitly opted in.
-     */
-    var redactMacAddresses: Boolean = true
-
     fun init(store: DiagnosticLogStore) {
         this.store = store
     }
@@ -114,21 +107,6 @@ object Diagnostics {
         log(event(DiagLevel.ERROR, DiagCategory.RIDE, "LOG_STOP_NO_METADATA", sessionId,
             message = "Stop returned null metadata — index not updated"))
 
-    fun connectionStateDuringLog(
-        sessionId: String?,
-        oldState: String,
-        newState: String,
-        level: DiagLevel = DiagLevel.INFO,
-        type: String = "CONN_STATE_CHANGE",
-        reason: String? = null,
-    ) = log(event(level, DiagCategory.CONNECTION, type, sessionId,
-        message = "Connection $oldState → $newState${reason?.let { " ($it)" } ?: ""}",
-        context = ctx(
-            "from" to JsonValue.of(oldState),
-            "to" to JsonValue.of(newState),
-            "reason" to JsonValue.of(reason),
-        )))
-
     fun recoveryPassStart() =
         log(event(DiagLevel.INFO, DiagCategory.RECOVERY, "RECOVERY_PASS_START", null,
             message = "Reconcile pass starting"))
@@ -186,14 +164,6 @@ object Diagnostics {
                 "fileName" to JsonValue.of(fileName),
                 "reason" to JsonValue.of(reason),
             )))
-
-    fun appLifecycle(type: String) =
-        log(event(DiagLevel.INFO, DiagCategory.SYSTEM, type, null,
-            message = type.lowercase().replace('_', ' ')))
-
-    fun locationPermissionDeniedDuringLog(sessionId: String?) =
-        log(event(DiagLevel.ERROR, DiagCategory.SYSTEM, "LOCATION_PERMISSION_DENIED_DURING_LOG", sessionId,
-            message = "GPS logging requested but location permission missing"))
 
     fun snapshot(
         ridesOnDisk: Int,

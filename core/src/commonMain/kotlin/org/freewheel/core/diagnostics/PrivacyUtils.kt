@@ -1,17 +1,8 @@
 package org.freewheel.core.diagnostics
 
 /**
- * Returns a MAC address formatted for inclusion in diagnostic events.
- * Honors the [Diagnostics.redactMacAddresses] toggle: when enabled (default),
- * delegates to [redactMac]; when disabled (debug builds, opt-in), returns
- * the raw value.
- */
-fun formatMacForDiagnostics(mac: String?): String? =
-    if (Diagnostics.redactMacAddresses) redactMac(mac) else mac
-
-/**
- * Pure redaction: keeps OUI (vendor) and last byte, masks the device-specific
- * middle bytes. Use this directly only when bypassing the global toggle.
+ * Returns a partially-redacted MAC address suitable for diagnostic logs.
+ * Keeps OUI (vendor) and last byte, masks the device-specific middle bytes.
  *
  * Examples:
  *   "AA:BB:CC:DD:EE:FF" → "AA:BB:CC:**:**:FF"

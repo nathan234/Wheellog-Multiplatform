@@ -51,7 +51,10 @@ class WheelProfileStore(private val store: KeyValueStore) {
         store.putString(profile.address + PreferenceKeys.SUFFIX_PROFILE_NAME, profile.displayName)
         store.putString(profile.address + PreferenceKeys.SUFFIX_WHEEL_TYPE, profile.wheelTypeName)
         store.putLong(profile.address + PreferenceKeys.SUFFIX_LAST_CONNECTED, profile.lastConnectedMs)
-        setTopSpeedOverrideKmh(profile.address, profile.topSpeedOverrideKmh)
+        // Null override means "leave any existing override alone" — auto-save-on-connect
+        // and similar non-override callers don't accidentally wipe it. Use [setTopSpeedOverrideKmh]
+        // with null to explicitly clear.
+        profile.topSpeedOverrideKmh?.let { setTopSpeedOverrideKmh(profile.address, it) }
     }
 
     fun deleteProfile(address: String) {

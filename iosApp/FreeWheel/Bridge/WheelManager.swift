@@ -335,7 +335,8 @@ class WheelManager: ObservableObject {
             address: address,
             displayName: displayName,
             wheelTypeName: wheelTypeName,
-            lastConnectedMs: Int64(Date().timeIntervalSince1970 * 1000)
+            lastConnectedMs: Int64(Date().timeIntervalSince1970 * 1000),
+            topSpeedOverrideKmh: nil
         ))
         refreshSavedAddresses()
     }

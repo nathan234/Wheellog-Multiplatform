@@ -125,6 +125,17 @@ class WheelProfileStoreTest {
     }
 
     @Test
+    fun saveProfileWithNullOverridePreservesExisting() {
+        val (store, _) = createStore()
+        // Start with an explicit override.
+        store.setTopSpeedOverrideKmh("X", 80.0)
+        // Auto-save-on-connect re-saves the basic profile fields, with null override.
+        store.saveProfile(WheelProfile("X", "Name", "GOTWAY", 200L, topSpeedOverrideKmh = null))
+        // The override must survive — saveProfile is non-destructive when override is null.
+        assertEquals(80.0, store.getTopSpeedOverrideKmh("X"))
+    }
+
+    @Test
     fun deleteProfileRemovesOverride() {
         val (store, _) = createStore()
         store.saveProfile(WheelProfile("X", "Name", "GOTWAY", 100L, topSpeedOverrideKmh = 75.0))

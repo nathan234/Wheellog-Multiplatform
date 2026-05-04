@@ -53,17 +53,10 @@ import kotlin.coroutines.resume
  *
  * ## Usage
  *
- * ### Standalone Mode (Recommended for new code)
  * ```
  * val bleManager = BleManager()
  * bleManager.initialize(context)
  * bleManager.connect(address)
- * ```
- *
- * ### Bridge Mode (For incremental migration)
- * ```
- * val bleManager = BleManager()
- * bleManager.setPeripheral(existingPeripheral)
  * ```
  */
 actual class BleManager : BleManagerPort {
@@ -290,14 +283,6 @@ actual class BleManager : BleManagerPort {
     }
 
     /**
-     * Initialize with an existing BluetoothCentralManager (bridge mode).
-     * Used by legacy BluetoothService path.
-     */
-    fun initialize(centralManager: BluetoothCentralManager) {
-        this.central = centralManager
-    }
-
-    /**
      * Set callback for when data is received from the wheel.
      */
     fun setDataReceivedCallback(callback: (ByteArray) -> Unit) {
@@ -324,33 +309,6 @@ actual class BleManager : BleManagerPort {
      */
     fun setServicesDiscoveredCallback(callback: (DiscoveredServices, String?) -> Unit) {
         onServicesDiscoveredCallback = callback
-    }
-
-    /**
-     * Bridge mode: Set an existing peripheral for use with legacy code.
-     */
-    fun setPeripheral(
-        peripheral: BluetoothPeripheral,
-        writeChar: BluetoothGattCharacteristic? = null,
-        readChar: BluetoothGattCharacteristic? = null
-    ) {
-        session = when (peripheral.state) {
-            BlessedConnectionState.CONNECTED -> BleSessionState.Connected(peripheral)
-            BlessedConnectionState.CONNECTING -> BleSessionState.Connecting(peripheral)
-            BlessedConnectionState.DISCONNECTING, BlessedConnectionState.DISCONNECTED -> BleSessionState.Idle
-        }
-        writeCharacteristic = writeChar
-        readCharacteristic = readChar
-
-        _connectionState.value = when (peripheral.state) {
-            BlessedConnectionState.CONNECTED -> ConnectionState.Connected(
-                address = peripheral.address,
-                wheelName = peripheral.name ?: "Unknown"
-            )
-            BlessedConnectionState.CONNECTING -> ConnectionState.Connecting(peripheral.address)
-            BlessedConnectionState.DISCONNECTING -> ConnectionState.Disconnected
-            BlessedConnectionState.DISCONNECTED -> ConnectionState.Disconnected
-        }
     }
 
     /**

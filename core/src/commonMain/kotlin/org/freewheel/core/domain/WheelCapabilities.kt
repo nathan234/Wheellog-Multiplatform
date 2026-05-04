@@ -16,9 +16,6 @@ data class CapabilitySet(
     /** Commands this wheel supports. */
     val supportedCommands: Set<SettingsCommandId> = emptySet(),
 
-    /** Per-command control replacements (e.g., different min/max for a Slider). */
-    val controlOverrides: Map<SettingsCommandId, ControlSpec> = emptyMap(),
-
     /** Human-readable model name as detected by the decoder. */
     val detectedModel: String = "",
 
@@ -46,7 +43,6 @@ data class CapabilitySet(
      */
     fun mergeWith(newer: CapabilitySet): CapabilitySet = CapabilitySet(
         supportedCommands = supportedCommands + newer.supportedCommands,
-        controlOverrides = controlOverrides + newer.controlOverrides,
         detectedModel = newer.detectedModel.ifEmpty { detectedModel },
         firmwareVersion = newer.firmwareVersion.ifEmpty { firmwareVersion },
         firmwareLevel = maxOf(firmwareLevel, newer.firmwareLevel),
@@ -66,13 +62,11 @@ typealias CapabilityMap = Map<SettingsCommandId, Int>
 fun CapabilityMap.resolveAt(
     firmwareLevel: Int,
     detectedModel: String = "",
-    firmwareVersion: String = "",
-    controlOverrides: Map<SettingsCommandId, ControlSpec> = emptyMap()
+    firmwareVersion: String = ""
 ): CapabilitySet {
     val supported = filterValues { minLevel -> firmwareLevel >= minLevel }.keys
     return CapabilitySet(
         supportedCommands = supported,
-        controlOverrides = controlOverrides,
         detectedModel = detectedModel,
         firmwareVersion = firmwareVersion,
         firmwareLevel = firmwareLevel,

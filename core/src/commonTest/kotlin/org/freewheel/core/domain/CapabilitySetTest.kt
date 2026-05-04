@@ -95,19 +95,6 @@ class CapabilitySetTest {
         assertEquals(5, old.mergeWith(newer).firmwareLevel)
     }
 
-    @Test
-    fun `mergeWith control overrides from newer win`() {
-        val override1 = ControlSpec.Slider("Speed", 10, 50, "km/h", 30, SettingsCommandId.MAX_SPEED)
-        val override2 = ControlSpec.Slider("Speed", 5, 80, "km/h", 40, SettingsCommandId.MAX_SPEED)
-
-        val old = CapabilitySet(controlOverrides = mapOf(SettingsCommandId.MAX_SPEED to override1))
-        val newer = CapabilitySet(controlOverrides = mapOf(SettingsCommandId.MAX_SPEED to override2))
-        val merged = old.mergeWith(newer)
-
-        val slider = merged.controlOverrides[SettingsCommandId.MAX_SPEED] as ControlSpec.Slider
-        assertEquals(80, slider.max) // newer override wins
-    }
-
     // ==================== CapabilityMap.resolveAt ====================
 
     @Test

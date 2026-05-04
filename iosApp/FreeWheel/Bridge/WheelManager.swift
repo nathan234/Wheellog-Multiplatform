@@ -316,6 +316,15 @@ class WheelManager: ObservableObject {
         customTabLayouts.removeValue(forKey: tabId)
     }
 
+    // MARK: - Settings Stores (KMP-backed)
+
+    // Substrate for migrating off the inline UserDefaults reads above, one group at a
+    // time. Alarm fields stay on the inline path: AppSettingId scopes them PER_WHEEL,
+    // but iOS has historically stored them under bare keys, and a scoped read here
+    // would silently lose existing users' values.
+    private let appSettingsStore = AppSettingsStore(store: UserDefaultsKeyValueStore(defaults: .standard))
+    private let decoderConfigStore = DecoderConfigStore(store: UserDefaultsKeyValueStore(defaults: .standard))
+
     // MARK: - Saved Wheel Profiles (KMP-backed)
 
     private let wheelProfileStore = WheelProfileStore(store: UserDefaultsKeyValueStore(defaults: .standard))
@@ -972,6 +981,10 @@ class WheelManager: ObservableObject {
         if case .connected(let address, _) = newState {
             lastConnectedAddress = address
             UserDefaults.standard.set(address, forKey: "FreeWheelLastPeripheralUUID")
+            // Dual-write: FreeWheelLastPeripheralUUID drives the iOS startup-scan path;
+            // last_mac is the per-wheel scoping anchor read by AppSettingsStore /
+            // DecoderConfigStore. Both keys must move together.
+            appSettingsStore.setLastMac(mac: address)
             // Auto-connect flags are cleared automatically by the shared AutoConnectManager
             // via its connection state observer
 
@@ -1074,22 +1087,25 @@ class WheelManager: ObservableObject {
 
     private func pushDecoderConfig() {
         guard let cm = connectionManager else { return }
+        // Per-wheel decoder tuning fields scope through last_mac (dual-written at
+        // connect/disconnect). useMph/useFahrenheit are global app settings and
+        // continue to come from the @Published properties above.
         let config = DecoderConfig(
             useMph: useMph,
             useFahrenheit: useFahrenheit,
-            useCustomPercents: false,
-            cellVoltageTiltback: 330,
-            rotationSpeed: 500,
-            rotationVoltage: 840,
-            powerFactor: 100,
-            batteryCapacity: 0,
-            wheelPassword: "",
-            gotwayNegative: 0,
-            useRatio: false,
-            gotwayVoltage: 0,
-            hwPwmEnabled: true,
-            ks18LScaler: false,
-            autoVoltage: true
+            useCustomPercents: decoderConfigStore.getCustomPercents(),
+            cellVoltageTiltback: Int32(decoderConfigStore.getCellVoltageTiltback()),
+            rotationSpeed: Int32(decoderConfigStore.getRotationSpeed()),
+            rotationVoltage: Int32(decoderConfigStore.getRotationVoltage()),
+            powerFactor: Int32(decoderConfigStore.getPowerFactor()),
+            batteryCapacity: Int32(decoderConfigStore.getBatteryCapacity()),
+            wheelPassword: decoderConfigStore.getWheelPassword(),
+            gotwayNegative: Int32(decoderConfigStore.getGotwayNegative()),
+            useRatio: decoderConfigStore.getUseRatio(),
+            gotwayVoltage: Int32(decoderConfigStore.getGotwayVoltage()),
+            hwPwmEnabled: decoderConfigStore.getHwPwm(),
+            ks18LScaler: decoderConfigStore.getKs18LScaler(),
+            autoVoltage: decoderConfigStore.getAutoVoltage()
         )
         WheelConnectionManagerHelper.shared.updateDecoderConfig(manager: cm, config: config)
     }
@@ -2050,6 +2066,7 @@ class WheelManager: ObservableObject {
             WheelConnectionManagerHelper.shared.stopAutoConnect(manager: acm)
         }
         UserDefaults.standard.removeObject(forKey: "FreeWheelLastPeripheralUUID")
+        appSettingsStore.setLastMac(mac: "")
 
         // Reset range estimate and auto-torch override
         startBattery = -1

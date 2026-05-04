@@ -16,6 +16,9 @@ import org.freewheel.core.domain.ChargerProfileStore
 import org.freewheel.core.domain.SharedPreferencesKeyValueStore
 import org.freewheel.core.domain.WheelProfile
 import org.freewheel.core.domain.WheelProfileStore
+import org.freewheel.core.location.ChargingStation
+import org.freewheel.core.location.ChargingStationRepository
+import org.freewheel.core.location.ChargingStationSource
 import org.freewheel.core.logging.BleCaptureLogger
 import org.freewheel.core.logging.RideLogger
 import org.freewheel.core.service.AutoConnectManager
@@ -70,7 +73,8 @@ class WheelViewModelAutoConnectTest {
             telemetryFileIO = PlatformTelemetryFileIO(),
             profileStore = WheelProfileStore(SharedPreferencesKeyValueStore(prefs)),
             chargerProfileStore = ChargerProfileStore(SharedPreferencesKeyValueStore(prefs)),
-            demoDataProvider = DemoDataProvider()
+            demoDataProvider = DemoDataProvider(),
+            chargingStationRepository = ChargingStationRepository(NoopChargingStationSource)
         )
 
         fakeCm = FakeWheelConnectionManager()
@@ -280,5 +284,9 @@ class WheelViewModelAutoConnectTest {
 
         // Profile should still be saved
         assertThat(viewModel.savedAddresses.value).contains("AA:BB:CC:DD:EE:FF")
+    }
+
+    private object NoopChargingStationSource : ChargingStationSource {
+        override suspend fun fetchNearby(latitude: Double, longitude: Double): List<ChargingStation> = emptyList()
     }
 }

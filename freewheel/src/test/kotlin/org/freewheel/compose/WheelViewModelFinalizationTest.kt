@@ -15,6 +15,9 @@ import org.freewheel.AppConfig
 import org.freewheel.core.domain.ChargerProfileStore
 import org.freewheel.core.domain.SharedPreferencesKeyValueStore
 import org.freewheel.core.domain.WheelProfileStore
+import org.freewheel.core.location.ChargingStation
+import org.freewheel.core.location.ChargingStationRepository
+import org.freewheel.core.location.ChargingStationSource
 import org.freewheel.core.logging.BleCaptureLogger
 import org.freewheel.core.logging.RideLogger
 import org.freewheel.core.service.DemoDataProvider
@@ -69,7 +72,8 @@ class WheelViewModelFinalizationTest {
             telemetryFileIO = PlatformTelemetryFileIO(),
             profileStore = WheelProfileStore(SharedPreferencesKeyValueStore(prefs)),
             chargerProfileStore = ChargerProfileStore(SharedPreferencesKeyValueStore(prefs)),
-            demoDataProvider = DemoDataProvider()
+            demoDataProvider = DemoDataProvider(),
+            chargingStationRepository = ChargingStationRepository(NoopChargingStationSource)
         )
 
         fakeCm = FakeWheelConnectionManager()
@@ -138,5 +142,9 @@ class WheelViewModelFinalizationTest {
         val ridesDir = File(app.getExternalFilesDir(null), "rides")
         ridesDir.mkdirs()
         viewModel.toggleLogging()
+    }
+
+    private object NoopChargingStationSource : ChargingStationSource {
+        override suspend fun fetchNearby(latitude: Double, longitude: Double): List<ChargingStation> = emptyList()
     }
 }

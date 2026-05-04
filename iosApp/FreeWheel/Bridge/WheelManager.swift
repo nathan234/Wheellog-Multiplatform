@@ -980,10 +980,7 @@ class WheelManager: ObservableObject {
         // Track connected address
         if case .connected(let address, _) = newState {
             lastConnectedAddress = address
-            UserDefaults.standard.set(address, forKey: "FreeWheelLastPeripheralUUID")
-            // Dual-write: FreeWheelLastPeripheralUUID drives the iOS startup-scan path;
-            // last_mac is the per-wheel scoping anchor read by AppSettingsStore /
-            // DecoderConfigStore. Both keys must move together.
+            // Per-wheel scoping anchor for AppSettingsStore / DecoderConfigStore.
             appSettingsStore.setLastMac(mac: address)
             // Auto-connect flags are cleared automatically by the shared AutoConnectManager
             // via its connection state observer
@@ -2065,7 +2062,6 @@ class WheelManager: ObservableObject {
         if let acm = autoConnectManager {
             WheelConnectionManagerHelper.shared.stopAutoConnect(manager: acm)
         }
-        UserDefaults.standard.removeObject(forKey: "FreeWheelLastPeripheralUUID")
         appSettingsStore.setLastMac(mac: "")
 
         // Reset range estimate and auto-torch override

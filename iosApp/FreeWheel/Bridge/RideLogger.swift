@@ -42,7 +42,7 @@ class RideLogger: ObservableObject {
         let now = Date()
         let currentTimeMs = Int64(now.timeIntervalSince1970 * 1000)
 
-        guard kmpLogger.start(filePath: filePath.path, withGps: includeGPS, currentTimeMs: currentTimeMs) else {
+        guard kmpLogger.start(filePath: filePath.path, withGps: includeGPS, currentTimeMs: currentTimeMs, wheelType: nil) else {
             return false
         }
 
@@ -104,7 +104,7 @@ class RideLogger: ObservableObject {
     /// Mark the ride as paused (e.g. on BLE disconnect).
     func pause() {
         let currentTimeMs = Int64(Date().timeIntervalSince1970 * 1000)
-        kmpLogger.pause(currentTimeMs: currentTimeMs)
+        kmpLogger.pause(currentTimeMs: currentTimeMs, reason: "external")
     }
 
     /// Resume a paused ride (e.g. on BLE reconnect).

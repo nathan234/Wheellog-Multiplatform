@@ -468,16 +468,6 @@ class WheelManager: ObservableObject {
     private var startupScanTarget: String?
 
     private func startupScan() {
-        // One-time migration: users who last connected before slice 1 of the
-        // AppConfig migration only have FreeWheelLastPeripheralUUID set, not
-        // last_mac. Copy across so they don't lose cold-launch auto-reconnect.
-        // Idempotent — no-op once last_mac is populated.
-        if appSettingsStore.getLastMac().isEmpty,
-           let legacy = UserDefaults.standard.string(forKey: "FreeWheelLastPeripheralUUID"),
-           !legacy.isEmpty {
-            appSettingsStore.setLastMac(mac: legacy)
-        }
-
         let storedUUID = appSettingsStore.getLastMac()
         guard !storedUUID.isEmpty else { return }
         guard bleManager != nil else { return }

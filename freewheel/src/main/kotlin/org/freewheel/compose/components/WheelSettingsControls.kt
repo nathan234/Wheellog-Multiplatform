@@ -129,7 +129,13 @@ internal fun ToggleControl(
     onBoolCommand: (SettingsCommandId, Boolean) -> Unit
 ) {
     val readback = control.commandId.readBool(wheelSettings)
-    val checked = toggleStates[control.commandId] ?: readback ?: false
+    val pending = toggleStates[control.commandId]
+    val effective = pending ?: readback
+    // Disable the switch until we have a real value (readback or local override).
+    // Without this, an unread toggle would render as "off" and let the user flip it
+    // to a state we can't actually confirm against the wheel.
+    val isKnown = effective != null
+    val checked = effective ?: false
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -139,6 +145,7 @@ internal fun ToggleControl(
         Text(control.label, style = MaterialTheme.typography.bodyLarge)
         Switch(
             checked = checked,
+            enabled = isKnown,
             onCheckedChange = { onBoolCommand(control.commandId, it) }
         )
     }

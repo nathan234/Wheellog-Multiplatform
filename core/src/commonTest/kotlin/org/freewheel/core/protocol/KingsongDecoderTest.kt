@@ -1438,7 +1438,7 @@ class KingsongDecoderTest {
         val result = decoder.decode(packet, defaultState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        assertTrue(decoded.assertSettings().mute, "Voice off flag 1 should set mute=true")
+        assertEquals(true, decoded.assertSettings().mute, "Voice off flag 1 should set mute=true")
     }
 
     @Test
@@ -1451,7 +1451,7 @@ class KingsongDecoderTest {
         val result = decoder.decode(packet, defaultState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        assertFalse(decoded.assertSettings().mute, "Voice off flag 0 should set mute=false")
+        assertEquals(false, decoded.assertSettings().mute, "Voice off flag 0 should set mute=false")
     }
 
     // ==================== New 0xF6 Fields Tests ====================
@@ -1576,7 +1576,7 @@ class KingsongDecoderTest {
         val result = decoder.decode(packet, defaultState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        assertTrue(decoded.assertSettings().handleButton, "Handle button should be true when lift sensor on")
+        assertEquals(true, decoded.assertSettings().handleButton, "Handle button should be true when lift sensor on")
     }
 
     @Test
@@ -1589,7 +1589,7 @@ class KingsongDecoderTest {
         val result = decoder.decode(packet, defaultState, defaultConfig)
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        assertFalse(decoded.assertSettings().handleButton, "Handle button should be false when lift sensor off")
+        assertEquals(false, decoded.assertSettings().handleButton, "Handle button should be false when lift sensor off")
     }
 
     @Test
@@ -1679,7 +1679,8 @@ class KingsongDecoderTest {
     @Test
     fun `buildCommand SetMute on`() {
         decoder.reset()
-        val commands = decoder.buildCommand(WheelCommand.SetMute(true))
+        val state = DecoderState(settings = WheelSettings.Kingsong(lightMode = 1))
+        val commands = decoder.buildCommand(WheelCommand.SetMute(true), state)
         assertTrue(commands.isNotEmpty())
         val frame = (commands[0] as WheelCommand.SendBytes).data
         assertEquals(0x01.toByte(), frame[3], "Mute=true should set byte[3]=1")
@@ -1710,12 +1711,10 @@ class KingsongDecoderTest {
     }
 
     @Test
-    fun `buildCommand SetMute defaults to light on without settings`() {
-        // With default DecoderState (no Kingsong settings), should default to 0x13 (on)
+    fun `buildCommand SetMute is dropped when light mode is unknown`() {
+        // Without a B9 readback, sending the command would clobber light state — drop it instead.
         val commands = decoder.buildCommand(WheelCommand.SetMute(true))
-        assertTrue(commands.isNotEmpty())
-        val frame = (commands[0] as WheelCommand.SendBytes).data
-        assertEquals(0x13.toByte(), frame[2], "Should default to light mode 0x13 (on)")
+        assertTrue(commands.isEmpty(), "SetMute should be dropped until light mode has been read")
     }
 
     @Test

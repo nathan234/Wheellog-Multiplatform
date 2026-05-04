@@ -443,7 +443,7 @@ class LeaperkimCanDecoderTest {
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        assertTrue(decoded.assertSettings().handleButton)
+        assertEquals(true, decoded.assertSettings().handleButton)
     }
 
     @Test
@@ -461,7 +461,7 @@ class LeaperkimCanDecoderTest {
 
         assertTrue(result is DecodeResult.Success)
         val decoded = (result as DecodeResult.Success).data
-        assertTrue(decoded.assertSettings().transportMode)
+        assertEquals(true, decoded.assertSettings().transportMode)
     }
 
     // ==================== Escape Handling ====================

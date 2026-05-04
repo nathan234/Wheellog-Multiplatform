@@ -2106,6 +2106,11 @@ enum ConnectionStateWrapper: Equatable {
         }
     }
 
+    var connectedAddress: String? {
+        if case .connected(let address, _) = self { return address }
+        return nil
+    }
+
     var failedAddress: String? {
         if case .failed(let address, _) = self { return address }
         return nil

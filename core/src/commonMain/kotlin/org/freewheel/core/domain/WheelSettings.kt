@@ -8,7 +8,7 @@ package org.freewheel.core.domain
  * Extension properties below provide uniform field access for [SettingsCommandId.readInt]
  * and [SettingsCommandId.readBool].
  *
- * Default value of -1 means "not yet read from wheel".
+ * "Unknown" (not yet read from wheel) is represented as -1 for ints and null for booleans.
  */
 sealed class WheelSettings {
     // Properties promoted to members for Kotlin/Native Swift visibility.
@@ -36,15 +36,15 @@ sealed class WheelSettings {
         val weakMagnetism: Int = -1,
         val extendedRollAngle: Int = -1,
         val powerAlarm: Int = -1,
-        val plateProtection: Boolean = false
+        val plateProtection: Boolean? = null
     ) : WheelSettings()
 
     data class Kingsong(
         override val pedalsMode: Int = -1,
         override val lightMode: Int = -1,
         override val ledMode: Int = -1,
-        val mute: Boolean = false,
-        val handleButton: Boolean = false,
+        val mute: Boolean? = null,
+        val handleButton: Boolean? = null,
         val ksAlarm1Speed: Int = -1,
         val ksAlarm2Speed: Int = -1,
         val ksAlarm3Speed: Int = -1,
@@ -60,10 +60,10 @@ sealed class WheelSettings {
         override val alertSpeed: Int = 0,
         override val autoOffTime: Int = 0,
         val lockState: Int = -1,
-        val highSpeedMode: Boolean = false,
-        val lowVoltageMode: Boolean = false,
+        val highSpeedMode: Boolean? = null,
+        val lowVoltageMode: Boolean? = null,
         val voltageCorrection: Int = -1,
-        val transportMode: Boolean = false,
+        val transportMode: Boolean? = null,
         val keyTone: Int = -1,
         val pedalSensitivity: Int = -1,
         val stopSpeed: Int = -1,
@@ -85,10 +85,10 @@ sealed class WheelSettings {
         val pedalTilt: Int = -1,
         override val lightMode: Int = -1,
         val pedalSensitivity: Int = -1,
-        val rideMode: Boolean = false,
-        val handleButton: Boolean = false,
+        val rideMode: Boolean? = null,
+        val handleButton: Boolean? = null,
         override val ledMode: Int = -1,
-        val transportMode: Boolean = false
+        val transportMode: Boolean? = null
     ) : WheelSettings()
 
     data class InMotionV2(
@@ -96,40 +96,40 @@ sealed class WheelSettings {
         val maxSpeed: Int = -1,
         val pedalTilt: Int = -1,
         val pedalSensitivity: Int = -1,
-        val rideMode: Boolean = false,
-        val fancierMode: Boolean = false,
+        val rideMode: Boolean? = null,
+        val fancierMode: Boolean? = null,
         val speakerVolume: Int = -1,
-        val mute: Boolean = false,
-        val handleButton: Boolean = false,
-        val drl: Boolean = false,
+        val mute: Boolean? = null,
+        val handleButton: Boolean? = null,
+        val drl: Boolean? = null,
         val lightBrightness: Int = -1,
-        val transportMode: Boolean = false,
-        val goHomeMode: Boolean = false,
-        val fanQuiet: Boolean = false,
+        val transportMode: Boolean? = null,
+        val goHomeMode: Boolean? = null,
+        val fanQuiet: Boolean? = null,
         override val lightMode: Int = -1,
         override val ledMode: Int = -1,
         val cutoutAngle: Int = -1,
-        val bermAngleMode: Boolean = false,
+        val bermAngleMode: Boolean? = null,
         val bermAngle: Int = -1,
         val turningSensitivity: Int = -1,
-        val onePedalMode: Boolean = false,
-        val speedingBrakingMode: Boolean = false,
+        val onePedalMode: Boolean? = null,
+        val speedingBrakingMode: Boolean? = null,
         val speedingBrakingAngle: Int = -1,
-        val soundWave: Boolean = false,
+        val soundWave: Boolean? = null,
         val soundWaveSensitivity: Int = -1,
-        val safeSpeedLimit: Boolean = false,
-        val backwardOverspeedAlert: Boolean = false,
+        val safeSpeedLimit: Boolean? = null,
+        val backwardOverspeedAlert: Boolean? = null,
         val tailLightMode: Int = -1,
         val turnSignalMode: Int = -1,
         val logoLightBrightness: Int = -1,
-        val autoHeadlight: Boolean = false,
-        val lightEffect: Boolean = false,
+        val autoHeadlight: Boolean? = null,
+        val lightEffect: Boolean? = null,
         val lightEffectMode: Int = -1,
-        val twoBatteryMode: Boolean = false,
-        val lowBatterySafeMode: Boolean = false,
-        val spinKill: Boolean = false,
-        val cruise: Boolean = false,
-        val loadDetect: Boolean = false,
+        val twoBatteryMode: Boolean? = null,
+        val lowBatterySafeMode: Boolean? = null,
+        val spinKill: Boolean? = null,
+        val cruise: Boolean? = null,
+        val loadDetect: Boolean? = null,
         val standbyTime: Int = -1,
         val chargeLimit: Int = -1,
         val speedAlarm: Int = -1,
@@ -138,12 +138,12 @@ sealed class WheelSettings {
         val pwmAlarm2: Int = -1,
         val balanceAngle: Int = -1,
         // P6-specific settings
-        val autoScreenOff: Boolean = false,
-        val autoLock: Boolean = false,
-        val ignoreTirePressure: Boolean = false,
-        val rideConnectSwitch: Boolean = false,
-        val rideConnectLowBattery: Boolean = false,
-        val speedTiltbackEnabled: Boolean = false,
+        val autoScreenOff: Boolean? = null,
+        val autoLock: Boolean? = null,
+        val ignoreTirePressure: Boolean? = null,
+        val rideConnectSwitch: Boolean? = null,
+        val rideConnectLowBattery: Boolean? = null,
+        val speedTiltbackEnabled: Boolean? = null,
         val minTirePressure: Int = -1,
         val chargingCurrentAC110V: Int = -1,
         val chargingCurrentAC220V: Int = -1,
@@ -161,9 +161,9 @@ sealed class WheelSettings {
 
     data class NinebotZ(
         override val lightMode: Int = -1,
-        val drl: Boolean = false,
+        val drl: Boolean? = null,
         override val ledMode: Int = -1,
-        val handleButton: Boolean = false,
+        val handleButton: Boolean? = null,
         override val pedalsMode: Int = -1,
         val pedalSensitivity: Int = -1,
         val speakerVolume: Int = -1
@@ -259,81 +259,86 @@ val WheelSettings.chargeVoltageBase: Int get() = (this as? WheelSettings.Veteran
 val WheelSettings.batteryTempMode: Int get() = (this as? WheelSettings.Veteran)?.batteryTempMode ?: 0
 
 // --- Boolean fields ---
+//
+// All readback boolean fields return Boolean?, with null = "not yet read from wheel".
+// Wheel types that don't have the field also return null. Callers must distinguish
+// null (unknown) from false (explicitly off) — collapsing to false hides startup state
+// and breaks visibleWhen gating.
 
-val WheelSettings.plateProtection: Boolean get() = (this as? WheelSettings.Begode)?.plateProtection ?: false
+val WheelSettings.plateProtection: Boolean? get() = (this as? WheelSettings.Begode)?.plateProtection
 
-val WheelSettings.rideMode: Boolean get() = when (this) {
+val WheelSettings.rideMode: Boolean? get() = when (this) {
     is WheelSettings.LeaperkimCan -> rideMode
     is WheelSettings.InMotionV2 -> rideMode
     is WheelSettings.Begode, is WheelSettings.Kingsong, is WheelSettings.Veteran,
     is WheelSettings.InMotionV1, is WheelSettings.Ninebot, is WheelSettings.NinebotZ,
-    is WheelSettings.None -> false
+    is WheelSettings.None -> null
 }
 
-val WheelSettings.fancierMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.fancierMode ?: false
+val WheelSettings.fancierMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.fancierMode
 
-val WheelSettings.mute: Boolean get() = when (this) {
+val WheelSettings.mute: Boolean? get() = when (this) {
     is WheelSettings.Kingsong -> mute
     is WheelSettings.InMotionV2 -> mute
     is WheelSettings.Begode, is WheelSettings.Veteran, is WheelSettings.LeaperkimCan,
     is WheelSettings.InMotionV1, is WheelSettings.Ninebot, is WheelSettings.NinebotZ,
-    is WheelSettings.None -> false
+    is WheelSettings.None -> null
 }
 
-val WheelSettings.handleButton: Boolean get() = when (this) {
+val WheelSettings.handleButton: Boolean? get() = when (this) {
     is WheelSettings.Kingsong -> handleButton
     is WheelSettings.LeaperkimCan -> handleButton
     is WheelSettings.InMotionV2 -> handleButton
     is WheelSettings.NinebotZ -> handleButton
     is WheelSettings.Begode, is WheelSettings.Veteran, is WheelSettings.InMotionV1,
-    is WheelSettings.Ninebot, is WheelSettings.None -> false
+    is WheelSettings.Ninebot, is WheelSettings.None -> null
 }
 
-val WheelSettings.drl: Boolean get() = when (this) {
+val WheelSettings.drl: Boolean? get() = when (this) {
     is WheelSettings.InMotionV2 -> drl
     is WheelSettings.NinebotZ -> drl
     is WheelSettings.Begode, is WheelSettings.Kingsong, is WheelSettings.Veteran,
     is WheelSettings.LeaperkimCan, is WheelSettings.InMotionV1,
-    is WheelSettings.Ninebot, is WheelSettings.None -> false
+    is WheelSettings.Ninebot, is WheelSettings.None -> null
 }
 
-val WheelSettings.transportMode: Boolean get() = when (this) {
+val WheelSettings.transportMode: Boolean? get() = when (this) {
     is WheelSettings.Veteran -> transportMode
     is WheelSettings.LeaperkimCan -> transportMode
     is WheelSettings.InMotionV2 -> transportMode
     is WheelSettings.Begode, is WheelSettings.Kingsong, is WheelSettings.InMotionV1,
-    is WheelSettings.Ninebot, is WheelSettings.NinebotZ, is WheelSettings.None -> false
+    is WheelSettings.Ninebot, is WheelSettings.NinebotZ, is WheelSettings.None -> null
 }
 
-val WheelSettings.goHomeMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.goHomeMode ?: false
-val WheelSettings.fanQuiet: Boolean get() = (this as? WheelSettings.InMotionV2)?.fanQuiet ?: false
-val WheelSettings.bermAngleMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.bermAngleMode ?: false
-val WheelSettings.onePedalMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.onePedalMode ?: false
-val WheelSettings.speedingBrakingMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.speedingBrakingMode ?: false
-val WheelSettings.soundWave: Boolean get() = (this as? WheelSettings.InMotionV2)?.soundWave ?: false
-val WheelSettings.safeSpeedLimit: Boolean get() = (this as? WheelSettings.InMotionV2)?.safeSpeedLimit ?: false
-val WheelSettings.backwardOverspeedAlert: Boolean get() = (this as? WheelSettings.InMotionV2)?.backwardOverspeedAlert ?: false
-val WheelSettings.autoHeadlight: Boolean get() = (this as? WheelSettings.InMotionV2)?.autoHeadlight ?: false
-val WheelSettings.lightEffect: Boolean get() = (this as? WheelSettings.InMotionV2)?.lightEffect ?: false
-val WheelSettings.twoBatteryMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.twoBatteryMode ?: false
-val WheelSettings.lowBatterySafeMode: Boolean get() = (this as? WheelSettings.InMotionV2)?.lowBatterySafeMode ?: false
-val WheelSettings.spinKill: Boolean get() = (this as? WheelSettings.InMotionV2)?.spinKill ?: false
-val WheelSettings.cruise: Boolean get() = (this as? WheelSettings.InMotionV2)?.cruise ?: false
-val WheelSettings.loadDetect: Boolean get() = (this as? WheelSettings.InMotionV2)?.loadDetect ?: false
-val WheelSettings.highSpeedMode: Boolean get() = (this as? WheelSettings.Veteran)?.highSpeedMode ?: false
-val WheelSettings.lowVoltageMode: Boolean get() = (this as? WheelSettings.Veteran)?.lowVoltageMode ?: false
+val WheelSettings.goHomeMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.goHomeMode
+val WheelSettings.fanQuiet: Boolean? get() = (this as? WheelSettings.InMotionV2)?.fanQuiet
+val WheelSettings.bermAngleMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.bermAngleMode
+val WheelSettings.onePedalMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.onePedalMode
+val WheelSettings.speedingBrakingMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.speedingBrakingMode
+val WheelSettings.soundWave: Boolean? get() = (this as? WheelSettings.InMotionV2)?.soundWave
+val WheelSettings.safeSpeedLimit: Boolean? get() = (this as? WheelSettings.InMotionV2)?.safeSpeedLimit
+val WheelSettings.backwardOverspeedAlert: Boolean? get() = (this as? WheelSettings.InMotionV2)?.backwardOverspeedAlert
+val WheelSettings.autoHeadlight: Boolean? get() = (this as? WheelSettings.InMotionV2)?.autoHeadlight
+val WheelSettings.lightEffect: Boolean? get() = (this as? WheelSettings.InMotionV2)?.lightEffect
+val WheelSettings.twoBatteryMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.twoBatteryMode
+val WheelSettings.lowBatterySafeMode: Boolean? get() = (this as? WheelSettings.InMotionV2)?.lowBatterySafeMode
+val WheelSettings.spinKill: Boolean? get() = (this as? WheelSettings.InMotionV2)?.spinKill
+val WheelSettings.cruise: Boolean? get() = (this as? WheelSettings.InMotionV2)?.cruise
+val WheelSettings.loadDetect: Boolean? get() = (this as? WheelSettings.InMotionV2)?.loadDetect
+val WheelSettings.highSpeedMode: Boolean? get() = (this as? WheelSettings.Veteran)?.highSpeedMode
+val WheelSettings.lowVoltageMode: Boolean? get() = (this as? WheelSettings.Veteran)?.lowVoltageMode
 
 // P6-specific boolean fields
-val WheelSettings.autoScreenOff: Boolean get() = (this as? WheelSettings.InMotionV2)?.autoScreenOff ?: false
-val WheelSettings.autoLock: Boolean get() = (this as? WheelSettings.InMotionV2)?.autoLock ?: false
-val WheelSettings.ignoreTirePressure: Boolean get() = (this as? WheelSettings.InMotionV2)?.ignoreTirePressure ?: false
-val WheelSettings.rideConnectSwitch: Boolean get() = (this as? WheelSettings.InMotionV2)?.rideConnectSwitch ?: false
-val WheelSettings.rideConnectLowBattery: Boolean get() = (this as? WheelSettings.InMotionV2)?.rideConnectLowBattery ?: false
+val WheelSettings.autoScreenOff: Boolean? get() = (this as? WheelSettings.InMotionV2)?.autoScreenOff
+val WheelSettings.autoLock: Boolean? get() = (this as? WheelSettings.InMotionV2)?.autoLock
+val WheelSettings.ignoreTirePressure: Boolean? get() = (this as? WheelSettings.InMotionV2)?.ignoreTirePressure
+val WheelSettings.rideConnectSwitch: Boolean? get() = (this as? WheelSettings.InMotionV2)?.rideConnectSwitch
+val WheelSettings.rideConnectLowBattery: Boolean? get() = (this as? WheelSettings.InMotionV2)?.rideConnectLowBattery
 
 // P6-specific int fields
 val WheelSettings.minTirePressure: Int get() = (this as? WheelSettings.InMotionV2)?.minTirePressure ?: -1
 val WheelSettings.chargingCurrentAC110V: Int get() = (this as? WheelSettings.InMotionV2)?.chargingCurrentAC110V ?: -1
 val WheelSettings.chargingCurrentAC220V: Int get() = (this as? WheelSettings.InMotionV2)?.chargingCurrentAC220V ?: -1
 val WheelSettings.balanceAngle: Int get() = (this as? WheelSettings.InMotionV2)?.balanceAngle ?: -1
-val WheelSettings.speedTiltbackEnabled: Boolean get() = (this as? WheelSettings.InMotionV2)?.speedTiltbackEnabled ?: false
+val WheelSettings.speedTiltbackEnabled: Boolean? get() = (this as? WheelSettings.InMotionV2)?.speedTiltbackEnabled
 val WheelSettings.speedAlarm: Int get() = (this as? WheelSettings.InMotionV2)?.speedAlarm ?: -1

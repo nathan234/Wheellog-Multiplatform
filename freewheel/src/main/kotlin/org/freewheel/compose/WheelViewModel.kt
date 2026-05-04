@@ -949,13 +949,17 @@ class WheelViewModel(
     }
 
     // --- Slider persistence for write-only commands ---
+    // Keys are scoped to the currently-connected wheel's MAC. With no wheel connected
+    // there is no fallback to read or write — that would mean leaking values across wheels.
 
     fun saveSliderValue(commandId: SettingsCommandId, value: Int) {
-        prefs.edit().putInt("${PreferenceKeys.WHEEL_SLIDER_PREFIX}${commandId.name}", value).apply()
+        val mac = macPrefix.takeIf { it.isNotBlank() } ?: return
+        prefs.edit().putInt(PreferenceKeys.wheelSliderKey(mac, commandId.name), value).apply()
     }
 
     fun loadSliderValue(commandId: SettingsCommandId): Int? {
-        val key = "${PreferenceKeys.WHEEL_SLIDER_PREFIX}${commandId.name}"
+        val mac = macPrefix.takeIf { it.isNotBlank() } ?: return null
+        val key = PreferenceKeys.wheelSliderKey(mac, commandId.name)
         return if (prefs.contains(key)) prefs.getInt(key, 0) else null
     }
 

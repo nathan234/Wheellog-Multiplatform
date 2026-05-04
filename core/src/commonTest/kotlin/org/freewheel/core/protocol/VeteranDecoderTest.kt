@@ -1288,7 +1288,7 @@ class VeteranDecoderTest {
             frame[57] = 1.toByte()
         }
         assertTrue(result is DecodeResult.Success)
-        assertTrue((result as DecodeResult.Success).data.assertSettings().transportMode)
+        assertEquals(true, (result as DecodeResult.Success).data.assertSettings().transportMode)
     }
 
     @Test
@@ -1297,7 +1297,7 @@ class VeteranDecoderTest {
             frame[61] = 1.toByte()
         }
         assertTrue(result is DecodeResult.Success)
-        assertTrue((result as DecodeResult.Success).data.assertSettings().highSpeedMode)
+        assertEquals(true, (result as DecodeResult.Success).data.assertSettings().highSpeedMode)
     }
 
     @Test
@@ -1306,7 +1306,7 @@ class VeteranDecoderTest {
             frame[60] = 1.toByte()
         }
         assertTrue(result is DecodeResult.Success)
-        assertTrue((result as DecodeResult.Success).data.assertSettings().lowVoltageMode)
+        assertEquals(true, (result as DecodeResult.Success).data.assertSettings().lowVoltageMode)
     }
 
     @Test
@@ -1329,12 +1329,12 @@ class VeteranDecoderTest {
 
     @Test
     fun `sub-type 8 ignores unsupported fields (0x80)`() {
-        // 0x80 means "not supported" — should not change defaults
+        // 0x80 means "not supported" — should not change the field, leaving it as the unread/null default
         val result = decodeExtendedFrame(subType = 8) { frame ->
             frame[57] = 0x80.toByte() // transport mode = not supported
         }
         assertTrue(result is DecodeResult.Success)
-        assertFalse((result as DecodeResult.Success).data.assertSettings().transportMode, "0x80 should be treated as unsupported, keeping default false")
+        assertNull((result as DecodeResult.Success).data.assertSettings().transportMode, "0x80 should leave transport mode unread (null)")
     }
 
     @Test

@@ -9,6 +9,7 @@ import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
 import org.freewheel.core.domain.WheelType
+import org.freewheel.core.domain.chargingCurrentAC110V
 import org.freewheel.core.protocol.DecodeResult
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.DecoderState
@@ -468,7 +469,11 @@ class WheelConnectionManager(
             SettingsCommandId.SCREEN_AUTO_OFF -> sendCommand(WheelCommand.SetScreenAutoOff(boolValue))
             SettingsCommandId.BALANCE_ANGLE -> sendCommand(WheelCommand.SetBalanceAngle(intValue))
             SettingsCommandId.AUTO_LOCK -> sendCommand(WheelCommand.SetAutoLock(boolValue))
-            SettingsCommandId.CHARGING_CURRENT -> sendCommand(WheelCommand.SetChargingCurrent(intValue, intValue))
+            SettingsCommandId.CHARGING_CURRENT -> {
+                // Slider exposes AC220V only; preserve AC110V from current state to avoid clobbering it.
+                val ac110v = _wcmState.value.settings.chargingCurrentAC110V
+                if (ac110v >= 0) sendCommand(WheelCommand.SetChargingCurrent(intValue, ac110v))
+            }
             SettingsCommandId.IGNORE_TIRE_PRESSURE -> sendCommand(WheelCommand.SetIgnoreTirePressure(boolValue))
             SettingsCommandId.MIN_TIRE_PRESSURE -> sendCommand(WheelCommand.SetMinTirePressure(intValue and 0xFF, (intValue shr 8) and 0xFF))
             SettingsCommandId.RIDE_CONNECT_SWITCH -> sendCommand(WheelCommand.SetRideConnectSwitch(boolValue))

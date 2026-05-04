@@ -917,14 +917,16 @@ class KingsongDecoder : WheelDecoder {
                 emptyList()
             }
             is WheelCommand.SetMute -> {
-                // Voice on/off via 0x73: byte[2]=light mode (preserve), byte[3]=mute flag
-                // Light mode comes from the immutable state snapshot, not mutable decoder fields
+                // Voice on/off via 0x73: byte[2]=light mode (preserve), byte[3]=mute flag.
+                // The protocol overloads one command for both light and mute, so we must echo
+                // the current light mode. If we haven't received a B9 frame yet, drop the command
+                // rather than guess — guessing 0x13 here would silently turn the headlight on.
                 val ks = state?.settings as? WheelSettings.Kingsong
                 val rawLightMode = when (ks?.lightMode) {
                     0 -> 0x12  // off
                     1 -> 0x13  // on
                     2 -> 0x14  // auto
-                    else -> 0x13  // default: on (before first B9 frame)
+                    else -> return emptyList()  // light mode unknown — wait for readback
                 }
                 val data = getEmptyRequest()
                 data[2] = rawLightMode.toByte()

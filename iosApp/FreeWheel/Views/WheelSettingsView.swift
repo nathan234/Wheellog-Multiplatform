@@ -79,13 +79,18 @@ struct WheelSettingsContent: View {
     private func renderToggle(_ control: ControlSpec.Toggle) -> some View {
         let key = control.commandId.name
         let readback = readBool(control.commandId)
+        let effective = toggleStates[key] ?? readback
+        // Disable the toggle until we have a real value — flipping an unread toggle
+        // would commit a state we can't reconcile against the wheel.
+        let isKnown = effective != nil
         Toggle(control.label, isOn: Binding(
-            get: { toggleStates[key] ?? readback ?? false },
+            get: { effective ?? false },
             set: { newValue in
                 toggleStates[key] = newValue
                 executeCommand(control.commandId, boolValue: newValue)
             }
         ))
+        .disabled(!isKnown)
     }
 
     @ViewBuilder
@@ -148,9 +153,17 @@ struct WheelSettingsContent: View {
     private func sliderContent(_ control: ControlSpec.Slider) -> some View {
         let key = control.commandId.name
         let readback = readInt(control.commandId)
-        let persistKey = PreferenceKeys.shared.WHEEL_SLIDER_PREFIX + key
-        let persisted: Double? = UserDefaults.standard.object(forKey: persistKey) != nil
-            ? UserDefaults.standard.double(forKey: persistKey) : nil
+        // Slider fallback cache is scoped to the connected wheel's MAC. Without a connection
+        // there is no persisted fallback — using a global key would let one wheel's last value
+        // bleed into another wheel's UI.
+        let persistKey: String? = wheelManager.connectionState.connectedAddress.map {
+            PreferenceKeys.shared.wheelSliderKey(mac: $0, commandName: key)
+        }
+        let persisted: Double? = persistKey.flatMap { pk in
+            UserDefaults.standard.object(forKey: pk) != nil
+                ? UserDefaults.standard.double(forKey: pk)
+                : nil
+        }
         let initial = readback.map { Double($0) } ?? persisted ?? Double(control.defaultValue)
         let useMph = wheelManager.useMph
 
@@ -170,7 +183,9 @@ struct WheelSettingsContent: View {
             useMph: useMph,
             onEditingChanged: { editing in
                 if !editing, let value = sliderValues[key] {
-                    UserDefaults.standard.set(value, forKey: persistKey)
+                    if let pk = persistKey {
+                        UserDefaults.standard.set(value, forKey: pk)
+                    }
                     executeCommand(control.commandId, intValue: Int32(value))
                     // Clear local override so readback from wheel takes precedence.
                     // The persisted value serves as fallback until readback arrives.

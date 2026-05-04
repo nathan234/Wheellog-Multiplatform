@@ -8,6 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -814,8 +815,8 @@ class InMotionV2DecoderTest {
         // data[3..4] = C8 00 → LE signed short = 0x00C8 = 200 → /10 = 20 (1/10°, i.e. 2.0°)
         assertEquals(20, settings2.pedalTilt, "Pedal tilt should be 20 (2.0 degrees)")
         // data[5] = 0x10: low nibble = 0 (driveMode=false), high nibble = 1 (fancier=true)
-        assertFalse(settings2.rideMode, "Ride mode should be false (classic)")
-        assertTrue(settings2.fancierMode, "Fancier mode should be true")
+        assertEquals(false, settings2.rideMode, "Ride mode should be false (classic)")
+        assertEquals(true, settings2.fancierMode, "Fancier mode should be true")
         // classSens (data[7]=100) used since fancier high nibble != 0
         assertEquals(100, settings2.pedalSensitivity, "Pedal sensitivity should be 100")
         // data[8] = 0x14 = 20
@@ -823,16 +824,16 @@ class InMotionV2DecoderTest {
         // data[18] = 0x64 = 100
         assertEquals(100, settings2.lightBrightness, "Light brightness should be 100")
         // data[21] = 0x15 = 0b00010101: bits 0-1=1 (audioState=1 → mute=false)
-        assertFalse(settings2.mute, "Mute should be false")
+        assertEquals(false, settings2.mute, "Mute should be false")
         // bits 2-3=1 (decorState=1 → drl=true)
-        assertTrue(settings2.drl, "DRL should be true")
+        assertEquals(true, settings2.drl, "DRL should be true")
         // bits 4-5=1 (liftedState=1 → handleButton=(1==0)=false)
-        assertFalse(settings2.handleButton, "Handle button should be false")
+        assertEquals(false, settings2.handleButton, "Handle button should be false")
         // data[22] = 0x00: bits 4-5=0 → transport=false
-        assertFalse(settings2.transportMode, "Transport mode should be false")
+        assertEquals(false, settings2.transportMode, "Transport mode should be false")
         // data[23] = 0x10 = 0b00010000: bits 2-3=0 → goHome=false, bits 4-5=1 → fanQuiet=true
-        assertFalse(settings2.goHomeMode, "Go home mode should be false")
-        assertTrue(settings2.fanQuiet, "Fan quiet should be true")
+        assertEquals(false, settings2.goHomeMode, "Go home mode should be false")
+        assertEquals(true, settings2.fanQuiet, "Fan quiet should be true")
     }
 
     @Test
@@ -873,15 +874,15 @@ class InMotionV2DecoderTest {
 
         assertEquals(70, settings2.maxSpeed, "Max speed should be 70 km/h")
         assertEquals(-1, settings2.pedalTilt, "Pedal tilt should be -1 (wire -10 / 10)")
-        assertTrue(settings2.rideMode, "Ride mode should be true (offroad)")
-        assertTrue(settings2.fancierMode, "Fancier mode should be true")
+        assertEquals(true, settings2.rideMode, "Ride mode should be true (offroad)")
+        assertEquals(true, settings2.fancierMode, "Fancier mode should be true")
         assertEquals(80, settings2.pedalSensitivity, "Sensitivity should be 80 (classSens since offroad)")
-        assertFalse(settings2.mute, "Mute should be false")
-        assertTrue(settings2.drl, "DRL should be true")
-        assertTrue(settings2.transportMode, "Transport mode should be true")
-        // V13 does not parse handleButton or goHomeMode
-        assertFalse(settings2.handleButton, "Handle button should be default false for V13")
-        assertFalse(settings2.goHomeMode, "Go home mode should be default false for V13")
+        assertEquals(false, settings2.mute, "Mute should be false")
+        assertEquals(true, settings2.drl, "DRL should be true")
+        assertEquals(true, settings2.transportMode, "Transport mode should be true")
+        // V13 does not parse handleButton or goHomeMode — they stay unread
+        assertNull(settings2.handleButton, "Handle button is not in V13 settings frame, should be unread (null)")
+        assertNull(settings2.goHomeMode, "Go home mode is not in V13 settings frame, should be unread (null)")
     }
 
     @Test
@@ -924,14 +925,14 @@ class InMotionV2DecoderTest {
 
         assertEquals(60, settings2.maxSpeed, "Max speed should be 60 km/h")
         assertEquals(0, settings2.pedalTilt, "Pedal tilt should be 0 (wire 5 / 10)")
-        assertFalse(settings2.rideMode, "Ride mode should be false (classic)")
-        assertFalse(settings2.fancierMode, "Fancier mode should be false")
+        assertEquals(false, settings2.rideMode, "Ride mode should be false (classic)")
+        assertEquals(false, settings2.fancierMode, "Fancier mode should be false")
         assertEquals(40, settings2.pedalSensitivity, "Sensitivity should be 40 (comfSens since classic)")
-        assertTrue(settings2.mute, "Mute should be true (bit 0=0)")
-        assertFalse(settings2.drl, "DRL should be false")
-        assertTrue(settings2.handleButton, "Handle button should be true (bit 4=0, inverted)")
-        assertFalse(settings2.transportMode, "Transport mode should be false")
-        assertTrue(settings2.goHomeMode, "Go home mode should be true")
+        assertEquals(true, settings2.mute, "Mute should be true (bit 0=0)")
+        assertEquals(false, settings2.drl, "DRL should be false")
+        assertEquals(true, settings2.handleButton, "Handle button should be true (bit 4=0, inverted)")
+        assertEquals(false, settings2.transportMode, "Transport mode should be false")
+        assertEquals(true, settings2.goHomeMode, "Go home mode should be true")
     }
 
     @Test
@@ -972,13 +973,13 @@ class InMotionV2DecoderTest {
 
         assertEquals(50, settings2.maxSpeed, "Max speed should be 50 km/h")
         assertEquals(1, settings2.pedalTilt, "Pedal tilt should be 1 (wire 15 / 10)")
-        assertFalse(settings2.rideMode, "Ride mode should be false (classicMode=0)")
-        assertTrue(settings2.fancierMode, "Fancier mode should be true")
+        assertEquals(false, settings2.rideMode, "Ride mode should be false (classicMode=0)")
+        assertEquals(true, settings2.fancierMode, "Fancier mode should be true")
         assertEquals(60, settings2.pedalSensitivity, "Sensitivity should be 60 (comfSens since classic)")
         assertEquals(80, settings2.speakerVolume, "Volume should be 80")
-        assertTrue(settings2.mute, "Mute should be true (bit 0=0)")
-        assertTrue(settings2.handleButton, "Handle button should be true (bit 2=0, inverted)")
-        assertTrue(settings2.transportMode, "Transport mode should be true")
+        assertEquals(true, settings2.mute, "Mute should be true (bit 0=0)")
+        assertEquals(true, settings2.handleButton, "Handle button should be true (bit 2=0, inverted)")
+        assertEquals(true, settings2.transportMode, "Transport mode should be true")
     }
 
     @Test
@@ -1024,14 +1025,14 @@ class InMotionV2DecoderTest {
 
         assertEquals(45, settings2.maxSpeed, "Max speed should be 45 km/h")
         assertEquals(0, settings2.pedalTilt, "Pedal tilt should be 0")
-        assertTrue(settings2.rideMode, "Ride mode should be true (offroad)")
-        assertFalse(settings2.fancierMode, "Fancier mode should be false")
+        assertEquals(true, settings2.rideMode, "Ride mode should be true (offroad)")
+        assertEquals(false, settings2.fancierMode, "Fancier mode should be false")
         assertEquals(60, settings2.pedalSensitivity, "Sensitivity should be 60 (classSens since offroad)")
-        assertFalse(settings2.mute, "Mute should be false (bit 0=1)")
-        assertTrue(settings2.drl, "DRL should be true")
-        assertFalse(settings2.handleButton, "Handle button should be false (bit 4=1, inverted)")
-        assertTrue(settings2.transportMode, "Transport mode should be true")
-        assertFalse(settings2.goHomeMode, "Go home mode should be false")
+        assertEquals(false, settings2.mute, "Mute should be false (bit 0=1)")
+        assertEquals(true, settings2.drl, "DRL should be true")
+        assertEquals(false, settings2.handleButton, "Handle button should be false (bit 4=1, inverted)")
+        assertEquals(true, settings2.transportMode, "Transport mode should be true")
+        assertEquals(false, settings2.goHomeMode, "Go home mode should be false")
     }
 
     @Test
@@ -2123,22 +2124,22 @@ class InMotionV2DecoderTest {
         assertEquals(80, settings.pwmAlarm1, "PWM alarm 1 should be 80%")
         assertEquals(85, settings.pwmAlarm2, "PWM alarm 2 should be 85%")
         assertEquals(100, settings.balanceAngle, "Balance angle should be 100 (1.00°)")
-        assertTrue(settings.fancierMode, "Fancier/sport mode should be true")
+        assertEquals(true, settings.fancierMode, "Fancier/sport mode should be true")
         assertEquals(51, settings.pedalSensitivity, "Sens1 used when fancier=true")
         assertEquals(10, settings.standbyTime, "Standby should be 10 min")
         assertEquals(100, settings.chargeLimit, "Charge limit should be 100%")
         assertEquals(100, settings.logoLightBrightness, "Logo brightness should be 100")
         assertEquals(45, settings.cutoutAngle, "Cutout angle should be 45°")
-        assertTrue(settings.drl, "DRL should be ON")
+        assertEquals(true, settings.drl, "DRL should be ON")
         // New P6 fields
-        assertFalse(settings.mute, "Beep ON → mute should be false")
-        assertFalse(settings.autoHeadlight, "Auto headlight should be OFF")
-        assertFalse(settings.transportMode, "Transport mode should be OFF")
-        assertTrue(settings.autoScreenOff, "Auto screen off should be ON")
-        assertFalse(settings.rideConnectLowBattery, "RideConnect low battery should be OFF")
-        assertTrue(settings.rideConnectSwitch, "RideConnect switch should be ON")
-        assertFalse(settings.ignoreTirePressure, "Ignore tire pressure should be OFF")
-        assertTrue(settings.autoLock, "Auto lock should be ON")
+        assertEquals(false, settings.mute, "Beep ON → mute should be false")
+        assertEquals(false, settings.autoHeadlight, "Auto headlight should be OFF")
+        assertEquals(false, settings.transportMode, "Transport mode should be OFF")
+        assertEquals(true, settings.autoScreenOff, "Auto screen off should be ON")
+        assertEquals(false, settings.rideConnectLowBattery, "RideConnect low battery should be OFF")
+        assertEquals(true, settings.rideConnectSwitch, "RideConnect switch should be ON")
+        assertEquals(false, settings.ignoreTirePressure, "Ignore tire pressure should be OFF")
+        assertEquals(true, settings.autoLock, "Auto lock should be ON")
         assertEquals(17442, settings.minTirePressure, "Min tire pressure should be 17442")
         assertEquals(100, settings.chargingCurrentAC220V, "AC220V charging current should be 100")
         assertEquals(80, settings.chargingCurrentAC110V, "AC110V charging current should be 80")

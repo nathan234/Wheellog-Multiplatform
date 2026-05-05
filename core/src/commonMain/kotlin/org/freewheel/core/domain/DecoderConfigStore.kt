@@ -7,8 +7,9 @@ package org.freewheel.core.domain
  * preferences. Kept distinct from [AppSettingsStore] so [AppSettingId] can
  * stay the source of truth for the settings UI.
  *
- * Per-wheel values are scoped by the same `last_mac` key [AppSettingsStore]
- * uses; the snapshot reflects whichever wheel is currently connected.
+ * Per-wheel values are scoped by [PreferenceKeys.LAST_CONNECTED_MAC] — the same
+ * stable anchor [AppSettingsStore] uses, so reads stay consistent across an
+ * explicit-disconnect cycle.
  */
 class DecoderConfigStore(private val store: KeyValueStore) {
 
@@ -65,5 +66,6 @@ class DecoderConfigStore(private val store: KeyValueStore) {
 
     private fun scoped(key: String): String = "${currentMac()}_$key"
 
-    private fun currentMac(): String = store.getString(PreferenceKeys.LAST_MAC, "") ?: ""
+    private fun currentMac(): String =
+        store.getString(PreferenceKeys.LAST_CONNECTED_MAC, "") ?: ""
 }

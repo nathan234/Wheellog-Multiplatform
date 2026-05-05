@@ -10,11 +10,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.freewheel.compose.WheelViewModel
 import org.freewheel.core.domain.ControlSpec
 import org.freewheel.core.domain.SettingsCommandId
 import org.freewheel.core.domain.SettingsSection
 import org.freewheel.core.domain.WheelSettings
+import org.freewheel.core.service.ConnectionState
 
 /**
  * Renders wheel-side settings sections plus the dangerous-action confirmation dialog.
@@ -31,8 +33,13 @@ fun WheelSettingsContent(
     useMph: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val toggleStates = remember { mutableStateMapOf<SettingsCommandId, Boolean>() }
-    val sliderOverrides = remember(sections) {
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    // Key local state on the connected MAC so reconnecting to a different wheel
+    // doesn't leak pending toggle overrides or cached slider values from the
+    // previous wheel into the new wheel's UI.
+    val activeMac = (connectionState as? ConnectionState.Connected)?.address ?: ""
+    val toggleStates = remember(activeMac) { mutableStateMapOf<SettingsCommandId, Boolean>() }
+    val sliderOverrides = remember(activeMac, sections) {
         mutableStateMapOf<SettingsCommandId, Int>().apply {
             for (section in sections) {
                 for (control in section.controls) {

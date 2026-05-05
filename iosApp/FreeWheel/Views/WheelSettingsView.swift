@@ -18,7 +18,10 @@ import FreeWheelCore
 struct WheelSettingsContent: View {
     @EnvironmentObject var wheelManager: WheelManager
 
-    // Local state for write-only toggles and sliders
+    // Local state for write-only toggles and sliders. Cleared whenever the
+    // connected wheel's address changes so reconnecting to a different wheel
+    // doesn't leak pending overrides from the previous wheel into the new
+    // wheel's UI.
     @State private var toggleStates: [String: Bool] = [:]
     @State private var sliderValues: [String: Double] = [:]
 
@@ -27,27 +30,35 @@ struct WheelSettingsContent: View {
     @State private var showConfirmation = false
 
     var body: some View {
-        let sections = WheelSettingsConfig.shared.sections(wheelType: wheelManager.identity.wheelType, capabilities: wheelManager.capabilities)
+        sectionsView
+            .onChange(of: wheelManager.connectionState.connectedAddress) { _ in
+                toggleStates.removeAll()
+                sliderValues.removeAll()
+            }
+            .alert(
+                confirmationTitle,
+                isPresented: $showConfirmation,
+                presenting: pendingAction
+            ) { action in
+                Button(CommonLabels.shared.CANCEL, role: .cancel) { pendingAction = nil }
+                Button(CommonLabels.shared.CONFIRM, role: .destructive) {
+                    executeAction(action)
+                    pendingAction = nil
+                }
+            } message: { action in
+                Text(confirmationMessage(for: action))
+            }
+    }
 
+    @ViewBuilder
+    private var sectionsView: some View {
+        let sections = WheelSettingsConfig.shared.sections(wheelType: wheelManager.identity.wheelType, capabilities: wheelManager.capabilities)
         ForEach(Array(sections.enumerated()), id: \.offset) { _, section in
             Section(section.title) {
                 ForEach(Array(section.controls.enumerated()), id: \.offset) { _, control in
                     renderControl(control)
                 }
             }
-        }
-        .alert(
-            confirmationTitle,
-            isPresented: $showConfirmation,
-            presenting: pendingAction
-        ) { action in
-            Button(CommonLabels.shared.CANCEL, role: .cancel) { pendingAction = nil }
-            Button(CommonLabels.shared.CONFIRM, role: .destructive) {
-                executeAction(action)
-                pendingAction = nil
-            }
-        } message: { action in
-            Text(confirmationMessage(for: action))
         }
     }
 
@@ -97,10 +108,16 @@ struct WheelSettingsContent: View {
     private func renderSegmented(_ control: ControlSpec.Segmented) -> some View {
         let readback = readInt(control.commandId)
         let key = control.commandId.name
+        // Mirror the Toggle pattern: leave the row deselected and disabled until
+        // either readback arrives or the user has tapped a segment. Defaulting to
+        // index 0 would misrepresent unread state on first connect.
+        let pending: Int? = sliderValues[key].map { Int($0) }
+        let effective = pending ?? readback
+        let isKnown = effective != nil
 
         VStack(alignment: .leading) {
             Picker(control.label, selection: Binding(
-                get: { Int(sliderValues[key] ?? Double(readback ?? 0)) },
+                get: { effective ?? -1 },
                 set: { newValue in
                     sliderValues[key] = Double(newValue)
                     executeCommand(control.commandId, intValue: Int32(newValue))
@@ -111,6 +128,7 @@ struct WheelSettingsContent: View {
                 }
             }
             .pickerStyle(.segmented)
+            .disabled(!isKnown)
         }
     }
 
@@ -118,10 +136,13 @@ struct WheelSettingsContent: View {
     private func renderPicker(_ control: ControlSpec.Picker) -> some View {
         let readback = readInt(control.commandId)
         let key = control.commandId.name
+        let pending: Int? = sliderValues[key].map { Int($0) }
+        let effective = pending ?? readback
+        let isKnown = effective != nil
 
         Picker(control.label, selection: Binding(
             get: {
-                let val = Int(sliderValues[key] ?? Double(readback ?? 0))
+                guard let val = effective else { return -1 }
                 return min(val, control.options.count - 1)
             },
             set: { newValue in
@@ -133,6 +154,7 @@ struct WheelSettingsContent: View {
                 Text(label).tag(index)
             }
         }
+        .disabled(!isKnown)
     }
 
     @ViewBuilder

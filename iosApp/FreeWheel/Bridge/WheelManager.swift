@@ -39,83 +39,80 @@ class WheelManager: ObservableObject {
         didSet { appSettingsStore.setSpeedDisplayMode(mode: speedDisplayMode) }
     }
 
-    // Alarm settings (persisted to UserDefaults, stored in km/h and °C internally)
-    @Published var alarmsEnabled: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.ALARMS_ENABLED) {
-        didSet { UserDefaults.standard.set(alarmsEnabled, forKey: PreferenceKeys.shared.ALARMS_ENABLED) }
+    // Alarm settings — routed through AppSettingsStore so PER_WHEEL ids in AppSettingId
+    // get MAC-prefixed in storage. @Published values are seeded from the last connected
+    // wheel's slot at init and refreshed via reloadAlarmsFromStore() when the connected
+    // wheel changes.
+    @Published var alarmsEnabled: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.alarmsEnabled) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.alarmsEnabled, value: alarmsEnabled) }
     }
-    @Published var alarm1Speed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_1_SPEED) {
-        didSet { UserDefaults.standard.set(alarm1Speed, forKey: PreferenceKeys.shared.ALARM_1_SPEED) }
+    @Published var alarm1Speed: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarm1Speed)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarm1Speed, value: Int32(alarm1Speed)) }
     }
-    @Published var alarm2Speed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_2_SPEED) {
-        didSet { UserDefaults.standard.set(alarm2Speed, forKey: PreferenceKeys.shared.ALARM_2_SPEED) }
+    @Published var alarm2Speed: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarm2Speed)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarm2Speed, value: Int32(alarm2Speed)) }
     }
-    @Published var alarm3Speed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_3_SPEED) {
-        didSet { UserDefaults.standard.set(alarm3Speed, forKey: PreferenceKeys.shared.ALARM_3_SPEED) }
+    @Published var alarm3Speed: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarm3Speed)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarm3Speed, value: Int32(alarm3Speed)) }
     }
-    @Published var alarmCurrent: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_CURRENT) {
-        didSet { UserDefaults.standard.set(alarmCurrent, forKey: PreferenceKeys.shared.ALARM_CURRENT) }
+    @Published var alarmCurrent: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmCurrent)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmCurrent, value: Int32(alarmCurrent)) }
     }
-    @Published var alarmTemperature: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_TEMPERATURE) {
-        didSet { UserDefaults.standard.set(alarmTemperature, forKey: PreferenceKeys.shared.ALARM_TEMPERATURE) }
+    @Published var alarmTemperature: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmTemperature)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmTemperature, value: Int32(alarmTemperature)) }
     }
-    @Published var alarmBattery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_BATTERY) {
-        didSet { UserDefaults.standard.set(alarmBattery, forKey: PreferenceKeys.shared.ALARM_BATTERY) }
+    @Published var alarmBattery: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmBattery)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmBattery, value: Int32(alarmBattery)) }
     }
 
-    // Alarm action (Feature 1)
-    @Published var alarmAction: FreeWheelCore.AlarmAction = FreeWheelCore.AlarmAction.companion.fromValue(value: Int32(UserDefaults.standard.integer(forKey: PreferenceKeys.shared.ALARM_ACTION))) {
-        didSet { UserDefaults.standard.set(alarmAction.value, forKey: PreferenceKeys.shared.ALARM_ACTION) }
+    // Alarm action — GLOBAL scope, but routed through AppSettingsStore for consistency.
+    @Published var alarmAction: FreeWheelCore.AlarmAction = FreeWheelCore.AlarmAction.companion.fromValue(value: Int32(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmAction))) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmAction, value: alarmAction.value) }
     }
     @Published private(set) var activeAlarms: Set<AlarmType> = []
 
     // PWM-based alarm settings
-    @Published var pwmBasedAlarms: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.ALTERED_ALARMS) {
-        didSet { UserDefaults.standard.set(pwmBasedAlarms, forKey: PreferenceKeys.shared.ALTERED_ALARMS) }
+    @Published var pwmBasedAlarms: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.pwmBasedAlarms) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.pwmBasedAlarms, value: pwmBasedAlarms) }
     }
-    @Published var alarmFactor1: Double = {
-        let v = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_FACTOR_1)
-        return v == 0 ? Double(PreferenceDefaults.shared.ALARM_FACTOR_1) : v
-    }() {
-        didSet { UserDefaults.standard.set(alarmFactor1, forKey: PreferenceKeys.shared.ALARM_FACTOR_1) }
+    @Published var alarmFactor1: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmFactor1)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmFactor1, value: Int32(alarmFactor1)) }
     }
-    @Published var alarmFactor2: Double = {
-        let v = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_FACTOR_2)
-        return v == 0 ? Double(PreferenceDefaults.shared.ALARM_FACTOR_2) : v
-    }() {
-        didSet { UserDefaults.standard.set(alarmFactor2, forKey: PreferenceKeys.shared.ALARM_FACTOR_2) }
+    @Published var alarmFactor2: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmFactor2)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmFactor2, value: Int32(alarmFactor2)) }
     }
 
     // Pre-warning settings
-    @Published var warningPwm: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.WARNING_PWM) {
-        didSet { UserDefaults.standard.set(warningPwm, forKey: PreferenceKeys.shared.WARNING_PWM) }
+    @Published var warningPwm: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.warningPwm)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.warningPwm, value: Int32(warningPwm)) }
     }
-    @Published var warningSpeed: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.WARNING_SPEED) {
-        didSet { UserDefaults.standard.set(warningSpeed, forKey: PreferenceKeys.shared.WARNING_SPEED) }
+    @Published var warningSpeed: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.warningSpeed)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.warningSpeed, value: Int32(warningSpeed)) }
     }
-    @Published var warningSpeedPeriod: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.WARNING_SPEED_PERIOD) {
-        didSet { UserDefaults.standard.set(warningSpeedPeriod, forKey: PreferenceKeys.shared.WARNING_SPEED_PERIOD) }
+    @Published var warningSpeedPeriod: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.warningSpeedPeriod)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.warningSpeedPeriod, value: Int32(warningSpeedPeriod)) }
     }
 
     // Battery thresholds per speed alarm
-    @Published var alarm1Battery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_1_BATTERY) {
-        didSet { UserDefaults.standard.set(alarm1Battery, forKey: PreferenceKeys.shared.ALARM_1_BATTERY) }
+    @Published var alarm1Battery: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarm1Battery)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarm1Battery, value: Int32(alarm1Battery)) }
     }
-    @Published var alarm2Battery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_2_BATTERY) {
-        didSet { UserDefaults.standard.set(alarm2Battery, forKey: PreferenceKeys.shared.ALARM_2_BATTERY) }
+    @Published var alarm2Battery: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarm2Battery)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarm2Battery, value: Int32(alarm2Battery)) }
     }
-    @Published var alarm3Battery: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_3_BATTERY) {
-        didSet { UserDefaults.standard.set(alarm3Battery, forKey: PreferenceKeys.shared.ALARM_3_BATTERY) }
+    @Published var alarm3Battery: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarm3Battery)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarm3Battery, value: Int32(alarm3Battery)) }
     }
 
     // New alarm types
-    @Published var alarmPhaseCurrent: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_PHASE_CURRENT) {
-        didSet { UserDefaults.standard.set(alarmPhaseCurrent, forKey: PreferenceKeys.shared.ALARM_PHASE_CURRENT) }
+    @Published var alarmPhaseCurrent: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmPhaseCurrent)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmPhaseCurrent, value: Int32(alarmPhaseCurrent)) }
     }
-    @Published var alarmMotorTemperature: Double = UserDefaults.standard.double(forKey: PreferenceKeys.shared.ALARM_MOTOR_TEMPERATURE) {
-        didSet { UserDefaults.standard.set(alarmMotorTemperature, forKey: PreferenceKeys.shared.ALARM_MOTOR_TEMPERATURE) }
+    @Published var alarmMotorTemperature: Double = Double(WheelManager.initSettingsStore.getInt(id: AppSettingId.alarmMotorTemperature)) {
+        didSet { appSettingsStore.setInt(id: AppSettingId.alarmMotorTemperature, value: Int32(alarmMotorTemperature)) }
     }
-    @Published var alarmWheel: Bool = UserDefaults.standard.bool(forKey: PreferenceKeys.shared.ALARM_WHEEL) {
-        didSet { UserDefaults.standard.set(alarmWheel, forKey: PreferenceKeys.shared.ALARM_WHEEL) }
+    @Published var alarmWheel: Bool = WheelManager.initSettingsStore.getBool(id: AppSettingId.alarmWheel) {
+        didSet { appSettingsStore.setBool(id: AppSettingId.alarmWheel, value: alarmWheel) }
     }
 
     // Connection settings (persisted via AppSettingsStore; GLOBAL scope)
@@ -304,10 +301,6 @@ class WheelManager: ObservableObject {
 
     // MARK: - Settings Stores (KMP-backed)
 
-    // Substrate for migrating off the inline UserDefaults reads above, one group at a
-    // time. Alarm fields stay on the inline path: AppSettingId scopes them PER_WHEEL,
-    // but iOS has historically stored them under bare keys, and a scoped read here
-    // would silently lose existing users' values.
     private let appSettingsStore = AppSettingsStore(store: UserDefaultsKeyValueStore(defaults: .standard))
     private let decoderConfigStore = DecoderConfigStore(store: UserDefaultsKeyValueStore(defaults: .standard))
 
@@ -939,6 +932,34 @@ class WheelManager: ObservableObject {
         }
     }
 
+    /// Re-read all per-wheel alarm fields from AppSettingsStore. Call after the
+    /// connected wheel's MAC changes so @Published values reflect the new wheel's
+    /// stored thresholds instead of the previous wheel's (or default) values.
+    private func reloadAlarmsFromStore() {
+        alarmsEnabled = appSettingsStore.getBool(id: AppSettingId.alarmsEnabled)
+        pwmBasedAlarms = appSettingsStore.getBool(id: AppSettingId.pwmBasedAlarms)
+        alarmWheel = appSettingsStore.getBool(id: AppSettingId.alarmWheel)
+        alarmAction = FreeWheelCore.AlarmAction.companion.fromValue(
+            value: Int32(appSettingsStore.getInt(id: AppSettingId.alarmAction))
+        )
+        alarmFactor1 = Double(appSettingsStore.getInt(id: AppSettingId.alarmFactor1))
+        alarmFactor2 = Double(appSettingsStore.getInt(id: AppSettingId.alarmFactor2))
+        warningPwm = Double(appSettingsStore.getInt(id: AppSettingId.warningPwm))
+        warningSpeed = Double(appSettingsStore.getInt(id: AppSettingId.warningSpeed))
+        warningSpeedPeriod = Double(appSettingsStore.getInt(id: AppSettingId.warningSpeedPeriod))
+        alarm1Speed = Double(appSettingsStore.getInt(id: AppSettingId.alarm1Speed))
+        alarm2Speed = Double(appSettingsStore.getInt(id: AppSettingId.alarm2Speed))
+        alarm3Speed = Double(appSettingsStore.getInt(id: AppSettingId.alarm3Speed))
+        alarm1Battery = Double(appSettingsStore.getInt(id: AppSettingId.alarm1Battery))
+        alarm2Battery = Double(appSettingsStore.getInt(id: AppSettingId.alarm2Battery))
+        alarm3Battery = Double(appSettingsStore.getInt(id: AppSettingId.alarm3Battery))
+        alarmCurrent = Double(appSettingsStore.getInt(id: AppSettingId.alarmCurrent))
+        alarmPhaseCurrent = Double(appSettingsStore.getInt(id: AppSettingId.alarmPhaseCurrent))
+        alarmTemperature = Double(appSettingsStore.getInt(id: AppSettingId.alarmTemperature))
+        alarmMotorTemperature = Double(appSettingsStore.getInt(id: AppSettingId.alarmMotorTemperature))
+        alarmBattery = Double(appSettingsStore.getInt(id: AppSettingId.alarmBattery))
+    }
+
     // MARK: - Alarm Config Builder
 
     private func buildAlarmConfig() -> AlarmConfig {
@@ -972,6 +993,9 @@ class WheelManager: ObservableObject {
             lastConnectedAddress = address
             // Per-wheel scoping anchor for AppSettingsStore / DecoderConfigStore.
             appSettingsStore.setLastMac(mac: address)
+            // Reload PER_WHEEL alarm fields so @Published values reflect this wheel's
+            // stored thresholds rather than the previous wheel's (or default) values.
+            reloadAlarmsFromStore()
             // Auto-connect flags are cleared automatically by the shared AutoConnectManager
             // via its connection state observer
 

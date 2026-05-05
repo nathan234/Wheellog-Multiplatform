@@ -6,9 +6,25 @@ package org.freewheel.core.domain
  *
  * Wraps a [KeyValueStore], handling [SettingScope] and per-wheel MAC prefixing so
  * callers do not have to. The MAC is read fresh on each call from
- * [PreferenceKeys.LAST_MAC], the same key [DecoderConfigStore] reads.
+ * [PreferenceKeys.LAST_CONNECTED_MAC] — the stable per-wheel anchor that survives
+ * explicit disconnects, distinct from [PreferenceKeys.LAST_MAC] (the auto-reconnect
+ * target, cleared on disconnect).
  */
 class AppSettingsStore(private val store: KeyValueStore) {
+
+    init {
+        // Upgrade path: LAST_CONNECTED_MAC was introduced after LAST_MAC. Existing
+        // installs only have LAST_MAC set, so per-wheel reads would fall back to an
+        // empty MAC prefix until the next connect. Backfill once from LAST_MAC so
+        // existing users keep their scoped settings without waiting to reconnect.
+        val anchor = store.getString(PreferenceKeys.LAST_CONNECTED_MAC, "") ?: ""
+        if (anchor.isBlank()) {
+            val legacy = store.getString(PreferenceKeys.LAST_MAC, "") ?: ""
+            if (legacy.isNotBlank()) {
+                store.putString(PreferenceKeys.LAST_CONNECTED_MAC, legacy)
+            }
+        }
+    }
 
     fun getBool(id: AppSettingId): Boolean =
         store.getBool(scopedKey(id), id.defaultBool)
@@ -24,13 +40,29 @@ class AppSettingsStore(private val store: KeyValueStore) {
         store.putInt(scopedKey(id), value)
     }
 
-    /** Returns the MAC of the last-connected wheel, or empty string if none. */
-    fun getLastMac(): String = currentMac()
+    /**
+     * Returns the auto-reconnect target MAC, or empty string if none.
+     * Use [getLastConnectedMac] for the per-wheel scoping anchor that survives
+     * explicit disconnects.
+     */
+    fun getLastMac(): String = store.getString(PreferenceKeys.LAST_MAC, "") ?: ""
 
-    /** Records the MAC of the connected wheel; pass empty string to clear. */
+    /**
+     * Records the connected wheel. Pass empty string to clear the auto-reconnect
+     * target on explicit disconnect; the per-wheel scoping anchor
+     * ([LAST_CONNECTED_MAC]) is preserved so disconnected edits still bind to the
+     * wheel the user was just on.
+     */
     fun setLastMac(mac: String) {
         store.putString(PreferenceKeys.LAST_MAC, mac)
+        if (mac.isNotBlank()) {
+            store.putString(PreferenceKeys.LAST_CONNECTED_MAC, mac)
+        }
     }
+
+    /** Returns the most recently connected MAC, or empty if no wheel has ever connected. */
+    fun getLastConnectedMac(): String =
+        store.getString(PreferenceKeys.LAST_CONNECTED_MAC, "") ?: ""
 
     /**
      * Speed display mode is global but lives outside [AppSettingId] because it is a
@@ -68,5 +100,6 @@ class AppSettingsStore(private val store: KeyValueStore) {
         SettingScope.PER_WHEEL -> "${currentMac()}_${id.prefKey}"
     }
 
-    private fun currentMac(): String = store.getString(PreferenceKeys.LAST_MAC, "") ?: ""
+    private fun currentMac(): String =
+        store.getString(PreferenceKeys.LAST_CONNECTED_MAC, "") ?: ""
 }

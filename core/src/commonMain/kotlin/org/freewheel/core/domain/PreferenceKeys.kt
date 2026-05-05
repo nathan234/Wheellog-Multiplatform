@@ -35,8 +35,15 @@ object PreferenceKeys {
     const val ALARM_MOTOR_TEMPERATURE = "alarm_motor_temperature"
     const val ALARM_WHEEL = "alarm_wheel"
 
-    // The MAC of the last-connected wheel; also used as the prefix for per-wheel keys.
+    // Auto-reconnect target. Cleared on explicit disconnect so the next cold launch
+    // does not reconnect to a wheel the user just left. Use [LAST_CONNECTED_MAC] for
+    // per-wheel scoping — clearing this on disconnect must not unscope settings.
     const val LAST_MAC = "last_mac"
+
+    // Per-wheel scoping anchor — the most recently connected wheel. Stays set across
+    // explicit disconnects so disconnected edits to per-wheel settings target the
+    // wheel the user was just on. Cleared only when the user forgets the wheel.
+    const val LAST_CONNECTED_MAC = "last_connected_mac"
 
     // Connection (global)
     const val USE_RECONNECT = "use_reconnect"

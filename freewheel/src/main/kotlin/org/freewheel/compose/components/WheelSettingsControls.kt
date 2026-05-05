@@ -27,7 +27,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -158,8 +157,13 @@ internal fun SegmentedControl(
     wheelSettings: WheelSettings,
     onIntCommand: (SettingsCommandId, Int) -> Unit
 ) {
+    // Mirror the Toggle pattern: keep the row disabled and unselected until either a
+    // readback arrives or the user has expressed intent. Defaulting to index 0 would
+    // misrepresent unread state on first connect.
     val readback = control.commandId.readInt(wheelSettings)
-    var selected by remember(readback) { mutableIntStateOf(readback ?: 0) }
+    var pending by remember(readback) { mutableStateOf<Int?>(null) }
+    val effective = pending ?: readback
+    val isKnown = effective != null
 
     Column {
         Text(control.label, style = MaterialTheme.typography.bodyLarge)
@@ -167,9 +171,10 @@ internal fun SegmentedControl(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             control.options.forEachIndexed { index, label ->
                 SegmentedButton(
-                    selected = selected == index,
+                    selected = effective == index,
+                    enabled = isKnown,
                     onClick = {
-                        selected = index
+                        pending = index
                         onIntCommand(control.commandId, index)
                     },
                     shape = SegmentedButtonDefaults.itemShape(
@@ -192,17 +197,24 @@ internal fun PickerControl(
     onIntCommand: (SettingsCommandId, Int) -> Unit
 ) {
     val readback = control.commandId.readInt(wheelSettings)
-    var selected by remember(readback) { mutableIntStateOf(readback?.coerceIn(0, control.options.lastIndex) ?: 0) }
+    var pending by remember(readback) { mutableStateOf<Int?>(null) }
+    val effective = pending ?: readback
+    val isKnown = effective != null
     var expanded by remember { mutableStateOf(false) }
+    val displayValue = effective
+        ?.coerceIn(0, control.options.lastIndex)
+        ?.let { control.options.getOrElse(it) { "$it" } }
+        ?: ""
 
     ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
+        expanded = expanded && isKnown,
+        onExpandedChange = { if (isKnown) expanded = it }
     ) {
         OutlinedTextField(
-            value = control.options.getOrElse(selected) { "${selected}" },
+            value = displayValue,
             onValueChange = {},
             readOnly = true,
+            enabled = isKnown,
             label = { Text(control.label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier
@@ -214,7 +226,7 @@ internal fun PickerControl(
                 DropdownMenuItem(
                     text = { Text(option) },
                     onClick = {
-                        selected = index
+                        pending = index
                         expanded = false
                         onIntCommand(control.commandId, index)
                     }

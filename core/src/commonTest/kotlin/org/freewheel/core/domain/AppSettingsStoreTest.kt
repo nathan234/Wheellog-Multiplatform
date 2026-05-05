@@ -13,7 +13,10 @@ class AppSettingsStoreTest {
     }
 
     private fun setMac(kvs: FakeKeyValueStore, mac: String) {
-        kvs.putString("last_mac", mac)
+        // Mirror what AppSettingsStore.setLastMac does for a non-empty MAC: write
+        // both the auto-reconnect target and the per-wheel scoping anchor.
+        kvs.putString(PreferenceKeys.LAST_MAC, mac)
+        kvs.putString(PreferenceKeys.LAST_CONNECTED_MAC, mac)
     }
 
     @Test
@@ -143,22 +146,61 @@ class AppSettingsStoreTest {
     }
 
     @Test
-    fun `setLastMac writes the last_mac key`() {
+    fun `setLastMac writes both the auto-reconnect target and the per-wheel anchor`() {
         val (store, kvs) = newStore()
         store.setLastMac("AA:BB:CC:DD:EE:FF")
-        assertEquals("AA:BB:CC:DD:EE:FF", kvs.getString("last_mac", null))
+        assertEquals("AA:BB:CC:DD:EE:FF", kvs.getString(PreferenceKeys.LAST_MAC, null))
+        assertEquals("AA:BB:CC:DD:EE:FF", kvs.getString(PreferenceKeys.LAST_CONNECTED_MAC, null))
         assertEquals("AA:BB:CC:DD:EE:FF", store.getLastMac())
+        assertEquals("AA:BB:CC:DD:EE:FF", store.getLastConnectedMac())
     }
 
     @Test
-    fun `setLastMac empty string clears the wheel binding`() {
+    fun `setLastMac empty clears auto-reconnect target but keeps per-wheel anchor`() {
+        val (store, _) = newStore()
+        store.setLastMac("AA:BB:CC:DD:EE:FF")
+        store.setBool(AppSettingId.ALARMS_ENABLED, true)
+
+        store.setLastMac("")
+
+        // Auto-reconnect target cleared
+        assertEquals("", store.getLastMac())
+        // Per-wheel anchor preserved → per-wheel reads still hit the same wheel's slot
+        assertEquals("AA:BB:CC:DD:EE:FF", store.getLastConnectedMac())
+        assertEquals(true, store.getBool(AppSettingId.ALARMS_ENABLED))
+    }
+
+    @Test
+    fun `disconnected per-wheel writes still target the last connected wheel`() {
         val (store, kvs) = newStore()
         store.setLastMac("AA:BB:CC:DD:EE:FF")
-        store.setLastMac("")
-        assertEquals("", store.getLastMac())
-        // After clearing, per-wheel reads fall back to the unscoped default
+        store.setLastMac("") // explicit disconnect
+
+        store.setInt(AppSettingId.ALARM_1_SPEED, 25)
+
+        // Value lands on the previous wheel's MAC-prefixed key, not on an empty prefix
+        assertEquals(
+            25,
+            kvs.getInt("AA:BB:CC:DD:EE:FF_${PreferenceKeys.ALARM_1_SPEED}", -1)
+        )
+        assertEquals(
+            -1,
+            kvs.getInt("_${PreferenceKeys.ALARM_1_SPEED}", -1)
+        )
+    }
+
+    @Test
+    fun `init backfills LAST_CONNECTED_MAC from legacy LAST_MAC for upgrading users`() {
+        val kvs = FakeKeyValueStore()
+        // Simulate an install from before LAST_CONNECTED_MAC existed
+        kvs.putString(PreferenceKeys.LAST_MAC, "AA:BB:CC:DD:EE:FF")
         kvs.putBool("AA:BB:CC:DD:EE:FF_${PreferenceKeys.ALARMS_ENABLED}", true)
-        assertEquals(false, store.getBool(AppSettingId.ALARMS_ENABLED))
+
+        val store = AppSettingsStore(kvs)
+
+        // Backfill happens during construction so reads work immediately
+        assertEquals("AA:BB:CC:DD:EE:FF", store.getLastConnectedMac())
+        assertEquals(true, store.getBool(AppSettingId.ALARMS_ENABLED))
     }
 
 }

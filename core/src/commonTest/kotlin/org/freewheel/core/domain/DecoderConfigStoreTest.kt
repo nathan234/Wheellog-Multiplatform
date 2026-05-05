@@ -11,7 +11,11 @@ class DecoderConfigStoreTest {
     }
 
     private fun setMac(kvs: FakeKeyValueStore, mac: String) {
+        // DecoderConfigStore reads from LAST_CONNECTED_MAC for per-wheel scoping.
+        // LAST_MAC is the auto-reconnect target — set in lockstep here so tests cover
+        // the realistic state where both anchors point at the same wheel.
         kvs.putString(PreferenceKeys.LAST_MAC, mac)
+        kvs.putString(PreferenceKeys.LAST_CONNECTED_MAC, mac)
     }
 
     @Test

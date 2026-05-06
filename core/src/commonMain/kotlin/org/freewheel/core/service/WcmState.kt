@@ -8,7 +8,6 @@ import org.freewheel.core.domain.EventLogEntry
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
-import org.freewheel.core.domain.WheelType
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.logging.ConnectionErrorEvent
 import org.freewheel.core.protocol.DecoderConfig
@@ -47,13 +46,14 @@ data class WcmState(
     // Per-field throttle state for telemetry bounds validator (reducer stays pure
     // by carrying this across frames instead of mutating a field-side cache).
     val telemetryThrottleState: TelemetryThrottleState = TelemetryThrottleState(),
-    // Speculative wheel-type hint passed at connect() time (e.g. derived from
-    // the advertised name on iOS scan, or a saved per-MAC profile on Android).
-    // The hint biases service-discovery's Ambiguous branch toward this type
+    // Speculative connection hint passed at connect() time (e.g. derived from
+    // the advertised name on iOS scan, a saved per-MAC profile on Android, or
+    // an OS-driven auto-reconnect carrying the prior identity forward). Biases
+    // service-discovery's Ambiguous branch toward [ConnectionHint.suggestedProtocol]
     // instead of falling back to GOTWAY_VIRTUAL. Cleared once consumed by
     // reduceServicesDiscovered. Distinct from `identity.wheelType`, which is
     // CONFIRMED state populated only from successful detection or decoded data.
-    val wheelTypeHint: WheelType? = null,
+    val connectionHint: ConnectionHint? = null,
     // Scan-time advertisement evidence captured at connect() time. Read by the
     // topology fingerprinting matcher (Pass 2). Cleared by reduceDisconnect to
     // avoid stale carry-over across sessions.

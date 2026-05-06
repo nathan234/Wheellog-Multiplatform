@@ -58,7 +58,7 @@ import kotlinx.coroutines.plus
  * manager.connectionState.collect { state -> updateConnectionUI(state) }
  *
  * // Connect (fire-and-forget — observe connectionState for result)
- * manager.connect(address, WheelType.KINGSONG)
+ * manager.connect(address, ConnectionHint(ProtocolFamily.KINGSONG, HintSource.SCAN_NAME))
  *
  * // Disconnect (fire-and-forget — observe connectionState for result)
  * manager.disconnect()
@@ -206,14 +206,15 @@ class WheelConnectionManager(
      * Fire-and-forget — observe [connectionState] for the result.
      *
      * @param address BLE MAC address (Android) or peripheral identifier (iOS)
-     * @param wheelType Optional wheel type hint; if null, will be auto-detected
+     * @param hint Optional [ConnectionHint] biasing service-discovery's Ambiguous
+     *             branch toward a specific protocol family.
      */
-    override fun connect(address: String, wheelType: WheelType?) {
+    override fun connect(address: String, hint: ConnectionHint?) {
         // Snapshot any advertisement we observed for this address during the
         // last scan so the reducer can pass scan evidence to the topology
         // fingerprint matcher. Cache lookup is non-suspending.
         val advertisement = bleManager.getAdvertisement(address)
-        events.trySend(WheelEvent.ConnectRequested(address, wheelType, advertisement))
+        events.trySend(WheelEvent.ConnectRequested(address, hint, advertisement))
     }
 
     /**
@@ -533,7 +534,7 @@ class WheelConnectionManager(
         val newState = WcmState(
             decoderConfig = state.decoderConfig,
             connectionState = ConnectionState.Connecting(event.address),
-            wheelTypeHint = event.wheelType,
+            connectionHint = event.hint,
             lastAdvertisement = event.advertisement,
         )
 
@@ -634,8 +635,8 @@ class WheelConnectionManager(
         // Capture and consume the speculative hint here (one-shot). The hint is
         // only meaningful at the moment detection runs; subsequent reconnect or
         // re-detection should not silently re-use a stale guess.
-        val hint = newState.wheelTypeHint
-        newState = newState.copy(wheelTypeHint = null)
+        val hint = newState.connectionHint
+        newState = newState.copy(connectionHint = null)
 
         val result = wheelTypeDetector.detect(event.services, event.deviceName)
         Logger.d(TAG, "Detection result: $result (hint=$hint)")
@@ -656,9 +657,12 @@ class WheelConnectionManager(
                 // Disambiguation precedence:
                 // 1. ConnectionLost reconnect with existing decoder → preserve it
                 //    (so OS auto-reconnect doesn't reset accumulated state).
-                // 2. Fresh connect with a hint (iOS scan-time name match, Android
-                //    saved profile, etc.) → use the hint. Far better than the
-                //    silent GOTWAY_VIRTUAL guess for non-Gotway wheels (S22 etc.).
+                // 2. Fresh connect with a ConnectionHint (iOS scan-time name match,
+                //    Android saved profile, OS auto-reconnect carrying prior identity)
+                //    → use the hint's protocol family. Far better than the silent
+                //    GOTWAY_VIRTUAL guess for non-Gotway wheels (S22 etc.). Note:
+                //    [ProtocolFamily] cannot represent GOTWAY_VIRTUAL or Unknown,
+                //    so the hint can only ever land on a real wheel type.
                 // 3. Otherwise → GOTWAY_VIRTUAL fallback. Pass 2/3a will delete
                 //    this branch once topology fingerprinting subsumes it.
                 val existing = newState.decoder
@@ -667,10 +671,10 @@ class WheelConnectionManager(
                     existing.wheelType != WheelType.GOTWAY_VIRTUAL
                 val chosenType = when {
                     isReconnect -> existing!!.wheelType
-                    hint != null && hint != WheelType.GOTWAY_VIRTUAL && hint != WheelType.Unknown -> hint
+                    hint != null -> hint.suggestedProtocol.toWheelType()
                     else -> WheelType.GOTWAY_VIRTUAL
                 }
-                Logger.d(TAG, "Ambiguous: ${result.possibleTypes}, chose $chosenType")
+                Logger.d(TAG, "Ambiguous: ${result.possibleTypes}, chose $chosenType (hintSource=${hint?.source})")
                 val info = WheelConnectionInfo.forType(chosenType)
                 reconnectOrSetup(newState, chosenType, info)
             }

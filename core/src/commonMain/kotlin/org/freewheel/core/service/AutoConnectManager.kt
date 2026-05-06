@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class AutoConnectManager(
     private val connectionState: StateFlow<ConnectionState>,
-    private val connect: suspend (String) -> Unit,
+    private val connect: suspend (String, ConnectionHint?) -> Unit,
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
@@ -72,15 +72,23 @@ class AutoConnectManager(
      * succeed within [timeoutMs], the flag is cleared automatically.
      *
      * No-op if [address] is blank.
+     *
+     * @param hint Optional [ConnectionHint] (typically [HintSource.SAVED_PROFILE]
+     *             for a remembered last-MAC) biasing service-discovery's
+     *             Ambiguous branch.
      */
-    fun attemptStartupConnect(address: String, timeoutMs: Long = 10_000) {
+    fun attemptStartupConnect(
+        address: String,
+        timeoutMs: Long = 10_000,
+        hint: ConnectionHint? = null,
+    ) {
         if (address.isBlank()) return
 
         _isAutoConnecting.value = true
         startupJob?.cancel()
         startupJob = scope.launch(dispatcher) {
             try {
-                connect(address)
+                connect(address, hint)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -108,7 +116,8 @@ class AutoConnectManager(
      */
     fun startReconnecting(
         address: String,
-        backoffMs: List<Long> = DEFAULT_BACKOFF
+        backoffMs: List<Long> = DEFAULT_BACKOFF,
+        hint: ConnectionHint? = null,
     ) {
         if (address.isBlank()) return
 
@@ -129,7 +138,7 @@ class AutoConnectManager(
                 _reconnectState.value = ReconnectState.Attempting(attempt)
 
                 try {
-                    connect(address)
+                    connect(address, hint)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

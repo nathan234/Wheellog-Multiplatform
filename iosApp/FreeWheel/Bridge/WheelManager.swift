@@ -2055,20 +2055,20 @@ class WheelManager: ObservableObject {
 
         connectionState = .connecting(address: address)
 
-        // Pass the scan-time wheel-type hint derived from the advertised name.
+        // Pass the scan-time hint derived from the advertised name.
         // Without this, an S22 / KS-S18 / etc. advertising a generic ffe0 service
         // would fall into the Ambiguous branch and either get the GOTWAY_VIRTUAL
         // fallback (Pass 1 keeps that path for unknown names) or stick on
         // "Discovering Services" forever. Knowing the type up front lets WCM
         // build the correct decoder before service discovery completes.
         let advertisedName = discoveredDevices.first(where: { $0.address == address })?.name
-        let hint = WheelConnectionManagerHelper.shared.deriveWheelTypeFromName(name: advertisedName)
+        let hint = WheelConnectionManagerHelper.shared.scanNameHint(rawName: advertisedName)
 
         // Fire-and-forget — connection state updates come through StateFlow polling
         WheelConnectionManagerHelper.shared.connectWithHint(
             manager: connectionManager,
             address: address,
-            wheelType: hint
+            hint: hint
         )
     }
 

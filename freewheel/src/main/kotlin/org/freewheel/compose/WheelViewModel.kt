@@ -28,6 +28,7 @@ import org.freewheel.core.telemetry.TelemetryHistory
 import org.freewheel.core.telemetry.TelemetrySample
 import org.freewheel.core.service.AutoConnectManager
 import org.freewheel.core.service.AutoTorchEngine
+import org.freewheel.core.service.toSavedHint
 import org.freewheel.core.utils.RangeEstimator
 import org.freewheel.core.service.BleDevice
 import org.freewheel.core.service.BleManagerPort
@@ -527,7 +528,7 @@ class WheelViewModel(
 
         val acm = AutoConnectManager(
             connectionState = cm.connectionState,
-            connect = { address -> cm.connect(address) },
+            connect = { address, hint -> cm.connect(address, hint) },
             scope = viewModelScope
         )
 
@@ -785,9 +786,14 @@ class WheelViewModel(
         // Clear unhandled frames from previous session
         unhandledCollector.clear()
         _unhandledCount.value = 0
+        // Bias service-discovery's Ambiguous branch toward the saved type for
+        // this address (S22, V11Y, etc.) instead of the GOTWAY_VIRTUAL fallback.
+        // Returns null when no profile exists or the saved type isn't a real
+        // protocol (Unknown / GOTWAY_VIRTUAL).
+        val hint = profileStore.getProfile(address)?.toSavedHint()
         connectJob = viewModelScope.launch {
             binding?.bleManager?.stopScan()
-            cm.connect(address)
+            cm.connect(address, hint)
         }
     }
 
@@ -848,7 +854,7 @@ class WheelViewModel(
         if (!appSettingsStore.getBool(AppSettingId.AUTO_RECONNECT)) return
         val acm = binding?.autoConnectManager ?: return
 
-        acm.attemptStartupConnect(lastMac)
+        acm.attemptStartupConnect(lastMac, hint = profileStore.getProfile(lastMac)?.toSavedHint())
     }
 
     // --- Startup scan (replaces blind auto-connect) ---

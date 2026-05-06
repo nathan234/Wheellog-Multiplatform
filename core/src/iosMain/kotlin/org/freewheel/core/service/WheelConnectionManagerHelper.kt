@@ -10,6 +10,7 @@ import org.freewheel.core.replay.ReplayEngine
 import org.freewheel.core.replay.ReplayState
 import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.CapabilitySet
+import org.freewheel.core.domain.ProtocolFamily
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelSettings
@@ -82,12 +83,27 @@ object WheelConnectionManagerHelper {
     }
 
     /**
-     * Connect with an optional scan-time wheel-type hint.
-     * Kotlin default parameters don't export to Swift; passing null for
-     * `wheelType` opts out of the hint and falls back to topology-only detection.
+     * Connect with an optional scan-time hint.
+     * Kotlin default parameters don't export to Swift; passing null for [hint]
+     * opts out and falls back to topology-only detection.
      */
-    fun connectWithHint(manager: WheelConnectionManager, address: String, wheelType: WheelType?) {
-        manager.connect(address, wheelType)
+    fun connectWithHint(manager: WheelConnectionManager, address: String, hint: ConnectionHint?) {
+        manager.connect(address, hint)
+    }
+
+    /**
+     * Build a [ConnectionHint] from an iOS scan-time advertised name. Returns
+     * null when the name doesn't match a known wheel pattern, or when the match
+     * lands on a sentinel ([WheelType.Unknown], [WheelType.GOTWAY_VIRTUAL]) that
+     * isn't a real protocol — see [ProtocolFamily.fromWheelType].
+     *
+     * Swift call site: pass the advertised name from `discoveredDevices` and
+     * forward the result straight to [connectWithHint].
+     */
+    fun scanNameHint(rawName: String?): ConnectionHint? {
+        val type = WheelTypeDetector.deriveTypeFromName(rawName) ?: return null
+        val family = ProtocolFamily.fromWheelType(type) ?: return null
+        return ConnectionHint(family, HintSource.SCAN_NAME, rawName = rawName)
     }
 
     /**
@@ -385,7 +401,7 @@ object WheelConnectionManagerHelper {
         val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
         return AutoConnectManager(
             connectionState = manager.connectionState,
-            connect = { address -> manager.connect(address) },
+            connect = { address, hint -> manager.connect(address, hint) },
             scope = scope,
             dispatcher = Dispatchers.Main
         )

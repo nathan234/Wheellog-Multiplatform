@@ -20,7 +20,7 @@ sealed class WheelEvent {
     /** Request to connect to a wheel. */
     class ConnectRequested(
         val address: String,
-        val wheelType: WheelType?,
+        val hint: ConnectionHint?,
         val advertisement: BleAdvertisement? = null,
     ) : WheelEvent()
 

@@ -10,6 +10,7 @@ import org.freewheel.core.ble.BleAdvertisement
 import org.freewheel.core.ble.BleUuids
 import org.freewheel.core.ble.DiscoveredService
 import org.freewheel.core.ble.DiscoveredServices
+import org.freewheel.core.domain.ProtocolFamily
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.protocol.DecoderState
@@ -285,6 +286,60 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
+    fun `connect with null hint leaves no hint to consume`() = runTest(timeout = 0.1.seconds) {
+        // No hint passed; Ambiguous discovery must take the GOTWAY_VIRTUAL
+        // fallback branch. Locks in that null hints don't accidentally inherit
+        // a stale value from a previous session.
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF", hint = null)
+        runCurrent()
+
+        val ambiguousServices = DiscoveredServices(
+            listOf(
+                DiscoveredService(
+                    uuid = BleUuids.Gotway.SERVICE,
+                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
+                )
+            )
+        )
+        manager.onServicesDiscovered(ambiguousServices, deviceName = null)
+        runCurrent()
+
+        assertEquals(WheelType.GOTWAY_VIRTUAL, fakeFactory.lastCreatedType)
+    }
+
+    @Test
+    fun `SAVED_PROFILE hint drives ambiguous decoder selection`() = runTest(timeout = 0.1.seconds) {
+        // Android startup auto-connect path: the saved per-MAC profile knows the
+        // wheel type even when the advertised name doesn't match a pattern. The
+        // hint must reach the Ambiguous branch and the SAVED_PROFILE source must
+        // be honored just like SCAN_NAME.
+        val manager = createManager()
+        manager.connect(
+            "AA:BB:CC:DD:EE:FF",
+            ConnectionHint(ProtocolFamily.VETERAN, HintSource.SAVED_PROFILE),
+        )
+        runCurrent()
+
+        val ambiguousServices = DiscoveredServices(
+            listOf(
+                DiscoveredService(
+                    uuid = BleUuids.Gotway.SERVICE,
+                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
+                )
+            )
+        )
+        manager.onServicesDiscovered(ambiguousServices, deviceName = null)
+        runCurrent()
+
+        assertEquals(
+            WheelType.VETERAN,
+            fakeFactory.lastCreatedType,
+            "SAVED_PROFILE hint must be honored in the Ambiguous branch"
+        )
+    }
+
+    @Test
     fun `disconnect clears lastAdvertisement`() = runTest(timeout = 0.1.seconds) {
         val manager = createManager()
         fakeBle.advertisements["AA:BB:CC:DD:EE:FF"] = BleAdvertisement(
@@ -423,7 +478,7 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
-    fun `ambiguous services with wheel-type hint create hinted decoder and dispatch init`() = runTest(timeout = 0.1.seconds) {
+    fun `ambiguous services with ConnectionHint create hinted decoder and dispatch init`() = runTest(timeout = 0.1.seconds) {
         // Design B: the hint is consumed in reduceServicesDiscovered's Ambiguous
         // branch — without a hint the wheel would silently fall back to
         // GOTWAY_VIRTUAL (wrong protocol for an S22 / KS-prefixed wheel that
@@ -438,8 +493,12 @@ class WheelConnectionManagerLifecycleTest {
 
         val manager = createManager()
 
-        // Connect with a Kingsong hint. Under B, no decoder is created here.
-        manager.connect("AA:BB:CC:DD:EE:FF", WheelType.KINGSONG)
+        // Connect with a SCAN_NAME hint (the iOS production path). Under B,
+        // no decoder is created here.
+        manager.connect(
+            "AA:BB:CC:DD:EE:FF",
+            ConnectionHint(ProtocolFamily.KINGSONG, HintSource.SCAN_NAME, rawName = "S22 PRO"),
+        )
         runCurrent()
         assertNull(manager.getCurrentDecoder(), "Hint alone must not create a decoder")
         assertEquals(0, fakeFactory.createCount)

@@ -18,7 +18,7 @@ class AutoConnectManagerTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val manager = AutoConnectManager(
             connectionState = connectionState,
-            connect = { address -> connectCalls.add(address) },
+            connect = { address, _ -> connectCalls.add(address) },
             scope = this,
             dispatcher = dispatcher
         )

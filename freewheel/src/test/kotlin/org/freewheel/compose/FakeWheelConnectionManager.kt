@@ -14,6 +14,7 @@ import org.freewheel.core.domain.WheelType
 import org.freewheel.core.logging.BlePacketDirection
 import org.freewheel.core.protocol.DecoderConfig
 import org.freewheel.core.protocol.WheelCommand
+import org.freewheel.core.service.ConnectionHint
 import org.freewheel.core.service.ConnectionState
 import org.freewheel.core.service.WheelConnectionManagerPort
 
@@ -48,17 +49,17 @@ class FakeWheelConnectionManager : WheelConnectionManagerPort {
         private set
     var lastConnectAddress: String? = null
         private set
-    var lastConnectWheelType: WheelType? = null
+    var lastConnectHint: ConnectionHint? = null
         private set
     var disconnectCallCount = 0
         private set
 
     private var config = DecoderConfig()
 
-    override fun connect(address: String, wheelType: WheelType?) {
+    override fun connect(address: String, hint: ConnectionHint?) {
         connectCallCount++
         lastConnectAddress = address
-        lastConnectWheelType = wheelType
+        lastConnectHint = hint
     }
 
     override fun disconnect() {

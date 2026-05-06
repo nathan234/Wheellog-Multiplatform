@@ -33,6 +33,21 @@ class WheelProfileStore(private val store: KeyValueStore) {
         return if (name.isNullOrEmpty()) null else name
     }
 
+    /**
+     * Look up a single saved profile by address. Returns null if no profile is
+     * saved (i.e., [address] is not in [getSavedAddresses]).
+     */
+    fun getProfile(address: String): WheelProfile? {
+        if (address !in getSavedAddresses()) return null
+        return WheelProfile(
+            address = address,
+            displayName = store.getString(address + PreferenceKeys.SUFFIX_PROFILE_NAME, "") ?: "",
+            wheelTypeName = store.getString(address + PreferenceKeys.SUFFIX_WHEEL_TYPE, "") ?: "",
+            lastConnectedMs = store.getLong(address + PreferenceKeys.SUFFIX_LAST_CONNECTED, 0L),
+            topSpeedOverrideKmh = readTopSpeedOverride(address),
+        )
+    }
+
     fun getTopSpeedOverrideKmh(address: String): Double? = readTopSpeedOverride(address)
 
     fun setTopSpeedOverrideKmh(address: String, kmh: Double?) {

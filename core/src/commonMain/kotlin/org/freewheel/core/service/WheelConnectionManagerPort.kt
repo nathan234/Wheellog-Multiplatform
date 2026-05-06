@@ -4,6 +4,7 @@ import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.CapabilitySet
 import org.freewheel.core.domain.EventLogEntry
+import org.freewheel.core.domain.ProtocolFamily
 import org.freewheel.core.domain.SettingsCommandId
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
@@ -30,7 +31,25 @@ interface WheelConnectionManagerPort {
     var unhandledCallback: ((reason: String, frameData: ByteArray) -> Unit)?
     var errorLogCallback: ((ConnectionErrorEvent) -> Unit)?
 
-    fun connect(address: String, wheelType: WheelType? = null)
+    /**
+     * Connect to [address] with an optional [ConnectionHint].
+     * Implementations are fire-and-forget; observe [connectionState] for the result.
+     */
+    fun connect(address: String, hint: ConnectionHint? = null)
+
+    /**
+     * Migration shim: callers that still have a [WheelType] (legacy or explicit
+     * picker) get wrapped as [HintSource.EXPLICIT_API]. Sentinel values
+     * ([WheelType.GOTWAY_VIRTUAL], [WheelType.Unknown]) become null because
+     * [ProtocolFamily] cannot represent them — see [ProtocolFamily.fromWheelType].
+     */
+    fun connect(address: String, wheelType: WheelType?) {
+        val hint = wheelType
+            ?.let { ProtocolFamily.fromWheelType(it) }
+            ?.let { ConnectionHint(it, HintSource.EXPLICIT_API) }
+        connect(address, hint)
+    }
+
     fun disconnect()
     fun updateConfig(config: DecoderConfig)
     fun getConfig(): DecoderConfig

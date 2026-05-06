@@ -178,7 +178,7 @@ For app lifecycle, shutdown paths, data persistence, and logging architecture de
 
 # Build iOS app (simulator)
 xcodebuild -project iosApp/FreeWheel.xcodeproj -scheme FreeWheel \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' build
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
 The Xcode project has a build phase that runs `iosApp/Scripts/build-kmp-framework.sh` automatically, so building from Xcode handles the KMP framework step. The manual Gradle commands above are for CI or command-line builds.

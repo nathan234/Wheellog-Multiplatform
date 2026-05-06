@@ -91,6 +91,7 @@ fun DashboardContent(
     topSpeedOverrideKmh: Double? = null,
     observedMaxKmh: Double = 0.0,
     appVersion: String = "",
+    discoveredServices: org.freewheel.core.ble.DiscoveredServices? = null,
     modifier: Modifier = Modifier
 ) {
     val effectiveLayout = remember(layout, identity.wheelType) {
@@ -128,6 +129,7 @@ fun DashboardContent(
             observedMaxKmh = observedMaxKmh,
             appVersion = appVersion,
             isConnected = connectionState is ConnectionState.Connected,
+            discoveredServices = discoveredServices,
         )
 
         // Hero metric rendering (null = tiles-only layout, skip hero gauge)

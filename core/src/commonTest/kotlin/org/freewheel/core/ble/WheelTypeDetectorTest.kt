@@ -910,13 +910,14 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `default-constructed detector recognizes every PROXY adapter`() {
-        // Lock the legacy coverage: every adapter that appears in PROXY
-        // must resolve to its expected wheel type via the default
-        // detector. Mirrors `every PROXY topology matches…` in
-        // WheelTopologyMatcherTest but pinned through the production
-        // entry point.
-        val expected = mapOf(
+    fun `default-constructed detector recognizes every PROXY topology variant`() {
+        // Lock the legacy coverage: every PROXY topology variant — not
+        // just every adapter — must resolve to its expected wheel type
+        // via the default detector. Iterating with .withIndex() instead
+        // of .first { adapter == ... } catches byte-identical duplicates
+        // (e.g. PROXY[0] and PROXY[1], both gotway) that would otherwise
+        // be untested through the production entry point.
+        val expectedAdapterToType = mapOf(
             "gotway" to WheelType.GOTWAY,
             "kingsong" to WheelType.KINGSONG,
             "inmotion" to WheelType.INMOTION,
@@ -924,14 +925,19 @@ class WheelTypeDetectorTest {
             "ninebot" to WheelType.NINEBOT,
             "ninebot_z" to WheelType.NINEBOT_Z,
         )
-        for ((adapter, wheelType) in expected) {
-            val proxy = WheelTopologies.PROXY.first { it.adapter == adapter }
+        for ((index, proxy) in WheelTopologies.PROXY.withIndex()) {
+            val expected = expectedAdapterToType[proxy.adapter]
+                ?: error("PROXY[$index] has unknown adapter '${proxy.adapter}'")
             val result = detector.detect(proxy.toDiscoveredServices())
             assertTrue(
                 result is WheelTypeDetector.DetectionResult.Detected,
-                "PROXY adapter '$adapter' did not resolve via default detector; got $result"
+                "PROXY[$index] adapter='${proxy.adapter}' did not resolve via default detector; got $result"
             )
-            assertEquals(wheelType, (result as WheelTypeDetector.DetectionResult.Detected).wheelType)
+            assertEquals(
+                expected,
+                (result as WheelTypeDetector.DetectionResult.Detected).wheelType,
+                "PROXY[$index] adapter='${proxy.adapter}' resolved to wrong wheel type"
+            )
         }
     }
 

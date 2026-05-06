@@ -3,6 +3,7 @@ package org.freewheel.compose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.freewheel.core.ble.DiscoveredServices
 import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.CapabilitySet
@@ -40,6 +41,9 @@ class FakeWheelConnectionManager : WheelConnectionManagerPort {
 
     private val _settingsState = MutableStateFlow<WheelSettings>(WheelSettings.None)
     override val settingsState: StateFlow<WheelSettings> = _settingsState.asStateFlow()
+
+    private val _discoveredServices = MutableStateFlow<DiscoveredServices?>(null)
+    override val discoveredServices: StateFlow<DiscoveredServices?> = _discoveredServices.asStateFlow()
 
     override var captureCallback: ((data: ByteArray, direction: BlePacketDirection, annotation: String) -> Unit)? = null
     override var unhandledCallback: ((reason: String, frameData: ByteArray) -> Unit)? = null
@@ -83,4 +87,5 @@ class FakeWheelConnectionManager : WheelConnectionManagerPort {
     // Test helpers
     fun setConnectionState(state: ConnectionState) { _connectionState.value = state }
     fun setCapabilities(caps: CapabilitySet) { _capabilities.value = caps }
+    fun setDiscoveredServices(services: DiscoveredServices?) { _discoveredServices.value = services }
 }

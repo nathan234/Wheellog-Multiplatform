@@ -65,6 +65,7 @@ fun DashboardScreen(
     val rangeEstimateKm by viewModel.rangeEstimateKm.collectAsStateWithLifecycle()
     val topSpeedOverrideKmh by viewModel.topSpeedOverrideKmh.collectAsStateWithLifecycle()
     val observedMaxKmh by viewModel.observedMaxKmhInSession.collectAsStateWithLifecycle()
+    val discoveredServices by viewModel.discoveredServices.collectAsStateWithLifecycle()
     val dataSource by viewModel.dataSource.collectAsStateWithLifecycle()
     val replayState by viewModel.replayEngine.replayState.collectAsStateWithLifecycle()
     val replayPosition by viewModel.replayEngine.position.collectAsStateWithLifecycle()
@@ -156,6 +157,7 @@ fun DashboardScreen(
                 topSpeedOverrideKmh = topSpeedOverrideKmh,
                 observedMaxKmh = observedMaxKmh,
                 appVersion = org.freewheel.BuildConfig.VERSION_NAME,
+                discoveredServices = discoveredServices,
                 modifier = Modifier.weight(1f)
             )
 

@@ -191,6 +191,20 @@ class WheelConnectionManager(
         .distinctUntilChanged()
         .stateIn(derivedScope, SharingStarted.Eagerly, emptyList())
 
+    /**
+     * Full GATT topology from the most recent ServicesDiscovered event,
+     * or null when no services have been discovered yet on the current
+     * connection attempt. Cleared on disconnect.
+     *
+     * Surfaced to the UI so the unrecognized-wheel report (Pass 3b) can
+     * include the complete service+characteristic dump in its GitHub
+     * issue body.
+     */
+    override val discoveredServices: StateFlow<DiscoveredServices?> = _wcmState
+        .map { it.lastDiscoveredServices }
+        .distinctUntilChanged()
+        .stateIn(derivedScope, SharingStarted.Eagerly, null)
+
     /** Whether the keep-alive timer is running. */
     val isKeepAliveRunning: StateFlow<Boolean> = keepAliveTimer.isRunning
 
@@ -702,7 +716,7 @@ class WheelConnectionManager(
     private fun reduceServicesDiscovered(state: WcmState, event: WheelEvent.ServicesDiscovered): WcmTransition {
         if (isStaleAttempt(state, event.attemptId, "ServicesDiscovered")) return WcmTransition(state)
         Logger.d(TAG, "onServicesDiscovered: deviceName=${event.deviceName}, services=${event.services.serviceUuids()}")
-        var newState = state
+        var newState = state.copy(lastDiscoveredServices = event.services)
         if (!event.deviceName.isNullOrBlank()) {
             newState = newState.copy(identity = newState.identity.copy(btName = event.deviceName))
         }

@@ -26,6 +26,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import org.freewheel.core.ble.DiscoveredServices
+import org.freewheel.core.ble.ServiceTopology
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.wheel.WheelCatalog
 import org.freewheel.core.domain.wheel.WheelReport
@@ -35,6 +37,12 @@ import org.freewheel.core.domain.wheel.WheelReport
  * Tapping "Report" opens a pre-populated GitHub issue in the browser; the user
  * reviews and submits there. No data leaves the device unless the user clicks
  * Submit on GitHub itself.
+ *
+ * The optional [discoveredServices] is the live GATT topology surfaced by
+ * [WheelConnectionManager.discoveredServices] — when non-null it's
+ * forwarded to [WheelReport] so the GitHub issue includes the full
+ * service+characteristic dump and a maintainer can paste it straight
+ * into `WheelTopologies.ALL`.
  */
 @Composable
 fun UnknownWheelReportBanner(
@@ -42,6 +50,7 @@ fun UnknownWheelReportBanner(
     observedMaxKmh: Double,
     appVersion: String,
     isConnected: Boolean,
+    discoveredServices: DiscoveredServices? = null,
     modifier: Modifier = Modifier,
 ) {
     val isUnknown = remember(identity, isConnected) {
@@ -89,11 +98,15 @@ fun UnknownWheelReportBanner(
             ) {
                 TextButton(onClick = { dismissed = true }) { Text("Dismiss") }
                 TextButton(onClick = {
+                    val topology = discoveredServices?.services.orEmpty().map { svc ->
+                        ServiceTopology(svc.uuid, svc.characteristics.toSet())
+                    }
                     val url = WheelReport.buildGitHubIssueUrl(
                         identity = identity,
                         observedMaxKmh = observedMaxKmh,
                         appVersion = appVersion,
                         appPlatform = "android",
+                        services = topology,
                     )
                     val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

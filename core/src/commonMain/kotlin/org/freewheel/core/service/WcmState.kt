@@ -1,6 +1,7 @@
 package org.freewheel.core.service
 
 import org.freewheel.core.ble.BleAdvertisement
+import org.freewheel.core.ble.DiscoveredServices
 import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.CapabilitySet
@@ -58,6 +59,11 @@ data class WcmState(
     // topology fingerprinting matcher (Pass 2). Cleared by reduceDisconnect to
     // avoid stale carry-over across sessions.
     val lastAdvertisement: BleAdvertisement? = null,
+    // Full GATT topology captured at the most recent ServicesDiscovered event.
+    // Surfaced to the UI so the unrecognized-wheel report (Pass 3b) can attach
+    // the complete service+characteristic dump to the GitHub issue. Cleared by
+    // reduceDisconnect.
+    val lastDiscoveredServices: DiscoveredServices? = null,
     // Monotonic counter of connect attempts; incremented only by reduceConnect.
     // Used to mint a fresh [currentAttemptId] every time a new connect event is
     // accepted, so events emitted by a prior session can be detected as stale.

@@ -49,6 +49,7 @@ fun CustomTabScreen(
     val gpsSpeed by viewModel.gpsSpeedKmh.collectAsStateWithLifecycle()
     val topSpeedOverrideKmh by viewModel.topSpeedOverrideKmh.collectAsStateWithLifecycle()
     val observedMaxKmh by viewModel.observedMaxKmhInSession.collectAsStateWithLifecycle()
+    val discoveredServices by viewModel.discoveredServices.collectAsStateWithLifecycle()
 
     val layout = customTabLayouts[tabId] ?: DashboardLayout.default()
     val tabLabel = navigationConfig.tabs
@@ -107,6 +108,7 @@ fun CustomTabScreen(
                 topSpeedOverrideKmh = topSpeedOverrideKmh,
                 observedMaxKmh = observedMaxKmh,
                 appVersion = org.freewheel.BuildConfig.VERSION_NAME,
+                discoveredServices = discoveredServices,
                 modifier = Modifier.padding(contentPadding)
             )
         }

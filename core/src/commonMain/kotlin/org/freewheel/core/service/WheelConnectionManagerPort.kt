@@ -1,5 +1,6 @@
 package org.freewheel.core.service
 
+import org.freewheel.core.ble.DiscoveredServices
 import org.freewheel.core.ble.WheelConnectionInfo
 import org.freewheel.core.domain.BmsState
 import org.freewheel.core.domain.CapabilitySet
@@ -66,4 +67,13 @@ interface WheelConnectionManagerPort {
         get() = kotlinx.coroutines.flow.MutableStateFlow(emptyList())
     fun requestEventLog() {}
     fun clearEventLog() {}
+
+    /**
+     * Full GATT topology from the most recent ServicesDiscovered event,
+     * or null when no services have been discovered yet on the current
+     * connection attempt. Cleared on disconnect. Surfaced for the
+     * unrecognized-wheel report (Pass 3b).
+     */
+    val discoveredServices: StateFlow<DiscoveredServices?>
+        get() = kotlinx.coroutines.flow.MutableStateFlow(null)
 }

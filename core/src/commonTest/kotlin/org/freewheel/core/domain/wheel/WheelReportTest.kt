@@ -1,5 +1,6 @@
 package org.freewheel.core.domain.wheel
 
+import org.freewheel.core.ble.ServiceTopology
 import org.freewheel.core.domain.WheelIdentity
 import org.freewheel.core.domain.WheelType
 import kotlin.test.Test
@@ -116,5 +117,106 @@ class WheelReportTest {
         )
         assertTrue(text.contains("1.2.3"))
         assertTrue(text.contains("android"))
+    }
+
+    // ==================== Pass 3b: full topology in report ====================
+    //
+    // The unrecognized-wheel report now includes the complete service
+    // topology (services + characteristics) so a maintainer can paste it
+    // directly into WheelTopologies.ALL with minimal editing. Per-service
+    // line format: `- {service-uuid}: [{c1}, {c2}, ...]`. Empty-char
+    // services render as `[]`. The section is omitted entirely when the
+    // caller passes an empty topology (legacy callers, plumbing not yet
+    // wired up).
+
+    private val ffe0 = "0000ffe0-0000-1000-8000-00805f9b34fb"
+    private val ffe1 = "0000ffe1-0000-1000-8000-00805f9b34fb"
+    private val fff0 = "0000fff0-0000-1000-8000-00805f9b34fb"
+    private val fff1 = "0000fff1-0000-1000-8000-00805f9b34fb"
+    private val genericAttribute = "00001801-0000-1000-8000-00805f9b34fb"
+
+    @Test
+    fun emptyTopologyOmitsTheSection() {
+        val text = WheelReport.buildShareText(
+            WheelIdentity(wheelType = WheelType.GOTWAY, btName = "X"),
+            services = emptyList(),
+        )
+        assertFalse(text.contains("Service topology"), "Empty topology should not render a section header; got:\n$text")
+    }
+
+    @Test
+    fun singleServiceRendersInParseableForm() {
+        val text = WheelReport.buildShareText(
+            WheelIdentity(wheelType = WheelType.GOTWAY, btName = "X"),
+            services = listOf(ServiceTopology(ffe0, setOf(ffe1))),
+        )
+        assertTrue(
+            text.contains("- $ffe0: [$ffe1]"),
+            "Expected per-service line; got:\n$text"
+        )
+    }
+
+    @Test
+    fun multipleServicesRenderInListOrder() {
+        // Service rendering preserves the order of the input list so a
+        // maintainer pasting the dump into WheelTopologies.ALL gets the
+        // services in the same order the wheel exposed them — easier to
+        // visually compare against existing fingerprints.
+        val text = WheelReport.buildShareText(
+            WheelIdentity(wheelType = WheelType.GOTWAY, btName = "X"),
+            services = listOf(
+                ServiceTopology(fff0, setOf(fff1)),
+                ServiceTopology(ffe0, setOf(ffe1)),
+            ),
+        )
+        val firstIdx = text.indexOf("- $fff0:")
+        val secondIdx = text.indexOf("- $ffe0:")
+        assertTrue(firstIdx in 0 until secondIdx, "Services rendered out of order; got:\n$text")
+    }
+
+    @Test
+    fun serviceWithEmptyCharacteristicsRendersAsEmptyBrackets() {
+        // The Generic Attribute service often has no characteristics in
+        // legacy fingerprints; rendering it as `[]` keeps the dump
+        // visually consistent with the other service lines.
+        val text = WheelReport.buildShareText(
+            WheelIdentity(wheelType = WheelType.GOTWAY, btName = "X"),
+            services = listOf(ServiceTopology(genericAttribute, emptySet())),
+        )
+        assertTrue(
+            text.contains("- $genericAttribute: []"),
+            "Empty-char service should render with []; got:\n$text"
+        )
+    }
+
+    @Test
+    fun multipleCharacteristicsRenderCommaSeparated() {
+        val text = WheelReport.buildShareText(
+            WheelIdentity(wheelType = WheelType.GOTWAY, btName = "X"),
+            services = listOf(
+                ServiceTopology(fff0, setOf(fff1, "0000fff2-0000-1000-8000-00805f9b34fb")),
+            ),
+        )
+        assertTrue(
+            text.contains("- $fff0: [$fff1, 0000fff2-0000-1000-8000-00805f9b34fb]"),
+            "Multi-char service should render comma-separated; got:\n$text"
+        )
+    }
+
+    @Test
+    fun topologySectionAppearsInGitHubIssueUrl() {
+        // End-to-end check: the URL-encoded body must include the
+        // service-topology section so a maintainer opening the issue can
+        // copy-paste the topology straight into WheelTopologies.ALL.
+        val url = WheelReport.buildGitHubIssueUrl(
+            WheelIdentity(wheelType = WheelType.GOTWAY, btName = "X"),
+            services = listOf(ServiceTopology(ffe0, setOf(ffe1))),
+        )
+        // "Service topology" → URL-encoded space is %20, so look for a
+        // substring that's stable across encoding.
+        assertTrue(
+            url.contains("Service%20topology"),
+            "URL body should contain the encoded section header; got:\n$url"
+        )
     }
 }

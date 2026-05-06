@@ -1,5 +1,6 @@
 package org.freewheel.core.domain.wheel
 
+import org.freewheel.core.ble.ServiceTopology
 import org.freewheel.core.domain.WheelIdentity
 
 /**
@@ -22,16 +23,21 @@ object WheelReport {
     /**
      * Builds a `https://github.com/.../issues/new?...` URL with title/body/label
      * pre-populated. The user reviews and submits the issue in their browser.
+     *
+     * The [services] parameter, when non-empty, renders the wheel's full
+     * GATT topology (services + characteristics) into the issue body in a
+     * paste-friendly form so a maintainer can drop it straight into
+     * `WheelTopologies.ALL` with minimal editing.
      */
     fun buildGitHubIssueUrl(
         identity: WheelIdentity,
         observedMaxKmh: Double = 0.0,
         appVersion: String = "",
         appPlatform: String = "",
-        serviceUuids: List<String> = emptyList(),
+        services: List<ServiceTopology> = emptyList(),
     ): String {
         val title = "Wheel fingerprint: ${titleFor(identity)}"
-        val body = buildBody(identity, observedMaxKmh, appVersion, appPlatform, serviceUuids)
+        val body = buildBody(identity, observedMaxKmh, appVersion, appPlatform, services)
         return buildString {
             append("https://github.com/")
             append(GITHUB_OWNER).append('/').append(GITHUB_REPO)
@@ -48,10 +54,10 @@ object WheelReport {
         observedMaxKmh: Double = 0.0,
         appVersion: String = "",
         appPlatform: String = "",
-        serviceUuids: List<String> = emptyList(),
+        services: List<ServiceTopology> = emptyList(),
     ): String =
         "Wheel fingerprint: ${titleFor(identity)}\n\n" +
-            buildBody(identity, observedMaxKmh, appVersion, appPlatform, serviceUuids)
+            buildBody(identity, observedMaxKmh, appVersion, appPlatform, services)
 
     private fun titleFor(identity: WheelIdentity): String {
         val parts = listOf(
@@ -66,7 +72,7 @@ object WheelReport {
         observedMaxKmh: Double,
         appVersion: String,
         appPlatform: String,
-        serviceUuids: List<String>,
+        services: List<ServiceTopology>,
     ): String = buildString {
         appendField("Wheel type", identity.wheelType.name)
         appendField("Advertised BLE name", identity.btName)
@@ -76,15 +82,37 @@ object WheelReport {
         appendField("Decoder name", identity.name)
         appendField("Mode", identity.modeStr)
         appendField("Serial number", identity.serialNumber)
-        appendField("Service UUIDs", serviceUuids.joinToString(", "))
         appendField("Observed peak speed (km/h)", observedMaxKmh.takeIf { it > 0.0 }?.toString().orEmpty())
         appendField("App version", appVersion)
         appendField("App platform", appPlatform)
+        appendTopologySection(services)
     }
 
     private fun StringBuilder.appendField(label: String, value: String) {
         if (value.isEmpty()) return
         append("**").append(label).append("**: ").append(value).append('\n')
+    }
+
+    /**
+     * Render the full GATT topology in a paste-friendly form so a
+     * maintainer can drop it into `WheelTopologies.ALL`. Per-service
+     * line is `- {service-uuid}: [{c1}, {c2}, ...]`. Services render in
+     * input list order; characteristics render in the order returned by
+     * the [ServiceTopology] set's iterator (insertion order under
+     * `setOf(...)`'s LinkedHashSet). An empty topology omits the entire
+     * section so legacy callers that haven't wired up topology data yet
+     * don't bloat their issue body.
+     */
+    private fun StringBuilder.appendTopologySection(services: List<ServiceTopology>) {
+        if (services.isEmpty()) return
+        val count = services.size
+        val noun = if (count == 1) "service" else "services"
+        append("**Service topology** (").append(count).append(' ').append(noun).append("):\n")
+        for (svc in services) {
+            append("- ").append(svc.uuid).append(": [")
+            append(svc.characteristics.joinToString(", "))
+            append("]\n")
+        }
     }
 
     /**

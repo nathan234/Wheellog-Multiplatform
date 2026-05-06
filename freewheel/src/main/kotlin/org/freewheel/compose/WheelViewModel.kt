@@ -581,6 +581,7 @@ class WheelViewModel(
             launch { cm.bmsState.collect { _realBms.value = it } }
             launch { cm.settingsState.collect { _realSettings.value = it } }
             launch { cm.eventLogEntries.collect { _eventLogEntries.value = it } }
+            launch { cm.discoveredServices.collect { _discoveredServices.value = it } }
         }
         collectionScope.launch {
             cm.capabilities.collect { _capabilities.value = it }
@@ -946,6 +947,21 @@ class WheelViewModel(
 
     private val _eventLogEntries = MutableStateFlow<List<org.freewheel.core.domain.EventLogEntry>>(emptyList())
     val eventLogEntries: StateFlow<List<org.freewheel.core.domain.EventLogEntry>> = _eventLogEntries.asStateFlow()
+
+    // --- Discovered services (Pass 3b: full GATT topology for unrecognized-wheel report) ---
+
+    private val _discoveredServices = MutableStateFlow<org.freewheel.core.ble.DiscoveredServices?>(null)
+
+    /**
+     * Live GATT topology surfaced to the UI for the unrecognized-wheel
+     * report. Gated on [dataSource] so demo and replay modes don't
+     * accidentally attach the *previous* live wheel's topology to a
+     * report — the topology field is only meaningful when we're
+     * actually talking to a real wheel right now.
+     */
+    val discoveredServices: StateFlow<org.freewheel.core.ble.DiscoveredServices?> =
+        combine(_discoveredServices, _dataSource, ::gateDiscoveredServices)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     fun requestEventLog() {
         binding?.connectionManager?.clearEventLog()
@@ -1849,3 +1865,19 @@ class WheelViewModel(
         }
     }
 }
+
+/**
+ * Pure gating predicate for [WheelViewModel.discoveredServices] (Pass 3b
+ * Codex P2): only LIVE mode surfaces the live wheel's GATT topology.
+ * Demo and replay return null so the unrecognized-wheel report can't
+ * accidentally attach the previous live session's fingerprint to the
+ * wrong context.
+ *
+ * Top-level + internal so it can be unit-tested without instantiating the
+ * full AndroidViewModel and fighting `viewModelScope` lifetime semantics.
+ */
+internal fun gateDiscoveredServices(
+    services: org.freewheel.core.ble.DiscoveredServices?,
+    source: WheelViewModel.WheelDataSource,
+): org.freewheel.core.ble.DiscoveredServices? =
+    if (source == WheelViewModel.WheelDataSource.LIVE) services else null

@@ -19,9 +19,17 @@ interface BleManagerPort {
 
     /**
      * Connect to a BLE device at the given address.
+     *
+     * @param attemptId Stamped by the WCM reducer when minting this connect
+     *                  attempt. Implementations should hold this value as the
+     *                  active session id and stamp every event they emit
+     *                  (BleConnectResult, ServicesDiscovered, BleDisconnected,
+     *                  DataReceived, BleConfigureFailed) with it. The reducer
+     *                  drops events whose attemptId doesn't match the current
+     *                  session — see [WcmState.currentAttemptId].
      * @return true if the connection was established successfully
      */
-    suspend fun connect(address: String): Boolean
+    suspend fun connect(address: String, attemptId: Long): Boolean
 
     /**
      * Disconnect from the current device.

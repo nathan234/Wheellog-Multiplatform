@@ -31,11 +31,16 @@ sealed class WheelEvent {
 
     /**
      * Result of a BLE connect attempt.
+     *
+     * [attemptId] identifies which connect attempt produced this result.
+     * The reducer drops events whose attemptId doesn't match the current
+     * session's id — see [WcmState.currentAttemptId].
      */
     class BleConnectResult(
         val success: Boolean,
         val address: String,
-        val error: String? = null
+        val attemptId: Long,
+        val error: String? = null,
     ) : WheelEvent()
 
     /**
@@ -43,7 +48,8 @@ sealed class WheelEvent {
      */
     class ServicesDiscovered(
         val services: DiscoveredServices,
-        val deviceName: String?
+        val deviceName: String?,
+        val attemptId: Long,
     ) : WheelEvent()
 
     /**
@@ -54,7 +60,8 @@ sealed class WheelEvent {
      */
     class BleConfigureFailed(
         val address: String,
-        val error: String
+        val attemptId: Long,
+        val error: String,
     ) : WheelEvent()
 
     /**
@@ -67,9 +74,15 @@ sealed class WheelEvent {
     /**
      * Raw data received from the wheel via BLE notification.
      * Fires at BLE frequency (20-100ms). Channel overhead is negligible.
+     *
+     * [attemptId] is stamped by the platform BLE layer at delivery so the
+     * reducer can drop frames from a prior session that the OS BLE stack
+     * hasn't fully torn down yet. Cost (8 bytes per frame) is negligible vs.
+     * the decode allocation footprint.
      */
     class DataReceived(
-        val data: ByteArray
+        val data: ByteArray,
+        val attemptId: Long,
     ) : WheelEvent()
 
     /**
@@ -87,7 +100,8 @@ sealed class WheelEvent {
      */
     class BleDisconnected(
         val address: String,
-        val reason: String
+        val reason: String,
+        val attemptId: Long,
     ) : WheelEvent()
 
     // --- Timers ---

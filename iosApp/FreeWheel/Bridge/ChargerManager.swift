@@ -63,13 +63,14 @@ class ChargerManager: ObservableObject {
 
         guard let ccm = chargerConnectionManager else { return }
 
-        // Wire BLE callbacks
-        bleManager?.setDataReceivedCallback { [weak self] data in
+        // Wire BLE callbacks. The charger flow doesn't track attemptId — it
+        // has its own connection manager, separate from WCM.
+        bleManager?.setDataReceivedCallback { [weak self] data, _ in
             guard let ccm = self?.chargerConnectionManager else { return }
             ChargerConnectionManagerHelper.shared.onDataReceived(manager: ccm, data: data)
         }
 
-        bleManager?.setServicesDiscoveredCallback { [weak self] _, _ in
+        bleManager?.setServicesDiscoveredCallback { [weak self] _, _, _ in
             guard let ccm = self?.chargerConnectionManager else { return }
             ChargerConnectionManagerHelper.shared.onServicesDiscovered(manager: ccm)
         }

@@ -292,7 +292,11 @@ class ChargerConnectionManager(
     private fun launchBleConnect(address: String) {
         bleConnectJob = scope.launch(dispatcher) {
             try {
-                val success = bleManager.connect(address)
+                // Charger flow doesn't use the WCM-side attemptId staleness
+                // guard — its [BleManager] instance is separate and its event
+                // sinks (set in ChargerManager.swift / WheelService.kt) discard
+                // the stamped value. Pass 0L as a placeholder.
+                val success = bleManager.connect(address, attemptId = 0L)
                 events.send(ChargerEvent.BleConnectResult(success, address))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 // Cancelled by disconnect

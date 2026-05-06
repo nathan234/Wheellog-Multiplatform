@@ -94,17 +94,19 @@ class WheelService : Service(), WheelServiceContract {
         bleManager.initialize(this)
         createNotificationChannel()
 
-        // Wire BLE data to connection manager (mirrors WheelManager.swift)
-        bleManager.setDataReceivedCallback { data ->
+        // Wire BLE data to connection manager (mirrors WheelManager.swift).
+        // attemptId is stamped at BleManager.connect() and forwarded so the
+        // WCM reducer can drop events from a prior session.
+        bleManager.setDataReceivedCallback { data, attemptId ->
             try {
-                connectionManager.onDataReceived(data)
+                connectionManager.onDataReceived(data, attemptId)
             } catch (e: Exception) {
                 org.freewheel.core.utils.Logger.e("WheelService", "Error in onDataReceived", e)
             }
         }
-        bleManager.setServicesDiscoveredCallback { services, deviceName ->
+        bleManager.setServicesDiscoveredCallback { services, deviceName, attemptId ->
             try {
-                connectionManager.onServicesDiscovered(services, deviceName)
+                connectionManager.onServicesDiscovered(services, deviceName, attemptId)
             } catch (e: Exception) {
                 org.freewheel.core.utils.Logger.e("WheelService", "Error in onServicesDiscovered", e)
             }
@@ -112,20 +114,21 @@ class WheelService : Service(), WheelServiceContract {
         bleManager.setBleErrorCallback {
             connectionManager.onBleError()
         }
-        bleManager.setBleDisconnectedCallback { address, reason ->
-            connectionManager.onBleDisconnected(address, reason)
+        bleManager.setBleDisconnectedCallback { address, reason, attemptId ->
+            connectionManager.onBleDisconnected(address, reason, attemptId)
         }
 
-        // Wire charger BLE data to charger connection manager
+        // Wire charger BLE data to charger connection manager. Charger flow
+        // doesn't track attemptId — it has its own connection manager.
         chargerBleManager.initialize(this)
-        chargerBleManager.setDataReceivedCallback { data ->
+        chargerBleManager.setDataReceivedCallback { data, _ ->
             try {
                 chargerConnectionManager.onDataReceived(data)
             } catch (e: Exception) {
                 org.freewheel.core.utils.Logger.e("WheelService", "Error in charger onDataReceived", e)
             }
         }
-        chargerBleManager.setServicesDiscoveredCallback { _, _ ->
+        chargerBleManager.setServicesDiscoveredCallback { _, _, _ ->
             try {
                 chargerConnectionManager.onServicesDiscovered()
             } catch (e: Exception) {

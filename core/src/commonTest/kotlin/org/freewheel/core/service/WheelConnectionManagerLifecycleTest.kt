@@ -1,5 +1,7 @@
 package org.freewheel.core.service
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -52,10 +54,28 @@ class WheelConnectionManagerLifecycleTest {
 
     private fun TestScope.createManager(
         decoder: FakeDecoder = fakeDecoder,
-        factory: FakeDecoderFactory = fakeFactory
+        factory: FakeDecoderFactory = fakeFactory,
+        dataTimeoutTracker: DataTimeoutTracker? = null,
     ): WheelConnectionManager {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
-        return WheelConnectionManager(fakeBle, factory, backgroundScope, dispatcher)
+        val tracker = dataTimeoutTracker ?: DataTimeoutTracker(backgroundScope, dispatcher)
+        return WheelConnectionManager(
+            fakeBle, factory, backgroundScope, dispatcher,
+            dataTimeoutTracker = tracker,
+        )
+    }
+
+    /** Counts onDataReceived() calls that reach the data-timeout watchdog. */
+    private class CountingDataTimeoutTracker(
+        scope: CoroutineScope,
+        dispatcher: CoroutineDispatcher,
+    ) : DataTimeoutTracker(scope, dispatcher) {
+        var onDataReceivedCount: Int = 0
+            private set
+        override fun onDataReceived() {
+            onDataReceivedCount++
+            super.onDataReceived()
+        }
     }
 
     // Kingsong services detected by device name
@@ -174,7 +194,7 @@ class WheelConnectionManagerLifecycleTest {
         // Use a BleManagerPort that throws
         val throwingBle = object : BleManagerPort {
             override val connectionState = fakeBle.connectionState
-            override suspend fun connect(address: String): Boolean =
+            override suspend fun connect(address: String, attemptId: Long): Boolean =
                 throw IllegalStateException("BLE not initialized")
             override suspend fun disconnect() {}
             override suspend fun write(data: ByteArray) = false
@@ -336,6 +356,146 @@ class WheelConnectionManagerLifecycleTest {
             WheelType.VETERAN,
             fakeFactory.lastCreatedType,
             "SAVED_PROFILE hint must be honored in the Ambiguous branch"
+        )
+    }
+
+    // ==================== attemptId staleness (Pass 1.5 substep 4) ====================
+
+    @Test
+    fun `rapid reconnect drops stale ServicesDiscovered`() = runTest(timeout = 0.1.seconds) {
+        // Sequence: connect-1 → disconnect → connect-2 → straggler
+        // ServicesDiscovered from session 1. The reducer must drop the stale
+        // event so session 2's state is not corrupted by detection running
+        // against the wrong device's services.
+        val manager = createManager()
+
+        manager.connect("AA:AA:AA:AA:AA:AA")
+        runCurrent()
+        manager.disconnect()
+        runCurrent()
+        manager.connect("BB:BB:BB:BB:BB:BB")
+        runCurrent()
+
+        // Now fire a stale ServicesDiscovered stamped with attempt 1 (the
+        // first session). The current attempt is 2.
+        val staleServices = DiscoveredServices(
+            listOf(
+                DiscoveredService(
+                    uuid = BleUuids.Kingsong.SERVICE,
+                    characteristics = listOf(BleUuids.Kingsong.READ_CHARACTERISTIC)
+                )
+            )
+        )
+        manager.onServicesDiscovered(staleServices, "KS-S18", attemptId = 1L)
+        runCurrent()
+
+        // Decoder must not have been created from the stale event.
+        assertEquals(0, fakeFactory.createCount, "Stale ServicesDiscovered must not create a decoder")
+        assertNull(manager.getCurrentDecoder(), "Stale event must not produce a decoder")
+    }
+
+    @Test
+    fun `stale BleDisconnected does not transition to ConnectionLost`() = runTest(timeout = 0.1.seconds) {
+        // Connect → reach Connected → fire a BleDisconnected stamped with a
+        // PRIOR attemptId. The reducer must drop it; the current connection
+        // must remain Connected.
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
+            telemetry = TelemetryState(speed = 1500),
+            identity = WheelIdentity(name = "KS")
+        ))
+        fakeDecoder.ready = true
+        manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
+        assertTrue(manager.connectionState.value is ConnectionState.Connected)
+
+        // Stale BleDisconnected stamped with id=0 (a never-active session).
+        manager.onBleDisconnected("AA:BB:CC:DD:EE:FF", "Stale callback", attemptId = 0L)
+        runCurrent()
+
+        assertTrue(
+            manager.connectionState.value is ConnectionState.Connected,
+            "Stale BleDisconnected must not flip the connection to ConnectionLost"
+        )
+    }
+
+    @Test
+    fun `stale DataReceived does not advance decoder state`() = runTest(timeout = 0.1.seconds) {
+        // Connect-1 → reach Connected → disconnect → connect-2 → fire stale
+        // DataReceived stamped with attempt 1. Without the guard, the old
+        // frame would feed the new session's decoder (or no decoder at all,
+        // depending on timing) and corrupt state. With the guard it's dropped.
+        val manager = createManager()
+        manager.connect("AA:AA:AA:AA:AA:AA")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
+            telemetry = TelemetryState(speed = 4200),
+        ))
+        fakeDecoder.ready = true
+        manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
+        assertEquals(4200, manager.telemetryState.value!!.speed)
+
+        manager.disconnect()
+        runCurrent()
+        manager.connect("BB:BB:BB:BB:BB:BB")
+        runCurrent()
+        assertNull(manager.telemetryState.value, "Disconnect should clear telemetry")
+
+        // Now fire a stale DataReceived with attempt 1 (first session) while
+        // current is 2.
+        manager.onDataReceived(byteArrayOf(0x99.toByte()), attemptId = 1L)
+        runCurrent()
+
+        assertNull(
+            manager.telemetryState.value,
+            "Stale DataReceived must not advance decoder state in the new session"
+        )
+    }
+
+    @Test
+    fun `stale DataReceived does not refresh data-timeout watchdog`() = runTest(timeout = 0.1.seconds) {
+        // P2 from Codex Substep 4 review: a stale frame from a prior session
+        // must NOT keep the new session's data-timeout watchdog alive. Without
+        // the fix, the platform-side onDataReceived() reset ran before the
+        // reducer's staleness guard, so straggler notifications would mask a
+        // dead link on the new session.
+        val dispatcher = UnconfinedTestDispatcher(testScheduler)
+        val countingTracker = CountingDataTimeoutTracker(backgroundScope, dispatcher)
+        val manager = createManager(dataTimeoutTracker = countingTracker)
+
+        // Establish session 1.
+        manager.connect("AA:AA:AA:AA:AA:AA")
+        manager.onWheelTypeDetected(WheelType.KINGSONG)
+        runCurrent()
+
+        // Fresh frame from session 1 — should hit the watchdog.
+        fakeDecoder.decodeResult = DecodeResult.Buffering
+        manager.onDataReceived(byteArrayOf(0x01))
+        runCurrent()
+        val countAfterFresh = countingTracker.onDataReceivedCount
+        assertTrue(countAfterFresh >= 1, "Fresh frame must reset the watchdog")
+
+        // Disconnect → reconnect to a new address. attemptId becomes 2.
+        manager.disconnect()
+        runCurrent()
+        manager.connect("BB:BB:BB:BB:BB:BB")
+        runCurrent()
+
+        // Straggler frame stamped with the OLD attemptId.
+        manager.onDataReceived(byteArrayOf(0x99.toByte()), attemptId = 1L)
+        runCurrent()
+
+        assertEquals(
+            countAfterFresh,
+            countingTracker.onDataReceivedCount,
+            "Stale DataReceived must NOT refresh the data-timeout watchdog"
         )
     }
 

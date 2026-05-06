@@ -127,7 +127,7 @@ class KeepAliveTimer(
  * Monitors the time since last data was received and triggers
  * a timeout callback if no data arrives within the threshold.
  */
-class DataTimeoutTracker(
+open class DataTimeoutTracker(
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
@@ -201,8 +201,11 @@ class DataTimeoutTracker(
     /**
      * Call this when data is received to reset the timeout.
      * Lock-free — safe to call from BLE callback thread at high frequency.
+     *
+     * Open for tests that need to observe whether stale frames reach the
+     * watchdog (Substep 4 P2 regression test).
      */
-    fun onDataReceived() {
+    open fun onDataReceived() {
         lastDataTime.value = currentTimeMillis()
         _isTimedOut.value = false
     }

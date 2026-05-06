@@ -58,6 +58,16 @@ data class WcmState(
     // topology fingerprinting matcher (Pass 2). Cleared by reduceDisconnect to
     // avoid stale carry-over across sessions.
     val lastAdvertisement: BleAdvertisement? = null,
+    // Monotonic counter of connect attempts; incremented only by reduceConnect.
+    // Used to mint a fresh [currentAttemptId] every time a new connect event is
+    // accepted, so events emitted by a prior session can be detected as stale.
+    val attemptCounter: Long = 0L,
+    // ID of the in-flight connection attempt, or null when Disconnected.
+    // Events stamped with a different attemptId are dropped by the reducer to
+    // prevent stale-session callbacks (the OS BLE stack can deliver
+    // ServicesDiscovered / BleDisconnected / DataReceived from the previous
+    // session well after disconnect → reconnect) from corrupting the new state.
+    val currentAttemptId: Long? = null,
     // Internal — not exposed as public flows
     val decoder: WheelDecoder? = null,
     val decoderConfig: DecoderConfig = DecoderConfig(),
@@ -75,7 +85,7 @@ data class WcmState(
  * connection error logging.
  */
 sealed class WcmEffect {
-    data class BleConnect(val address: String) : WcmEffect()
+    data class BleConnect(val address: String, val attemptId: Long) : WcmEffect()
 
     data object BleDisconnect : WcmEffect()
 
@@ -88,6 +98,14 @@ sealed class WcmEffect {
     data class StartKeepAlive(val intervalMs: Long) : WcmEffect()
 
     data class StartDataTimeout(val address: String, val timeoutMs: Long) : WcmEffect()
+
+    /**
+     * Reset the data-timeout watchdog because a fresh frame arrived. Emitted
+     * by [WheelConnectionManager.reduceDataReceived] AFTER the staleness
+     * guard accepts the frame, so frames from a prior session can no longer
+     * keep the new session's timeout alive.
+     */
+    data object NoteDataReceived : WcmEffect()
 
     data object StopTimers : WcmEffect()
 

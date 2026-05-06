@@ -27,9 +27,13 @@ class FakeBleManager : BleManagerPort {
     var disconnectCallCount = 0
         private set
 
-    override suspend fun connect(address: String): Boolean {
+    var lastConnectAttemptId: Long = 0L
+        private set
+
+    override suspend fun connect(address: String, attemptId: Long): Boolean {
         connectCallCount++
         lastConnectAddress = address
+        lastConnectAttemptId = attemptId
         if (connectResult) {
             _connectionState.value = ConnectionState.Connecting(address)
         }

@@ -92,6 +92,19 @@ object WheelConnectionManagerHelper {
     }
 
     /**
+     * Swift-friendly test-data injector that uses the manager's current
+     * attemptId so the staleness guard accepts the synthetic frame.
+     *
+     * Used by `WheelManager.injectTestData(_:)` to inject hex-encoded BLE
+     * payloads on simulator. Production data flow goes through
+     * [BleManager.setDataReceivedCallback] which threads the platform-stamped
+     * attemptId, so this helper exists only for the simulator path.
+     */
+    fun injectTestData(manager: WheelConnectionManager, data: ByteArray) {
+        manager.onDataReceived(data)
+    }
+
+    /**
      * Build a [ConnectionHint] from an iOS scan-time advertised name. Returns
      * null when the name doesn't match a known wheel pattern, or when the match
      * lands on a sentinel ([WheelType.Unknown], [WheelType.GOTWAY_VIRTUAL]) that

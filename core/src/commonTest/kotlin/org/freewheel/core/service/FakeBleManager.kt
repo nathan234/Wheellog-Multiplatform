@@ -31,6 +31,10 @@ class FakeBleManager : BleManagerPort {
     var lastConnectAddress: String? = null
         private set
 
+    /** Last attemptId stamped at [connect]. */
+    var lastConnectAttemptId: Long = 0L
+        private set
+
     /** Number of times [connect] was called. */
     var connectCallCount = 0
         private set
@@ -43,8 +47,9 @@ class FakeBleManager : BleManagerPort {
     var destroyCallCount = 0
         private set
 
-    override suspend fun connect(address: String): Boolean {
+    override suspend fun connect(address: String, attemptId: Long): Boolean {
         lastConnectAddress = address
+        lastConnectAttemptId = attemptId
         connectCallCount++
 
         // If a deferred is set, suspend until it completes (simulates pending BLE connect)

@@ -120,6 +120,14 @@ class WheelConnectionManager(
     /** Child job running bleManager.connect(), cancelled on disconnect. */
     private var bleConnectJob: Job? = null
 
+    /**
+     * Counter of stale [WheelEvent.DataReceived] events dropped by the
+     * staleness guard. Used to throttle the warn log so we don't flood at
+     * 50Hz when the OS BLE stack delivers a burst of leftover frames from
+     * the previous session.
+     */
+    private var staleDataDropCount: Long = 0L
+
     // ==================== Derived public flows ====================
 
     // Uses scope + dispatcher so stateIn collectors run on the same dispatcher
@@ -248,11 +256,27 @@ class WheelConnectionManager(
     /**
      * Process incoming data from the wheel.
      * Called by platform-specific BLE implementation when data is received.
+     *
+     * Production callers must always pass the explicit [attemptId] stamped at
+     * [BleManagerPort.connect] time so the reducer can drop frames from a
+     * prior session.
+     *
+     * The default expression resolves to whatever the current session id is at
+     * call time (or 1L when no connect has been reduced yet). It exists so
+     * lifecycle tests can simulate platform callbacks without threading
+     * attemptId through every assertion — production code in `WheelService.kt`
+     * and `WheelManager.swift` always passes the explicit value.
      */
-    fun onDataReceived(data: ByteArray) {
-        // Reset timeout tracker immediately for accurate timing
-        dataTimeoutTracker.onDataReceived()
-        events.trySend(WheelEvent.DataReceived(data))
+    fun onDataReceived(
+        data: ByteArray,
+        attemptId: Long = _wcmState.value.currentAttemptId ?: 1L,
+    ) {
+        // Note: the data-timeout watchdog is reset by the reducer (via
+        // [WcmEffect.NoteDataReceived]) only AFTER the staleness check accepts
+        // the frame. Resetting here would let a stale frame from a prior
+        // session keep the new session's timeout alive — see Codex Substep 4
+        // P2 review.
+        events.trySend(WheelEvent.DataReceived(data, attemptId))
     }
 
     /**
@@ -275,8 +299,12 @@ class WheelConnectionManager(
      * calling this — when the OS reconnects, [onServicesDiscovered] fires
      * and the session resumes transparently.
      */
-    fun onBleDisconnected(address: String, reason: String) {
-        events.trySend(WheelEvent.BleDisconnected(address, reason))
+    fun onBleDisconnected(
+        address: String,
+        reason: String,
+        attemptId: Long = _wcmState.value.currentAttemptId ?: 1L,
+    ) {
+        events.trySend(WheelEvent.BleDisconnected(address, reason, attemptId))
     }
 
     /**
@@ -285,9 +313,17 @@ class WheelConnectionManager(
      *
      * @param services The discovered BLE services
      * @param deviceName The device name for detection heuristics
+     * @param attemptId The session id stamped at [BleManagerPort.connect] time.
+     *                  Defaults to the current session id (or 1L pre-connect)
+     *                  for lifecycle tests; production callers always pass the
+     *                  explicit value forwarded by the BLE layer.
      */
-    fun onServicesDiscovered(services: DiscoveredServices, deviceName: String?) {
-        events.trySend(WheelEvent.ServicesDiscovered(services, deviceName))
+    fun onServicesDiscovered(
+        services: DiscoveredServices,
+        deviceName: String?,
+        attemptId: Long = _wcmState.value.currentAttemptId ?: 1L,
+    ) {
+        events.trySend(WheelEvent.ServicesDiscovered(services, deviceName, attemptId))
     }
 
     /**
@@ -531,11 +567,19 @@ class WheelConnectionManager(
         // never to receive REQUEST_NAME / REQUEST_SERIAL and isReady() to stay
         // false forever. Decoder creation is deferred to reduceServicesDiscovered
         // → reconnectOrSetup, where ConfigureBle precedes init dispatch.
+        // Mint a fresh attemptId here — the reducer is the single-writer
+        // boundary, so doing it inside the reduce step avoids any need for a
+        // lock on the public connect() API and prevents two near-simultaneous
+        // connect() calls from minting the same id.
+        val nextAttemptId = state.attemptCounter + 1
+
         val newState = WcmState(
             decoderConfig = state.decoderConfig,
             connectionState = ConnectionState.Connecting(event.address),
             connectionHint = event.hint,
             lastAdvertisement = event.advertisement,
+            attemptCounter = nextAttemptId,
+            currentAttemptId = nextAttemptId,
         )
 
         // Emit cleanup effects based on what the current state requires.
@@ -555,7 +599,7 @@ class WheelConnectionManager(
             add(WcmEffect.StopTimers)
             add(WcmEffect.CancelCommands)
             state.decoder?.let { add(WcmEffect.ResetDecoder(it)) }
-            add(WcmEffect.BleConnect(event.address))
+            add(WcmEffect.BleConnect(event.address, nextAttemptId))
         }
         return WcmTransition(newState, effects)
     }
@@ -583,14 +627,43 @@ class WheelConnectionManager(
                 )))
             }
         }
-        // Atomic reset — impossible to forget a field
+        // Atomic reset — impossible to forget a field. Preserve `attemptCounter`
+        // across the reset so the next connect mints a strictly larger
+        // attemptId and any straggler events from the prior session can never
+        // collide with the new session's id.
         return WcmTransition(
-            state = WcmState(decoderConfig = state.decoderConfig),
+            state = WcmState(
+                decoderConfig = state.decoderConfig,
+                attemptCounter = state.attemptCounter,
+            ),
             effects = effects
         )
     }
 
+    /**
+     * Drop events stamped with an attemptId other than [WcmState.currentAttemptId].
+     * The OS BLE stack can deliver ServicesDiscovered / BleDisconnected /
+     * DataReceived from a previous session well after disconnect → reconnect;
+     * letting them through corrupts the new session's state.
+     *
+     * Returns true if the event is stale (and should be dropped).
+     */
+    private fun isStaleAttempt(state: WcmState, eventAttemptId: Long, eventName: String): Boolean {
+        val current = state.currentAttemptId ?: return true.also {
+            // No active session — anything stamped with an old id is by
+            // definition stale. (Disconnected state has currentAttemptId=null.)
+            Logger.w(TAG, "Dropping stale $eventName (attempt $eventAttemptId, no active session)")
+        }
+        if (eventAttemptId != current) {
+            Logger.w(TAG, "Dropping stale $eventName (attempt $eventAttemptId, current $current)")
+            return true
+        }
+        return false
+    }
+
     private fun reduceBleResult(state: WcmState, event: WheelEvent.BleConnectResult): WcmTransition {
+        if (isStaleAttempt(state, event.attemptId, "BleConnectResult")) return WcmTransition(state)
+
         // Ignore stale results: wrong state, or result for a different address
         // (e.g., rapid disconnect → reconnect produces a stale result from the first attempt)
         val connecting = state.connectionState as? ConnectionState.Connecting
@@ -616,6 +689,7 @@ class WheelConnectionManager(
     }
 
     private fun reduceBleConfigureFailed(state: WcmState, event: WheelEvent.BleConfigureFailed): WcmTransition {
+        if (isStaleAttempt(state, event.attemptId, "BleConfigureFailed")) return WcmTransition(state)
         // Ignore stale results: if the user already disconnected or reconnected to
         // a different address before configureForWheel reported back, drop the event.
         val currentAddress = getCurrentAddress(state)
@@ -626,6 +700,7 @@ class WheelConnectionManager(
     }
 
     private fun reduceServicesDiscovered(state: WcmState, event: WheelEvent.ServicesDiscovered): WcmTransition {
+        if (isStaleAttempt(state, event.attemptId, "ServicesDiscovered")) return WcmTransition(state)
         Logger.d(TAG, "onServicesDiscovered: deviceName=${event.deviceName}, services=${event.services.serviceUuids()}")
         var newState = state
         if (!event.deviceName.isNullOrBlank()) {
@@ -771,10 +846,31 @@ class WheelConnectionManager(
     }
 
     private fun reduceDataReceived(state: WcmState, event: WheelEvent.DataReceived): WcmTransition {
+        // Staleness check: drop frames from a prior session that the OS BLE
+        // stack hasn't fully torn down yet. Throttle the warn log because
+        // DataReceived can flood at session boundaries (50Hz BLE notifies).
+        val current = state.currentAttemptId
+        if (current == null || event.attemptId != current) {
+            staleDataDropCount++
+            if (staleDataDropCount % STALE_DATA_LOG_EVERY == 1L) {
+                Logger.w(TAG, "Dropping stale DataReceived (attempt ${event.attemptId}, current $current; ${staleDataDropCount} so far)")
+            }
+            // Stale frames must NOT reset the data-timeout watchdog — letting
+            // them refresh it would mask a dead link on the new session.
+            return WcmTransition(state)
+        }
+
+        // Frame is from the current session: refresh the data-timeout
+        // watchdog. Even Buffering / Unhandled / decode-exception frames count
+        // as "the wheel is talking to us," so the reset happens before
+        // dispatching to the decoder.
+        val noteEffect: WcmEffect = WcmEffect.NoteDataReceived
+
         val decoder = state.decoder
         if (decoder == null) {
             Logger.w(TAG, "Data received (${event.data.size} bytes) but no decoder set")
             return WcmTransition(state, listOf(
+                noteEffect,
                 WcmEffect.CapturePacket(event.data, BlePacketDirection.RX)
             ))
         }
@@ -786,6 +882,7 @@ class WheelConnectionManager(
             return WcmTransition(
                 state.copy(consecutiveDecodeErrors = state.consecutiveDecodeErrors + 1),
                 listOf(
+                    noteEffect,
                     WcmEffect.CapturePacket(event.data, BlePacketDirection.RX, "error"),
                     WcmEffect.LogConnectionError(ConnectionErrorEvent.DecodeException(
                         timestampMs = currentTimeMillis(),
@@ -804,11 +901,12 @@ class WheelConnectionManager(
 
         when (result) {
             is DecodeResult.Buffering -> {
-                return WcmTransition(state, listOf(captureEffect))
+                return WcmTransition(state, listOf(noteEffect, captureEffect))
             }
             is DecodeResult.Unhandled -> {
                 Logger.d(TAG, "Unhandled frame: ${result.reason} (${result.frameData.size} bytes, decoder=${decoder.wheelType})")
                 return WcmTransition(state, listOf(
+                    noteEffect,
                     captureEffect,
                     WcmEffect.NotifyUnhandled(result.reason.toString(), result.frameData),
                     WcmEffect.LogConnectionError(ConnectionErrorEvent.UnhandledFrame(
@@ -851,6 +949,7 @@ class WheelConnectionManager(
         }
 
         val effects = buildList {
+            add(noteEffect)
             add(captureEffect)
             if (decoded.commands.isNotEmpty()) {
                 add(WcmEffect.DispatchCommands(decoded.commands))
@@ -924,6 +1023,7 @@ class WheelConnectionManager(
     }
 
     private fun reduceBleDisconnected(state: WcmState, event: WheelEvent.BleDisconnected): WcmTransition {
+        if (isStaleAttempt(state, event.attemptId, "BleDisconnected")) return WcmTransition(state)
         val now = currentTimeMillis()
         val lostState = ConnectionState.ConnectionLost(
             address = event.address,
@@ -1056,7 +1156,7 @@ class WheelConnectionManager(
         for (effect in effects) {
             when (effect) {
                 is WcmEffect.BleConnect -> {
-                    launchBleConnect(effect.address)
+                    launchBleConnect(effect.address, effect.attemptId)
                 }
                 is WcmEffect.BleDisconnect -> {
                     bleManager.disconnect()
@@ -1082,6 +1182,9 @@ class WheelConnectionManager(
                     dataTimeoutTracker.start(timeoutMs = effect.timeoutMs) {
                         events.send(WheelEvent.DataTimeout(effect.address))
                     }
+                }
+                is WcmEffect.NoteDataReceived -> {
+                    dataTimeoutTracker.onDataReceived()
                 }
                 is WcmEffect.StopTimers -> {
                     keepAliveTimer.stop()
@@ -1118,9 +1221,11 @@ class WheelConnectionManager(
                         // with full cleanup instead of leaving the user stuck on
                         // "Discovering Services" forever.
                         val address = getCurrentAddress(_wcmState.value) ?: ""
+                        val attemptId = _wcmState.value.currentAttemptId ?: 0L
                         events.send(WheelEvent.BleConfigureFailed(
                             address = address,
-                            error = "Required BLE characteristic not found on wheel"
+                            attemptId = attemptId,
+                            error = "Required BLE characteristic not found on wheel",
                         ))
                     }
                 }
@@ -1133,20 +1238,21 @@ class WheelConnectionManager(
 
     // ==================== Effect Helpers ====================
 
-    private fun launchBleConnect(address: String) {
+    private fun launchBleConnect(address: String, attemptId: Long) {
         bleConnectJob = scope.launch(dispatcher) {
             try {
                 val success = kotlinx.coroutines.withTimeoutOrNull(BLE_CONNECT_TIMEOUT_MS) {
-                    bleManager.connect(address)
+                    bleManager.connect(address, attemptId)
                 }
                 if (success == null) {
                     events.send(WheelEvent.BleConnectResult(
                         success = false,
                         address = address,
-                        error = "Connection timed out"
+                        attemptId = attemptId,
+                        error = "Connection timed out",
                     ))
                 } else {
-                    events.send(WheelEvent.BleConnectResult(success, address))
+                    events.send(WheelEvent.BleConnectResult(success, address, attemptId))
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 // Cancelled by disconnect — don't send result
@@ -1154,7 +1260,8 @@ class WheelConnectionManager(
                 events.send(WheelEvent.BleConnectResult(
                     success = false,
                     address = address,
-                    error = e.message ?: "Connection failed"
+                    attemptId = attemptId,
+                    error = e.message ?: "Connection failed",
                 ))
             }
         }
@@ -1196,6 +1303,12 @@ class WheelConnectionManager(
         private const val TAG = "WheelConnectionManager"
         /** Timeout for BLE connect phase (30 seconds). */
         private const val BLE_CONNECT_TIMEOUT_MS = 30_000L
+        /**
+         * Log every Nth stale [WheelEvent.DataReceived] drop. BLE notifies fire
+         * at up to ~50Hz, so an unthrottled warn log would flood at session
+         * boundaries. The first hit of each burst is always logged.
+         */
+        private const val STALE_DATA_LOG_EVERY = 50L
     }
 }
 
@@ -1207,7 +1320,7 @@ expect class BleManager : BleManagerPort {
     override val connectionState: StateFlow<ConnectionState>
     override val bluetoothState: StateFlow<BluetoothAdapterState>
 
-    override suspend fun connect(address: String): Boolean
+    override suspend fun connect(address: String, attemptId: Long): Boolean
     override suspend fun disconnect()
     override suspend fun write(data: ByteArray): Boolean
     override suspend fun startScan(onDeviceFound: (BleDevice) -> Unit)

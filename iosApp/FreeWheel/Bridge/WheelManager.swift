@@ -532,9 +532,13 @@ class WheelManager: ObservableObject {
             wireUnhandledCallback(cm)
         }
 
-        // Wire BLE data to connection manager
-        bleManager?.setDataReceivedCallback { [weak self] data in
-            self?.connectionManager?.onDataReceived(data: data)
+        // Wire BLE data to connection manager. attemptId stamped by KMP
+        // BleManager at connect() time so the reducer can drop frames from a
+        // prior session that the OS BLE stack hasn't fully torn down yet.
+        // Kotlin/Native exports lambda params as boxed KotlinLong — unbox to
+        // Int64 at the boundary.
+        bleManager?.setDataReceivedCallback { [weak self] data, attemptId in
+            self?.connectionManager?.onDataReceived(data: data, attemptId: attemptId.int64Value)
         }
 
         // Create shared auto-connect manager
@@ -542,8 +546,8 @@ class WheelManager: ObservableObject {
         autoConnectManager = WheelConnectionManagerHelper.shared.createAutoConnectManager(manager: cm)
 
         // Wire service discovery to connection manager
-        bleManager?.setServicesDiscoveredCallback { [weak self] services, deviceName in
-            self?.connectionManager?.onServicesDiscovered(services: services, deviceName: deviceName)
+        bleManager?.setServicesDiscoveredCallback { [weak self] services, deviceName, attemptId in
+            self?.connectionManager?.onServicesDiscovered(services: services, deviceName: deviceName, attemptId: attemptId.int64Value)
         }
 
         // Wire BLE errors to connection manager
@@ -552,8 +556,8 @@ class WheelManager: ObservableObject {
         }
 
         // Wire OS-level disconnects to connection manager
-        bleManager?.setBleDisconnectedCallback { [weak self] address, reason in
-            self?.connectionManager?.onBleDisconnected(address: address, reason: reason)
+        bleManager?.setBleDisconnectedCallback { [weak self] address, reason, attemptId in
+            self?.connectionManager?.onBleDisconnected(address: address, reason: reason, attemptId: attemptId.int64Value)
         }
     }
 
@@ -662,7 +666,7 @@ class WheelManager: ObservableObject {
             kotlinBytes.set(index: Int32(index), value: byte)
         }
 
-        cm.onDataReceived(data: kotlinBytes)
+        WheelConnectionManagerHelper.shared.injectTestData(manager: cm, data: kotlinBytes)
     }
 
     /// Start a test session with a specific wheel type.

@@ -71,9 +71,27 @@ actual class BleManager : BleManagerPort {
     /**
      * Update the Bluetooth adapter state.
      * Called from ComposeActivity's BroadcastReceiver when adapter state changes.
+     *
+     * On any transition that invalidates the OS BLE stack's notion of the
+     * prior session (power off, unauthorized, unsupported), wipe the teardown
+     * tracker. Otherwise a quarantined same-address teardown — pending only
+     * because the OS callback for that session never arrived — would persist
+     * across the adapter cycle, leaving the user stuck on
+     * "Previous connection still draining" until process restart.
      */
     override fun setBluetoothAdapterState(state: BluetoothAdapterState) {
+        val previous = _bluetoothState.value
         _bluetoothState.value = state
+        if (previous != state && state != BluetoothAdapterState.POWERED_ON) {
+            // Adapter went off / unauthorized / unsupported — old teardowns are
+            // meaningless. Resetting also unblocks any awaiter still suspended
+            // on a deferred from before the power cycle.
+            teardownTracker.reset()
+        } else if (previous == BluetoothAdapterState.POWERED_OFF && state == BluetoothAdapterState.POWERED_ON) {
+            // Adapter just came back on — fresh hardware state, prior session
+            // signals will never arrive.
+            teardownTracker.reset()
+        }
     }
 
     // ==================== Session State Machine ====================
@@ -87,12 +105,32 @@ actual class BleManager : BleManagerPort {
     private sealed class BleSessionState {
         /** Null for states that don't hold a peripheral (Idle, Scanning). */
         open val peripheral: BluetoothPeripheral? get() = null
+        /**
+         * Session id stamped at [connect()]; forwarded to the WCM reducer so it
+         * can drop events from a prior session. 0L for non-active states.
+         *
+         * Storing it on the session (instead of a process-wide var) means a
+         * late callback that arrives AFTER a transition cannot accidentally
+         * inherit the new session's id — if the peripheral mismatches the
+         * current session, it is dropped at the platform layer (see callbacks
+         * below).
+         */
+        open val attemptId: Long get() = 0L
 
         data object Idle : BleSessionState()
         data class Scanning(val callback: (BleDevice) -> Unit) : BleSessionState()
-        data class Connecting(override val peripheral: BluetoothPeripheral) : BleSessionState()
-        data class Connected(override val peripheral: BluetoothPeripheral) : BleSessionState()
-        data class AwaitingReconnect(override val peripheral: BluetoothPeripheral) : BleSessionState()
+        data class Connecting(
+            override val peripheral: BluetoothPeripheral,
+            override val attemptId: Long,
+        ) : BleSessionState()
+        data class Connected(
+            override val peripheral: BluetoothPeripheral,
+            override val attemptId: Long,
+        ) : BleSessionState()
+        data class AwaitingReconnect(
+            override val peripheral: BluetoothPeripheral,
+            override val attemptId: Long,
+        ) : BleSessionState()
     }
 
     @Volatile
@@ -109,11 +147,13 @@ actual class BleManager : BleManagerPort {
     private var connectionContinuation: CancellableContinuation<Boolean>? = null
     private val continuationLock = Lock()
 
-    // Callbacks (set once at initialization, not session-related)
-    private var onDataReceivedCallback: ((ByteArray) -> Unit)? = null
+    // Callbacks (set once at initialization, not session-related). The
+    // attemptId stamped at connect() is forwarded so the WCM reducer can drop
+    // events from a prior session that the OS BLE stack is still flushing.
+    private var onDataReceivedCallback: ((ByteArray, Long) -> Unit)? = null
     private var onBleErrorCallback: (() -> Unit)? = null
-    private var onBleDisconnectedCallback: ((String, String) -> Unit)? = null
-    private var onServicesDiscoveredCallback: ((DiscoveredServices, String?) -> Unit)? = null
+    private var onBleDisconnectedCallback: ((String, String, Long) -> Unit)? = null
+    private var onServicesDiscoveredCallback: ((DiscoveredServices, String?, Long) -> Unit)? = null
 
     // Dedicated BLE thread — stored for cleanup in destroy()
     private var bleThread: HandlerThread? = null
@@ -125,6 +165,12 @@ actual class BleManager : BleManagerPort {
 
     override fun getAdvertisement(address: String): BleAdvertisement? =
         advertisementCache.get(address)
+
+    // Serializes same-peripheral reconnects: a new connect to address X waits
+    // for the OS to drain X's prior session before issuing connectPeripheral,
+    // so a late callback from the old attempt cannot pass the peripheral-
+    // identity guard with X's instance and corrupt the new session.
+    private val teardownTracker = BleTeardownTracker()
 
     actual override val connectionState: StateFlow<ConnectionState>
         get() = _connectionState.asStateFlow()
@@ -142,48 +188,47 @@ actual class BleManager : BleManagerPort {
         }
     }
 
-    private fun transitionToIdle() {
+    /**
+     * Tear down any active session synchronously: call cancelConnection if
+     * a peripheral is held, register the pending teardown for callback-side
+     * serialization, clear local characteristic state, and transition session
+     * to Idle. Does **not** touch [_connectionState] — callers update it as
+     * appropriate for the destination transition.
+     */
+    private fun cancelActiveSession() {
         when (val s = session) {
             is BleSessionState.Idle -> return
-            is BleSessionState.Scanning -> central?.stopScan()
-            is BleSessionState.Connecting -> central?.cancelConnection(s.peripheral)
-            is BleSessionState.Connected -> central?.cancelConnection(s.peripheral)
-            is BleSessionState.AwaitingReconnect -> central?.cancelConnection(s.peripheral)
+            is BleSessionState.Scanning -> {
+                central?.stopScan()
+            }
+            is BleSessionState.Connecting -> {
+                central?.cancelConnection(s.peripheral)
+                teardownTracker.startTeardown(s.peripheral.address)
+            }
+            is BleSessionState.Connected -> {
+                central?.cancelConnection(s.peripheral)
+                teardownTracker.startTeardown(s.peripheral.address)
+            }
+            is BleSessionState.AwaitingReconnect -> {
+                central?.cancelConnection(s.peripheral)
+                teardownTracker.startTeardown(s.peripheral.address)
+            }
         }
         resumeContinuation(false)
         writeCharacteristic = null
         readCharacteristic = null
         session = BleSessionState.Idle
+    }
+
+    private fun transitionToIdle() {
+        cancelActiveSession()
         _connectionState.value = ConnectionState.Disconnected
     }
 
     private fun transitionToScanning(callback: (BleDevice) -> Unit) {
-        when (val s = session) {
-            is BleSessionState.Idle -> {}
-            is BleSessionState.Scanning -> central?.stopScan()
-            is BleSessionState.Connecting -> central?.cancelConnection(s.peripheral)
-            is BleSessionState.Connected -> central?.cancelConnection(s.peripheral)
-            is BleSessionState.AwaitingReconnect -> central?.cancelConnection(s.peripheral)
-        }
-        resumeContinuation(false)
-        writeCharacteristic = null
-        readCharacteristic = null
+        cancelActiveSession()
         session = BleSessionState.Scanning(callback)
         _connectionState.value = ConnectionState.Scanning
-    }
-
-    private fun transitionToConnecting(peripheral: BluetoothPeripheral) {
-        when (val s = session) {
-            is BleSessionState.Idle -> {}
-            is BleSessionState.Scanning -> central?.stopScan()
-            is BleSessionState.Connecting -> central?.cancelConnection(s.peripheral)
-            is BleSessionState.Connected -> central?.cancelConnection(s.peripheral)
-            is BleSessionState.AwaitingReconnect -> central?.cancelConnection(s.peripheral)
-        }
-        resumeContinuation(false)
-        writeCharacteristic = null
-        readCharacteristic = null
-        session = BleSessionState.Connecting(peripheral)
     }
 
     // ==================== Central Manager Callback ====================
@@ -207,10 +252,21 @@ actual class BleManager : BleManagerPort {
         override fun onConnectedPeripheral(peripheral: BluetoothPeripheral) {
             Logger.d("BleManager", "onConnectedPeripheral: ${peripheral.address}")
 
+            val s = session
+            if (s.peripheral != peripheral) {
+                // Late callback for a peripheral we've moved past. Drop at the
+                // platform layer so a stale id can't slip through to WCM.
+                Logger.w(
+                    "BleManager",
+                    "Stale onConnectedPeripheral for ${peripheral.address}; current session=${s::class.simpleName} peripheral=${s.peripheral?.address}"
+                )
+                return
+            }
+
             // Request MTU for extended frames
             peripheral.requestMtu(BluetoothPeripheral.MAX_MTU)
 
-            session = BleSessionState.Connected(peripheral)
+            session = BleSessionState.Connected(peripheral, s.attemptId)
 
             // Resume connection continuation
             resumeContinuation(true)
@@ -218,6 +274,27 @@ actual class BleManager : BleManagerPort {
 
         override fun onConnectionFailed(peripheral: BluetoothPeripheral, status: HciStatus) {
             Logger.w("BleManager", "onConnectionFailed: ${peripheral.address}, status=$status")
+
+            // Always release any same-address waiter BEFORE the peripheral
+            // guard. Even a stale callback signals that the OS has finished
+            // tearing down its side, which is exactly what awaitTeardownDrain
+            // is blocking on. The guard below still prevents stale state
+            // mutations from leaking into the new session.
+            teardownTracker.completeTeardown(peripheral.address)
+
+            // Reject anything whose callback peripheral is not exactly the
+            // current session's peripheral, including the null case (Idle /
+            // Scanning). Without the strict gate, a late failure for an
+            // already-abandoned attempt would publish ConnectionState.Failed
+            // even though the user has already disconnected or moved on.
+            val s = session
+            if (s.peripheral != peripheral) {
+                Logger.w(
+                    "BleManager",
+                    "Stale onConnectionFailed for ${peripheral.address}; current session=${s::class.simpleName} peripheral=${s.peripheral?.address}"
+                )
+                return
+            }
 
             val reason = hciStatusToDisplayText(status)
             session = BleSessionState.Idle
@@ -232,21 +309,44 @@ actual class BleManager : BleManagerPort {
         }
 
         override fun onDisconnectedPeripheral(peripheral: BluetoothPeripheral, status: HciStatus) {
-            // Safety net: resume any pending connect continuation
-            resumeContinuation(false)
-
             val address = peripheral.address
-            Logger.d("BleManager", "onDisconnectedPeripheral: $address, session=${session::class.simpleName}, status=$status")
+            val s = session
+            Logger.d("BleManager", "onDisconnectedPeripheral: $address, session=${s::class.simpleName}, status=$status")
+
+            // Always release any same-address waiter BEFORE the peripheral
+            // guard. Even a stale callback signals OS-side teardown completion,
+            // which is what awaitTeardownDrain blocks on. The guard below
+            // still prevents stale state mutations from leaking through.
+            teardownTracker.completeTeardown(address)
+
+            // Reject late disconnect callbacks for a peripheral we've moved
+            // past BEFORE touching the connect continuation. Earlier the
+            // unconditional resumeContinuation(false) would fail the NEW
+            // session's pending connect when a stale disconnect arrived from
+            // an abandoned attempt. Strict gate (no null short-circuit) so
+            // Idle/Scanning also drops here without touching state.
+            if (s.peripheral != peripheral) {
+                Logger.w(
+                    "BleManager",
+                    "Stale onDisconnectedPeripheral for $address; current session=${s::class.simpleName} peripheral=${s.peripheral?.address}"
+                )
+                return
+            }
+
+            // Safety net: resume any pending connect continuation owned by
+            // THIS session. Now safe to call because we've proven the callback
+            // belongs to the current session.
+            resumeContinuation(false)
 
             writeCharacteristic = null
             readCharacteristic = null
 
-            // Check session to determine if this was intentional.
-            // disconnect() transitions to Idle BEFORE the OS fires this callback,
-            // so Idle/Scanning means intentional. Everything else is unexpected.
-            when (session) {
+            // Check session to determine if this was intentional. Idle/Scanning
+            // is unreachable here because the strict guard above already
+            // returned (s.peripheral would be null in those states). Kept for
+            // exhaustive matching.
+            when (s) {
                 is BleSessionState.Idle, is BleSessionState.Scanning -> {
-                    // Intentional disconnect — cleanup already done
                     return
                 }
                 is BleSessionState.Connecting, is BleSessionState.Connected,
@@ -256,7 +356,8 @@ actual class BleManager : BleManagerPort {
                         // autoConnectPeripheral adds the device to the OS whitelist and
                         // reconnects in the background when the peripheral is found again.
                         val reason = hciStatusToDisplayText(status)
-                        session = BleSessionState.AwaitingReconnect(peripheral)
+                        val sessionAttemptId = s.attemptId
+                        session = BleSessionState.AwaitingReconnect(peripheral, sessionAttemptId)
                         _connectionState.value = ConnectionState.ConnectionLost(
                             address = address,
                             reason = reason
@@ -265,7 +366,7 @@ actual class BleManager : BleManagerPort {
                         central?.autoConnectPeripheral(peripheral, peripheralCallback)
                         // Notify WCM immediately so it transitions to ConnectionLost
                         // without waiting for data timeout (which could take 30+ seconds)
-                        onBleDisconnectedCallback?.invoke(address, reason)
+                        onBleDisconnectedCallback?.invoke(address, reason, sessionAttemptId)
                     } else {
                         session = BleSessionState.Idle
                         _connectionState.value = ConnectionState.Disconnected
@@ -297,8 +398,10 @@ actual class BleManager : BleManagerPort {
 
     /**
      * Set callback for when data is received from the wheel.
+     * Receives the active session's [Long] attemptId so the WCM reducer can
+     * drop frames from a prior session.
      */
-    fun setDataReceivedCallback(callback: (ByteArray) -> Unit) {
+    fun setDataReceivedCallback(callback: (ByteArray, Long) -> Unit) {
         onDataReceivedCallback = callback
     }
 
@@ -311,16 +414,16 @@ actual class BleManager : BleManagerPort {
 
     /**
      * Set callback for when the OS disconnects unexpectedly.
-     * Called with (address, reason). Not called for user-initiated disconnects.
+     * Called with (address, reason, attemptId). Not called for user-initiated disconnects.
      */
-    fun setBleDisconnectedCallback(callback: (String, String) -> Unit) {
+    fun setBleDisconnectedCallback(callback: (String, String, Long) -> Unit) {
         onBleDisconnectedCallback = callback
     }
 
     /**
      * Set callback for when services are discovered.
      */
-    fun setServicesDiscoveredCallback(callback: (DiscoveredServices, String?) -> Unit) {
+    fun setServicesDiscoveredCallback(callback: (DiscoveredServices, String?, Long) -> Unit) {
         onServicesDiscoveredCallback = callback
     }
 
@@ -343,6 +446,18 @@ actual class BleManager : BleManagerPort {
 
     private val peripheralCallback = object : BluetoothPeripheralCallback() {
         override fun onServicesDiscovered(peripheral: BluetoothPeripheral) {
+            // Forward only when this callback's peripheral matches the current
+            // session's peripheral. A late callback for a peripheral we've
+            // already moved past would otherwise inherit the new session's id.
+            val s = session
+            if (s.peripheral != peripheral) {
+                Logger.w(
+                    "BleManager",
+                    "Stale onServicesDiscovered for ${peripheral.address}; current session peripheral=${s.peripheral?.address}"
+                )
+                return
+            }
+
             // Request high connection priority for low-latency telemetry (~7.5ms interval
             // vs default balanced ~30ms). Critical for protocols with 25ms keep-alive.
             peripheral.requestConnectionPriority(ConnectionPriority.HIGH)
@@ -358,7 +473,8 @@ actual class BleManager : BleManagerPort {
 
             onServicesDiscoveredCallback?.invoke(
                 DiscoveredServices(discoveredServices),
-                peripheral.name
+                peripheral.name,
+                s.attemptId,
             )
         }
 
@@ -368,8 +484,14 @@ actual class BleManager : BleManagerPort {
             characteristic: BluetoothGattCharacteristic,
             status: GattStatus
         ) {
+            val s = session
+            if (s.peripheral != peripheral) {
+                // Stale notification from a peripheral we've moved past. Drop
+                // at the platform layer so a stale id can't slip through to WCM.
+                return
+            }
             if (status == GattStatus.SUCCESS) {
-                onDataReceivedCallback?.invoke(value)
+                onDataReceivedCallback?.invoke(value, s.attemptId)
             } else {
                 Logger.w("BleManager", "Characteristic update failed: $status (${characteristic.uuid})")
                 onBleErrorCallback?.invoke()
@@ -399,13 +521,33 @@ actual class BleManager : BleManagerPort {
 
     // ==================== Connection ====================
 
-    actual override suspend fun connect(address: String): Boolean {
+    actual override suspend fun connect(address: String, attemptId: Long): Boolean {
         val manager = central ?: throw IllegalStateException(
             "BleManager not initialized. Call initialize() first."
         )
 
         val peripheral = manager.getPeripheral(address)
-        transitionToConnecting(peripheral)
+
+        // Phase 1 (sync): cancel any active session. cancelActiveSession
+        // registers a teardown for the prior peripheral's address so the
+        // upcoming await can serialize against it if it's the same address.
+        cancelActiveSession()
+
+        // Phase 2 (suspend): wait for any pending OS teardown of THIS address
+        // to drain. Cross-peripheral reconnects find no entry and skip the
+        // wait entirely; same-peripheral reconnects block until the prior
+        // session's onDisconnectedPeripheral / onConnectionFailed callback
+        // has fired. The helper sets _connectionState to a Failed value with
+        // the appropriate user-facing reason on timeout vs invalidation.
+        if (!awaitTeardownDrain(address)) {
+            return false
+        }
+
+        // Phase 3 (sync): bind the new attemptId to the session so callbacks
+        // read the stamp from the session that owns them, not from a
+        // process-wide field that could be overwritten by a subsequent
+        // reconnect before late callbacks drain.
+        session = BleSessionState.Connecting(peripheral, attemptId)
         _connectionState.value = ConnectionState.Connecting(address)
 
         return suspendCancellableCoroutine { continuation ->
@@ -425,6 +567,54 @@ actual class BleManager : BleManagerPort {
     }
 
     /**
+     * Wait for any in-flight OS teardown for [address] to drain.
+     *
+     * Returns true only if the OS authoritatively confirmed drain
+     * ([TeardownDrainResult.DRAINED]) or there was nothing to wait for.
+     * Returns false on timeout OR when the tracker was reset
+     * ([TeardownDrainResult.INVALIDATED]) — the latter signals that the BLE
+     * stack itself was torn down (adapter cycled, manager destroyed) while
+     * we were suspended; proceeding would issue connectPeripheral against
+     * an invalidated stack.
+     */
+    private suspend fun awaitTeardownDrain(address: String): Boolean {
+        val deferred = teardownTracker.pendingTeardownDeferredFor(address) ?: return true
+        val result = kotlinx.coroutines.withTimeoutOrNull(TEARDOWN_DRAIN_TIMEOUT_MS) {
+            deferred.await()
+        }
+        return when (result) {
+            TeardownDrainResult.DRAINED -> true
+            TeardownDrainResult.INVALIDATED -> {
+                Logger.w(
+                    "BleManager",
+                    "Teardown wait for $address resumed via tracker reset (BLE stack " +
+                    "invalidated). Failing this connect — proceeding would call " +
+                    "connectPeripheral against a torn-down stack."
+                )
+                _connectionState.value = ConnectionState.Failed(
+                    error = "Bluetooth state changed; please retry",
+                    address = address
+                )
+                false
+            }
+            null -> {
+                Logger.w(
+                    "BleManager",
+                    "Teardown drain timeout for $address after ${TEARDOWN_DRAIN_TIMEOUT_MS}ms; " +
+                    "failing this connect to avoid acting on a stale-vs-fresh callback that " +
+                    "we couldn't classify. The deferred remains pending; the next OS-confirmed " +
+                    "drain (or BleManager reset) will clear it."
+                )
+                _connectionState.value = ConnectionState.Failed(
+                    error = "Previous connection still draining; please retry",
+                    address = address
+                )
+                false
+            }
+        }
+    }
+
+    /**
      * Start passive auto-reconnect for a previously connected peripheral.
      * Uses OS-level reconnection that is power-efficient and has no timeout.
      * The OS will reconnect when the peripheral comes back in range.
@@ -432,7 +622,9 @@ actual class BleManager : BleManagerPort {
     fun autoReconnect(address: String) {
         val manager = central ?: return
         val peripheral = session.peripheral ?: manager.getPeripheral(address)
-        session = BleSessionState.AwaitingReconnect(peripheral)
+        // Preserve the existing session's attemptId — auto-reconnect is the
+        // same logical session, not a new one.
+        session = BleSessionState.AwaitingReconnect(peripheral, session.attemptId)
         _connectionState.value = ConnectionState.Connecting(address)
         manager.autoConnectPeripheral(peripheral, peripheralCallback)
     }
@@ -541,6 +733,10 @@ actual class BleManager : BleManagerPort {
         session = BleSessionState.Idle
         writeCharacteristic = null
         readCharacteristic = null
+        // Wipe quarantined teardowns — manager is being torn down, so no
+        // future OS callback will be observed even if the adapter delivers
+        // one. Anyone still awaiting a deferred resumes immediately.
+        teardownTracker.reset()
         central?.close()
         central = null
         bleThread?.quitSafely()
@@ -626,6 +822,16 @@ actual class BleManager : BleManagerPort {
         HciStatus.CONNECTION_FAILED_ESTABLISHMENT -> "Connection failed"
         HciStatus.ERROR -> "GATT error"
         else -> "Disconnected: ${status.name}"
+    }
+
+    private companion object {
+        /**
+         * How long [awaitTeardownDrain] blocks waiting for the OS to confirm
+         * a prior session's teardown for the same peripheral. The OS BLE
+         * stack typically delivers the drain callback within ~50ms; 2s gives
+         * a comfortable margin while keeping connect() interactive.
+         */
+        const val TEARDOWN_DRAIN_TIMEOUT_MS = 2_000L
     }
 }
 

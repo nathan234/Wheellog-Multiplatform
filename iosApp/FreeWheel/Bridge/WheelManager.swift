@@ -2065,7 +2065,14 @@ class WheelManager: ObservableObject {
         // fallback (Pass 1 keeps that path for unknown names) or stick on
         // "Discovering Services" forever. Knowing the type up front lets WCM
         // build the correct decoder before service discovery completes.
-        let advertisedName = discoveredDevices.first(where: { $0.address == address })?.name
+        //
+        // Pull from the advertisement cache rather than discoveredDevices[].name:
+        // the latter is `peripheral.name ?: advertisedName` from the scan
+        // callback, so a cached CBPeripheral.name (set during a prior connect)
+        // can shadow the live advertisement local name. For wheels whose
+        // GAP-NAME diverges from the local name post-pairing, that misroutes
+        // the hint. The cache stores advertisedName separately and uncontaminated.
+        let advertisedName = bleManager?.getAdvertisement(address: address)?.advertisedName
         let hint = WheelConnectionManagerHelper.shared.scanNameHint(rawName: advertisedName)
 
         // Fire-and-forget — connection state updates come through StateFlow polling

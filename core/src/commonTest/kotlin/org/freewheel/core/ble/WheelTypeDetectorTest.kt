@@ -20,20 +20,13 @@ class WheelTypeDetectorTest {
     // ==================== InMotion V1 Detection ====================
 
     @Test
-    fun `detect InMotion V1 from unique service combination`() {
-        // InMotion V1 has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
-        val services = DiscoveredServices(
-            services = listOf(
-                DiscoveredService(
-                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
-                    characteristics = listOf("0000ffe4-0000-1000-8000-00805f9b34fb")
-                ),
-                DiscoveredService(
-                    uuid = "0000ffe5-0000-1000-8000-00805f9b34fb",
-                    characteristics = listOf("0000ffe9-0000-1000-8000-00805f9b34fb")
-                )
-            )
-        )
+    fun `detect InMotion V1 from full topology fingerprint`() {
+        // Pass 3a: the topology matcher needs the full InMotion V1 service
+        // tree (12 services per legacy bluetooth_services.json), not the
+        // minimal ffe0/ffe5 subset the old service-heuristic detector
+        // accepted.
+        val inmotion = WheelTopologies.ALL.first { it.adapter == "inmotion" }
+        val services = inmotion.toDiscoveredServices()
 
         val result = detector.detect(services)
 
@@ -50,23 +43,11 @@ class WheelTypeDetectorTest {
     // ==================== InMotion V2 Detection ====================
 
     @Test
-    fun `detect InMotion V2 with Nordic UART and ffe4 characteristic`() {
-        // InMotion V2 has Nordic UART AND the ffe0/ffe4 combination
-        val services = DiscoveredServices(
-            services = listOf(
-                DiscoveredService(
-                    uuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-                    characteristics = listOf(
-                        "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
-                        "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-                    )
-                ),
-                DiscoveredService(
-                    uuid = "0000ffe0-0000-1000-8000-00805f9b34fb",
-                    characteristics = listOf("0000ffe4-0000-1000-8000-00805f9b34fb")
-                )
-            )
-        )
+    fun `detect InMotion V2 from full topology fingerprint`() {
+        // Pass 3a: use the actual InMotion V2 fingerprint (Generic Access +
+        // Generic Attribute + Nordic UART), not just Nordic UART alone.
+        val imv2 = WheelTopologies.ALL.first { it.adapter == "inmotion_v2" }
+        val services = imv2.toDiscoveredServices()
 
         val result = detector.detect(services)
 
@@ -81,23 +62,12 @@ class WheelTypeDetectorTest {
     // ==================== Ninebot Z Detection ====================
 
     @Test
-    fun `detect Ninebot Z with Nordic UART only`() {
-        // Ninebot Z has Nordic UART but NOT the ffe4 characteristic
-        val services = DiscoveredServices(
-            services = listOf(
-                DiscoveredService(
-                    uuid = "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
-                    characteristics = listOf(
-                        "6e400002-b5a3-f393-e0a9-e50e24dcca9e",
-                        "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-                    )
-                ),
-                DiscoveredService(
-                    uuid = "00001800-0000-1000-8000-00805f9b34fb",
-                    characteristics = listOf("00002a00-0000-1000-8000-00805f9b34fb")
-                )
-            )
-        )
+    fun `detect Ninebot Z from full topology fingerprint`() {
+        // Pass 3a: use the actual Ninebot Z fingerprint (Generic Access +
+        // empty Generic Attribute + Nordic UART), not just Nordic UART
+        // plus a partial 1800 service.
+        val ninebotZ = WheelTopologies.ALL.first { it.adapter == "ninebot_z" }
+        val services = ninebotZ.toDiscoveredServices()
 
         val result = detector.detect(services)
 
@@ -139,9 +109,12 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `fff0 service without name returns ambiguous`() {
-        // fff0 service is shared by both Gotway and KingSong, so without
-        // a device name it should be ambiguous
+    fun `partial fff0 services without name returns Unknown (Pass 3a)`() {
+        // Pre Pass 3a: a partial fff0+ffe0 service tree was reported as
+        // Ambiguous(Gotway/Kingsong/Ninebot) and silently routed to
+        // GOTWAY_VIRTUAL by WCM. Pass 3a refuses to guess: this partial
+        // tree doesn't match any topology fingerprint and there's no
+        // device name, so the detector returns Unknown.
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -157,7 +130,7 @@ class WheelTypeDetectorTest {
 
         val result = detector.detect(services)
 
-        assertTrue(result is WheelTypeDetector.DetectionResult.Ambiguous)
+        assertTrue(result is WheelTypeDetector.DetectionResult.Unknown, "got $result")
     }
 
     @Test
@@ -341,9 +314,12 @@ class WheelTypeDetectorTest {
     }
 
     @Test
-    fun `name detection takes priority over service detection`() {
-        // Nordic UART service would normally trigger Ninebot Z detection,
-        // but a Veteran name should take priority
+    fun `name fallback resolves wheel type when partial services don't match any fingerprint`() {
+        // Pass 3a: topology takes precedence over name, but a partial
+        // service tree that matches no fingerprint falls through to name
+        // detection. Here the lone Nordic UART service doesn't match
+        // any topology — without name fallback this would be Unknown,
+        // but "Sherman-S" matches the Veteran name pattern.
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -388,7 +364,11 @@ class WheelTypeDetectorTest {
     // ==================== Ambiguous Detection ====================
 
     @Test
-    fun `return ambiguous for standard services without name`() {
+    fun `bare ffe0 service without name returns Unknown (Pass 3a)`() {
+        // Pre Pass 3a this returned Ambiguous(Gotway, Kingsong, Ninebot)
+        // and WCM silently fell through to GOTWAY_VIRTUAL — the silent
+        // wrong-protocol path that wedged S22 wheels. Now: no topology
+        // match, no name → Unknown, surfaced to the user as Failed.
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -400,15 +380,11 @@ class WheelTypeDetectorTest {
 
         val result = detector.detect(services, null)
 
-        assertTrue(result is WheelTypeDetector.DetectionResult.Ambiguous)
-        val ambiguous = result as WheelTypeDetector.DetectionResult.Ambiguous
-        assertTrue(WheelType.GOTWAY in ambiguous.possibleTypes)
-        assertTrue(WheelType.KINGSONG in ambiguous.possibleTypes)
-        assertTrue(WheelType.NINEBOT in ambiguous.possibleTypes)
+        assertTrue(result is WheelTypeDetector.DetectionResult.Unknown, "got $result")
     }
 
     @Test
-    fun `return ambiguous for unknown device name`() {
+    fun `bare ffe0 service with unrecognized name returns Unknown (Pass 3a)`() {
         val services = DiscoveredServices(
             services = listOf(
                 DiscoveredService(
@@ -420,7 +396,7 @@ class WheelTypeDetectorTest {
 
         val result = detector.detect(services, "UNKNOWN-WHEEL")
 
-        assertTrue(result is WheelTypeDetector.DetectionResult.Ambiguous)
+        assertTrue(result is WheelTypeDetector.DetectionResult.Unknown, "got $result")
     }
 
     // ==================== Unknown Detection ====================
@@ -513,16 +489,19 @@ class WheelTypeDetectorTest {
 
     @Test
     fun `detection is case-insensitive for UUIDs`() {
+        // Build the Ninebot Z fingerprint with all UUIDs uppercased; the
+        // matcher canonicalizes via BleUuids.canonicalize() so this still
+        // resolves to Detected(NINEBOT_Z). Pinned at the detector level
+        // as an integration check on top of WheelTopologyMatcherTest's
+        // direct case-insensitivity coverage.
+        val ninebotZ = WheelTopologies.ALL.first { it.adapter == "ninebot_z" }
         val services = DiscoveredServices(
-            services = listOf(
+            services = ninebotZ.toDiscoveredServices().services.map { svc ->
                 DiscoveredService(
-                    uuid = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E", // uppercase
-                    characteristics = listOf(
-                        "6E400002-B5A3-F393-E0A9-E50E24DCCA9E",
-                        "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-                    )
+                    uuid = svc.uuid.uppercase(),
+                    characteristics = svc.characteristics.map { it.uppercase() }
                 )
-            )
+            }
         )
 
         val result = detector.detect(services)
@@ -903,4 +882,252 @@ class WheelTypeDetectorTest {
         assertEquals(WheelType.GOTWAY, WheelTypeDetector.deriveTypeFromName("BEGODE-S22"))
         assertEquals(WheelType.GOTWAY, WheelTypeDetector.deriveTypeFromName("MASTER-F22"))
     }
+
+    // ==================== Pass 3a: topology-first precedence ====================
+    //
+    // Pass 3a inverts the legacy name-first detection: the topology
+    // matcher runs first against WheelTopologies.ALL, and device-name
+    // patterns are used only as a tiebreaker for ambiguous topology and
+    // as a fallback for wheels not yet in the fingerprint list. The
+    // silent GOTWAY_VIRTUAL fallback for "standard ffe0/ffe1 service +
+    // unknown name" is gone — those cases now return Unknown.
+
+    @Test
+    fun `default-constructed detector recognizes a PROXY topology fingerprint`() {
+        // Codex P1 (Pass 3a review): the production detector must consult
+        // both ALL and PROXY by default, mirroring legacy WheelLog's
+        // bluetooth_services.json → bluetooth_proxy_services.json
+        // fallback. Otherwise PROXY wheels regress to Unknown/Failed.
+        val gotwayProxy = WheelTopologies.PROXY.first { it.adapter == "gotway" }
+        val services = gotwayProxy.toDiscoveredServices()
+
+        // Default-constructed detector — no custom matcher injected.
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected, "got $result")
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.GOTWAY, detected.wheelType)
+    }
+
+    @Test
+    fun `default-constructed detector recognizes every PROXY adapter`() {
+        // Lock the legacy coverage: every adapter that appears in PROXY
+        // must resolve to its expected wheel type via the default
+        // detector. Mirrors `every PROXY topology matches…` in
+        // WheelTopologyMatcherTest but pinned through the production
+        // entry point.
+        val expected = mapOf(
+            "gotway" to WheelType.GOTWAY,
+            "kingsong" to WheelType.KINGSONG,
+            "inmotion" to WheelType.INMOTION,
+            "inmotion_v2" to WheelType.INMOTION_V2,
+            "ninebot" to WheelType.NINEBOT,
+            "ninebot_z" to WheelType.NINEBOT_Z,
+        )
+        for ((adapter, wheelType) in expected) {
+            val proxy = WheelTopologies.PROXY.first { it.adapter == adapter }
+            val result = detector.detect(proxy.toDiscoveredServices())
+            assertTrue(
+                result is WheelTypeDetector.DetectionResult.Detected,
+                "PROXY adapter '$adapter' did not resolve via default detector; got $result"
+            )
+            assertEquals(wheelType, (result as WheelTypeDetector.DetectionResult.Detected).wheelType)
+        }
+    }
+
+    @Test
+    fun `topology fingerprint match returns Detected with the fingerprint's wheel type`() {
+        // Synthesize the actual Ninebot fingerprint topology and verify
+        // it lands as Detected(NINEBOT) without needing a device name.
+        val ninebot = WheelTopologies.ALL.first { it.adapter == "ninebot" }
+        val services = ninebot.toDiscoveredServices()
+
+        val result = detector.detect(services)
+
+        assertTrue(result is WheelTypeDetector.DetectionResult.Detected, "got $result")
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.NINEBOT, detected.wheelType)
+        assertEquals(BleUuids.Ninebot.SERVICE, detected.readServiceUuid)
+        assertEquals(BleUuids.Ninebot.READ_CHARACTERISTIC, detected.readCharacteristicUuid)
+    }
+
+    @Test
+    fun `topology match wins over a conflicting device name`() {
+        // Topology-first contract: even if the name suggests something
+        // else, the fingerprint takes priority.
+        val ninebot = WheelTopologies.ALL.first { it.adapter == "ninebot" }
+        val services = ninebot.toDiscoveredServices()
+
+        val result = detector.detect(services, "GOTWAY-MONSTER")
+
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(
+            WheelType.NINEBOT,
+            detected.wheelType,
+            "Topology fingerprint must win over device-name pattern"
+        )
+    }
+
+    @Test
+    fun `kingsong fingerprint match returns Detected without needing a name`() {
+        val kingsong = WheelTopologies.ALL.first { it.adapter == "kingsong" }
+        val services = kingsong.toDiscoveredServices()
+
+        val result = detector.detect(services)
+
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+    }
+
+    @Test
+    fun `inmotion v2 fingerprint match returns Detected without needing a name`() {
+        val imv2 = WheelTopologies.ALL.first { it.adapter == "inmotion_v2" }
+        val services = imv2.toDiscoveredServices()
+
+        val result = detector.detect(services)
+
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.INMOTION_V2, detected.wheelType)
+    }
+
+    @Test
+    fun `multiple matches that resolve to one wheel type return Detected (not Ambiguous)`() {
+        // PROXY[0] and PROXY[1] are byte-identical Gotway fingerprints —
+        // both will match a wheel exposing that exact topology, but they
+        // resolve to the same wheel type so there is no actual ambiguity.
+        val matcher = WheelTopologyMatcher(WheelTopologies.PROXY)
+        val proxyDetector = WheelTypeDetector(matcher)
+        val gotwayProxy = WheelTopologies.PROXY.first { it.adapter == "gotway" }
+
+        val result = proxyDetector.detect(gotwayProxy.toDiscoveredServices())
+
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.GOTWAY, detected.wheelType)
+    }
+
+    @Test
+    fun `multiple matches with different wheel types use device name to disambiguate`() {
+        // Synthetic case: two fingerprints sharing a topology that
+        // resolve to different wheel types. Pinned via a custom matcher
+        // because no real ALL/PROXY pair currently exhibits this.
+        val sharedServices = setOf(
+            ServiceTopology(BleUuids.Gotway.SERVICE, setOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        )
+        val matcher = WheelTopologyMatcher(listOf(
+            WheelTopology("ninebot", WheelType.NINEBOT, sharedServices),
+            WheelTopology("kingsong", WheelType.KINGSONG, sharedServices),
+        ))
+        val syntheticDetector = WheelTypeDetector(matcher)
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+
+        val result = syntheticDetector.detect(services, "KS-S18")
+
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+    }
+
+    @Test
+    fun `multiple matches with no usable name return Ambiguous with the candidate wheel types`() {
+        val sharedServices = setOf(
+            ServiceTopology(BleUuids.Gotway.SERVICE, setOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        )
+        val matcher = WheelTopologyMatcher(listOf(
+            WheelTopology("ninebot", WheelType.NINEBOT, sharedServices),
+            WheelTopology("kingsong", WheelType.KINGSONG, sharedServices),
+        ))
+        val syntheticDetector = WheelTypeDetector(matcher)
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+
+        val result = syntheticDetector.detect(services, null)
+
+        val ambiguous = result as WheelTypeDetector.DetectionResult.Ambiguous
+        assertTrue(WheelType.KINGSONG in ambiguous.possibleTypes)
+        assertTrue(WheelType.NINEBOT in ambiguous.possibleTypes)
+    }
+
+    @Test
+    fun `multiple matches with name not in candidate set return Ambiguous`() {
+        val sharedServices = setOf(
+            ServiceTopology(BleUuids.Gotway.SERVICE, setOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        )
+        val matcher = WheelTopologyMatcher(listOf(
+            WheelTopology("ninebot", WheelType.NINEBOT, sharedServices),
+            WheelTopology("kingsong", WheelType.KINGSONG, sharedServices),
+        ))
+        val syntheticDetector = WheelTypeDetector(matcher)
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+
+        // Name → INMOTION_V2 is not in the candidate set {NINEBOT, KINGSONG}.
+        val result = syntheticDetector.detect(services, "V11Y-001")
+
+        assertTrue(
+            result is WheelTypeDetector.DetectionResult.Ambiguous,
+            "Name not in candidate set must not silently widen the choice; got $result"
+        )
+    }
+
+    @Test
+    fun `no topology match falls through to name detection`() {
+        // Minimal services that don't match any fingerprint, but the
+        // device name resolves cleanly → Detected via name fallback.
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+
+        val result = detector.detect(services, "KS-S18")
+
+        val detected = result as WheelTypeDetector.DetectionResult.Detected
+        assertEquals(WheelType.KINGSONG, detected.wheelType)
+    }
+
+    @Test
+    fun `no topology match and no device name returns Unknown (no silent default)`() {
+        // The exact case that the legacy WheelTypeDetector silently
+        // routed to GOTWAY_VIRTUAL via the Ambiguous branch — the
+        // root cause of the S22 stuck-on-Discovering-Services bug.
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+
+        val result = detector.detect(services, null)
+
+        assertTrue(
+            result is WheelTypeDetector.DetectionResult.Unknown,
+            "No topology match + no name must NOT silently default to anything; got $result"
+        )
+    }
+
+    @Test
+    fun `no topology match and unrecognized name returns Unknown`() {
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+
+        val result = detector.detect(services, "TOTALLY-RANDOM-DEVICE")
+
+        assertTrue(
+            result is WheelTypeDetector.DetectionResult.Unknown,
+            "No topology match + unrecognized name should still return Unknown; got $result"
+        )
+    }
 }
+
+// ----- helpers -----
+
+/**
+ * Convert a typed [WheelTopology] back into the [DiscoveredServices] shape
+ * a real BLE peripheral would emit. Handy for "self-match" tests that
+ * assert a fingerprint resolves to the expected wheel type.
+ */
+private fun WheelTopology.toDiscoveredServices(): DiscoveredServices =
+    DiscoveredServices(
+        services = services.map { svc ->
+            DiscoveredService(uuid = svc.uuid, characteristics = svc.characteristics.toList())
+        }
+    )

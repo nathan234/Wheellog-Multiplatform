@@ -2,24 +2,36 @@ package org.freewheel.core.ble
 
 import org.freewheel.core.domain.WheelType
 import org.freewheel.core.domain.wheel.WheelCatalog
+import org.freewheel.core.utils.Logger
 
 /**
- * Detects wheel type based on discovered BLE services and characteristics.
+ * Detects wheel type from discovered BLE services and characteristics.
  *
- * The detection logic is based on unique service/characteristic combinations
- * that distinguish each manufacturer's protocol:
- *
- * - **InMotion V1**: Has ffe0/ffe4 (read) AND ffe5/ffe9 (write) - separate services
- * - **InMotion V2**: Has Nordic UART (6e400001) AND ffe0/ffe4 characteristics
- * - **Ninebot Z**: Has Nordic UART (6e400001) only (no ffe0)
- * - **Kingsong**: Has fff0 service OR ffe0/ffe1 with specific characteristics
- * - **Gotway/Veteran**: Has ffe0/ffe1 only (simplest profile)
- * - **Ninebot**: Has ffe0/ffe1 (similar to Gotway, differentiated by name)
- *
- * Note: Some wheel types share similar UUIDs and require additional
- * heuristics like device name patterns for accurate detection.
+ * Pass 3a precedence (topology-first):
+ *   1. Topology fingerprint match against [WheelTopologies.ALL]; if
+ *      empty, fall through to [WheelTopologies.PROXY] (legacy two-stage
+ *      `bluetooth_services.json` then `bluetooth_proxy_services.json`).
+ *   2. Single distinct wheel type across the surviving matches →
+ *      [DetectionResult.Detected]. Multiple matches that all resolve to
+ *      the same wheel type also count as a single distinct type (e.g.
+ *      the byte-identical PROXY gotway entries).
+ *   3. Multiple matches with different wheel types → use the device
+ *      name (via [deriveTypeFromName]) to disambiguate. If the name
+ *      lands on one of the candidates, return [DetectionResult.Detected];
+ *      otherwise return [DetectionResult.Ambiguous] with the candidate set.
+ *   4. No topology match in either stage → log a WARN and fall through
+ *      to name-only detection ([detectFromName]). This is the safety net
+ *      for wheels whose fingerprints are not yet in either topology set.
+ *   5. No name match either → [DetectionResult.Unknown]. The legacy
+ *      "ambiguous standard service silently routes to GOTWAY_VIRTUAL"
+ *      branch is gone; surfacing Unknown lets callers transition to
+ *      Failed (Pass 3a) or to a wheel-type picker (Pass 4) instead of
+ *      silently mis-protocolling.
  */
-class WheelTypeDetector {
+class WheelTypeDetector(
+    private val primaryMatcher: WheelTopologyMatcher = WheelTopologyMatcher(WheelTopologies.ALL),
+    private val proxyMatcher: WheelTopologyMatcher = WheelTopologyMatcher(WheelTopologies.PROXY),
+) {
 
     /**
      * Result of wheel type detection.
@@ -68,89 +80,70 @@ class WheelTypeDetector {
      * @return Detection result with wheel type and connection info
      */
     fun detect(services: DiscoveredServices, deviceName: String? = null): DetectionResult {
-        // First: try to detect from device name (most reliable when available).
-        // Many wheels share the same service UUIDs (e.g. both Gotway and KingSong
-        // can have fff0), but device names are unambiguous.
-        val nameResult = detectFromName(deviceName)
-        if (nameResult != null) return nameResult
-
-        // Check for Nordic UART service (used by InMotion V2 and Ninebot Z)
-        val hasNordicUart = services.hasService(BleUuids.InMotionV2.SERVICE)
-
-        // Check for standard wheel service (ffe0)
-        val hasStandardService = services.hasService(BleUuids.Gotway.SERVICE)
-
-        // Check for InMotion-specific write service (ffe5)
-        val hasInMotionWriteService = services.hasService(BleUuids.InMotion.WRITE_SERVICE)
-
-        // Check for specific characteristics
-        val hasInMotionReadChar = services.hasCharacteristic(
-            BleUuids.InMotion.READ_SERVICE,
-            BleUuids.InMotion.READ_CHARACTERISTIC
-        )
-        val hasInMotionWriteChar = services.hasCharacteristic(
-            BleUuids.InMotion.WRITE_SERVICE,
-            BleUuids.InMotion.WRITE_CHARACTERISTIC
-        )
+        // Two-stage matching mirrors legacy WheelData.detectWheel, which
+        // reads bluetooth_services.json (the direct fingerprints) and only
+        // falls back to bluetooth_proxy_services.json on miss. The two sets
+        // can't both fire for the same input — every fingerprint requires
+        // an exact service-count match and the ALL/PROXY service sets
+        // diverge — but keeping the ALL-then-PROXY order preserves legacy
+        // precedence in case future fingerprint additions overlap.
+        val matches = primaryMatcher.match(services)
+            .ifEmpty { proxyMatcher.match(services) }
 
         return when {
-            // InMotion V2: Has Nordic UART AND standard ffe0 with ffe4 characteristic
-            hasNordicUart && hasInMotionReadChar -> {
-                DetectionResult.Detected(
-                    wheelType = WheelType.INMOTION_V2,
-                    readServiceUuid = BleUuids.InMotionV2.SERVICE,
-                    readCharacteristicUuid = BleUuids.InMotionV2.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.InMotionV2.SERVICE,
-                    writeCharacteristicUuid = BleUuids.InMotionV2.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.HIGH
-                )
-            }
-
-            // Ninebot Z: Has Nordic UART only (no ffe0 with ffe4)
-            hasNordicUart && !hasInMotionReadChar -> {
-                DetectionResult.Detected(
-                    wheelType = WheelType.NINEBOT_Z,
-                    readServiceUuid = BleUuids.NinebotZ.SERVICE,
-                    readCharacteristicUuid = BleUuids.NinebotZ.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.NinebotZ.SERVICE,
-                    writeCharacteristicUuid = BleUuids.NinebotZ.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.HIGH
-                )
-            }
-
-            // InMotion V1: Has separate read (ffe0/ffe4) and write (ffe5/ffe9) services
-            hasInMotionWriteService && hasInMotionWriteChar && hasInMotionReadChar -> {
-                DetectionResult.Detected(
-                    wheelType = WheelType.INMOTION,
-                    readServiceUuid = BleUuids.InMotion.READ_SERVICE,
-                    readCharacteristicUuid = BleUuids.InMotion.READ_CHARACTERISTIC,
-                    writeServiceUuid = BleUuids.InMotion.WRITE_SERVICE,
-                    writeCharacteristicUuid = BleUuids.InMotion.WRITE_CHARACTERISTIC,
-                    confidence = Confidence.HIGH
-                )
-            }
-
-            // Standard service (ffe0/ffe1) - Could be Gotway, Veteran, Ninebot, or KingSong
-            hasStandardService -> {
-                // Ambiguous — fall back to auto-detect decoder with Gotway UUIDs
-                DetectionResult.Ambiguous(
-                    possibleTypes = listOf(
-                        WheelType.GOTWAY,
-                        WheelType.KINGSONG,
-                        WheelType.NINEBOT
-                    ),
-                    reason = "Standard BLE profile detected. Device name '$deviceName' " +
-                            "does not match known patterns. Will use auto-detection."
-                )
-            }
-
-            // No recognized services
+            matches.isEmpty() -> fallbackToName(deviceName, services)
             else -> {
-                DetectionResult.Unknown(
-                    "No recognized wheel services found. Services: ${services.serviceUuids()}"
-                )
+                val candidates = matches.map { it.topology.wheelType }.distinct()
+                if (candidates.size == 1) {
+                    detectedFromWheelType(candidates[0])
+                } else {
+                    disambiguateByName(candidates, deviceName)
+                }
             }
         }
+    }
+
+    private fun detectedFromWheelType(wheelType: WheelType): DetectionResult {
+        val info = WheelConnectionInfo.forType(wheelType)
+            ?: return DetectionResult.Unknown(
+                "Topology matched $wheelType but no WheelConnectionInfo is registered for it."
+            )
+        return DetectionResult.Detected(
+            wheelType = info.wheelType,
+            readServiceUuid = info.readServiceUuid,
+            readCharacteristicUuid = info.readCharacteristicUuid,
+            writeServiceUuid = info.writeServiceUuid,
+            writeCharacteristicUuid = info.writeCharacteristicUuid,
+            confidence = Confidence.HIGH,
+        )
+    }
+
+    private fun disambiguateByName(
+        candidates: List<WheelType>,
+        deviceName: String?,
+    ): DetectionResult {
+        val nameType = deriveTypeFromName(deviceName)
+        if (nameType != null && nameType in candidates) {
+            return detectedFromWheelType(nameType)
+        }
+        return DetectionResult.Ambiguous(
+            possibleTypes = candidates,
+            reason = "Topology matches multiple wheel types (${candidates.joinToString()}); " +
+                    "device name '$deviceName' did not disambiguate.",
+        )
+    }
+
+    private fun fallbackToName(deviceName: String?, services: DiscoveredServices): DetectionResult {
+        Logger.w(
+            TAG,
+            "No topology match for services=${services.serviceUuids()} (deviceName='$deviceName'); falling back to name detection",
+        )
+        val nameResult = detectFromName(deviceName)
+        if (nameResult != null) return nameResult
+        return DetectionResult.Unknown(
+            "No topology fingerprint matched and device name '$deviceName' did not match any pattern. " +
+                    "Services: ${services.serviceUuids()}"
+        )
     }
 
     /**
@@ -171,6 +164,8 @@ class WheelTypeDetector {
     }
 
     companion object {
+        private const val TAG = "WheelTypeDetector"
+
         /**
          * Derive wheel type from device name patterns alone.
          *

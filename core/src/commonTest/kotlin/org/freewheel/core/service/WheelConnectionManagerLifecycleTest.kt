@@ -12,6 +12,10 @@ import org.freewheel.core.ble.BleAdvertisement
 import org.freewheel.core.ble.BleUuids
 import org.freewheel.core.ble.DiscoveredService
 import org.freewheel.core.ble.DiscoveredServices
+import org.freewheel.core.ble.ServiceTopology
+import org.freewheel.core.ble.WheelTopology
+import org.freewheel.core.ble.WheelTopologyMatcher
+import org.freewheel.core.ble.WheelTypeDetector
 import org.freewheel.core.domain.ProtocolFamily
 import org.freewheel.core.domain.TelemetryState
 import org.freewheel.core.domain.WheelIdentity
@@ -56,11 +60,13 @@ class WheelConnectionManagerLifecycleTest {
         decoder: FakeDecoder = fakeDecoder,
         factory: FakeDecoderFactory = fakeFactory,
         dataTimeoutTracker: DataTimeoutTracker? = null,
+        wheelTypeDetector: WheelTypeDetector = WheelTypeDetector(),
     ): WheelConnectionManager {
         val dispatcher = UnconfinedTestDispatcher(testScheduler)
         val tracker = dataTimeoutTracker ?: DataTimeoutTracker(backgroundScope, dispatcher)
         return WheelConnectionManager(
             fakeBle, factory, backgroundScope, dispatcher,
+            wheelTypeDetector = wheelTypeDetector,
             dataTimeoutTracker = tracker,
         )
     }
@@ -305,59 +311,14 @@ class WheelConnectionManagerLifecycleTest {
         assertNull(manager.lastAdvertisement)
     }
 
-    @Test
-    fun `connect with null hint leaves no hint to consume`() = runTest(timeout = 0.1.seconds) {
-        // No hint passed; Ambiguous discovery must take the GOTWAY_VIRTUAL
-        // fallback branch. Locks in that null hints don't accidentally inherit
-        // a stale value from a previous session.
-        val manager = createManager()
-        manager.connect("AA:BB:CC:DD:EE:FF", hint = null)
-        runCurrent()
-
-        val ambiguousServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = BleUuids.Gotway.SERVICE,
-                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
-                )
-            )
-        )
-        manager.onServicesDiscovered(ambiguousServices, deviceName = null)
-        runCurrent()
-
-        assertEquals(WheelType.GOTWAY_VIRTUAL, fakeFactory.lastCreatedType)
-    }
-
-    @Test
-    fun `SAVED_PROFILE hint drives ambiguous decoder selection`() = runTest(timeout = 0.1.seconds) {
-        // Android startup auto-connect path: the saved per-MAC profile knows the
-        // wheel type even when the advertised name doesn't match a pattern. The
-        // hint must reach the Ambiguous branch and the SAVED_PROFILE source must
-        // be honored just like SCAN_NAME.
-        val manager = createManager()
-        manager.connect(
-            "AA:BB:CC:DD:EE:FF",
-            ConnectionHint(ProtocolFamily.VETERAN, HintSource.SAVED_PROFILE),
-        )
-        runCurrent()
-
-        val ambiguousServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = BleUuids.Gotway.SERVICE,
-                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
-                )
-            )
-        )
-        manager.onServicesDiscovered(ambiguousServices, deviceName = null)
-        runCurrent()
-
-        assertEquals(
-            WheelType.VETERAN,
-            fakeFactory.lastCreatedType,
-            "SAVED_PROFILE hint must be honored in the Ambiguous branch"
-        )
-    }
+    // Removed in Pass 3a: `connect with null hint leaves no hint to consume`
+    // and `SAVED_PROFILE hint drives ambiguous decoder selection`. Both
+    // tested the silent Ambiguous → GOTWAY_VIRTUAL / hinted-decoder
+    // fallback that Pass 3a deletes. The hint plumbing itself is still
+    // exercised by `hinted connect does not create decoder before
+    // services discovered` and the iOS scan-name path; the
+    // Ambiguous-as-Failed contract is pinned in
+    // `Ambiguous detection result transitions to Failed (not GOTWAY_VIRTUAL)`.
 
     // ==================== attemptId staleness (Pass 1.5 substep 4) ====================
 
@@ -540,12 +501,17 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
-    fun `onServicesDiscovered with InMotion V2 services detects type`() = runTest(timeout = 0.1.seconds) {
+    fun `onServicesDiscovered with InMotion V2 services and matching name detects type`() = runTest(timeout = 0.1.seconds) {
+        // Pass 3a: the partial inMotionV2Services tree (Nordic UART +
+        // ffe0/ffe4 only) doesn't match the full InMotion V2 fingerprint
+        // in WheelTopologies.ALL, so detection runs the name-fallback
+        // path. "V11Y-001" matches the InMotion V2 name pattern and
+        // resolves to Detected(INMOTION_V2).
         val manager = createManager()
         manager.connect("AA:BB:CC:DD:EE:FF")
         runCurrent()
 
-        manager.onServicesDiscovered(inMotionV2Services, null)
+        manager.onServicesDiscovered(inMotionV2Services, "V11Y-001")
         runCurrent()
 
         assertNotNull(manager.getCurrentDecoder())
@@ -575,27 +541,12 @@ class WheelConnectionManagerLifecycleTest {
         )
     }
 
-    @Test
-    fun `onServicesDiscovered with ambiguous services uses GOTWAY_VIRTUAL`() = runTest(timeout = 0.1.seconds) {
-        val manager = createManager()
-        manager.connect("AA:BB:CC:DD:EE:FF")
-        runCurrent()
-
-        // Standard service without name → ambiguous → GOTWAY_VIRTUAL
-        val ambiguousServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = BleUuids.Gotway.SERVICE,
-                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
-                )
-            )
-        )
-        manager.onServicesDiscovered(ambiguousServices, null)
-        runCurrent()
-
-        assertNotNull(manager.getCurrentDecoder())
-        assertEquals(WheelType.GOTWAY_VIRTUAL, fakeFactory.lastCreatedType)
-    }
+    // Removed in Pass 3a: `onServicesDiscovered with ambiguous services
+    // uses GOTWAY_VIRTUAL`. The detector no longer returns Ambiguous for
+    // a bare ffe0/ffe1 service tree — it returns Unknown, which routes to
+    // Failed via `onServicesDiscovered with unknown services transitions
+    // to Failed`. The Ambiguous-as-Failed contract is pinned by the new
+    // test in the Pass 3a section below.
 
     @Test
     fun `configureForWheel false transitions to Failed`() = runTest(timeout = 0.1.seconds) {
@@ -638,143 +589,59 @@ class WheelConnectionManagerLifecycleTest {
     }
 
     @Test
-    fun `ambiguous services with ConnectionHint create hinted decoder and dispatch init`() = runTest(timeout = 0.1.seconds) {
-        // Design B: the hint is consumed in reduceServicesDiscovered's Ambiguous
-        // branch — without a hint the wheel would silently fall back to
-        // GOTWAY_VIRTUAL (wrong protocol for an S22 / KS-prefixed wheel that
-        // doesn't match any name pattern). Critically, the decoder is created
-        // exactly once, AFTER BLE is configured (Fix C).
+    fun `init commands run after ConfigureBle (Fix C ordering)`() = runTest(timeout = 0.1.seconds) {
+        // Pass 1 Fix C invariant: ConfigureBle must precede
+        // DispatchCommands(init). Pre-fix the order was reversed and
+        // CommandScheduler's consumer would race ahead of the
+        // synchronous BLE-bind, dropping init writes against a null
+        // write characteristic — leaving wheels stuck on Discovering
+        // Services with no error.
+        //
+        // Pass 1 originally pinned this through the Ambiguous-with-hint
+        // path; Pass 3a deletes that path so the test is reframed to use
+        // the Detected path (kingsongServices + name fallback). The
+        // strict-mode FakeBleManager counts writes that happen before
+        // configureForWheel returns true — any non-zero count means the
+        // fix has regressed.
         val initData = byteArrayOf(0xAA.toByte(), 0x55, 0x9B.toByte())
         fakeDecoder.initCommandList = listOf(WheelCommand.SendBytes(initData))
-        // Strict mode: write() requires configureForWheel to have run with success.
-        // This is the assertion that proves Fix C: ConfigureBle must precede the
-        // init DispatchCommands or the writes are silently dropped.
         fakeBle.requireConfigureBeforeWrite = true
 
         val manager = createManager()
-
-        // Connect with a SCAN_NAME hint (the iOS production path). Under B,
-        // no decoder is created here.
-        manager.connect(
-            "AA:BB:CC:DD:EE:FF",
-            ConnectionHint(ProtocolFamily.KINGSONG, HintSource.SCAN_NAME, rawName = "S22 PRO"),
-        )
+        manager.connect("AA:BB:CC:DD:EE:FF")
         runCurrent()
-        assertNull(manager.getCurrentDecoder(), "Hint alone must not create a decoder")
+        assertNull(manager.getCurrentDecoder(), "Connect alone must not create a decoder")
         assertEquals(0, fakeFactory.createCount)
 
-        // Now the wheel reports ambiguous services (no name, generic ffe0).
-        val ambiguousServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = BleUuids.Gotway.SERVICE,
-                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
-                )
-            )
-        )
-        manager.onServicesDiscovered(ambiguousServices, null)
+        // kingsongServices is the bare ffe0/ffe1 tree — won't match any
+        // topology fingerprint, so detection runs the name fallback and
+        // resolves "KS-S18" → KINGSONG.
+        manager.onServicesDiscovered(kingsongServices, "KS-S18")
         runCurrent()
 
-        // Decoder is created with the HINTED type (Kingsong), not the
-        // GOTWAY_VIRTUAL silent fallback.
-        assertEquals(
-            WheelType.KINGSONG,
-            fakeFactory.lastCreatedType,
-            "Hint must drive decoder creation in Ambiguous branch"
-        )
+        assertEquals(WheelType.KINGSONG, fakeFactory.lastCreatedType)
         assertEquals(WheelType.KINGSONG, manager.identityState.value.wheelType)
-
-        // Init commands actually reach the wheel. This is the load-bearing
-        // assertion: under the pre-fix ordering, ConfigureBle ran AFTER
-        // DispatchCommands(init), so the init writes saw an unbound write
-        // characteristic and were dropped. With Fix C the order is reversed.
         assertTrue(
             fakeBle.writtenData.any { it.contentEquals(initData) },
-            "Init commands must be written after BLE is configured; written: ${fakeBle.writtenData.size}, dropped: ${fakeBle.writesDroppedBeforeConfigure}"
+            "Init commands must be written after BLE is configured; " +
+                "written=${fakeBle.writtenData.size}, dropped=${fakeBle.writesDroppedBeforeConfigure}"
         )
         assertEquals(
             0,
             fakeBle.writesDroppedBeforeConfigure,
-            "No writes should be dropped pre-configure; that would mean ConfigureBle still races init dispatch"
+            "No writes should be dropped pre-configure; non-zero means ConfigureBle is racing init dispatch again"
         )
-
-        // The hint must be cleared after consumption (one-shot semantics).
-        // We can't read WcmState directly, but a subsequent Ambiguous discovery
-        // without a fresh hint should fall back to GOTWAY_VIRTUAL — verified by
-        // the next assertion: no leak across reductions.
     }
 
-    @Test
-    fun `ambiguous services with no hint and no existing decoder fall back to GOTWAY_VIRTUAL`() = runTest(timeout = 0.1.seconds) {
-        // Pass 1 keeps GOTWAY_VIRTUAL as the last-resort fallback for unknown
-        // wheels until Pass 2/3a's topology fingerprinting subsumes the path.
-        val manager = createManager()
-        manager.connect("AA:BB:CC:DD:EE:FF")  // no hint
-        runCurrent()
-
-        val ambiguousServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = BleUuids.Gotway.SERVICE,
-                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
-                )
-            )
-        )
-        manager.onServicesDiscovered(ambiguousServices, null)
-        runCurrent()
-
-        assertNotNull(manager.getCurrentDecoder())
-        assertEquals(WheelType.GOTWAY_VIRTUAL, fakeFactory.lastCreatedType)
-    }
-
-    @Test
-    fun `ConnectionLost reconnect preserves existing decoder type through Ambiguous discovery`() = runTest(timeout = 0.1.seconds) {
-        // OS auto-reconnect path: the wheel was previously identified, decoder
-        // accumulated state. After ConnectionLost, services are re-discovered;
-        // even if detection now returns Ambiguous, we must reuse the existing
-        // decoder and not silently downgrade to GOTWAY_VIRTUAL.
-        val manager = createManager()
-        manager.connect("AA:BB:CC:DD:EE:FF")
-        manager.onWheelTypeDetected(WheelType.KINGSONG)
-        runCurrent()
-        // Real decoders always emit identity with wheelType populated; mirror that
-        // here so reduceDataReceived's `decoded.identity ?: state.identity` doesn't
-        // overwrite KINGSONG with Unknown.
-        fakeDecoder.decodeResult = DecodeResult.Success(DecodedData(
-            telemetry = TelemetryState(speed = 2500),
-            identity = WheelIdentity(name = "KS-S18", wheelType = WheelType.KINGSONG)
-        ))
-        fakeDecoder.ready = true
-        manager.onDataReceived(byteArrayOf(0x01))
-        runCurrent()
-        assertTrue(manager.connectionState.value is ConnectionState.Connected)
-        val originalDecoder = manager.getCurrentDecoder()
-        assertNotNull(originalDecoder)
-
-        // Simulate OS-level disconnect → ConnectionLost
-        manager.onBleDisconnected("AA:BB:CC:DD:EE:FF", "Link supervision timeout")
-        runCurrent()
-        assertTrue(manager.connectionState.value is ConnectionState.ConnectionLost)
-
-        // OS auto-reconnects, services come back ambiguous (e.g. cached, no name)
-        val ambiguousServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = BleUuids.Gotway.SERVICE,
-                    characteristics = listOf(BleUuids.Gotway.READ_CHARACTERISTIC)
-                )
-            )
-        )
-        manager.onServicesDiscovered(ambiguousServices, null)
-        runCurrent()
-
-        // Decoder identity is preserved (Kingsong, NOT downgraded to GOTWAY_VIRTUAL)
-        assertEquals(WheelType.KINGSONG, manager.identityState.value.wheelType)
-        // The reconnect path in reconnectOrSetup reuses the existing decoder
-        // instance instead of creating a fresh one (preserves accumulated state).
-        assertTrue(manager.getCurrentDecoder() === originalDecoder,
-            "Existing decoder instance must be reused on ConnectionLost reconnect")
-    }
+    // Removed in Pass 3a:
+    //   - `ambiguous services with no hint and no existing decoder fall back to GOTWAY_VIRTUAL`
+    //   - `ConnectionLost reconnect preserves existing decoder type through Ambiguous discovery`
+    // Both tested the now-deleted Ambiguous → GOTWAY_VIRTUAL fallback (and,
+    // for the latter, the Ambiguous reconnect tiebreaker). Pass 3a's strict
+    // contract surfaces all Ambiguous results as Failed; ConnectionLost
+    // reconnect still preserves the decoder when topology resolves to a
+    // matching wheel type, exercised by `Detected reconnect reuses existing
+    // decoder` style tests further down.
 
     @Test
     fun `onServicesDiscovered stores btName in wheel state`() = runTest(timeout = 0.1.seconds) {
@@ -1278,6 +1145,50 @@ class WheelConnectionManagerLifecycleTest {
         runCurrent()
 
         assertTrue(fakeDecoder.resetCalled, "Previous decoder should be reset")
+    }
+
+    // ==================== Pass 3a: Ambiguous → Failed (no silent default) ====================
+
+    @Test
+    fun `Ambiguous detection result transitions to Failed (not GOTWAY_VIRTUAL)`() = runTest(timeout = 0.1.seconds) {
+        // Pass 3a deletes the silent Ambiguous → GOTWAY_VIRTUAL fallback.
+        // When the topology matcher returns multiple distinct candidates
+        // and the device name can't disambiguate, the connection must
+        // surface as Failed with the candidate list — not silently pick
+        // the wrong protocol and leave the user staring at a broken
+        // telemetry view.
+        //
+        // Trigger: a synthetic matcher with two fingerprints that share a
+        // service tree and resolve to different wheel types. No real
+        // ALL/PROXY pair currently exhibits this collision.
+        val sharedServices = setOf(
+            ServiceTopology(BleUuids.Gotway.SERVICE, setOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        )
+        val ambiguousMatcher = WheelTopologyMatcher(listOf(
+            WheelTopology("ninebot", WheelType.NINEBOT, sharedServices),
+            WheelTopology("kingsong", WheelType.KINGSONG, sharedServices),
+        ))
+        val ambiguousDetector = WheelTypeDetector(ambiguousMatcher)
+
+        val manager = createManager(wheelTypeDetector = ambiguousDetector)
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
+
+        val services = DiscoveredServices(listOf(
+            DiscoveredService(BleUuids.Gotway.SERVICE, listOf(BleUuids.Gotway.READ_CHARACTERISTIC))
+        ))
+        manager.onServicesDiscovered(services, deviceName = null)
+        runCurrent()
+
+        val state = manager.connectionState.value
+        assertTrue(state is ConnectionState.Failed, "Expected Failed, got $state")
+        assertEquals("AA:BB:CC:DD:EE:FF", (state as ConnectionState.Failed).address)
+        assertTrue(
+            state.error.contains("ambiguous", ignoreCase = true) ||
+                state.error.contains("multiple", ignoreCase = true),
+            "Failed reason should mention ambiguity, got: ${state.error}"
+        )
+        assertNull(manager.getCurrentDecoder(), "No decoder should be created on Ambiguous")
     }
 }
 

@@ -729,29 +729,20 @@ class WheelConnectionManager(
                 reconnectOrSetup(newState, result.wheelType, info)
             }
             is WheelTypeDetector.DetectionResult.Ambiguous -> {
-                // Disambiguation precedence:
-                // 1. ConnectionLost reconnect with existing decoder → preserve it
-                //    (so OS auto-reconnect doesn't reset accumulated state).
-                // 2. Fresh connect with a ConnectionHint (iOS scan-time name match,
-                //    Android saved profile, OS auto-reconnect carrying prior identity)
-                //    → use the hint's protocol family. Far better than the silent
-                //    GOTWAY_VIRTUAL guess for non-Gotway wheels (S22 etc.). Note:
-                //    [ProtocolFamily] cannot represent GOTWAY_VIRTUAL or Unknown,
-                //    so the hint can only ever land on a real wheel type.
-                // 3. Otherwise → GOTWAY_VIRTUAL fallback. Pass 2/3a will delete
-                //    this branch once topology fingerprinting subsumes it.
-                val existing = newState.decoder
-                val isReconnect = newState.connectionState is ConnectionState.ConnectionLost &&
-                    existing != null &&
-                    existing.wheelType != WheelType.GOTWAY_VIRTUAL
-                val chosenType = when {
-                    isReconnect -> existing!!.wheelType
-                    hint != null -> hint.suggestedProtocol.toWheelType()
-                    else -> WheelType.GOTWAY_VIRTUAL
-                }
-                Logger.d(TAG, "Ambiguous: ${result.possibleTypes}, chose $chosenType (hintSource=${hint?.source})")
-                val info = WheelConnectionInfo.forType(chosenType)
-                reconnectOrSetup(newState, chosenType, info)
+                // Pass 3a: with topology-first detection, Ambiguous now only
+                // fires when multiple fingerprints match the same service
+                // tree AND the device name doesn't disambiguate. The legacy
+                // `Ambiguous → GOTWAY_VIRTUAL` silent fallback is gone — that
+                // path was the root cause of the S22 stuck-on-Discovering bug.
+                // Surface the candidate set in the failure message so any UI
+                // (or future picker, Pass 4) can show the user what was found.
+                Logger.w(TAG, "Ambiguous topology: ${result.possibleTypes}; ${result.reason}")
+                transitionToFailed(
+                    newState,
+                    error = "Ambiguous wheel topology — multiple matches: " +
+                            result.possibleTypes.joinToString(),
+                    address = getCurrentAddress(newState),
+                )
             }
             is WheelTypeDetector.DetectionResult.Unknown -> {
                 Logger.w(TAG, "Unknown wheel: ${result.reason}")

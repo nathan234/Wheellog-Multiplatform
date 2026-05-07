@@ -518,35 +518,18 @@ class WheelConnectionManagerLifecycleTest {
         assertEquals(WheelType.INMOTION_V2, fakeFactory.lastCreatedType)
     }
 
-    @Test
-    fun `onServicesDiscovered with unknown services transitions to Failed`() = runTest(timeout = 0.1.seconds) {
-        val manager = createManager()
-        manager.connect("AA:BB:CC:DD:EE:FF")
-        runCurrent()
-
-        val unknownServices = DiscoveredServices(
-            listOf(
-                DiscoveredService(
-                    uuid = "12345678-0000-1000-8000-00805f9b34fb",
-                    characteristics = emptyList()
-                )
-            )
-        )
-        manager.onServicesDiscovered(unknownServices, null)
-        runCurrent()
-
-        assertTrue(
-            manager.connectionState.value is ConnectionState.Failed,
-            "Expected Failed, got ${manager.connectionState.value}"
-        )
-    }
-
+    // Removed in Pass 4: `onServicesDiscovered with unknown services
+    // transitions to Failed`. Unknown without a saved-profile/explicit hint
+    // now surfaces ConnectionState.WheelTypeRequired so the picker UI can
+    // run against the live peripheral. The new contract is pinned by the
+    // Pass 4 tests at the bottom of this file (`Unknown topology with no
+    // hint transitions to WheelTypeRequired (not Failed)` and friends).
+    //
     // Removed in Pass 3a: `onServicesDiscovered with ambiguous services
     // uses GOTWAY_VIRTUAL`. The detector no longer returns Ambiguous for
-    // a bare ffe0/ffe1 service tree — it returns Unknown, which routes to
-    // Failed via `onServicesDiscovered with unknown services transitions
-    // to Failed`. The Ambiguous-as-Failed contract is pinned by the new
-    // test in the Pass 3a section below.
+    // a bare ffe0/ffe1 service tree — Ambiguous now requires conflicting
+    // topology fingerprints. The Ambiguous → Failed contract is pinned by
+    // the test in the Pass 3a section below.
 
     @Test
     fun `configureForWheel false transitions to Failed`() = runTest(timeout = 0.1.seconds) {
@@ -1189,6 +1172,155 @@ class WheelConnectionManagerLifecycleTest {
             "Failed reason should mention ambiguity, got: ${state.error}"
         )
         assertNull(manager.getCurrentDecoder(), "No decoder should be created on Ambiguous")
+    }
+
+    // ==================== Pass 4: Unknown → WheelTypeRequired (picker entry point) ====================
+
+    @Test
+    fun `Unknown topology with no hint transitions to WheelTypeRequired (not Failed)`() = runTest(timeout = 0.1.seconds) {
+        // Pass 4: when topology doesn't match any fingerprint AND name detection
+        // also misses AND no saved-profile/explicit hint exists, the WCM stops
+        // failing the connection and instead surfaces a WheelTypeRequired state.
+        // The picker UI observes that state and lets the user pick a wheel type.
+        // The BLE peripheral remains connected — picker confirmation runs
+        // ConfigureBle against the existing session.
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
+
+        val unknownServices = DiscoveredServices(listOf(
+            DiscoveredService("12345678-0000-1000-8000-00805f9b34fb", emptyList())
+        ))
+        manager.onServicesDiscovered(unknownServices, deviceName = "MysteryWheel")
+        runCurrent()
+
+        val state = manager.connectionState.value
+        assertTrue(
+            state is ConnectionState.WheelTypeRequired,
+            "Expected WheelTypeRequired, got $state"
+        )
+        assertEquals("AA:BB:CC:DD:EE:FF", (state as ConnectionState.WheelTypeRequired).address)
+        assertEquals(unknownServices, state.services)
+        assertEquals("MysteryWheel", state.deviceName)
+        assertNull(manager.getCurrentDecoder(), "No decoder should be created until user picks")
+    }
+
+    @Test
+    fun `Unknown topology with SAVED_PROFILE hint short-circuits picker`() = runTest(timeout = 0.1.seconds) {
+        // Pass 4 plan guardrail: a saved per-MAC profile is user-confirmed
+        // durable state. If the user already picked KINGSONG for this MAC
+        // last connect, the next connect should NOT fire the picker — it
+        // should trust the saved profile and proceed with that type.
+        val manager = createManager()
+        manager.connect(
+            "AA:BB:CC:DD:EE:FF",
+            ConnectionHint(ProtocolFamily.KINGSONG, HintSource.SAVED_PROFILE),
+        )
+        runCurrent()
+
+        val unknownServices = DiscoveredServices(listOf(
+            DiscoveredService("12345678-0000-1000-8000-00805f9b34fb", emptyList())
+        ))
+        manager.onServicesDiscovered(unknownServices, deviceName = null)
+        runCurrent()
+
+        assertFalse(
+            manager.connectionState.value is ConnectionState.WheelTypeRequired,
+            "SAVED_PROFILE hint must short-circuit the picker, got ${manager.connectionState.value}",
+        )
+        assertEquals(WheelType.KINGSONG, fakeFactory.lastCreatedType)
+        assertEquals(WheelType.KINGSONG, manager.identityState.value.wheelType)
+    }
+
+    @Test
+    fun `Unknown topology with EXPLICIT_API hint short-circuits picker`() = runTest(timeout = 0.1.seconds) {
+        // EXPLICIT_API is the legacy `connect(address, wheelType)` path or a
+        // confirmed picker dispatch carried as a fresh connect. Treat as
+        // user-confirmed for the same reason as SAVED_PROFILE.
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF", WheelType.VETERAN)
+        runCurrent()
+
+        val unknownServices = DiscoveredServices(listOf(
+            DiscoveredService("12345678-0000-1000-8000-00805f9b34fb", emptyList())
+        ))
+        manager.onServicesDiscovered(unknownServices, deviceName = null)
+        runCurrent()
+
+        assertFalse(
+            manager.connectionState.value is ConnectionState.WheelTypeRequired,
+            "EXPLICIT_API hint must short-circuit the picker, got ${manager.connectionState.value}",
+        )
+        assertEquals(WheelType.VETERAN, fakeFactory.lastCreatedType)
+    }
+
+    @Test
+    fun `Unknown topology with SCAN_NAME hint still triggers picker`() = runTest(timeout = 0.1.seconds) {
+        // Pass 4 plan guardrail: the picker is the explicit user-driven
+        // equivalent of the silent default deleted in Pass 3a. SCAN_NAME hints
+        // are NOT user-confirmed — they're a heuristic guess from the BLE
+        // advertised name observed at scan time. If both the topology AND
+        // the post-discovery deviceName fail to resolve, we don't re-introduce
+        // the silent fallback under a different name; the user must confirm
+        // via the picker. (The SCAN_NAME-derived type still becomes a
+        // "Likely" badge in the UI, but never auto-picks.)
+        //
+        // Realistic scenario: scan-time advertised name was `S22-3A0F` but
+        // post-pairing peripheral.name is null/empty (some firmwares cache
+        // the local name only on first connect). Detection runs against
+        // null deviceName and topology miss → Unknown.
+        val manager = createManager()
+        manager.connect(
+            "AA:BB:CC:DD:EE:FF",
+            ConnectionHint(ProtocolFamily.KINGSONG, HintSource.SCAN_NAME, rawName = "S22-3A0F"),
+        )
+        runCurrent()
+
+        val unknownServices = DiscoveredServices(listOf(
+            DiscoveredService("12345678-0000-1000-8000-00805f9b34fb", emptyList())
+        ))
+        manager.onServicesDiscovered(unknownServices, deviceName = null)
+        runCurrent()
+
+        assertTrue(
+            manager.connectionState.value is ConnectionState.WheelTypeRequired,
+            "SCAN_NAME hint must NOT short-circuit the picker, got ${manager.connectionState.value}",
+        )
+        assertNull(manager.getCurrentDecoder(), "No decoder should be created until user picks")
+    }
+
+    @Test
+    fun `confirmWheelType from WheelTypeRequired transitions to Connected with picked decoder`() = runTest(timeout = 0.1.seconds) {
+        val manager = createManager()
+        manager.connect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
+        val unknownServices = DiscoveredServices(listOf(
+            DiscoveredService("12345678-0000-1000-8000-00805f9b34fb", emptyList())
+        ))
+        manager.onServicesDiscovered(unknownServices, deviceName = "MysteryWheel")
+        runCurrent()
+        require(manager.connectionState.value is ConnectionState.WheelTypeRequired)
+
+        manager.confirmWheelType(WheelType.KINGSONG)
+        runCurrent()
+
+        val state = manager.connectionState.value
+        assertTrue(state is ConnectionState.Connected, "Expected Connected, got $state")
+        assertEquals("AA:BB:CC:DD:EE:FF", (state as ConnectionState.Connected).address)
+        assertEquals(WheelType.KINGSONG, fakeFactory.lastCreatedType)
+        assertEquals(WheelType.KINGSONG, manager.identityState.value.wheelType)
+        assertNotNull(fakeBle.lastConfigureForWheel, "ConfigureBle must run against the existing peripheral")
+    }
+
+    @Test
+    fun `confirmWheelType outside WheelTypeRequired is rejected`() = runTest(timeout = 0.1.seconds) {
+        val manager = createManager()
+        // Disconnected → confirm should be a no-op
+        manager.confirmWheelType(WheelType.KINGSONG)
+        runCurrent()
+        assertEquals(ConnectionState.Disconnected, manager.connectionState.value)
+        assertNull(manager.getCurrentDecoder())
+        assertEquals(0, fakeFactory.createCount)
     }
 }
 

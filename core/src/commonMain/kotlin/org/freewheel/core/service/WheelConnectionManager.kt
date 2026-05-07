@@ -349,6 +349,17 @@ class WheelConnectionManager(
     }
 
     /**
+     * User confirmed a wheel type from the picker shown while in
+     * [ConnectionState.WheelTypeRequired]. Fire-and-forget — observe
+     * [connectionState] for the resulting transition to [ConnectionState.Connected].
+     * Calls outside of [ConnectionState.WheelTypeRequired] are silently ignored
+     * by the reducer.
+     */
+    override fun confirmWheelType(wheelType: WheelType) {
+        events.trySend(WheelEvent.WheelTypeConfirmed(wheelType))
+    }
+
+    /**
      * Get the connection info for the current wheel.
      * Returns null if not connected or wheel type unknown.
      */
@@ -555,6 +566,7 @@ class WheelConnectionManager(
             is WheelEvent.BleConfigureFailed -> reduceBleConfigureFailed(state, event)
             is WheelEvent.ServicesDiscovered -> reduceServicesDiscovered(state, event)
             is WheelEvent.WheelTypeDetected -> reduceWheelTypeDetected(state, event)
+            is WheelEvent.WheelTypeConfirmed -> reduceWheelTypeConfirmed(state, event)
             is WheelEvent.DataReceived -> reduceDataReceived(state, event)
             is WheelEvent.BleError -> reduceBleError(state)
             is WheelEvent.BleDisconnected -> reduceBleDisconnected(state, event)
@@ -598,13 +610,14 @@ class WheelConnectionManager(
 
         // Emit cleanup effects based on what the current state requires.
         // Connecting → cancel the in-progress BLE job
-        // Connected/DiscoveringServices → disconnect the established OS connection
+        // Connected/DiscoveringServices/WheelTypeRequired → disconnect the established OS connection
         // Disconnected/Failed → nothing to clean up
         val effects = buildList {
             when (state.connectionState) {
                 is ConnectionState.Connecting -> add(WcmEffect.CancelBleConnect)
                 is ConnectionState.Connected,
                 is ConnectionState.DiscoveringServices,
+                is ConnectionState.WheelTypeRequired,
                 is ConnectionState.ConnectionLost -> add(WcmEffect.BleDisconnect)
                 is ConnectionState.Disconnected,
                 is ConnectionState.Failed,
@@ -624,6 +637,7 @@ class WheelConnectionManager(
                 is ConnectionState.Connecting -> add(WcmEffect.CancelBleConnect)
                 is ConnectionState.Connected,
                 is ConnectionState.DiscoveringServices,
+                is ConnectionState.WheelTypeRequired,
                 is ConnectionState.ConnectionLost -> add(WcmEffect.BleDisconnect)
                 is ConnectionState.Disconnected,
                 is ConnectionState.Failed,
@@ -759,11 +773,45 @@ class WheelConnectionManager(
                 )
             }
             is WheelTypeDetector.DetectionResult.Unknown -> {
-                Logger.w(TAG, "Unknown wheel: ${result.reason}")
-                transitionToFailed(
-                    newState,
-                    error = "Unknown wheel type: ${result.reason}",
-                    address = getCurrentAddress(newState)
+                // Pass 4: short-circuit to the saved/explicit hint when one is
+                // available. SAVED_PROFILE / EXPLICIT_API / AUTO_RECONNECT are
+                // user-confirmed durable state — trust them rather than
+                // forcing a re-pick. SCAN_NAME hints (heuristic from the
+                // advertised name) are NOT user-confirmed and must yield to
+                // the picker, otherwise we re-introduce the silent fallback
+                // we deleted in Pass 3a under a different name.
+                val shortCircuit = hint?.takeIf {
+                    it.source == HintSource.SAVED_PROFILE ||
+                        it.source == HintSource.EXPLICIT_API ||
+                        it.source == HintSource.AUTO_RECONNECT
+                }
+                if (shortCircuit != null) {
+                    val wheelType = shortCircuit.suggestedProtocol.toWheelType()
+                    Logger.i(TAG, "Unknown topology — short-circuiting via ${shortCircuit.source} hint to $wheelType")
+                    val info = WheelConnectionInfo.forType(wheelType)
+                    return reconnectOrSetup(newState, wheelType, info)
+                }
+                val address = getCurrentAddress(newState)
+                if (address == null) {
+                    // No live address means the connection must already be
+                    // tearing down; falling back to Failed preserves the prior
+                    // behavior on a disconnected/stale path.
+                    Logger.w(TAG, "Unknown wheel without address: ${result.reason}")
+                    return transitionToFailed(
+                        newState,
+                        error = "Unknown wheel type: ${result.reason}",
+                        address = null,
+                    )
+                }
+                Logger.i(TAG, "Unknown wheel — surfacing picker (WheelTypeRequired): ${result.reason}")
+                WcmTransition(
+                    newState.copy(
+                        connectionState = ConnectionState.WheelTypeRequired(
+                            address = address,
+                            services = event.services,
+                            deviceName = event.deviceName,
+                        )
+                    )
                 )
             }
         }
@@ -833,6 +881,36 @@ class WheelConnectionManager(
         return WcmTransition(
             decoderState.copy(connectionInfo = info ?: state.connectionInfo),
             configEffects + decoderEffects
+        )
+    }
+
+    private fun reduceWheelTypeConfirmed(state: WcmState, event: WheelEvent.WheelTypeConfirmed): WcmTransition {
+        // Pass 4: user picked a wheel type from the picker shown while in
+        // WheelTypeRequired. Build the decoder, ConfigureBle against the
+        // existing peripheral, transition to Connected. Reject from any
+        // other state so a stale picker tap can't perturb a healthy
+        // session.
+        val required = state.connectionState as? ConnectionState.WheelTypeRequired
+            ?: return WcmTransition(state)
+        val info = WheelConnectionInfo.forType(event.wheelType)
+            ?: return WcmTransition(state)
+        val (decoderState, decoderEffects) = setupDecoderTransition(state, event.wheelType)
+        // Same Fix C ordering as reconnectOrSetup: ConfigureBle precedes init
+        // dispatch so the write characteristic is bound before the
+        // CommandScheduler consumer can pick up an init block.
+        val effects = listOf(info.toConfigureBleEffect()) + decoderEffects
+        val displayName = decoderState.identity.displayName.takeIf { it.isNotBlank() }
+            ?: required.deviceName
+            ?: required.address
+        return WcmTransition(
+            decoderState.copy(
+                connectionInfo = info,
+                connectionState = ConnectionState.Connected(
+                    address = required.address,
+                    wheelName = displayName,
+                ),
+            ),
+            effects,
         )
     }
 
@@ -1151,6 +1229,7 @@ class WheelConnectionManager(
             is ConnectionState.DiscoveringServices -> cs.address
             is ConnectionState.Connected -> cs.address
             is ConnectionState.ConnectionLost -> cs.address
+            is ConnectionState.WheelTypeRequired -> cs.address
             else -> null
         }
     }

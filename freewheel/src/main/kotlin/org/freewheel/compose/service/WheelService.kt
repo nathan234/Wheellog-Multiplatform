@@ -256,6 +256,7 @@ class WheelService : Service(), WheelServiceContract {
             is ConnectionState.Connected -> "Connected to ${state.wheelName}"
             is ConnectionState.ConnectionLost -> "Reconnecting..."
             is ConnectionState.Failed -> "Connection failed"
+            is ConnectionState.WheelTypeRequired -> "Select wheel type"
         }
         notificationManager?.notify(NOTIFICATION_ID, createNotification(text))
     }

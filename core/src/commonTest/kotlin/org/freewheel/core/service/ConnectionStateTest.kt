@@ -1,5 +1,7 @@
 package org.freewheel.core.service
 
+import org.freewheel.core.ble.DiscoveredService
+import org.freewheel.core.ble.DiscoveredServices
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,10 +15,15 @@ import kotlin.test.assertTrue
  */
 class ConnectionStatePropertiesTest {
 
+    private val emptyServices = DiscoveredServices(emptyList())
+    private val sampleServices = DiscoveredServices(listOf(
+        DiscoveredService("0000ffe0-0000-1000-8000-00805f9b34fb", listOf("0000ffe1-0000-1000-8000-00805f9b34fb"))
+    ))
+
     // ==================== Subclass Count Guard ====================
 
     @Test
-    fun `sealed class has exactly 7 subclasses`() {
+    fun `sealed class has exactly 8 subclasses`() {
         // If this fails, a new ConnectionState subclass was added in KMP
         // and ConnectionStateWrapper in WheelManager.swift must be updated.
         val subclasses = listOf(
@@ -27,8 +34,9 @@ class ConnectionStatePropertiesTest {
             ConnectionState.Connected("addr", "wheel"),
             ConnectionState.ConnectionLost("addr", "reason"),
             ConnectionState.Failed("error"),
+            ConnectionState.WheelTypeRequired("addr", emptyServices, "DevName"),
         )
-        assertEquals(7, subclasses.size)
+        assertEquals(8, subclasses.size)
 
         // Verify exhaustive when — compiler will fail if a case is missing
         for (state in subclasses) {
@@ -230,5 +238,64 @@ class ConnectionStatePropertiesTest {
     @Test
     fun `Failed statusText includes error`() {
         assertEquals("Failed: something broke", ConnectionState.Failed("something broke").statusText)
+    }
+
+    // ==================== WheelTypeRequired ====================
+    //
+    // Pass 4: when topology detection returns Unknown and no saved-profile or
+    // explicit hint exists, the WCM transitions to WheelTypeRequired instead
+    // of Failed. This is NOT a Failed substate — the BLE session is still
+    // alive and the picker UI runs against the existing peripheral so the
+    // user's confirmed pick can call configureForWheel without a reconnect.
+
+    @Test
+    fun `WheelTypeRequired is not connected`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertFalse(state.isConnected)
+    }
+
+    @Test
+    fun `WheelTypeRequired is connecting`() {
+        // The peripheral is still connected (BLE session alive); we're waiting
+        // on the user to disambiguate the wheel type, conceptually a phase of
+        // the connection handshake.
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertTrue(state.isConnecting)
+    }
+
+    @Test
+    fun `WheelTypeRequired is not disconnected`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertFalse(state.isDisconnected)
+    }
+
+    @Test
+    fun `WheelTypeRequired exposes connecting address`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertEquals("AA:BB", state.connectingAddress)
+    }
+
+    @Test
+    fun `WheelTypeRequired has no failed address`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertNull(state.failedAddress)
+    }
+
+    @Test
+    fun `WheelTypeRequired statusText is non-empty`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertTrue(state.statusText.isNotEmpty())
+    }
+
+    @Test
+    fun `WheelTypeRequired preserves discovered services`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, "S22")
+        assertEquals(sampleServices, state.services)
+    }
+
+    @Test
+    fun `WheelTypeRequired allows null deviceName`() {
+        val state = ConnectionState.WheelTypeRequired("AA:BB", sampleServices, null)
+        assertEquals(null, state.deviceName)
     }
 }

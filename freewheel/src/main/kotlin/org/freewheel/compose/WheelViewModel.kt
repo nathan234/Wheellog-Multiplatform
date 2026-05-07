@@ -798,6 +798,24 @@ class WheelViewModel(
         }
     }
 
+    /**
+     * User picked a wheel type from [components.WheelTypePickerSheet].
+     * Forwards to the connection manager, which transitions the live
+     * BLE session to Connected via [WcmEffect.ConfigureBle] — no reconnect.
+     */
+    fun confirmWheelType(wheelType: org.freewheel.core.domain.WheelType) {
+        binding?.connectionManager?.confirmWheelType(wheelType)
+    }
+
+    /**
+     * User dismissed the picker without choosing. Pass 4 plan guardrail: never
+     * silently auto-pick. Tear down the BLE session so the user lands back at
+     * the scan list, same as if they tapped Disconnect.
+     */
+    fun dismissWheelTypePicker() {
+        disconnect()
+    }
+
     fun disconnect() {
         if (_dataSource.value == WheelDataSource.REPLAY) {
             stopReplay()
@@ -896,6 +914,17 @@ class WheelViewModel(
     fun forgetProfile(address: String) {
         profileStore.deleteProfile(address)
         _savedAddresses.value = profileStore.getSavedAddresses()
+    }
+
+    /**
+     * Pass 4 "Reset wheel type" surface: clears the saved wheelType for
+     * [address] without dropping the rest of the profile (display name,
+     * top-speed override, etc.). The next connect to that MAC re-runs
+     * detection, falling into the [WheelTypePickerSheet] if topology + name
+     * both miss.
+     */
+    fun resetWheelType(address: String) {
+        profileStore.clearWheelType(address)
     }
 
     private fun autoSaveProfile(address: String) {

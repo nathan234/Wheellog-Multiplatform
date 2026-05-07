@@ -82,6 +82,16 @@ class WheelProfileStore(private val store: KeyValueStore) {
         // Keep profile_name — it's shared with per-wheel settings
     }
 
+    /**
+     * Pass 4: clear only the saved wheel-type so the next connect to [address]
+     * re-runs detection (and falls into the picker if topology + name both
+     * miss). Display name, last-connected, and top-speed override are
+     * preserved — they're not part of the picker contract.
+     */
+    fun clearWheelType(address: String) {
+        store.remove(address + PreferenceKeys.SUFFIX_WHEEL_TYPE)
+    }
+
     /** Reads the override, treating the 0.0 sentinel (= unset) as null. */
     private fun readTopSpeedOverride(address: String): Double? {
         val raw = store.getDouble(address + PreferenceKeys.SUFFIX_TOP_SPEED_OVERRIDE_KMH, 0.0)

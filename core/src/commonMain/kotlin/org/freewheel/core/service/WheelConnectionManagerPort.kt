@@ -56,6 +56,13 @@ interface WheelConnectionManagerPort {
     fun getConfig(): DecoderConfig
     fun getConnectionInfo(): WheelConnectionInfo?
 
+    /**
+     * Confirm a wheel type from the picker (Pass 4). Only meaningful while
+     * [connectionState] is [ConnectionState.WheelTypeRequired]; calls in any
+     * other state are no-ops.
+     */
+    fun confirmWheelType(wheelType: WheelType) {}
+
     fun sendCommand(command: org.freewheel.core.protocol.WheelCommand)
     fun wheelBeep()
     fun toggleLight(enabled: Boolean)

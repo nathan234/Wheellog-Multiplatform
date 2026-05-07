@@ -41,17 +41,24 @@ fun ConnectionBanner(
         exit = slideOutVertically() + fadeOut(),
         modifier = modifier
     ) {
+        // WheelTypeRequired surfaces via the picker sheet, not the banner.
         val backgroundColor = when (connectionState) {
             is ConnectionState.Connecting, is ConnectionState.DiscoveringServices -> MaterialTheme.colorScheme.primary
             is ConnectionState.ConnectionLost -> MaterialTheme.colorScheme.tertiary
             is ConnectionState.Failed -> MaterialTheme.colorScheme.error
-            is ConnectionState.Disconnected, is ConnectionState.Connected, is ConnectionState.Scanning -> MaterialTheme.colorScheme.outline
+            is ConnectionState.Disconnected,
+            is ConnectionState.Connected,
+            is ConnectionState.Scanning,
+            is ConnectionState.WheelTypeRequired -> MaterialTheme.colorScheme.outline
         }
         val contentColor = when (connectionState) {
             is ConnectionState.Connecting, is ConnectionState.DiscoveringServices -> MaterialTheme.colorScheme.onPrimary
             is ConnectionState.ConnectionLost -> MaterialTheme.colorScheme.onTertiary
             is ConnectionState.Failed -> MaterialTheme.colorScheme.onError
-            is ConnectionState.Disconnected, is ConnectionState.Connected, is ConnectionState.Scanning -> MaterialTheme.colorScheme.onSurface
+            is ConnectionState.Disconnected,
+            is ConnectionState.Connected,
+            is ConnectionState.Scanning,
+            is ConnectionState.WheelTypeRequired -> MaterialTheme.colorScheme.onSurface
         }
 
         Row(

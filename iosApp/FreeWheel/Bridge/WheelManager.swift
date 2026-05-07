@@ -340,6 +340,15 @@ class WheelManager: ObservableObject {
         refreshSavedAddresses()
     }
 
+    /// Pass 4 "Reset wheel type" surface: clears the saved wheelType for
+    /// `address` without dropping the rest of the profile (display name,
+    /// top-speed override, etc.). The next connect to that MAC re-runs
+    /// detection, falling into the `WheelTypePickerSheet` if topology + name
+    /// both miss.
+    func resetWheelType(address: String) {
+        wheelProfileStore.clearWheelType(address: address)
+    }
+
     // MARK: - KMP Components
 
     private var bleManager: BleManager?
@@ -2059,27 +2068,49 @@ class WheelManager: ObservableObject {
 
         connectionState = .connecting(address: address)
 
-        // Pass the scan-time hint derived from the advertised name.
-        // Without this, an S22 / KS-S18 / etc. advertising a generic ffe0 service
-        // would fall into the Ambiguous branch and either get the GOTWAY_VIRTUAL
-        // fallback (Pass 1 keeps that path for unknown names) or stick on
-        // "Discovering Services" forever. Knowing the type up front lets WCM
-        // build the correct decoder before service discovery completes.
+        // Pass 4: prefer the saved per-MAC profile over the scan-time name
+        // hint. A confirmed pick (SAVED_PROFILE) is durable user state and
+        // short-circuits the WheelTypeRequired picker on Unknown topology;
+        // the scan-name hint is a heuristic guess that yields to the picker.
+        // Falling back to scan-name preserves the legacy iOS behavior for
+        // wheels we've never connected to.
         //
-        // Pull from the advertisement cache rather than discoveredDevices[].name:
-        // the latter is `peripheral.name ?: advertisedName` from the scan
-        // callback, so a cached CBPeripheral.name (set during a prior connect)
-        // can shadow the live advertisement local name. For wheels whose
-        // GAP-NAME diverges from the local name post-pairing, that misroutes
-        // the hint. The cache stores advertisedName separately and uncontaminated.
-        let advertisedName = bleManager?.getAdvertisement(address: address)?.advertisedName
-        let hint = WheelConnectionManagerHelper.shared.scanNameHint(rawName: advertisedName)
+        // Advertised name comes from the cache rather than
+        // discoveredDevices[].name because the latter is
+        // `peripheral.name ?: advertisedName` from the scan callback, so a
+        // cached CBPeripheral.name (set during a prior connect) can shadow
+        // the live advertisement local name. The cache stores advertisedName
+        // separately and uncontaminated.
+        let savedHint = WheelConnectionManagerHelper.shared.savedProfileHint(
+            store: wheelProfileStore,
+            address: address
+        )
+        let hint: ConnectionHint?
+        if let savedHint {
+            hint = savedHint
+        } else {
+            let advertisedName = bleManager?.getAdvertisement(address: address)?.advertisedName
+            hint = WheelConnectionManagerHelper.shared.scanNameHint(rawName: advertisedName)
+        }
 
         // Fire-and-forget — connection state updates come through StateFlow polling
         WheelConnectionManagerHelper.shared.connectWithHint(
             manager: connectionManager,
             address: address,
             hint: hint
+        )
+    }
+
+    /// User picked a wheel type from `WheelTypePickerSheet` while in
+    /// `.wheelTypeRequired`. Forwards to the connection manager, which
+    /// transitions the live BLE session to Connected via ConfigureBle without
+    /// a reconnect. Picker dismissal calls `disconnect()` instead — Pass 4
+    /// guardrail: we never auto-pick.
+    func confirmWheelType(_ wheelType: WheelType) {
+        guard let connectionManager = connectionManager else { return }
+        WheelConnectionManagerHelper.shared.confirmWheelType(
+            manager: connectionManager,
+            wheelType: wheelType
         )
     }
 
@@ -2124,6 +2155,10 @@ enum ConnectionStateWrapper: Equatable {
     case connected(address: String, wheelName: String)
     case connectionLost(address: String, reason: String)
     case failed(address: String?, error: String)
+    /// Pass 4: BLE is connected and services discovered, but the wheel type
+    /// couldn't be resolved from topology + name. The picker UI runs against
+    /// the still-live peripheral; confirmation transitions to `.connected`.
+    case wheelTypeRequired(address: String, deviceName: String?)
 
     var isConnected: Bool {
         if case .connected = self { return true }
@@ -2132,7 +2167,7 @@ enum ConnectionStateWrapper: Equatable {
 
     var isConnecting: Bool {
         switch self {
-        case .connecting, .discoveringServices:
+        case .connecting, .discoveringServices, .wheelTypeRequired:
             return true
         default:
             return false
@@ -2151,6 +2186,8 @@ enum ConnectionStateWrapper: Equatable {
     var connectingAddress: String? {
         switch self {
         case .connecting(let address), .discoveringServices(let address):
+            return address
+        case .wheelTypeRequired(let address, _):
             return address
         default:
             return nil
@@ -2176,6 +2213,7 @@ enum ConnectionStateWrapper: Equatable {
         case .connected(_, let name): return "Connected to \(name)"
         case .connectionLost(_, let reason): return "Connection lost: \(reason)"
         case .failed(_, let error): return "Failed: \(error)"
+        case .wheelTypeRequired: return "Select wheel type"
         }
     }
 
@@ -2195,6 +2233,8 @@ enum ConnectionStateWrapper: Equatable {
             self = .connectionLost(address: lost.address, reason: lost.reason)
         case let failed as ConnectionState.Failed:
             self = .failed(address: failed.address, error: failed.error)
+        case let required as ConnectionState.WheelTypeRequired:
+            self = .wheelTypeRequired(address: required.address, deviceName: required.deviceName)
         default:
             self = .disconnected
         }

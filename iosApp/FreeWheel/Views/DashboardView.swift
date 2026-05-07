@@ -81,12 +81,42 @@ struct DashboardView: View {
                 DashboardEditView()
             }
         }
+        .sheet(isPresented: showWheelTypePickerBinding) {
+            if case .wheelTypeRequired(let address, let deviceName) = wheelManager.connectionState {
+                WheelTypePickerSheet(
+                    address: address,
+                    deviceName: deviceName,
+                    onConfirm: { type in wheelManager.confirmWheelType(type) },
+                    onDismiss: { wheelManager.disconnect() }
+                )
+            }
+        }
     }
 
     private var showMetricBinding: Binding<Bool> {
         Binding(
             get: { selectedMetric != nil },
             set: { if !$0 { selectedMetric = nil } }
+        )
+    }
+
+    /// Drives the WheelTypePickerSheet — read-only follow of
+    /// `connectionState`. Setting back to `false` (sheet dismissal via swipe
+    /// or .cancellationAction) calls `disconnect()` so we never silently
+    /// auto-pick on Pass 4.
+    private var showWheelTypePickerBinding: Binding<Bool> {
+        Binding(
+            get: {
+                if case .wheelTypeRequired = wheelManager.connectionState { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue {
+                    if case .wheelTypeRequired = wheelManager.connectionState {
+                        wheelManager.disconnect()
+                    }
+                }
+            }
         )
     }
 }

@@ -52,6 +52,7 @@
 		U1000001221F000000002U /* BuildConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = U1000001221F000000001U /* BuildConstants.swift */; };
 		V1000001221F000000002V /* DiagnosticsBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = V1000001221F000000001V /* DiagnosticsBootstrap.swift */; };
 		W1000001221F000000002W /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = W1000001221F000000001W /* DiagnosticsView.swift */; };
+		X1000001221F000000002X /* WheelTypePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = X1000001221F000000001X /* WheelTypePickerSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -104,6 +105,7 @@
 		U1000001221F000000001U /* BuildConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildConstants.swift; sourceTree = "<group>"; };
 		V1000001221F000000001V /* DiagnosticsBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsBootstrap.swift; sourceTree = "<group>"; };
 		W1000001221F000000001W /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		X1000001221F000000001X /* WheelTypePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelTypePickerSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +210,7 @@
 				S1000001221F000000001S /* RideMapView.swift */,
 				T1000001221F000000001T /* LiveRideMapView.swift */,
 				W1000001221F000000001W /* DiagnosticsView.swift */,
+				X1000001221F000000001X /* WheelTypePickerSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -348,6 +351,7 @@
 				U1000001221F000000002U /* BuildConstants.swift in Sources */,
 				V1000001221F000000002V /* DiagnosticsBootstrap.swift in Sources */,
 				W1000001221F000000002W /* DiagnosticsView.swift in Sources */,
+				X1000001221F000000002X /* WheelTypePickerSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

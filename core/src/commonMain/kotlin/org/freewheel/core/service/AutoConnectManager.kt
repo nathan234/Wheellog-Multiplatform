@@ -62,6 +62,17 @@ class AutoConnectManager(
                 if (state is ConnectionState.Failed) {
                     clearAutoConnect()
                 }
+                // Pass 4: WheelTypeRequired is terminal from auto-connect's POV.
+                // The BLE attempt finished — services discovered, peripheral
+                // bound — but detection couldn't resolve the protocol so the
+                // user must pick. Leaving isAutoConnecting=true would keep
+                // the overlay covering the picker until the timeout fires;
+                // letting reconnect retries continue would compete with the
+                // user's pending pick.
+                if (state is ConnectionState.WheelTypeRequired) {
+                    clearAutoConnect()
+                    stopReconnect()
+                }
             }
         }
     }

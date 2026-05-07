@@ -115,6 +115,55 @@ class AutoConnectManagerTest {
     }
 
     @Test
+    fun `WheelTypeRequired clears auto-connect flag (terminal pending user action)`() = runTest {
+        // Pass 4: WheelTypeRequired is a terminal outcome from auto-connect's
+        // POV — the BLE attempt completed and now needs user intervention.
+        // Leaving isAutoConnecting=true would keep the auto-connect overlay
+        // covering the picker until the timeout fires.
+        val connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+        val (manager, _, _) = createManager(connectionState)
+
+        manager.attemptStartupConnect("AA:BB:CC:DD:EE:FF")
+        runCurrent()
+        assertTrue(manager.isAutoConnecting.value)
+
+        connectionState.value = ConnectionState.WheelTypeRequired(
+            address = "AA:BB:CC:DD:EE:FF",
+            services = org.freewheel.core.ble.DiscoveredServices(emptyList()),
+            deviceName = null,
+        )
+        runCurrent()
+
+        assertFalse(manager.isAutoConnecting.value)
+
+        manager.destroy()
+    }
+
+    @Test
+    fun `WheelTypeRequired stops reconnect loop`() = runTest {
+        // Pass 4: the reconnect loop has to bail when the wheel comes back
+        // online but lands in WheelTypeRequired — scheduling another retry
+        // against a live picker session would drop the user's pending pick.
+        val connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+        val (manager, _, _) = createManager(connectionState)
+
+        manager.startReconnecting("AA:BB:CC:DD:EE:FF")
+        runCurrent()
+        assertTrue(manager.reconnectState.value is AutoConnectManager.ReconnectState.Waiting)
+
+        connectionState.value = ConnectionState.WheelTypeRequired(
+            address = "AA:BB:CC:DD:EE:FF",
+            services = org.freewheel.core.ble.DiscoveredServices(emptyList()),
+            deviceName = null,
+        )
+        runCurrent()
+
+        assertEquals(AutoConnectManager.ReconnectState.Idle, manager.reconnectState.value)
+
+        manager.destroy()
+    }
+
+    @Test
     fun `stop cancels startup auto-connect`() = runTest {
         val (manager, _, _) = createManager()
 

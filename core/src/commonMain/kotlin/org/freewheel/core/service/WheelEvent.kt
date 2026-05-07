@@ -72,6 +72,17 @@ sealed class WheelEvent {
     ) : WheelEvent()
 
     /**
+     * User confirmed a wheel type from the picker shown while in
+     * [ConnectionState.WheelTypeRequired]. The reducer validates the current
+     * state, sets up the decoder for the chosen type, and emits a
+     * [WcmEffect.ConfigureBle] against the still-live peripheral so the
+     * session resumes without a reconnect.
+     */
+    class WheelTypeConfirmed(
+        val wheelType: WheelType
+    ) : WheelEvent()
+
+    /**
      * Raw data received from the wheel via BLE notification.
      * Fires at BLE frequency (20-100ms). Channel overhead is negligible.
      *

@@ -33,6 +33,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.freewheel.compose.WheelViewModel
+import org.freewheel.core.service.ConnectionState
 import org.freewheel.compose.screens.ChartScreen
 import org.freewheel.compose.screens.CustomTabEditScreen
 import org.freewheel.compose.screens.CustomTabScreen
@@ -125,11 +126,18 @@ fun AppNavigation(viewModel: WheelViewModel) {
             startDestination = NavigationTab.Devices.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            // Devices tab — shows dashboard when connected, scan when not
+            // Devices tab — shows dashboard when connected, scan when not.
+            // WheelTypeRequired (Pass 4) hosts the picker sheet from
+            // DashboardScreen; the BLE session is still alive, so the user
+            // is mid-handshake rather than back at the scan list. Routing
+            // it to ScanScreen would unmount the sheet before it ever
+            // mounts.
             composable(NavigationTab.Devices.route) {
                 val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
                 val isAutoConnecting by viewModel.isAutoConnecting.collectAsStateWithLifecycle()
-                if (connectionState.isConnected) {
+                val hostsDashboard = connectionState.isConnected ||
+                    connectionState is ConnectionState.WheelTypeRequired
+                if (hostsDashboard) {
                     DashboardScreen(
                         viewModel = viewModel,
                         onNavigateToChart = { navController.navigate(NavigationTab.Chart.route) },

@@ -32,9 +32,11 @@ import org.freewheel.compose.WheelViewModel
 import org.freewheel.compose.components.DashboardContent
 import org.freewheel.compose.components.ReplayControls
 import org.freewheel.compose.components.RideStatsHeader
+import org.freewheel.compose.components.WheelTypePickerSheet
 import org.freewheel.core.domain.AppSettingId
 import org.freewheel.core.domain.SpeedDisplayMode
 import org.freewheel.core.replay.ReplayState
+import org.freewheel.core.service.ConnectionState
 
 // CROSS-PLATFORM SYNC: This screen mirrors iosApp/FreeWheel/Views/DashboardView.swift.
 // Layout is now driven by DashboardLayout (configurable per-wheel).
@@ -160,6 +162,14 @@ fun DashboardScreen(
                 discoveredServices = discoveredServices,
                 modifier = Modifier.weight(1f)
             )
+
+            (connectionState as? ConnectionState.WheelTypeRequired)?.let { state ->
+                WheelTypePickerSheet(
+                    deviceName = state.deviceName,
+                    onConfirm = { type -> viewModel.confirmWheelType(type) },
+                    onDismiss = { viewModel.dismissWheelTypePicker() },
+                )
+            }
 
             if (isReplay) {
                 ReplayControls(

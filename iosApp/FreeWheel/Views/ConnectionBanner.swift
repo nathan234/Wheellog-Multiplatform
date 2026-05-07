@@ -38,6 +38,9 @@ struct ConnectionBanner: View {
             return isReconnecting
         case .scanning:
             return false
+        case .wheelTypeRequired:
+            // Picker sheet conveys the state — banner would be redundant.
+            return false
         default:
             return true
         }

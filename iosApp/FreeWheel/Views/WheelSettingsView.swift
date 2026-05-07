@@ -294,10 +294,54 @@ struct WheelSettingsContent: View {
 struct WheelSettingsView: View {
     var body: some View {
         Form {
+            ResetWheelTypeSection()
             WheelSettingsContent()
         }
         .navigationTitle(DashboardLabels.shared.WHEEL_SETTINGS)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Pass 4 "Reset wheel type" surface. Clears the saved per-MAC wheelType so
+/// the next connect re-runs detection and lands in the picker if topology +
+/// name detection both miss. Display name and other profile fields are
+/// preserved.
+private struct ResetWheelTypeSection: View {
+    @EnvironmentObject var wheelManager: WheelManager
+    @State private var showConfirm = false
+
+    private var connectedAddress: String? {
+        wheelManager.connectionState.connectedAddress
+    }
+
+    private var savedTypeLabel: String {
+        let name = wheelManager.identity.wheelType.displayName
+        return name.isEmpty ? "Unknown" : name
+    }
+
+    var body: some View {
+        Section("Wheel type") {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Currently saved as \(savedTypeLabel).")
+                Text("Reset to re-run detection on next connect (the picker appears if auto-detect can't decide).")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Button("Reset wheel type", role: .destructive) {
+                showConfirm = true
+            }
+            .disabled(connectedAddress == nil)
+        }
+        .alert("Reset wheel type?", isPresented: $showConfirm) {
+            Button(CommonLabels.shared.CANCEL, role: .cancel) {}
+            Button(CommonLabels.shared.CONFIRM, role: .destructive) {
+                if let address = connectedAddress {
+                    wheelManager.resetWheelType(address: address)
+                }
+            }
+        } message: {
+            Text("On next connect to this wheel, FreeWheel will re-run detection. If the topology or name doesn't match a known protocol, the picker will appear.")
+        }
     }
 }
 

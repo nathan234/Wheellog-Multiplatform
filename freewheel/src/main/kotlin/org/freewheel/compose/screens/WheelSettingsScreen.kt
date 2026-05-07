@@ -23,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +40,7 @@ import org.freewheel.core.domain.AppSettingId
 import org.freewheel.core.domain.CommonLabels
 import org.freewheel.core.domain.DashboardLabels
 import org.freewheel.core.domain.WheelSettingsConfig
+import org.freewheel.core.service.ConnectionState
 
 // CROSS-PLATFORM SYNC: This screen mirrors iosApp/FreeWheel/Views/WheelSettingsView.swift.
 // Section structure comes from the shared WheelSettingsConfig; the platform-specific
@@ -79,6 +81,8 @@ fun WheelSettingsScreen(viewModel: WheelViewModel, onBack: () -> Unit) {
             Spacer(Modifier.height(4.dp))
 
             GaugeTopSpeedOverrideCard(viewModel)
+
+            ResetWheelTypeCard(viewModel)
 
             if (sections.isEmpty()) {
                 Text(
@@ -152,5 +156,74 @@ private fun GaugeTopSpeedOverrideCard(viewModel: WheelViewModel) {
                 ) { Text("Reset") }
             }
         }
+    }
+}
+
+/**
+ * Pass 4 "Reset wheel type" surface. Clears the saved per-MAC wheelType so
+ * the next connect re-runs detection and lands in the picker if topology +
+ * name detection both miss. Display name and other profile fields are
+ * preserved.
+ */
+@Composable
+private fun ResetWheelTypeCard(viewModel: WheelViewModel) {
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val identity by viewModel.identityState.collectAsStateWithLifecycle()
+    val address = (connectionState as? ConnectionState.Connected)?.address
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Wheel type",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "Currently saved as ${identity.wheelType.displayName.ifBlank { "Unknown" }}. " +
+                    "Reset to re-run detection on next connect (the picker appears if auto-detect can't decide).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    enabled = address != null,
+                    onClick = { showConfirm = true },
+                ) { Text("Reset wheel type") }
+            }
+        }
+    }
+
+    if (showConfirm && address != null) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Reset wheel type?") },
+            text = {
+                Text(
+                    "On next connect to this wheel, FreeWheel will re-run detection. " +
+                        "If the topology or name doesn't match a known protocol, the picker will appear."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetWheelType(address)
+                        showConfirm = false
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                ) { Text(CommonLabels.CONFIRM) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) { Text(CommonLabels.CANCEL) }
+            },
+        )
     }
 }

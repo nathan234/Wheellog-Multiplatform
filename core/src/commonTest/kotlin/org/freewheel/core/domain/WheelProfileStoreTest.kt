@@ -1,5 +1,6 @@
 package org.freewheel.core.domain
 
+import org.freewheel.core.service.toSavedHint
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -141,5 +142,32 @@ class WheelProfileStoreTest {
         store.saveProfile(WheelProfile("X", "Name", "GOTWAY", 100L, topSpeedOverrideKmh = 75.0))
         store.deleteProfile("X")
         assertNull(store.getTopSpeedOverrideKmh("X"))
+    }
+
+    @Test
+    fun clearWheelTypeRemovesTypeButKeepsRestOfProfile() {
+        // Pass 4 "Reset wheel type" surface: clear only the saved
+        // wheelTypeName so the next connect re-runs detection (and falls
+        // into the WheelTypeRequired picker if topology + name both miss).
+        // Display name, last-connected, address-set membership, and
+        // top-speed override must be preserved.
+        val (store, kvs) = createStore()
+        store.saveProfile(WheelProfile("AA:BB:CC", "My Wheel", "KINGSONG", 1000L, topSpeedOverrideKmh = 60.0))
+
+        store.clearWheelType("AA:BB:CC")
+
+        // Address still saved
+        assertEquals(setOf("AA:BB:CC"), store.getSavedAddresses())
+        // Profile still readable, with empty wheelTypeName
+        val profile = store.getProfile("AA:BB:CC")
+        assertEquals("AA:BB:CC", profile?.address)
+        assertEquals("My Wheel", profile?.displayName)
+        assertEquals("", profile?.wheelTypeName)
+        assertEquals(1000L, profile?.lastConnectedMs)
+        assertEquals(60.0, profile?.topSpeedOverrideKmh)
+        // Underlying wheel-type key is gone
+        assertNull(kvs.getString("AA:BB:CC${PreferenceKeys.SUFFIX_WHEEL_TYPE}", null))
+        // toSavedHint should now return null because wheelTypeName is blank
+        assertNull(profile?.toSavedHint())
     }
 }

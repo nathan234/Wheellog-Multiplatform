@@ -92,6 +92,31 @@ object WheelConnectionManagerHelper {
     }
 
     /**
+     * Build a SAVED_PROFILE [ConnectionHint] for [address] from the per-MAC
+     * profile in [WheelProfileStore]. Returns null when no saved profile exists
+     * or its wheel type isn't a real protocol (Unknown / GOTWAY_VIRTUAL).
+     *
+     * Swift call site: prefer this hint over [scanNameHint] when both exist —
+     * a confirmed pick is durable user state, while a scan-name hint is a
+     * heuristic guess.
+     */
+    fun savedProfileHint(
+        store: org.freewheel.core.domain.WheelProfileStore,
+        address: String,
+    ): ConnectionHint? {
+        return store.getProfile(address)?.toSavedHint()
+    }
+
+    /**
+     * Forward a user-picked wheel type from the Swift picker sheet to the
+     * connection manager. The reducer ignores it unless the manager is
+     * currently in [ConnectionState.WheelTypeRequired].
+     */
+    fun confirmWheelType(manager: WheelConnectionManager, wheelType: org.freewheel.core.domain.WheelType) {
+        manager.confirmWheelType(wheelType)
+    }
+
+    /**
      * Swift-friendly test-data injector that uses the manager's current
      * attemptId so the staleness guard accepts the synthetic frame.
      *
